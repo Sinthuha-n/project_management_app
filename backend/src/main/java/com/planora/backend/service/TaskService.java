@@ -37,7 +37,6 @@ import com.planora.backend.model.Priority;
 import com.planora.backend.model.Project;
 import com.planora.backend.model.Sprint;
 import com.planora.backend.model.Task;
-import com.planora.backend.model.TaskAccess;
 import com.planora.backend.model.TaskActivityType;
 import com.planora.backend.model.TeamMember;
 import com.planora.backend.model.TeamRole;
@@ -981,15 +980,12 @@ public class TaskService {
 
     @Transactional
     public void recordTaskAccess(Long taskId, Long currentUserId) {
-        Task task = taskRepository.findById(taskId)
+        taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
-        User user = userRepository.findById(currentUserId)
+        userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        TaskAccess access = taskAccessRepository.findByTaskAndUser(task, user)
-                .orElse(new TaskAccess(null, task, user, null));
-        
-        taskAccessRepository.save(access);
+        taskAccessRepository.upsertTaskAccess(taskId, currentUserId);
     }
 
     //14. GET RECENT TASKS

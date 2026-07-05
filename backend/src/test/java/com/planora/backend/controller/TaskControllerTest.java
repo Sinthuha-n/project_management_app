@@ -97,6 +97,20 @@ class TaskControllerTest {
 
     @Test
     @WithMockUserPrincipal
+    void getTaskById_returnsTaskWhenAccessRecordingFails() throws Exception {
+        when(service.getTaskById(1L, 1L)).thenReturn(sampleTask);
+        doThrow(new RuntimeException("recently viewed is unavailable"))
+                .when(service).recordTaskAccess(1L, 1L);
+
+        mockMvc.perform(get("/api/tasks/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1));
+
+        verify(service).recordTaskAccess(1L, 1L);
+    }
+
+    @Test
+    @WithMockUserPrincipal
     void getTaskById_returnsForbiddenForNonMember() throws Exception {
         when(service.getTaskById(1L, 1L))
                 .thenThrow(new ForbiddenException("User is not a member of this team"));

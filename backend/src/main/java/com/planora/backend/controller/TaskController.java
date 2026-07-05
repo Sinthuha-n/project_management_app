@@ -50,10 +50,12 @@ import java.util.Map;
 import java.time.LocalDateTime;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/tasks")
 @RequiredArgsConstructor
+@Slf4j
 public class TaskController {
 
     private final TaskService service;
@@ -110,7 +112,12 @@ public class TaskController {
         TaskResponseDTO dto = (githubToken != null && repoFullName != null)
                 ? service.getTaskById(taskId, repoFullName, githubToken, currentUserId)
                 : service.getTaskById(taskId, currentUserId);
-        service.recordTaskAccess(taskId, currentUserId);
+        try {
+            service.recordTaskAccess(taskId, currentUserId);
+        } catch (RuntimeException exception) {
+            // Recently-viewed tracking is best-effort and must not break a task read.
+            log.warn("Unable to record access to task {} for user {}", taskId, currentUserId, exception);
+        }
         return new ResponseEntity<>(dto, HttpStatus.OK);
     }
 

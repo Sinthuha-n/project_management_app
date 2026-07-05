@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -37,9 +38,11 @@ import com.planora.backend.repository.TeamMemberRepository;
 import com.planora.backend.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ChatService {
     // Sentinel key used to store team chat read cursors in the shared read-state table.
     private static final String TEAM_CHAT_READ_KEY = "__TEAM_CHAT__";
@@ -571,10 +574,16 @@ public class ChatService {
             return List.of();
         }
 
+        var userAliases = resolveUserAliases(user);
+        var otherAliases = resolveUserAliases(other);
+        if (userAliases.isEmpty() || otherAliases.isEmpty()) {
+            return List.of();
+        }
+
         return mapToDTOList(chatMessageRepository.findConversationByAliases(
                 projectId,
-                resolveUserAliases(user),
-                resolveUserAliases(other)));
+                userAliases,
+                otherAliases));
     }
 
     public void markRoomAsRead(Long projectId, Long roomId, String usernameOrEmail) {
@@ -600,13 +609,19 @@ public class ChatService {
     }
 
     public void markPrivateConversationAsRead(Long projectId, String usernameOrEmail, String otherParticipant) {
-        var user = userCacheService.resolveUserByEmailOrUsername(usernameOrEmail);
+        var user = resolveChatUser(usernameOrEmail);
         if (user == null || otherParticipant == null || otherParticipant.isBlank()) {
             return;
         }
 
-        var normalizedOtherParticipant = resolveCanonicalChatUser(otherParticipant);
-        var latestMessage = findLatestConversationMessage(projectId, resolveUserAliases(usernameOrEmail), resolveUserAliases(otherParticipant));
+        var otherUser = resolveChatUser(otherParticipant);
+        var normalizedOtherParticipant = resolveCanonicalChatUser(otherUser, otherParticipant);
+        var latestMessage = findLatestConversationMessage(
+                projectId,
+                user,
+                usernameOrEmail,
+                otherUser,
+                otherParticipant);
         if (latestMessage.isEmpty()) {
             return;
         }
@@ -938,42 +953,104 @@ public class ChatService {
                 .toList();
     }
 
-    private Optional<ChatMessage> findLatestConversationMessage(Long projectId, List<String> userAliases, List<String> otherAliases) {
-        return chatMessageRepository.findLatestConversationMessagesByAliases(projectId, userAliases, otherAliases)
+    private Optional<ChatMessage> findLatestConversationMessage(Long projectId,
+                                                                User user,
+                                                                String userFallback,
+                                                                User otherUser,
+                                                                String otherFallback) {
+        var userAliases = resolveUserAliases(user, userFallback);
+        var otherAliases = resolveUserAliases(otherUser, otherFallback);
+        if (userAliases.isEmpty() || otherAliases.isEmpty()) {
+            return Optional.empty();
+        }
+
+        var latestMessage = chatMessageRepository
+                .findLatestConversationMessagesByAliases(projectId, userAliases, otherAliases)
+                .stream()
+                .findFirst();
+        if (latestMessage.isPresent()) {
+            return latestMessage;
+        }
+
+        var canonicalUsername = user != null ? normalizeChatAlias(user.getUsername()) : null;
+        var otherCanonicalUsername = otherUser != null ? normalizeChatAlias(otherUser.getUsername()) : null;
+        log.warn("event=dm_conversation_alias_lookup_empty projectId={} userResolved={} otherUserResolved={} "
+                        + "userId={} otherUserId={} canonicalUsername={} otherCanonicalUsername={} "
+                        + "userAliasCount={} otherAliasCount={}",
+                projectId,
+                user != null,
+                otherUser != null,
+                user != null ? user.getUserId() : null,
+                otherUser != null ? otherUser.getUserId() : null,
+                canonicalUsername,
+                otherCanonicalUsername,
+                userAliases.size(),
+                otherAliases.size());
+
+        if (user == null || otherUser == null || canonicalUsername == null || otherCanonicalUsername == null) {
+            return Optional.empty();
+        }
+
+        // Temporary compatibility fallback. DM persistence should ultimately reference User IDs.
+        return chatMessageRepository.findLatestConversationMessagesByAliases(
+                        projectId,
+                        List.of(canonicalUsername),
+                        List.of(otherCanonicalUsername))
                 .stream()
                 .findFirst();
     }
 
-    // TODO: Refactor sender/recipient resolution to use User ID instead of string aliases.
-    // Current string-alias lookup can cause messages to disappear on mismatch.
     private List<String> resolveUserAliases(String usernameOrEmail) {
-        var user = userCacheService.resolveUserByEmailOrUsername(usernameOrEmail);
+        var user = resolveChatUser(usernameOrEmail);
         return resolveUserAliases(user, usernameOrEmail);
     }
 
-    private List<String> resolveUserAliases(com.planora.backend.model.User user, String fallbackName) {
-        if (user == null) {
-            return List.of(fallbackName != null ? fallbackName.toLowerCase() : "");
-        }
-
-        return Stream.of(user.getUsername(), user.getEmail(), fallbackName)
-                .filter(value -> value != null && !value.isBlank())
-                .map(String::toLowerCase)
+    private List<String> resolveUserAliases(User user, String fallbackName) {
+        return Stream.of(
+                        user != null ? user.getUsername() : null,
+                        user != null ? user.getEmail() : null,
+                        fallbackName)
+                .map(this::normalizeChatAlias)
+                .filter(value -> value != null)
                 .distinct()
                 .toList();
     }
 
     private String resolveCanonicalChatUser(String usernameOrEmail) {
-        var user = userCacheService.resolveUserByEmailOrUsername(usernameOrEmail);
-        if (user == null) {
-            return usernameOrEmail.toLowerCase();
+        return resolveCanonicalChatUser(resolveChatUser(usernameOrEmail), usernameOrEmail);
+    }
+
+    private String resolveCanonicalChatUser(User user, String fallbackName) {
+        if (user != null) {
+            var username = normalizeChatAlias(user.getUsername());
+            if (username != null) {
+                return username;
+            }
+
+            var email = normalizeChatAlias(user.getEmail());
+            if (email != null) {
+                return email;
+            }
         }
 
-        if (user.getUsername() != null && !user.getUsername().isBlank()) {
-            return user.getUsername().toLowerCase();
+        return normalizeChatAlias(fallbackName);
+    }
+
+    private User resolveChatUser(String usernameOrEmail) {
+        var normalizedIdentity = usernameOrEmail != null ? usernameOrEmail.trim() : null;
+        if (normalizedIdentity == null || normalizedIdentity.isEmpty()) {
+            return null;
+        }
+        return userCacheService.resolveUserByEmailOrUsername(normalizedIdentity);
+    }
+
+    private String normalizeChatAlias(String alias) {
+        if (alias == null) {
+            return null;
         }
 
-        return user.getEmail().toLowerCase();
+        var normalized = alias.trim().toLowerCase(Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
     }
 
     private void ensureMessageOwnership(ChatMessage message, String actor) {
@@ -982,7 +1059,7 @@ public class ChatService {
         }
 
         var actorAliases = resolveUserAliases(actor);
-        if (!actorAliases.contains(message.getSender().toLowerCase())) {
+        if (!actorAliases.contains(normalizeChatAlias(message.getSender()))) {
             throw new RuntimeException("Only the original sender can modify this message");
         }
     }

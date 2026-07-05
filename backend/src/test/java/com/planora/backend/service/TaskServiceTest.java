@@ -692,6 +692,18 @@ class TaskServiceTest {
     }
 
     @Test
+    void recordTaskAccess_usesAtomicUpsert() {
+        Task task = buildTask(1L);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(userRepository.findById(500L)).thenReturn(Optional.of(actorUser));
+
+        taskService.recordTaskAccess(1L, 500L);
+
+        verify(taskAccessRepository).upsertTaskAccess(1L, 500L);
+        verify(taskAccessRepository, never()).save(any());
+    }
+
+    @Test
     void bulkUpdateStatus_crossProject_throwsForbiddenException() {
         // task1 belongs to project (team 20), task2 belongs to a different project (team 99)
         Team otherTeam = new Team();

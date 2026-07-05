@@ -12,6 +12,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.never;
@@ -21,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.planora.backend.model.ChatMessage;
 import com.planora.backend.model.ChatReaction;
+import com.planora.backend.model.ChatReadState;
 import com.planora.backend.model.ChatRoom;
 import com.planora.backend.model.ChatThread;
 import com.planora.backend.model.User;
@@ -229,5 +232,94 @@ class ChatServiceTest {
 
         assertEquals("User not found", ex.getMessage());
         verify(chatReactionRepository, never()).save(any(ChatReaction.class));
+    }
+
+    @Test
+    void getPrivateConversation_trimsNormalizesAndDeduplicatesAliases() {
+        User alice = user(31L, " Alice ", "ALICE");
+        User bob = user(32L, " Bob ", "BOB");
+        when(userCacheService.resolveUserByEmailOrUsername("Alice")).thenReturn(alice);
+        when(userCacheService.resolveUserByEmailOrUsername("BOB")).thenReturn(bob);
+        when(chatMessageRepository.findConversationByAliases(10L, List.of("alice"), List.of("bob")))
+                .thenReturn(List.of());
+
+        var messages = chatService.getPrivateConversation(10L, "  Alice  ", " BOB ");
+
+        assertTrue(messages.isEmpty());
+        verify(chatMessageRepository).findConversationByAliases(10L, List.of("alice"), List.of("bob"));
+    }
+
+    @Test
+    void markPrivateConversationAsRead_retriesWithCanonicalUsernamesAfterEmptyAliasLookup() {
+        User alice = user(41L, "Alice", "alice@example.com");
+        User bob = user(42L, "Bob", "bob@example.com");
+        ChatMessage latest = new ChatMessage();
+        latest.setId(700L);
+
+        when(userCacheService.resolveUserByEmailOrUsername("Alice@Example.com")).thenReturn(alice);
+        when(userCacheService.resolveUserByEmailOrUsername("Bob")).thenReturn(bob);
+        when(chatMessageRepository.findLatestConversationMessagesByAliases(
+                10L,
+                List.of("alice", "alice@example.com"),
+                List.of("bob", "bob@example.com")))
+                .thenReturn(List.of());
+        when(chatMessageRepository.findLatestConversationMessagesByAliases(
+                10L,
+                List.of("alice"),
+                List.of("bob")))
+                .thenReturn(List.of(latest));
+        when(chatReadStateRepository.findFirstByProjectIdAndUserUserIdAndOtherParticipantIgnoreCase(
+                10L, 41L, "bob"))
+                .thenReturn(Optional.empty());
+
+        chatService.markPrivateConversationAsRead(10L, " Alice@Example.com ", " Bob ");
+
+        verify(chatMessageRepository).findLatestConversationMessagesByAliases(
+                10L,
+                List.of("alice", "alice@example.com"),
+                List.of("bob", "bob@example.com"));
+        verify(chatMessageRepository).findLatestConversationMessagesByAliases(
+                10L,
+                List.of("alice"),
+                List.of("bob"));
+        ArgumentCaptor<ChatReadState> readStateCaptor = ArgumentCaptor.forClass(ChatReadState.class);
+        verify(chatReadStateRepository).save(readStateCaptor.capture());
+        assertEquals(700L, readStateCaptor.getValue().getLastReadMessageId());
+        assertEquals("bob", readStateCaptor.getValue().getOtherParticipant());
+    }
+
+    @Test
+    void markPrivateConversationAsRead_doesNotRetryWhenAliasLookupSucceeds() {
+        User alice = user(51L, "alice", "alice@example.com");
+        User bob = user(52L, "bob", "bob@example.com");
+        ChatMessage latest = new ChatMessage();
+        latest.setId(701L);
+
+        when(userCacheService.resolveUserByEmailOrUsername("alice")).thenReturn(alice);
+        when(userCacheService.resolveUserByEmailOrUsername("bob")).thenReturn(bob);
+        when(chatMessageRepository.findLatestConversationMessagesByAliases(
+                10L,
+                List.of("alice", "alice@example.com"),
+                List.of("bob", "bob@example.com")))
+                .thenReturn(List.of(latest));
+        when(chatReadStateRepository.findFirstByProjectIdAndUserUserIdAndOtherParticipantIgnoreCase(
+                10L, 51L, "bob"))
+                .thenReturn(Optional.empty());
+
+        chatService.markPrivateConversationAsRead(10L, "alice", "bob");
+
+        verify(chatMessageRepository, never()).findLatestConversationMessagesByAliases(
+                eq(10L),
+                eq(List.of("alice")),
+                eq(List.of("bob")));
+        verify(chatReadStateRepository).save(any(ChatReadState.class));
+    }
+
+    private User user(Long id, String username, String email) {
+        User user = new User();
+        user.setUserId(id);
+        user.setUsername(username);
+        user.setEmail(email);
+        return user;
     }
 }

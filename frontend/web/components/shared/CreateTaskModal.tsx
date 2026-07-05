@@ -29,7 +29,7 @@ const PRIORITY_OPTIONS = [
   { value: 'LOW', label: 'Low', color: 'bg-cu-success/10 text-cu-success border-cu-success/30' },
   { value: 'MEDIUM', label: 'Medium', color: 'bg-cu-warning/10 text-cu-warning border-cu-warning/30' },
   { value: 'HIGH', label: 'High', color: 'bg-orange-500/10 text-orange-500 border-orange-500/30' },
-  { value: 'CRITICAL', label: 'Critical', color: 'bg-cu-danger/10 text-cu-danger border-cu-danger/30' },
+  { value: 'URGENT', label: 'Urgent', color: 'bg-cu-danger/10 text-cu-danger border-cu-danger/30' },
 ];
 
 const FIBONACCI = [0, 1, 2, 3, 5, 8, 13, 21];
