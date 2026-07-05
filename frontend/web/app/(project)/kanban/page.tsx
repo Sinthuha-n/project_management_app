@@ -32,7 +32,7 @@ export default function KanbanPage() {
     updatingTaskId, usersMap, activeMobileColumn,
     handleDragEnd, handleColumnDragEnd, handleDeleteTask,
     handleAddTask, handleCreateTask, handleOpenCreateModal,
-    handleEditTask, handleInlineUpdate, handleCompleteBoard,
+    handleInlineUpdate, handleCompleteBoard,
     handleColumnRenamed, handleColumnSettingsChanged, handleDeleteColumn,
     handleAddColumn, handleCreateLabel, forceRefresh,
   } = useKanbanBoard(projectId);
@@ -214,7 +214,6 @@ export default function KanbanPage() {
                         updatingTaskId={updatingTaskId}
                         onDeleteTask={handleDeleteTask}
                         onCreateTask={handleAddTask}
-                        onEditTask={handleEditTask}
                         onOpenTask={setSelectedTaskIdForModal}
                         onInlineUpdate={handleInlineUpdate}
                         usersMap={usersMap}
@@ -343,14 +342,7 @@ export default function KanbanPage() {
         <CreateTaskModal
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
-          onCreateTask={async (taskData) => {
-            await handleCreateTask({
-              title: taskData.title ?? '',
-              priority: taskData.priority ?? 'MEDIUM',
-              labelIds: taskData.labelId ? [taskData.labelId] : [],
-              storyPoint: typeof taskData.storyPoint === 'number' ? taskData.storyPoint : 0,
-            });
-          }}
+          onCreateTask={handleCreateTask}
           columnStatus={selectedColumnStatus}
           projectId={parseInt(projectId as string)}
           loading={false}

@@ -12,7 +12,6 @@ import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 interface KanbanCardProps {
   task: Task;
   onDelete?: (taskId: number) => void;
-  onEdit?: (task: Task) => void;
   onOpenTask?: (taskId: number) => void;
   onInlineUpdate?: (taskId: number, updates: Partial<Task>) => Promise<void>;
   usersMap?: Record<string, string | null>;
@@ -32,7 +31,7 @@ const PRIORITY_LIST = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 
 const LABEL_COLORS = ['#6366F1', '#EF4444', '#F59E0B', '#22C55E', '#3B82F6', '#EC4899', '#8B5CF6', '#14B8A6'];
 
-export default function KanbanCard({ task, onDelete, onEdit: _onEdit, onOpenTask, onInlineUpdate, usersMap, labels: allLabels, onCreateLabel, isSyncing }: KanbanCardProps) {
+export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate, usersMap, labels: allLabels, onCreateLabel, isSyncing }: KanbanCardProps) {
   const avatarUrl =
     resolveProfilePhotoUrl(task.assigneePhotoUrl, task.assigneeId) ??
     (task.assigneeName ? resolveProfilePhotoUrl(usersMap?.[task.assigneeName]) : null);

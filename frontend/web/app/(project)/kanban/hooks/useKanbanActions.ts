@@ -32,7 +32,6 @@ export async function optimisticUpdateTaskStatusHelper(
     throw err;
   }
 }
-import { type CreateTaskData } from '@/components/shared/CreateTaskModal';
 import { buildSessionCacheKey, removeSessionCache } from '@/lib/session-cache';
 
 export function useKanbanActions(
@@ -47,9 +46,6 @@ export function useKanbanActions(
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedColumnStatus, setSelectedColumnStatus] = useState<string>('TODO');
   const [completeSuccess, setCompleteSuccess] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [isUpdatingTask, setIsUpdatingTask] = useState(false);
   const [selectedTaskIdForModal, setSelectedTaskIdForModal] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -144,13 +140,14 @@ export function useKanbanActions(
     setIsCreateModalOpen(true);
   }, []);
 
-  // Create task via modal (takes full CreateTaskData)
-  const handleCreateTask = useCallback(async (data: CreateTaskData) => {
-    if (!projectId || !data.title.trim()) return;
+  // Create task via the board-local modal.
+  const handleCreateTask = useCallback(async (data: Partial<Task>) => {
+    const title = data.title?.trim();
+    if (!projectId || !title) return;
     try {
       const newTask = await createTask({
         projectId: Number(projectId),
-        title: data.title.trim(),
+        title,
         status: selectedColumnStatus,
         priority: data.priority,
       } as Partial<Task> & { projectId: number; title: string; status: string });
@@ -183,28 +180,6 @@ export function useKanbanActions(
       console.error('Error creating task:', err);
     }
   }, [projectId, setTasks, forceRefresh]);
-
-  const handleEditTask = useCallback((task: Task) => {
-    setEditingTask(task);
-    setIsEditModalOpen(true);
-  }, []);
-
-  const handleUpdateTask = useCallback(async (taskId: number, updates: Partial<Task>) => {
-    setIsUpdatingTask(true);
-    try {
-      const updated = await updateTask(taskId, updates);
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updated } : t));
-      const key = buildSessionCacheKey('kanban-board', [projectId]);
-      if (key) removeSessionCache(key);
-      setIsEditModalOpen(false);
-      setEditingTask(null);
-      forceRefresh();
-    } catch (err) {
-      console.error('Error updating task:', err);
-    } finally {
-      setIsUpdatingTask(false);
-    }
-  }, [setTasks, projectId, forceRefresh]);
 
   // Inline update — used by KanbanCard's inline edit mode (no modal)
   const handleInlineUpdate = useCallback(async (taskId: number, updates: Partial<Task>) => {
@@ -304,11 +279,6 @@ export function useKanbanActions(
     selectedColumnStatus,
     completeSuccess,
     toastMessage,
-    isEditModalOpen,
-    setIsEditModalOpen,
-    editingTask,
-    setEditingTask,
-    isUpdatingTask,
     selectedTaskIdForModal,
     setSelectedTaskIdForModal,
     handleDragEnd,
@@ -316,8 +286,6 @@ export function useKanbanActions(
     handleAddTask,
     handleCreateTask,
     handleOpenCreateModal,
-    handleEditTask,
-    handleUpdateTask,
     handleInlineUpdate,
     handleDeleteTask,
     handleCompleteBoard,
