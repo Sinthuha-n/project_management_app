@@ -1,6 +1,8 @@
 package com.planora.backend.service;
 
 import com.planora.backend.dto.TaskActivityResponseDTO;
+import com.planora.backend.exception.ForbiddenException;
+import com.planora.backend.exception.ResourceNotFoundException;
 import com.planora.backend.model.Task;
 import com.planora.backend.model.TaskActivity;
 import com.planora.backend.model.TaskActivityType;
@@ -20,6 +22,7 @@ public class TaskActivityService {
 
     private final TaskActivityRepository taskActivityRepository;
     private final TaskRepository taskRepository;
+    private final TeamMembershipLookupService teamMembershipLookupService;
 
     @Transactional
     public void logActivity(Long taskId, TaskActivityType type, String actorName, String description) {
@@ -34,7 +37,13 @@ public class TaskActivityService {
     }
 
     @Transactional(readOnly = true)
-    public List<TaskActivityResponseDTO> getActivities(Long taskId) {
+    public List<TaskActivityResponseDTO> getActivities(Long taskId, Long currentUserId) {
+        Task task = taskRepository.findByIdWithProjectTeam(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+        Long teamId = task.getProject().getTeam().getId();
+        if (teamMembershipLookupService.getTeamMember(teamId, currentUserId) == null) {
+            throw new ForbiddenException("User is not a member of this team");
+        }
         return taskActivityRepository.findByTaskIdOrderByCreatedAtDesc(taskId).stream()
                 .map(a -> TaskActivityResponseDTO.builder()
                         .id(a.getId())

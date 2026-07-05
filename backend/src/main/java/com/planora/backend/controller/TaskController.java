@@ -105,13 +105,12 @@ public class TaskController {
             @PathVariable Long taskId,
             @RequestParam(required = false) String repoFullName,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        if (currentUser != null) {
-            service.recordTaskAccess(taskId, currentUser.getUserId());
-        }
-        String githubToken = (currentUser != null) ? githubTokenService.getToken(currentUser.getUserId()) : null;
+        Long currentUserId = currentUser.getUserId();
+        String githubToken = githubTokenService.getToken(currentUserId);
         TaskResponseDTO dto = (githubToken != null && repoFullName != null)
-                ? service.getTaskById(taskId, repoFullName, githubToken)
-                : service.getTaskById(taskId);
+                ? service.getTaskById(taskId, repoFullName, githubToken, currentUserId)
+                : service.getTaskById(taskId, currentUserId);
+        service.recordTaskAccess(taskId, currentUserId);
         return new ResponseEntity<>(dto, HttpStatus.OK);
     }
 
@@ -129,10 +128,11 @@ public class TaskController {
             @RequestParam(required = false) String repoFullName,
             @AuthenticationPrincipal UserPrincipal currentUser) {
 
-        String githubToken = (currentUser != null) ? githubTokenService.getToken(currentUser.getUserId()) : null;
+        Long currentUserId = currentUser.getUserId();
+        String githubToken = githubTokenService.getToken(currentUserId);
         TaskGithubSummaryDTO summary = (githubToken != null && repoFullName != null)
-                ? taskGithubService.syncAndGetSummary(taskId, repoFullName, githubToken)
-                : taskGithubService.getTaskGithubSummary(taskId);
+                ? taskGithubService.syncAndGetSummary(taskId, repoFullName, githubToken, currentUserId)
+                : taskGithubService.getTaskGithubSummary(taskId, currentUserId);
 
         return ResponseEntity.ok(summary);
     }
@@ -152,10 +152,11 @@ public class TaskController {
             @RequestParam(required = false) String repoFullName,
             @AuthenticationPrincipal UserPrincipal currentUser) {
 
-        String githubToken = (currentUser != null) ? githubTokenService.getToken(currentUser.getUserId()) : null;
+        Long currentUserId = currentUser.getUserId();
+        String githubToken = githubTokenService.getToken(currentUserId);
         List<LinkedPrResponseDTO> prs = (githubToken != null && repoFullName != null)
-                ? taskGithubService.syncAndGetLinkedPrs(taskId, repoFullName, githubToken)
-                : taskGithubService.getLinkedPrs(taskId);
+                ? taskGithubService.syncAndGetLinkedPrs(taskId, repoFullName, githubToken, currentUserId)
+                : taskGithubService.getLinkedPrs(taskId, currentUserId);
 
         return ResponseEntity.ok(prs);
     }
@@ -182,10 +183,11 @@ public class TaskController {
             @RequestParam(defaultValue = "20") int limit,
             @AuthenticationPrincipal UserPrincipal currentUser) {
 
-        String githubToken = (currentUser != null) ? githubTokenService.getToken(currentUser.getUserId()) : null;
+        Long currentUserId = currentUser.getUserId();
+        String githubToken = githubTokenService.getToken(currentUserId);
         List<LinkedCommitResponseDTO> commits = (githubToken != null && repoFullName != null)
-                ? taskGithubService.syncAndGetLinkedCommits(taskId, repoFullName, githubToken, limit)
-                : taskGithubService.getLinkedCommits(taskId, limit);
+                ? taskGithubService.syncAndGetLinkedCommits(taskId, repoFullName, githubToken, limit, currentUserId)
+                : taskGithubService.getLinkedCommits(taskId, limit, currentUserId);
 
         return ResponseEntity.ok(commits);
     }
@@ -635,7 +637,7 @@ public class TaskController {
             @PathVariable Long taskId,
             @AuthenticationPrincipal UserPrincipal currentUser
     ){
-        return new ResponseEntity<>(activityService.getActivities(taskId), HttpStatus.OK);
+        return new ResponseEntity<>(activityService.getActivities(taskId, currentUser.getUserId()), HttpStatus.OK);
     }
 
     /** Save the task as a reusable template for the project. */

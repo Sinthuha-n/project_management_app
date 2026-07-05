@@ -1,9 +1,13 @@
 package com.planora.backend.service;
 
 import com.planora.backend.dto.TaskActivityResponseDTO;
+import com.planora.backend.exception.ForbiddenException;
+import com.planora.backend.model.Project;
 import com.planora.backend.model.Task;
 import com.planora.backend.model.TaskActivity;
 import com.planora.backend.model.TaskActivityType;
+import com.planora.backend.model.Team;
+import com.planora.backend.model.TeamMember;
 import com.planora.backend.repository.TaskActivityRepository;
 import com.planora.backend.repository.TaskRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -32,6 +36,9 @@ class TaskActivityServiceTest {
     @Mock
     private TaskRepository taskRepository;
 
+    @Mock
+    private TeamMembershipLookupService teamMembershipLookupService;
+
     @InjectMocks
     private TaskActivityService taskActivityService;
 
@@ -43,6 +50,11 @@ class TaskActivityServiceTest {
         sampleTask = new Task();
         sampleTask.setId(1L);
         sampleTask.setTitle("Fix login bug");
+        Team team = new Team();
+        team.setId(10L);
+        Project project = new Project();
+        project.setTeam(team);
+        sampleTask.setProject(project);
 
         sampleActivity = new TaskActivity();
         sampleActivity.setId(1L);
@@ -85,10 +97,12 @@ class TaskActivityServiceTest {
 
     @Test
     void getActivities_returnsListOfActivityDTOs() {
+        when(taskRepository.findByIdWithProjectTeam(1L)).thenReturn(Optional.of(sampleTask));
+        when(teamMembershipLookupService.getTeamMember(10L, 7L)).thenReturn(new TeamMember());
         when(taskActivityRepository.findByTaskIdOrderByCreatedAtDesc(1L))
                 .thenReturn(List.of(sampleActivity));
 
-        List<TaskActivityResponseDTO> result = taskActivityService.getActivities(1L);
+        List<TaskActivityResponseDTO> result = taskActivityService.getActivities(1L, 7L);
 
         assertEquals(1, result.size());
         assertEquals("TASK_CREATED", result.get(0).getActivityType());
@@ -98,10 +112,24 @@ class TaskActivityServiceTest {
 
     @Test
     void getActivities_returnsEmptyList_whenNoActivities() {
+        when(taskRepository.findByIdWithProjectTeam(99L)).thenReturn(Optional.of(sampleTask));
+        when(teamMembershipLookupService.getTeamMember(10L, 7L)).thenReturn(new TeamMember());
         when(taskActivityRepository.findByTaskIdOrderByCreatedAtDesc(99L)).thenReturn(List.of());
 
-        List<TaskActivityResponseDTO> result = taskActivityService.getActivities(99L);
+        List<TaskActivityResponseDTO> result = taskActivityService.getActivities(99L, 7L);
 
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getActivities_throwsForbidden_whenUserIsNotTeamMember() {
+        when(taskRepository.findByIdWithProjectTeam(1L)).thenReturn(Optional.of(sampleTask));
+        when(teamMembershipLookupService.getTeamMember(10L, 999L)).thenReturn(null);
+
+        ForbiddenException exception = assertThrows(ForbiddenException.class,
+                () -> taskActivityService.getActivities(1L, 999L));
+
+        assertEquals("User is not a member of this team", exception.getMessage());
+        verify(taskActivityRepository, never()).findByTaskIdOrderByCreatedAtDesc(anyLong());
     }
 }

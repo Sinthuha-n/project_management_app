@@ -6,6 +6,7 @@ import com.planora.backend.dto.TaskActivityResponseDTO;
 import com.planora.backend.dto.TaskRequestDTO;
 import com.planora.backend.dto.TaskResponseDTO;
 import com.planora.backend.dto.TaskTemplateDTO;
+import com.planora.backend.exception.ForbiddenException;
 import com.planora.backend.model.UserPrincipal;
 import com.planora.backend.model.User;
 import com.planora.backend.service.JWTService;
@@ -86,12 +87,25 @@ class TaskControllerTest {
     @Test
     @WithMockUserPrincipal
     void getTaskById_returnsTask() throws Exception {
-        when(service.getTaskById(1L)).thenReturn(sampleTask);
+        when(service.getTaskById(1L, 1L)).thenReturn(sampleTask);
 
         mockMvc.perform(get("/api/tasks/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("Implement login"))
                 .andExpect(jsonPath("$.id").value(1));
+    }
+
+    @Test
+    @WithMockUserPrincipal
+    void getTaskById_returnsForbiddenForNonMember() throws Exception {
+        when(service.getTaskById(1L, 1L))
+                .thenThrow(new ForbiddenException("User is not a member of this team"));
+
+        mockMvc.perform(get("/api/tasks/1"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("User is not a member of this team"));
+
+        verify(service, never()).recordTaskAccess(anyLong(), anyLong());
     }
 
     @Test
@@ -208,12 +222,34 @@ class TaskControllerTest {
     void getActivities_returnsActivityList() throws Exception {
         TaskActivityResponseDTO activity = TaskActivityResponseDTO.builder()
                 .id(1L).activityType("CREATED").actorName("admin").description("Task created").createdAt("2024-01-01T00:00:00").build();
-        when(activityService.getActivities(1L)).thenReturn(List.of(activity));
+        when(activityService.getActivities(1L, 1L)).thenReturn(List.of(activity));
 
         mockMvc.perform(get("/api/tasks/1/activities"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].actorName").value("admin"))
                 .andExpect(jsonPath("$[0].activityType").value("CREATED"));
+    }
+
+    @Test
+    @WithMockUserPrincipal
+    void getActivities_returnsForbiddenForNonMember() throws Exception {
+        when(activityService.getActivities(1L, 1L))
+                .thenThrow(new ForbiddenException("User is not a member of this team"));
+
+        mockMvc.perform(get("/api/tasks/1/activities"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("User is not a member of this team"));
+    }
+
+    @Test
+    @WithMockUserPrincipal
+    void getTaskGithubSummary_returnsForbiddenForNonMember() throws Exception {
+        when(taskGithubService.getTaskGithubSummary(1L, 1L))
+                .thenThrow(new ForbiddenException("User is not a member of this team"));
+
+        mockMvc.perform(get("/api/tasks/1/github"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("User is not a member of this team"));
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.planora.backend.dto.GitHubTaskData;
 import com.planora.backend.dto.LinkedCommitResponseDTO;
 import com.planora.backend.dto.LinkedPrResponseDTO;
 import com.planora.backend.dto.TaskGithubSummaryDTO;
+import com.planora.backend.exception.ForbiddenException;
 import com.planora.backend.exception.ResourceNotFoundException;
 import com.planora.backend.model.CiStatus;
 import com.planora.backend.model.GithubCommit;
@@ -70,6 +71,8 @@ public class TaskGithubService {
 
     private final TaskRepository taskRepository;
 
+    private final TeamMembershipLookupService teamMembershipLookupService;
+
     private final GitHubIntegrationService gitHubIntegrationService;
 
     private final TaskActivityService taskActivityService;
@@ -85,9 +88,8 @@ public class TaskGithubService {
      * @throws ResourceNotFoundException when the task does not exist
      */
     @Transactional(readOnly = true)
-    public TaskGithubSummaryDTO getTaskGithubSummary(Long taskId) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+    public TaskGithubSummaryDTO getTaskGithubSummary(Long taskId, Long currentUserId) {
+        Task task = requireTaskMembership(taskId, currentUserId);
 
         List<GithubPullRequest> prs     = prRepository.findByTaskId(taskId);
         List<GithubCommit>      commits = commitRepository.findByTaskId(taskId);
@@ -254,7 +256,9 @@ public class TaskGithubService {
      * Convenience method that syncs and then returns the freshly stored summary
      * in a single call. Used by TaskService.getTaskById(taskId, repo, token).
      */
-    public TaskGithubSummaryDTO syncAndGetSummary(Long taskId, String repoFullName, String githubToken) {
+    public TaskGithubSummaryDTO syncAndGetSummary(Long taskId, String repoFullName, String githubToken,
+                                                  Long currentUserId) {
+        requireTaskMembership(taskId, currentUserId);
         syncFromGitHub(taskId, repoFullName, githubToken);
 
         // Re-read from DB so the returned DTO reflects exactly what was persisted.
@@ -293,6 +297,16 @@ public class TaskGithubService {
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────────
+
+    private Task requireTaskMembership(Long taskId, Long currentUserId) {
+        Task task = taskRepository.findByIdWithProjectTeam(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+        Long teamId = task.getProject().getTeam().getId();
+        if (teamMembershipLookupService.getTeamMember(teamId, currentUserId) == null) {
+            throw new ForbiddenException("User is not a member of this team");
+        }
+        return task;
+    }
 
     /**
      * @param latestCommitSha SHA of the most-recently synced commit (already in DB).
@@ -455,10 +469,12 @@ public class TaskGithubService {
      * {@link LinkedPrResponseDTO} objects. DB-only — no GitHub API call.
      */
     @Transactional(readOnly = true)
-    public List<LinkedPrResponseDTO> getLinkedPrs(Long taskId) {
-        if (!taskRepository.existsById(taskId)) {
-            throw new ResourceNotFoundException("Task not found");
-        }
+    public List<LinkedPrResponseDTO> getLinkedPrs(Long taskId, Long currentUserId) {
+        requireTaskMembership(taskId, currentUserId);
+        return getLinkedPrsInternal(taskId);
+    }
+
+    private List<LinkedPrResponseDTO> getLinkedPrsInternal(Long taskId) {
         return prRepository.findByTaskId(taskId).stream()
                 .map(this::toLinkedPrResponseDTO)
                 .collect(Collectors.toList());
@@ -470,9 +486,11 @@ public class TaskGithubService {
      */
     public List<LinkedPrResponseDTO> syncAndGetLinkedPrs(Long taskId,
                                                           String repoFullName,
-                                                          String githubToken) {
+                                                          String githubToken,
+                                                          Long currentUserId) {
+        requireTaskMembership(taskId, currentUserId);
         syncFromGitHub(taskId, repoFullName, githubToken);
-        return getLinkedPrs(taskId);
+        return getLinkedPrsInternal(taskId);
     }
 
     // ── 6. COMMIT RETRIEVAL — paginated, commit-linked, task-key-aware ────────────
@@ -485,10 +503,12 @@ public class TaskGithubService {
      * @param limit  number of commits to return; clamped to [1, MAX_COMMIT_RESULTS]
      */
     @Transactional(readOnly = true)
-    public List<LinkedCommitResponseDTO> getLinkedCommits(Long taskId, int limit) {
-        if (!taskRepository.existsById(taskId)) {
-            throw new ResourceNotFoundException("Task not found");
-        }
+    public List<LinkedCommitResponseDTO> getLinkedCommits(Long taskId, int limit, Long currentUserId) {
+        requireTaskMembership(taskId, currentUserId);
+        return getLinkedCommitsInternal(taskId, limit);
+    }
+
+    private List<LinkedCommitResponseDTO> getLinkedCommitsInternal(Long taskId, int limit) {
         int effectiveLimit = Math.max(1, Math.min(limit, MAX_COMMIT_RESULTS));
         return commitRepository
                 .findRecentByTaskId(taskId, PageRequest.of(0, effectiveLimit))
@@ -501,8 +521,8 @@ public class TaskGithubService {
      * Overload with the default limit of {@link #MAX_COMMIT_RESULTS}.
      */
     @Transactional(readOnly = true)
-    public List<LinkedCommitResponseDTO> getLinkedCommits(Long taskId) {
-        return getLinkedCommits(taskId, MAX_COMMIT_RESULTS);
+    public List<LinkedCommitResponseDTO> getLinkedCommits(Long taskId, Long currentUserId) {
+        return getLinkedCommits(taskId, MAX_COMMIT_RESULTS, currentUserId);
     }
 
     /**
@@ -512,9 +532,11 @@ public class TaskGithubService {
     public List<LinkedCommitResponseDTO> syncAndGetLinkedCommits(Long taskId,
                                                                    String repoFullName,
                                                                    String githubToken,
-                                                                   int limit) {
+                                                                   int limit,
+                                                                   Long currentUserId) {
+        requireTaskMembership(taskId, currentUserId);
         syncFromGitHub(taskId, repoFullName, githubToken);
-        return getLinkedCommits(taskId, limit);
+        return getLinkedCommitsInternal(taskId, limit);
     }
 
     /**

@@ -223,7 +223,7 @@ public class TaskService {
             notificationService.createNotification(task.getAssignee().getUser(), message, link);
         }
 
-        return getTaskById(savedTask.getId());
+        return getTaskByIdInternal(savedTask.getId());
 
     }
 
@@ -273,7 +273,12 @@ public class TaskService {
     // ── 2. GET TASK BY ID ───────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public TaskResponseDTO getTaskById(Long taskId) {
+    public TaskResponseDTO getTaskById(Long taskId, Long currentUserId) {
+        requireTaskMembership(taskId, currentUserId);
+        return getTaskByIdInternal(taskId);
+    }
+
+    private TaskResponseDTO getTaskByIdInternal(Long taskId) {
         // Uses a custom @Query to eagerly fetch details and prevent N+1 query performance issues.
         Task task = taskRepository.findByIdFullyFetched(taskId)
                 .orElseThrow(()-> new ResourceNotFoundException("Task not found"));
@@ -287,13 +292,15 @@ public class TaskService {
      *
      * @param repoFullName "owner/repo" of the connected GitHub repository
      * @param githubToken  per-user GitHub OAuth or PAT token from the request header
-     */
+    */
     @Transactional
-    public TaskResponseDTO getTaskById(Long taskId, String repoFullName, String githubToken) {
+    public TaskResponseDTO getTaskById(Long taskId, String repoFullName, String githubToken,
+                                       Long currentUserId) {
+        requireTaskMembership(taskId, currentUserId);
         Task task = taskRepository.findByIdFullyFetched(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
         TaskGithubSummaryDTO githubSummary = taskGithubService.syncAndGetSummary(
-                taskId, repoFullName, githubToken);
+                taskId, repoFullName, githubToken, currentUserId);
         return mapToDTO(task, buildDependencyMap(List.of(taskId)), githubSummary);
     }
 
@@ -452,7 +459,7 @@ public class TaskService {
             notifyTaskStakeholders(saved, currentUserId, message, taskLink);
             }
         }
-        return getTaskById(saved.getId());
+        return getTaskByIdInternal(saved.getId());
     }
 
     /** * Lightweight date-only update.
@@ -631,7 +638,7 @@ public class TaskService {
         Task task = findTaskWithProjectTeam(taskId);
         requireMinimumRole(task.getProject().getTeam().getId(), currentUserId, TeamRole.MEMBER);
         if (task.isArchived()) {
-            return getTaskById(taskId);
+            return getTaskByIdInternal(taskId);
         }
 
         User actor = userRepository.findById(currentUserId).orElseThrow();
@@ -645,7 +652,7 @@ public class TaskService {
                 TaskActivityType.UPDATED,
                 actor.getUsername(),
                 "Task archived");
-        return getTaskById(taskId);
+        return getTaskByIdInternal(taskId);
     }
 
     @Transactional
@@ -664,7 +671,7 @@ public class TaskService {
                 TaskActivityType.UPDATED,
                 actor.getUsername(),
                 "Task unarchived");
-        return getTaskById(taskId);
+        return getTaskByIdInternal(taskId);
     }
 
     @Transactional(readOnly = true)
@@ -673,7 +680,7 @@ public class TaskService {
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
         requireMinimumRole(project.getTeam().getId(), currentUserId, TeamRole.MEMBER);
         return taskRepository.findArchivedByProjectId(projectId).stream()
-                .map(task -> getTaskById(task.getId()))
+                .map(task -> getTaskByIdInternal(task.getId()))
                 .collect(Collectors.toList());
     }
 
@@ -701,7 +708,7 @@ public class TaskService {
         taskActivityService.logActivity(parentId, TaskActivityType.SUBTASK_ADDED,
                 actorName, actorName + " added subtask: " + savedChild.getTitle());
 
-        return getTaskById(savedChild.getId());
+        return getTaskByIdInternal(savedChild.getId());
     }
 
     // ── 7 & 8. DEPENDENCIES ─────────────────────────────────────────────────────
@@ -959,7 +966,7 @@ public class TaskService {
                 .forEach(recipient -> notificationService.createNotification(recipient, message, link));
         }
 
-        return getTaskById(saved.getId());
+        return getTaskByIdInternal(saved.getId());
     }
 
     // ── 13-16. DASHBOARD FEEDS & METRICS ────────────────────────────────────────
@@ -1020,7 +1027,7 @@ public class TaskService {
                     + "\" from " + oldPriority + " to " + priority;
             notifyTaskStakeholders(saved, currentUserId, message, "/taskcard?taskId=" + saved.getId());
         }
-        return getTaskById(saved.getId());
+        return getTaskByIdInternal(saved.getId());
     }
 
     //17b. UPDATE STATUS (lightweight — used by kanban drag-and-drop)
@@ -1057,7 +1064,7 @@ public class TaskService {
         // BUG-006 Fix: check if all siblings are done when a subtask is updated
         checkAndAutoCompleteParent(saved, currentUserId);
 
-        return getTaskById(saved.getId());
+        return getTaskByIdInternal(saved.getId());
     }
 
     @Transactional
@@ -1264,6 +1271,12 @@ public class TaskService {
     private Task findTaskWithProjectTeam(Long taskId) {
         return taskRepository.findByIdWithProjectTeam(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+    }
+
+    private Task requireTaskMembership(Long taskId, Long currentUserId) {
+        Task task = findTaskWithProjectTeam(taskId);
+        requireMinimumRole(task.getProject().getTeam().getId(), currentUserId, null);
+        return task;
     }
 
     // Extracts unique team IDs from a list of tasks and fetches membership data in one query.

@@ -95,6 +95,8 @@ class TaskServiceTest {
     @Mock
     private TeamMembershipLookupService teamMembershipLookupService;
     @Mock
+    private TaskGithubService taskGithubService;
+    @Mock
     private SimpMessagingTemplate messagingTemplate;
 
     @InjectMocks
@@ -195,6 +197,15 @@ class TaskServiceTest {
         task.setStatus("TODO");
         task.setPriority(Priority.MEDIUM);
         return task;
+    }
+
+    @Test
+    void getTaskById_throwsForbidden_whenUserIsNotTeamMember() {
+        ForbiddenException exception = assertThrows(ForbiddenException.class,
+                () -> taskService.getTaskById(1L, 999L));
+
+        assertEquals("User is not a member of this team", exception.getMessage());
+        verify(taskRepository, never()).findByIdFullyFetched(1L);
     }
 
     @Test
