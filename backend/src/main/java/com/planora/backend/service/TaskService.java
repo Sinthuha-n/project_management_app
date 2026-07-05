@@ -274,7 +274,10 @@ public class TaskService {
 
     @Transactional(readOnly = true)
     public TaskResponseDTO getTaskById(Long taskId, Long currentUserId) {
-        requireTaskMembership(taskId, currentUserId);
+        Task task = findTaskWithProjectTeam(taskId);
+        Long teamId = task.getProject().getTeam().getId();
+        // Task read policy: any team member, including viewers, may read task data.
+        requireMinimumRole(teamId, currentUserId, null);
         return getTaskByIdInternal(taskId);
     }
 
@@ -296,7 +299,10 @@ public class TaskService {
     @Transactional
     public TaskResponseDTO getTaskById(Long taskId, String repoFullName, String githubToken,
                                        Long currentUserId) {
-        requireTaskMembership(taskId, currentUserId);
+        Task membershipTask = findTaskWithProjectTeam(taskId);
+        Long teamId = membershipTask.getProject().getTeam().getId();
+        // Task read policy: any team member, including viewers, may read task data.
+        requireMinimumRole(teamId, currentUserId, null);
         Task task = taskRepository.findByIdFullyFetched(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
         TaskGithubSummaryDTO githubSummary = taskGithubService.syncAndGetSummary(
@@ -867,7 +873,9 @@ public class TaskService {
     @Transactional(readOnly = true)
     public List<com.planora.backend.dto.CommentResponseDTO> getComments(Long taskId, Long currentUserId) {
         Task task = findTaskWithProjectTeam(taskId);
-        requireMinimumRole(task.getProject().getTeam().getId(), currentUserId, null);
+        Long teamId = task.getProject().getTeam().getId();
+        // Task read policy: any team member, including viewers, may read task data.
+        requireMinimumRole(teamId, currentUserId, null);
         
         return commentRepository.findByTaskOrderByCreatedAtAsc(task).stream()
                 .map(c -> com.planora.backend.dto.CommentResponseDTO.builder()
@@ -1271,12 +1279,6 @@ public class TaskService {
     private Task findTaskWithProjectTeam(Long taskId) {
         return taskRepository.findByIdWithProjectTeam(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
-    }
-
-    private Task requireTaskMembership(Long taskId, Long currentUserId) {
-        Task task = findTaskWithProjectTeam(taskId);
-        requireMinimumRole(task.getProject().getTeam().getId(), currentUserId, null);
-        return task;
     }
 
     // Extracts unique team IDs from a list of tasks and fetches membership data in one query.

@@ -6,6 +6,8 @@ import com.planora.backend.exception.ResourceNotFoundException;
 import com.planora.backend.model.Task;
 import com.planora.backend.model.TaskActivity;
 import com.planora.backend.model.TaskActivityType;
+import com.planora.backend.model.TeamMember;
+import com.planora.backend.model.TeamRole;
 import com.planora.backend.repository.TaskActivityRepository;
 import com.planora.backend.repository.TaskRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -41,9 +43,8 @@ public class TaskActivityService {
         Task task = taskRepository.findByIdWithProjectTeam(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
         Long teamId = task.getProject().getTeam().getId();
-        if (teamMembershipLookupService.getTeamMember(teamId, currentUserId) == null) {
-            throw new ForbiddenException("User is not a member of this team");
-        }
+        // Task read policy: any team member, including viewers, may read task data.
+        requireMinimumRole(teamId, currentUserId, null);
         return taskActivityRepository.findByTaskIdOrderByCreatedAtDesc(taskId).stream()
                 .map(a -> TaskActivityResponseDTO.builder()
                         .id(a.getId())
@@ -53,5 +54,25 @@ public class TaskActivityService {
                         .createdAt(a.getCreatedAt().toString())
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    private TeamMember requireMinimumRole(Long teamId, Long userId, TeamRole minimumRole) {
+        TeamMember member = teamMembershipLookupService.getTeamMember(teamId, userId);
+        if (member == null) {
+            throw new ForbiddenException("User is not a member of this team");
+        }
+        if (minimumRole != null && roleRank(member.getRole()) < roleRank(minimumRole)) {
+            throw new ForbiddenException("Insufficient permissions: requires " + minimumRole + " or higher");
+        }
+        return member;
+    }
+
+    private int roleRank(TeamRole role) {
+        return switch (role) {
+            case OWNER -> 4;
+            case ADMIN -> 3;
+            case MEMBER -> 2;
+            case VIEWER -> 1;
+        };
     }
 }
