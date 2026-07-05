@@ -6,6 +6,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { X, Calendar, User, Plus, Tag, ChevronDown, Flag } from 'lucide-react';
 import { Task, Label } from '../types';
 import { fetchProject, fetchTeamMembers, fetchProjectLabels } from '../api';
+import { formatLocalDate } from '@/lib/date-format';
 
 interface CreateTaskModalProps {
   isOpen: boolean;
@@ -69,8 +70,8 @@ export default function CreateTaskModal({
       description: description.trim() || undefined,
       status: columnStatus,
       projectId,
-      startDate: startDate ? startDate.toISOString().split('T')[0] : undefined,
-      dueDate: dueDate ? dueDate.toISOString().split('T')[0] : undefined,
+      startDate: startDate ? formatLocalDate(startDate) : undefined,
+      dueDate: dueDate ? formatLocalDate(dueDate) : undefined,
       assigneeId: assignee || undefined,
       priority,
       labelId: selectedLabelId ?? undefined,

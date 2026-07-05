@@ -6,6 +6,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { X, Calendar, User, Plus } from 'lucide-react';
 import { useProjectAssigneeOptions } from '@/hooks/projects/useProjectAssigneeOptions';
 import { normalizeApiError } from '@/lib/api-error';
+import { formatLocalDate } from '@/lib/date-format';
 
 interface CreateTaskModalProps {
   isOpen: boolean;
@@ -50,15 +51,15 @@ export default function CreateTaskModal({
       return;
     }
 
-    const todayIso = new Date().toISOString().split('T')[0];
+    const today = formatLocalDate(new Date());
 
     const taskData = {
       title: title.trim(),
       status: columnStatus,
       projectId,
       sprintId,
-      startDate: todayIso,
-      dueDate: dueDate ? dueDate.toISOString().split('T')[0] : todayIso,
+      startDate: today,
+      dueDate: dueDate ? formatLocalDate(dueDate) : today,
       assigneeId: assignee || undefined,
       description: '',
       priority: 'MEDIUM',

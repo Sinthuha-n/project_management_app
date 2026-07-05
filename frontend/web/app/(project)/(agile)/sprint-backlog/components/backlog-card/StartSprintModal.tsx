@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { CalendarDays, Clock, Rocket, X } from 'lucide-react';
+import { formatLocalDate } from '@/lib/date-format';
 
 interface StartSprintModalProps {
   open: boolean;
@@ -23,7 +24,7 @@ export default function StartSprintModal({ open, sprintName, loading, error, onS
   const [selectedDuration, setSelectedDuration] = useState<number>(14);
   const [customDuration, setCustomDuration] = useState<string>('');
   const [useCustomDuration, setUseCustomDuration] = useState(false);
-  const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState<string>(() => formatLocalDate(new Date()));
 
   if (!open) return null;
 
