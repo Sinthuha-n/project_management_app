@@ -5,12 +5,15 @@ import {
   updateTaskDates as updateTaskDatesBuilder,
 } from '@planora/contracts';
 
-type WithNullableTaskFields<T> = Omit<T, 'startDate' | 'dueDate' | 'sprintId' | 'milestoneId' | 'assigneeId'> & {
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+type WithNullableTaskFields<T> = Omit<T, 'startDate' | 'dueDate' | 'sprintId' | 'milestoneId' | 'assigneeId' | 'priority'> & {
   startDate?: string | null;
   dueDate?: string | null;
   sprintId?: number | null;
   milestoneId?: number | null;
   assigneeId?: number | null;
+  priority?: TaskPriority;
 };
 
 export type CreateTaskRequest = WithNullableTaskFields<components['schemas']['TaskRequestDTO']>;

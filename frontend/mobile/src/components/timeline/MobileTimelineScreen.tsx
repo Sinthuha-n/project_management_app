@@ -15,7 +15,6 @@ const PRIORITY_TONES: Record<string, string> = {
   URGENT: '#DC2626',
   HIGH: '#EA580C',
   MEDIUM: '#D97706',
-  NORMAL: '#2563EB',
   LOW: '#64748B',
 };
 

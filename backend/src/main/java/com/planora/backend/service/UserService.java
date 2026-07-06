@@ -164,6 +164,7 @@ public class UserService {
 
     // Verifies a registration OTP.
     @Transactional
+    @CacheEvict(cacheNames = "user-details", key = "#email.toLowerCase()", condition = "#result == true")
     public boolean verifyToken(String email, String otp) {
         // Step 1. Fetch user. If no user, fail immediately.
         User user = userRepository.findFirstByEmailIgnoreCase(email.toLowerCase()).orElse(null);

@@ -38,7 +38,6 @@ const PRIORITY_STYLES: Record<string, { dot: string; text: string; bg: string }>
   URGENT: { dot: '#EF4444', text: '#B91C1C', bg: '#FEF2F2' },
   HIGH: { dot: '#F97316', text: '#C2410C', bg: '#FFF7ED' },
   MEDIUM: { dot: '#F59E0B', text: '#B45309', bg: '#FFFBEB' },
-  NORMAL: { dot: '#3B82F6', text: '#1D4ED8', bg: '#EFF6FF' },
   LOW: { dot: '#94A3B8', text: '#64748B', bg: '#F8FAFC' },
 };
 
