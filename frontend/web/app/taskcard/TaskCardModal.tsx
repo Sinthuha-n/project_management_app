@@ -7,7 +7,7 @@ import TaskSidebar from './TaskSidebar';
 import { toast } from '@/components/ui';
 import { motion } from 'framer-motion';
 import { useStomp } from '@/ws/stomp-provider';
-import { getProjectGitHubRepo } from '@/services/githubService';
+import { getProjectGitHubRepo } from '@/services/github-service';
 import CreateIssueFromTaskModal from '@/components/github/CreateIssueFromTaskModal';
 import { authApi } from '@/services/auth-contract';
 import api from '@/lib/axios';

@@ -33,7 +33,7 @@ jest.mock('@/components/github/CreateIssueFromTaskModal', () => ({
   ),
 }));
 
-jest.mock('@/services/githubService', () => ({
+jest.mock('@/services/github-service', () => ({
   getProjectGitHubRepo: jest.fn(() => ({ repoFullName: 'owner/repo' })),
 }));
 

@@ -20,7 +20,7 @@ import {
   type GithubAutomationRule,
   type GithubAutomationTrigger,
   type ProjectGitHubConnection,
-} from '@/services/githubService';
+} from '@/services/github-service';
 import {
   setScopedProjectValue,
   removeScopedProjectValue,

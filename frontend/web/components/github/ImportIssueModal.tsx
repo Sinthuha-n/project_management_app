@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { GitBranch, Loader2, X } from 'lucide-react';
 import api from '@/lib/axios';
-import { type GitHubIssue } from '@/services/githubService';
+import { type GitHubIssue } from '@/services/github-service';
 import { IssueStateBadge } from '@/components/github/IssueStateBadge';
 
 interface ImportIssueModalProps {

@@ -6,7 +6,7 @@ import {
   fetchRepositories,
   hasConnectedGitHubAccount,
   getProjectGitHubRepo,
-} from '@/services/githubService';
+} from '@/services/github-service';
 import api from '@/lib/axios';
 import { normalizeApiError } from '@/lib/api-error';
 

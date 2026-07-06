@@ -7,7 +7,7 @@ import api from '@/lib/axios';
 import { normalizeApiError } from '@/lib/api-error';
 import { toast } from '@/components/ui';
 import GitHubMark from '@/components/github/GitHubMark';
-import type { GitHubIssue } from '@/services/githubService';
+import type { GitHubIssue } from '@/services/github-service';
 
 interface CreateIssueFromTaskModalProps {
   open: boolean;

@@ -2,6 +2,7 @@ package com.planora.backend.configuration;
 
 import java.io.IOException;
 
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,6 +36,15 @@ public class QueryGuardrailFilter extends OncePerRequestFilter {
 
     @Value("${nplus1.guard.fail-on-exceed:false}")
     private boolean failOnExceed;
+
+    @PostConstruct
+    void validateThresholds() {
+        if (warnThreshold < 1 || failThreshold <= warnThreshold) {
+            throw new IllegalStateException(
+                    "N+1 guard thresholds must satisfy 0 < warn-threshold < fail-threshold"
+            );
+        }
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)

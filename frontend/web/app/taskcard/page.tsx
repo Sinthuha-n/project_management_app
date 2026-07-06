@@ -7,7 +7,7 @@ import TaskSidebar from './TaskSidebar';
 import api from '@/lib/axios';
 import { normalizeApiError } from '@/lib/api-error';
 import { toast } from '@/components/ui';
-import { getProjectGitHubRepo } from '@/services/githubService';
+import { getProjectGitHubRepo } from '@/services/github-service';
 import CreateIssueFromTaskModal from '@/components/github/CreateIssueFromTaskModal';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
 import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';

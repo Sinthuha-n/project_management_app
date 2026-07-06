@@ -50,7 +50,7 @@ import {
   type GithubAutomationRule,
   type GithubAutomationLog,
   type SavedGitHubAccount,
-} from '@/services/githubService';
+} from '@/services/github-service';
 import IssueCard from '@/components/github/IssueCard';
 import GitHubMark from '@/components/github/GitHubMark';
 import { fetchMembers } from '@/services/members-service';

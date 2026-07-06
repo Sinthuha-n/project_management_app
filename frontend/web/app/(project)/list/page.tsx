@@ -14,6 +14,7 @@ import ListFilterBar, { type ListFilters } from './components/ListFilterBar';
 import ListBulkActionBar from './components/ListBulkActionBar';
 import { useProjectStatuses } from '@/hooks/useProjectStatuses';
 import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
+import { stripQueryParam } from '@/lib/url';
 
 // ── Main Page ─────────────────────────────────────────────────────────────
 
@@ -128,11 +129,7 @@ function ListPageContent() {
 
   // Clean ?action= query param from URL on mount — no setState here
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).has('action')) {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('action');
-      window.history.replaceState({}, '', url.toString());
-    }
+    stripQueryParam('action');
   }, []);
 
   useEffect(() => {

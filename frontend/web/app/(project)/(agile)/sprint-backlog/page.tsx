@@ -20,6 +20,7 @@ import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 import { type CreateTaskData } from '@/components/shared/CreateTaskModal';
 import { useTaskStore } from '@/stores/task-store';
 import { buildSessionCacheKey, getSessionCache, setSessionCache, removeSessionCache } from '@/lib/session-cache';
+import { stripQueryParam } from '@/lib/url';
 import { motion, AnimatePresence } from 'framer-motion';
 import { projectsApi, sprintboardsApi, sprintsApi, tasksApi } from '@/services/api-contract';
 import { normalizeTaskPriority } from '@/services/tasks-contract';
@@ -768,9 +769,7 @@ function SprintBacklogPageContent() {
     } else if (action === 'add-task') {
       setShowCreateTaskModal(true);
     }
-    const url = new URL(window.location.href);
-    url.searchParams.delete('action');
-    window.history.replaceState({}, '', url.toString());
+    stripQueryParam('action');
   }, [searchParams, projectKey, sprints.length, createSprint]);
 
   useEffect(() => {

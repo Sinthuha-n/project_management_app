@@ -17,6 +17,7 @@ import BacklogFilterBar from './components/BacklogFilterBar';
 import BacklogTaskDetail from './components/BacklogTaskDetail';
 import { useBacklogData } from './hooks/useBacklogData';
 import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
+import { stripQueryParam } from '@/lib/url';
 import { fetchProject } from '../kanban/api';
 function BacklogPageContent() {
     const searchParams = useSearchParams();
@@ -79,9 +80,7 @@ function BacklogPageContent() {
         const action = searchParams.get('action');
         if (action === 'add-task') setShowCreateModal(true);
         if (action) {
-            const url = new URL(window.location.href);
-            url.searchParams.delete('action');
-            window.history.replaceState({}, '', url.toString());
+            stripQueryParam('action');
         }
     }, [searchParams, setShowCreateModal]);
 
