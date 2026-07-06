@@ -300,7 +300,7 @@ export default function KanbanPage() {
               </div>
               <div>
                 <h3 className="text-[16px] font-bold text-cu-text-primary">Complete All Tasks</h3>
-                <p className="text-[13px] text-cu-text-secondary">Archive entire board to Done?</p>
+                <p className="text-[13px] text-cu-text-secondary">Mark every task as Done?</p>
               </div>
             </div>
             <p className="text-[14px] text-cu-text-secondary mb-5 leading-relaxed">

@@ -48,6 +48,8 @@ export const ChatInput = ({
     setUploading(true);
     try {
       const url = await uploadChatDocument(projectId, file);
+      // Uploaded S3 URLs are the chat attachment contract: isFileDocument renders
+      // them with attachment chrome in messages, threads, and conversation previews.
       onSendMessage(url);
     } catch {
       toast("Couldn't upload file. Please try again.", 'error');
