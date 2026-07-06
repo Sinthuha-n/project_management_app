@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Users } from 'lucide-react';
 import EmptyState from '@/components/shared/EmptyState';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 
 function normalizeProjectId(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -12,7 +13,7 @@ function normalizeProjectId(value: string | null | undefined): string | null {
   return trimmed;
 }
 
-export default function MembersLegacyRoutePage() {
+function MembersLegacyRouteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromQuery = normalizeProjectId(searchParams.get('projectId'));
@@ -52,5 +53,13 @@ export default function MembersLegacyRoutePage() {
         )}
       />
     </div>
+  );
+}
+
+export default function MembersLegacyRoutePage() {
+  return (
+    <Suspense fallback={<RouteLoadingState title="Opening members" subtitle="Resolving the selected project." variant="table" />}>
+      <MembersLegacyRouteContent />
+    </Suspense>
   );
 }

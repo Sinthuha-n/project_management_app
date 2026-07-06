@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { AlertCircle, Archive, Plus, RefreshCw, Search } from 'lucide-react';
+import { AlertCircle, Archive, ListChecks, Plus, RefreshCw, Search } from 'lucide-react';
 import TaskCardModal from '@/app/taskcard/TaskCardModal';
 import CreateTaskModal from '@/components/shared/CreateTaskModal';
 import EmptyState from '@/components/shared/EmptyState';
@@ -12,12 +13,13 @@ import { useListTasks } from './hooks/useListTasks';
 import ListFilterBar, { type ListFilters } from './components/ListFilterBar';
 import ListBulkActionBar from './components/ListBulkActionBar';
 import { useProjectStatuses } from '@/hooks/useProjectStatuses';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 
 // ── Main Page ─────────────────────────────────────────────────────────────
 
 const TASKS_PER_PAGE = 12;
 
-export default function ListPage() {
+function ListPageContent() {
   const searchParams = useSearchParams();
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   // Initialise from URL so no setState call is needed inside an effect
@@ -170,12 +172,21 @@ export default function ListPage() {
   // ── No project selected ──
   if (!projectId) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-cu-bg-secondary">
-        <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-cu-danger mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-cu-text-primary">Missing Project ID</h1>
-          <p className="text-cu-text-secondary text-sm mt-2">Add <code className="bg-cu-bg-tertiary px-1 rounded text-cu-text-primary">?projectId=...</code> to the URL.</p>
-        </div>
+      <div className="min-h-screen bg-cu-bg-secondary">
+        <EmptyState
+          icon={<ListChecks size={24} />}
+          title="Select a project to view its tasks"
+          subtitle="Choose a project from your dashboard to see its task list and continue working."
+          action={(
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-xl bg-cu-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cu-primary-hover"
+            >
+              Go to Dashboard
+            </Link>
+          )}
+          className="min-h-[60vh]"
+        />
       </div>
     );
   }
@@ -404,5 +415,13 @@ export default function ListPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function ListPage() {
+  return (
+    <Suspense fallback={<RouteLoadingState title="Loading task list" subtitle="Preparing list data and filters." variant="table" />}>
+      <ListPageContent />
+    </Suspense>
   );
 }

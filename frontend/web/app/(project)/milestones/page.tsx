@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AlertCircle, Flag, Loader2, Plus, RefreshCw } from 'lucide-react';
 import { getMilestones, createMilestone, updateMilestone, deleteMilestone } from '@/services/milestone-service';
@@ -9,8 +9,9 @@ import { type MilestoneStatus } from './components/milestoneConfig';
 import MilestoneCard from './components/MilestoneCard';
 import MilestoneForm from './components/MilestoneForm';
 import EmptyState from '@/components/shared/EmptyState';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 
-export default function MilestonesPage() {
+function MilestonesPageContent() {
   const searchParams = useSearchParams();
   const projectIdStr = searchParams.get('projectId');
   const projectId = projectIdStr ? Number(projectIdStr) : null;
@@ -213,5 +214,13 @@ export default function MilestonesPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function MilestonesPage() {
+  return (
+    <Suspense fallback={<RouteLoadingState title="Loading milestones" subtitle="Preparing project milestones." variant="cards" />}>
+      <MilestonesPageContent />
+    </Suspense>
   );
 }

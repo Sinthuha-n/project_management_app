@@ -24,6 +24,11 @@ const mockedApi = api as jest.Mocked<typeof api>;
 const mockedUseSearchParams = useSearchParams as jest.Mock;
 
 describe('CalendarPage', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    jest.clearAllMocks();
+  });
+
   it('renders correctly and fetches events', async () => {
     mockedUseSearchParams.mockReturnValue({
       get: (key: string) => (key === 'projectId' ? '123' : null),
@@ -41,5 +46,31 @@ describe('CalendarPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('month-view')).toBeInTheDocument();
     });
+  });
+
+  it('offers a route back to the dashboard when no project is selected', () => {
+    mockedUseSearchParams.mockReturnValue({
+      get: () => null,
+    });
+
+    render(<CalendarPage />);
+
+    expect(screen.getByText('Select a project to view its calendar')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Go to Dashboard' })).toHaveAttribute('href', '/dashboard');
+  });
+
+  it('uses the saved project when the URL has no project ID', async () => {
+    localStorage.setItem('currentProjectId', '456');
+    mockedUseSearchParams.mockReturnValue({
+      get: () => null,
+    });
+    mockedApi.get.mockResolvedValue({ data: [] });
+
+    render(<CalendarPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('month-view')).toBeInTheDocument();
+    });
+    expect(mockedApi.get).toHaveBeenCalledWith(expect.stringContaining('456'));
   });
 });

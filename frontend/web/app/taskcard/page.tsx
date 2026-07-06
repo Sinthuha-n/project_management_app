@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { Suspense, useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import TaskHeader from './TaskHeader';
 import TaskMainContent from './TaskMainContent';
@@ -10,6 +10,7 @@ import { toast } from '@/components/ui';
 import { getProjectGitHubRepo } from '@/services/githubService';
 import CreateIssueFromTaskModal from '@/components/github/CreateIssueFromTaskModal';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 
 interface TaskData {
   id: number;
@@ -292,7 +293,10 @@ function TaskPageContent() {
   );
 }
 
-// Server component that renders the wrapper
 export default function TaskPage() {
-  return <TaskPageContent />;
+  return (
+    <Suspense fallback={<RouteLoadingState title="Loading task" subtitle="Preparing task details." variant="detail" />}>
+      <TaskPageContent />
+    </Suspense>
+  );
 }

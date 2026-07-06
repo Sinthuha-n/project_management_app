@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { Suspense, useCallback, useState } from 'react';
 import { DragEndEvent } from '@dnd-kit/core';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import DragDropProvider from './components/DragDropProvider';
 import KanbanColumn from './components/KanbanColumn';
@@ -11,9 +12,11 @@ import CreateTaskModal from './components/CreateTaskModal';
 import { AlertCircle, Loader, CheckCircle2, Plus, LayoutGrid, X } from 'lucide-react';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import TaskCardModal from '@/app/taskcard/TaskCardModal';
+import EmptyState from '@/components/shared/EmptyState';
 import { useKanbanBoard } from './useKanbanBoard';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 
-export default function KanbanPage() {
+function KanbanPageContent() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId');
 
@@ -51,14 +54,21 @@ export default function KanbanPage() {
 
   if (!projectId) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-cu-bg">
-        <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-cu-danger mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-cu-text-primary mb-2">Missing Project ID</h1>
-          <p className="text-cu-text-secondary">
-            Please provide a project ID in the URL: <code className="bg-cu-bg-tertiary px-2 py-1 rounded">/kanban?projectId=1</code>
-          </p>
-        </div>
+      <div className="min-h-screen bg-cu-bg">
+        <EmptyState
+          icon={<LayoutGrid size={24} />}
+          title="Select a project to view its board"
+          subtitle="Choose a project from your dashboard to get back to planning and tracking work."
+          action={(
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-xl bg-cu-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cu-primary-hover"
+            >
+              Go to Dashboard
+            </Link>
+          )}
+          className="min-h-[60vh]"
+        />
       </div>
     );
   }
@@ -363,5 +373,13 @@ export default function KanbanPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function KanbanPage() {
+  return (
+    <Suspense fallback={<RouteLoadingState title="Loading board" subtitle="Preparing kanban columns and tasks." variant="board" />}>
+      <KanbanPageContent />
+    </Suspense>
   );
 }

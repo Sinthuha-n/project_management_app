@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import axios from '@/lib/axios';
@@ -16,6 +16,7 @@ import CompleteSprintModal from './components/CompleteSprintModal';
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
 import BulkSelectionBar from './components/BulkSelectionBar';
 import InlineColumnCreator from './components/InlineColumnCreator';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 import UndoMoveToast from './components/UndoMoveToast';
 import {
   fetchSprintboardBySprintId,
@@ -30,7 +31,7 @@ import { useSprintBoardActions } from './hooks/useSprintBoardActions';
 type SprintSummary = { id: number; status: string; sprintName?: string };
 type SprintBoardCache = { activeList: SprintSummary[]; boards: SprintboardFullResponse[] };
 
-export default function SprintBoardPage() {
+function SprintBoardPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const projectIdStr = searchParams.get('projectId');
@@ -225,5 +226,13 @@ export default function SprintBoardPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function SprintBoardPage() {
+  return (
+    <Suspense fallback={<RouteLoadingState title="Loading sprint board" subtitle="Preparing sprint columns and tasks." variant="board" />}>
+      <SprintBoardPageContent />
+    </Suspense>
   );
 }

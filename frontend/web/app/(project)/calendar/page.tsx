@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { motion, type PanInfo } from 'framer-motion';
+import { CalendarDays } from 'lucide-react';
 import { useBreakpoint } from '@/lib/useBreakpoint';
+import EmptyState from '@/components/shared/EmptyState';
 import CalendarToolbar from './components/CalendarToolbar';
 import MonthCalendarView from './components/MonthCalendarView';
 import WeekCalendarView from './components/WeekCalendarView';
@@ -15,6 +18,7 @@ import CreateTaskModal, { type CreateTaskData } from '@/components/shared/Create
 import { patchTaskDates } from './api';
 import { tasksApi } from '@/services/api-contract';
 import { normalizeTaskPriority } from '@/services/tasks-contract';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 
 const DEFAULT_FILTERS: CalendarFilters = {
   search: '',
@@ -82,7 +86,7 @@ const evaluateMoreFilter = (event: CalendarEventItem, selectedMoreFilter: string
   }
 };
 
-export default function CalendarPage() {
+function CalendarPageContent() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId') || (typeof window !== 'undefined' ? localStorage.getItem('currentProjectId') : null);
 
@@ -96,6 +100,7 @@ export default function CalendarPage() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [prefilledDate, setPrefilledDate] = useState<string | undefined>(undefined);
+  const patchingTaskIdsRef = useRef(new Set<number>());
 
   const loadEvents = async () => {
     if (!projectId) return;
@@ -112,10 +117,7 @@ export default function CalendarPage() {
   };
 
   useEffect(() => {
-    if (!projectId) {
-      setError('No project selected.');
-      return;
-    }
+    if (!projectId) return;
     void loadEvents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
@@ -225,6 +227,9 @@ export default function CalendarPage() {
     const event = events.find((e) => e.id === eventId);
     if (!event?.taskId) return;
 
+    if (patchingTaskIdsRef.current.has(event.taskId)) return;
+    patchingTaskIdsRef.current.add(event.taskId);
+
     // Optimistic update
     setEvents((prev) =>
       prev.map((e) =>
@@ -239,8 +244,31 @@ export default function CalendarPage() {
     } catch {
       // Revert on failure
       void loadEvents();
+    } finally {
+      patchingTaskIdsRef.current.delete(event.taskId);
     }
   };
+
+  if (!projectId) {
+    return (
+      <div className="min-h-full bg-cu-bg-secondary">
+        <EmptyState
+          icon={<CalendarDays size={24} />}
+          title="Select a project to view its calendar"
+          subtitle="Choose a project from your dashboard to see scheduled tasks and important dates."
+          action={(
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-xl bg-cu-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cu-primary-hover"
+            >
+              Go to Dashboard
+            </Link>
+          )}
+          className="min-h-[60vh]"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-full space-y-4 bg-[radial-gradient(circle_at_top_left,rgba(21,93,252,0.16),transparent_30%),radial-gradient(circle_at_top_right,rgba(236,72,153,0.11),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(34,197,94,0.1),transparent_28%),linear-gradient(180deg,var(--cu-bg-secondary),var(--cu-bg-secondary))] px-4 py-4 md:px-6 md:py-5">
@@ -289,5 +317,13 @@ export default function CalendarPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function CalendarPage() {
+  return (
+    <Suspense fallback={<RouteLoadingState title="Loading calendar" subtitle="Preparing the project calendar." variant="cards" />}>
+      <CalendarPageContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
     AlertCircle, Plus, ChevronDown, ChevronUp,
@@ -16,8 +16,9 @@ import BacklogTaskRow from './components/BacklogTaskRow';
 import BacklogFilterBar from './components/BacklogFilterBar';
 import BacklogTaskDetail from './components/BacklogTaskDetail';
 import { useBacklogData } from './hooks/useBacklogData';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 import { fetchProject } from '../kanban/api';
-export default function BacklogPage() {
+function BacklogPageContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const projectId = searchParams.get('projectId');
@@ -412,5 +413,13 @@ export default function BacklogPage() {
             )}
             </div>
         </div>
+    );
+}
+
+export default function BacklogPage() {
+    return (
+        <Suspense fallback={<RouteLoadingState title="Loading backlog" subtitle="Preparing backlog tasks and filters." variant="table" />}>
+            <BacklogPageContent />
+        </Suspense>
     );
 }

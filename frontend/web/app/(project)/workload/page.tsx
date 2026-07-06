@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import api from '@/lib/axios';
 import { fetchTasksByProject } from '@/app/(project)/kanban/api';
@@ -8,6 +8,7 @@ import { Task } from '@/app/(project)/kanban/types';
 import TaskCardModal from '@/app/taskcard/TaskCardModal';
 import EmptyState from '@/components/shared/EmptyState';
 import { RefreshCw } from 'lucide-react';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 
 interface Member {
     userId: number;
@@ -62,7 +63,7 @@ function Avatar({ member, size = 32 }: { member: Member; size?: number }) {
     );
 }
 
-export default function WorkloadPage() {
+function WorkloadPageContent() {
     const searchParams = useSearchParams();
     const projectId = searchParams.get('projectId');
 
@@ -199,6 +200,14 @@ export default function WorkloadPage() {
                 />
             )}
         </div>
+    );
+}
+
+export default function WorkloadPage() {
+    return (
+        <Suspense fallback={<RouteLoadingState title="Loading workload" subtitle="Preparing team allocation and tasks." variant="detail" />}>
+            <WorkloadPageContent />
+        </Suspense>
     );
 }
 
