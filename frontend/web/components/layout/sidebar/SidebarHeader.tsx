@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { PranoraIcon } from '@/components/brand/PranoraLogo';
+import { PlanoraIcon } from '@/components/brand/PlanoraLogo';
 
 export function SidebarHeader({
   collapsed,
@@ -27,7 +27,7 @@ export function SidebarHeader({
         aria-label={collapsed ? 'Expand sidebar' : 'Sidebar'}
         title={collapsed ? 'Expand sidebar' : 'Planora'}
       >
-        <PranoraIcon size={32} />
+        <PlanoraIcon size={32} />
 
         {/* Wordmark (Website Name) */}
         {!collapsed && (
