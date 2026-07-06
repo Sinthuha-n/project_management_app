@@ -21,7 +21,7 @@ import CIStatusBanner from '@/components/github/CIStatusBanner';
 import GitHubAutomationsPanel from '@/components/github/GitHubAutomationsPanel';
 import AutomationRuleBuilder from '@/components/github/AutomationRuleBuilder';
 import ImportIssueModal from '@/components/github/ImportIssueModal';
-import { Popover } from '@/components/ui';
+import { Popover, toast } from '@/components/ui';
 import {
   getProjectGitHubRepo,
   setProjectGitHubRepo,
@@ -1926,7 +1926,7 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
 
   const handleConnectGitHub = (loginHint?: string) => {
     if (!GITHUB_CLIENT_ID) {
-      alert('GitHub OAuth is not configured.\nPlease set NEXT_PUBLIC_GITHUB_CLIENT_ID.');
+      toast('GitHub OAuth is not configured. Please set NEXT_PUBLIC_GITHUB_CLIENT_ID.', 'error');
       return;
     }
     const redirectUri = `${window.location.origin}/github/callback`;
