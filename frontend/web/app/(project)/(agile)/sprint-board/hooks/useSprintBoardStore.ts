@@ -19,9 +19,12 @@ const DEFAULT_FILTERS: SprintBoardFilters = {
   showOnlyMine: false,
 };
 
-export function useSprintBoardStore() {
+export function useSprintBoardStore(initialFilters?: Partial<SprintBoardFilters>) {
   const [board, setBoard] = useState<Sprintboard | null>(null);
-  const [filters, setFilters] = useState<SprintBoardFilters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<SprintBoardFilters>(() => ({
+    ...DEFAULT_FILTERS,
+    ...initialFilters,
+  }));
   const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>({});
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
   const [lastMove, setLastMove] = useState<MoveSnapshot | null>(null);
@@ -33,7 +36,11 @@ export function useSprintBoardStore() {
   }, []);
 
   const updateFilters = useCallback((patch: Partial<SprintBoardFilters>) => {
-    setFilters((prev) => ({ ...prev, ...patch }));
+    setFilters((prev) => {
+      const keys = Object.keys(patch) as Array<keyof SprintBoardFilters>;
+      const hasChanges = keys.some((key) => prev[key] !== patch[key]);
+      return hasChanges ? { ...prev, ...patch } : prev;
+    });
   }, []);
 
   const toggleColumnCollapsed = useCallback((status: string) => {

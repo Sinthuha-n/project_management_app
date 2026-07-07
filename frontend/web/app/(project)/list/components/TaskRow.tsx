@@ -74,6 +74,7 @@ const TaskRow = React.memo(function TaskRow({
   projectStatuses,
   canModifyTasks = true,
   showArchived = false,
+  onPriorityChange,
 }: {
   task: Task;
   onOpenModal: (id: number) => void;
@@ -94,6 +95,7 @@ const TaskRow = React.memo(function TaskRow({
   projectStatuses?: Array<{ name: string; status: string; color: string }>;
   canModifyTasks?: boolean;
   showArchived?: boolean;
+  onPriorityChange?: (taskId: number, priority: string) => void;
 }) {
   const [statusOpen, setStatusOpen] = useState(false);
   const [priorityOpen, setPriorityOpen] = useState(false);
@@ -101,7 +103,6 @@ const TaskRow = React.memo(function TaskRow({
   const [assigneeOpen, setAssigneeOpen] = useState(false);
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [milestoneOpen, setMilestoneOpen] = useState(false);
-  const [localPriority, setLocalPriority] = useState(task.priority ?? '');
   const statusRef = useRef<HTMLDivElement>(null);
   const priorityRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -119,10 +120,11 @@ const TaskRow = React.memo(function TaskRow({
       ? [{ name: task.assigneeName, src: assigneePhotoUrl }]
       : [];
 
+  const priorityVal = task.priority ?? '';
   const currentStatus = projectStatuses?.find((s: { status: string; name: string; color: string }) => s.status === task.status) || { name: task.status, status: task.status, color: STATUS_CONFIG[task.status]?.badge || 'bg-gray-100 text-gray-600' };
   
   const sConf = STATUS_CONFIG[task.status] ?? { label: currentStatus.name, badge: currentStatus.color };
-  const pConf = localPriority ? PRIORITY_CONFIG[localPriority] : null;
+  const pConf = priorityVal ? PRIORITY_CONFIG[priorityVal] : null;
   const PriorityIcon = pConf?.icon ?? Minus;
   const priorityColor = pConf?.color ?? '#9CA3AF';
 
@@ -161,11 +163,9 @@ const TaskRow = React.memo(function TaskRow({
     };
   }, []);
 
-  const handlePriorityChange = async (priority: string) => {
-    setLocalPriority(priority);
+  const handlePriorityChange = (priority: string) => {
     setPriorityOpen(false);
-    await tasksApi.updatePriority(task.id, priority as 'LOW' | 'NORMAL' | 'MEDIUM' | 'HIGH' | 'URGENT').catch(() => {});
-    onTaskUpdated?.(task.id, { priority });
+    onPriorityChange?.(task.id, priority);
   };
 
   const focusFirstDropdownItem = (container: HTMLDivElement | null) => {
@@ -247,7 +247,7 @@ const TaskRow = React.memo(function TaskRow({
         <button
           onClick={() => setPriorityOpen((v) => !v)}
           className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold transition-all duration-200 capitalize ${
-            priorityBgColor[localPriority] ?? 'bg-cu-bg-secondary text-cu-text-secondary border-cu-border'
+            priorityBgColor[priorityVal] ?? 'bg-cu-bg-secondary text-cu-text-secondary border-cu-border'
           }`}
         >
           <PriorityIcon size={10} className="shrink-0" />
@@ -264,7 +264,7 @@ const TaskRow = React.memo(function TaskRow({
                 <button
                   key={p}
                   onClick={() => void handlePriorityChange(p)}
-                  className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors flex items-center gap-2 ${localPriority === p ? 'font-semibold text-cu-primary bg-cu-primary/5' : 'text-cu-text-primary'}`}
+                  className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors flex items-center gap-2 ${priorityVal === p ? 'font-semibold text-cu-primary bg-cu-primary/5' : 'text-cu-text-primary'}`}
                 >
                   <Icon size={12} color={pc.color} />
                   <span style={{ color: pc.color }}>{pc.label}</span>

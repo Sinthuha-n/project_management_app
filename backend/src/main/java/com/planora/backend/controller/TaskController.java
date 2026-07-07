@@ -108,7 +108,12 @@ public class TaskController {
             @RequestParam(required = false) String repoFullName,
             @AuthenticationPrincipal UserPrincipal currentUser) {
         Long currentUserId = currentUser.getUserId();
-        String githubToken = githubTokenService.getToken(currentUserId);
+        String githubToken = null;
+        try {
+            githubToken = githubTokenService.getToken(currentUserId);
+        } catch (Exception e) {
+            log.warn("Failed to retrieve GitHub token for user {}: {}", currentUserId, e.getMessage());
+        }
         TaskResponseDTO dto = (githubToken != null && repoFullName != null)
                 ? service.getTaskById(taskId, repoFullName, githubToken, currentUserId)
                 : service.getTaskById(taskId, currentUserId);

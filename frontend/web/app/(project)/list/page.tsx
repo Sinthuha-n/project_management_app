@@ -46,6 +46,7 @@ function ListPageContent() {
     handleDelete,
     handleAddTask,
     loadTasks,
+    loadSingleTask,
     showArchived,
     setShowArchived,
     canModifyTasks,
@@ -60,6 +61,7 @@ function ListPageContent() {
     handleMilestoneChange,
     handleArchive,
     handleRestore,
+    handlePriorityChange,
   } = useListTasks();
   const { statuses: projectStatuses } = useProjectStatuses(projectId ? Number(projectId) : undefined);
 
@@ -327,6 +329,7 @@ function ListPageContent() {
                     canModifyTasks={canModifyTasks}
                     showArchived={showArchived}
                     projectStatuses={projectStatuses}
+                    onPriorityChange={handlePriorityChange}
                   />
                 ))}
               </div>
@@ -391,7 +394,7 @@ function ListPageContent() {
       {selectedTaskId !== null && (
         <TaskCardModal
           taskId={selectedTaskId}
-          onClose={(wasModified) => { setSelectedTaskId(null); if (wasModified) void loadTasks(); }}
+          onClose={(wasModified) => { setSelectedTaskId(null); if (wasModified) void loadSingleTask(selectedTaskId); }}
         />
       )}
 
