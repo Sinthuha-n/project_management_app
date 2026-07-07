@@ -48,6 +48,7 @@ export const fetchCalendarEvents = async (projectId: string | number): Promise<C
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return asArray<any>(response.data).map((item) => ({
       id: String(item.id),
+      taskId: item.kind === 'sprint' ? undefined : Number(item.taskId ?? item.id),
       title: item.title || 'Untitled',
       kind: item.kind === 'sprint' ? 'sprint' : 'task',
       type: item.type,

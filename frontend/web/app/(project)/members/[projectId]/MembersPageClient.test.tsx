@@ -166,7 +166,7 @@ describe('MembersPageClient', () => {
     expect(screen.getByText('Loading...')).toBeInTheDocument();
 
     await screen.findByText('Team Members');
-    expect(screen.getByText('Manage your team and their permissions')).toBeInTheDocument();
+    expect(screen.getByText('Review who can access this project, adjust roles, and invite collaborators.')).toBeInTheDocument();
     expect(screen.getByText('Bob Member')).toBeInTheDocument();
     expect(screen.getByText('Total Members')).toBeInTheDocument();
   });
@@ -311,11 +311,9 @@ describe('MembersPageClient', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[0]);
 
-    const removeHeading = screen.getByRole('heading', { name: 'Remove Member' });
-    expect(removeHeading).toBeInTheDocument();
-    const removeModal = removeHeading.closest('div');
-    expect(removeModal).toBeTruthy();
-    fireEvent.click(within(removeModal as HTMLElement).getByRole('button', { name: /Remove Member/i }));
+    const removeModal = screen.getByRole('dialog', { name: 'Remove Member' });
+    expect(removeModal).toBeInTheDocument();
+    fireEvent.click(within(removeModal).getByRole('button', { name: /Remove Member/i }));
 
     await waitFor(() => {
       expect(mockedAxios.delete).toHaveBeenCalledWith('/api/projects/7/members/202');
@@ -334,22 +332,21 @@ describe('MembersPageClient', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Invite Member' }));
 
-    const inviteHeader = screen.getByText('Invite Team Member');
-    const inviteModal = inviteHeader.closest('div');
-    expect(inviteModal).toBeTruthy();
-    expect(within(inviteModal as HTMLElement).queryByRole('option', { name: 'OWNER' })).not.toBeInTheDocument();
+    const inviteModal = screen.getByRole('dialog', { name: 'Invite Team Member' });
+    expect(inviteModal).toBeInTheDocument();
+    expect(within(inviteModal).queryByRole('option', { name: 'OWNER' })).not.toBeInTheDocument();
 
-    fireEvent.change(within(inviteModal as HTMLElement).getByRole('textbox'), {
+    fireEvent.change(within(inviteModal).getByRole('textbox'), {
       target: { value: 'newuser@example.com' },
     });
-    fireEvent.change(within(inviteModal as HTMLElement).getByRole('combobox'), {
+    fireEvent.change(within(inviteModal).getByRole('combobox'), {
       target: { value: 'MEMBER' },
     });
-    fireEvent.click(within(inviteModal as HTMLElement).getByRole('button', { name: /Send Invite/i }));
+    fireEvent.click(within(inviteModal).getByRole('button', { name: /Send Invite/i }));
 
     await screen.findByText('Invite failed');
 
-    fireEvent.click(within(inviteModal as HTMLElement).getByRole('button', { name: /Send Invite/i }));
+    fireEvent.click(within(inviteModal).getByRole('button', { name: /Send Invite/i }));
 
     await waitFor(() => {
       expect(mockedAxios.post).toHaveBeenLastCalledWith('/api/projects/7/invitations', {

@@ -40,27 +40,27 @@ export default function MembersPageClient({ projectId }: { projectId: string }) 
     hasAutoOpenedInvite.current = true;
   }, [searchParams, setShowModal]);
 
-  if (loading) return <div className="mobile-page-padding max-w-[900px] mx-auto pb-6 text-sm text-gray-500">Loading...</div>;
+  if (loading) return <div className="mobile-page-padding mx-auto max-w-6xl pb-6 text-sm text-cu-text-muted">Loading...</div>;
 
   return (
-    <div className="mobile-page-padding max-w-[900px] mx-auto pb-6">
+    <div className="mobile-page-padding mx-auto max-w-6xl pb-8">
       <div className="space-y-5 sm:space-y-6">
         <MembersHeader onInviteClick={() => setShowModal(true)} />
 
         {(roleChangeSuccess || roleChangeError || removeSuccess) && (
           <div className="space-y-3">
             {roleChangeSuccess && (
-              <div className="p-3 text-sm sm:text-[15px] bg-green-50 text-green-700 border border-green-200 rounded-md shadow-sm">
+              <div className="rounded-cu-md border border-cu-success/20 bg-cu-success-light p-3 text-sm font-medium text-cu-success shadow-cu-sm">
                 {roleChangeSuccess}
               </div>
             )}
             {roleChangeError && (
-              <div className="p-3 text-sm sm:text-[15px] bg-red-50 text-red-700 border border-red-200 rounded-md shadow-sm">
+              <div className="rounded-cu-md border border-cu-danger/20 bg-cu-danger-light p-3 text-sm font-medium text-cu-danger shadow-cu-sm">
                 {roleChangeError}
               </div>
             )}
             {removeSuccess && (
-              <div className="p-3 text-sm sm:text-[15px] bg-green-50 text-green-700 border border-green-200 rounded-md shadow-sm">
+              <div className="rounded-cu-md border border-cu-success/20 bg-cu-success-light p-3 text-sm font-medium text-cu-success shadow-cu-sm">
                 {removeSuccess}
               </div>
             )}

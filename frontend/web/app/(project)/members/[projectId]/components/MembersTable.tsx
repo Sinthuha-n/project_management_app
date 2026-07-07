@@ -1,10 +1,11 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Trash2 } from 'lucide-react';
+import { ChevronDown, Clock3, ListChecks, Mail, Trash2 } from 'lucide-react';
 import { ROLE_COLORS, ROLE_LABELS, STATUS_COLORS, ICONS } from '../constants';
 import type { Member, MemberCombined } from '../types';
 import { timeAgo } from '../utils';
+import { Tooltip, TooltipProvider } from '@/components/ui/Tooltip';
 
 interface MembersTableProps {
   filteredMembers: MemberCombined[];
@@ -91,7 +92,7 @@ function MemberAvatar({
   }
 
   return (
-    <div className={`${sizeClassName} rounded-full bg-cu-primary flex items-center justify-center text-white font-bold text-base shrink-0`}>
+    <div className={`${sizeClassName} rounded-full bg-cu-primary/10 ring-1 ring-cu-primary/20 flex items-center justify-center text-cu-primary font-bold text-base shrink-0`}>
       {getInitials(member)}
     </div>
   );
@@ -118,7 +119,7 @@ function RoleControl({
 
   if (role === 'OWNER') {
     return (
-      <span className={`px-2 py-1 ${compact ? 'h-8 text-xs' : 'h-9 text-sm'} rounded font-semibold inline-flex items-center gap-1.5 w-max leading-none ${ROLE_COLORS.OWNER}`}>
+      <span className={`inline-flex w-max items-center gap-1.5 rounded-full px-2.5 leading-none ${compact ? 'h-8 text-xs' : 'h-9 text-sm'} font-semibold ${ROLE_COLORS.OWNER}`}>
         {ICONS.owner}
         {ROLE_LABELS.OWNER}
       </span>
@@ -132,7 +133,7 @@ function RoleControl({
           value={role}
           onChange={(event) => onRoleChange(member.user.userId, event.target.value)}
           disabled={changingRoleId === member.user.userId}
-          className={`appearance-none outline-none cursor-pointer pl-8 pr-8 h-11 rounded-md text-sm font-semibold leading-none w-full sm:w-auto ${ROLE_COLORS[role] || 'bg-gray-100 text-cu-text-secondary'}`}
+          className={`h-10 w-full cursor-pointer appearance-none rounded-full border border-transparent pl-8 pr-8 text-sm font-semibold leading-none outline-none ring-1 ring-transparent transition-all focus:ring-cu-primary/25 disabled:cursor-wait sm:w-auto ${ROLE_COLORS[role] || 'bg-cu-bg-tertiary text-cu-text-secondary'}`}
         >
           {getAvailableOptions().map((opt) => (
             <option key={opt} value={opt}>{ROLE_LABELS[opt] || opt}</option>
@@ -147,7 +148,7 @@ function RoleControl({
           {changingRoleId === member.user.userId ? (
             <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
           ) : (
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            <ChevronDown size={13} aria-hidden="true" />
           )}
         </div>
       </div>
@@ -155,7 +156,7 @@ function RoleControl({
   }
 
   return (
-    <span className={`px-2 py-1 ${compact ? 'h-8 text-xs' : 'h-9 text-sm'} rounded font-semibold inline-flex items-center gap-1.5 w-max leading-none ${ROLE_COLORS[role] || 'bg-gray-100 text-cu-text-secondary'}`}>
+    <span className={`inline-flex w-max items-center gap-1.5 rounded-full px-2.5 leading-none ${compact ? 'h-8 text-xs' : 'h-9 text-sm'} font-semibold ${ROLE_COLORS[role] || 'bg-cu-bg-tertiary text-cu-text-secondary'}`}>
       {role === 'ADMIN' && ICONS.adminRole}
       {role === 'MEMBER' && ICONS.member}
       {role === 'VIEWER' && ICONS.viewer}
@@ -183,7 +184,7 @@ export function MembersTable({
     return (
       <div className="space-y-3">
         {filteredMembers.map((member) => (
-          <article key={`mobile-${member.id}-${member.user.email}`} className="rounded-xl border border-cu-border bg-cu-bg p-4 shadow-sm">
+          <article key={`mobile-${member.id}-${member.user.email}`} className="rounded-cu-lg border border-cu-border bg-cu-bg p-4 shadow-cu-sm">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
                 <MemberAvatar
@@ -196,19 +197,28 @@ export function MembersTable({
                 />
                 <div className="min-w-0">
                   <h2 className="truncate text-[15px] font-semibold text-cu-text-primary">{member.user.fullName || member.user.email}</h2>
-                  <p className="truncate text-xs text-cu-text-muted">{member.user.email}</p>
+                  <p className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-xs text-cu-text-muted">
+                    <Mail size={12} aria-hidden="true" />
+                    <span className="truncate">{member.user.email}</span>
+                  </p>
                 </div>
               </div>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_COLORS[member.status] || 'bg-gray-100 text-cu-text-secondary'}`}>{member.status}</span>
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_COLORS[member.status] || 'bg-cu-bg-tertiary text-cu-text-secondary'}`}>{member.status}</span>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-cu-hover p-3">
+            <div className="mt-4 grid grid-cols-2 gap-3 rounded-cu-md bg-cu-bg-secondary p-3">
               <div>
-                <p className="text-[11px] font-medium uppercase text-cu-text-muted">Last active</p>
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase text-cu-text-muted">
+                  <Clock3 size={12} aria-hidden="true" />
+                  Last active
+                </p>
                 <p className="mt-1 text-sm font-semibold text-cu-text-primary">{member.status === 'Pending' ? 'Never' : member.lastActive ? timeAgo(member.lastActive) : '-'}</p>
               </div>
               <div>
-                <p className="text-[11px] font-medium uppercase text-cu-text-muted">Tasks</p>
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase text-cu-text-muted">
+                  <ListChecks size={12} aria-hidden="true" />
+                  Tasks
+                </p>
                 <p className="mt-1 text-sm font-semibold text-cu-primary">{member.taskCount}</p>
               </div>
             </div>
@@ -225,7 +235,7 @@ export function MembersTable({
               {canRemoveMember(member) && (
                 <button
                   onClick={() => onRequestRemove(member)}
-                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-cu-danger/20 bg-cu-danger/10 px-3 text-sm font-semibold text-cu-danger transition-colors hover:bg-cu-danger/15"
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-cu-md border border-cu-danger/20 bg-cu-danger-light px-3 text-sm font-semibold text-cu-danger transition-colors hover:bg-cu-danger/15"
                   title="Remove Member"
                 >
                   <Trash2 size={16} aria-hidden="true" />
@@ -236,7 +246,7 @@ export function MembersTable({
           </article>
         ))}
         {filteredMembers.length === 0 && (
-          <div className="rounded-xl border border-dashed border-cu-border bg-cu-bg px-4 py-8 text-center text-sm text-cu-text-muted">
+          <div className="rounded-cu-lg border border-dashed border-cu-border bg-cu-bg px-4 py-10 text-center text-sm text-cu-text-muted">
             No members found.
           </div>
         )}
@@ -245,29 +255,32 @@ export function MembersTable({
   }
 
   return (
-    <div className="bg-cu-bg rounded-lg shadow">
-      <div>
-        <div
-          className="relative overflow-x-auto mobile-scroll touch-pan-x pb-2"
-          style={{ WebkitOverflowScrolling: 'touch' }}
-        >
-          <table className="min-w-full text-xs sm:text-sm">
-            <thead>
-              <tr className="border-b border-cu-border">
-                <th className="px-6 py-3 text-left text-xs sm:text-sm font-semibold text-cu-text-secondary whitespace-nowrap">
-                  Member
-                </th>
-                <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-cu-text-secondary whitespace-nowrap">Role</th>
-                <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-cu-text-secondary whitespace-nowrap">Status</th>
-                <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-cu-text-secondary whitespace-nowrap">Last Active</th>
-                <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-cu-text-secondary whitespace-nowrap">Tasks</th>
-                <th className="px-4 py-3 whitespace-nowrap"></th>
+    <TooltipProvider>
+    <div className="overflow-hidden rounded-cu-lg border border-cu-border bg-cu-bg shadow-cu-sm">
+      <div
+        className="relative overflow-x-auto mobile-scroll touch-pan-x"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        <table className="min-w-full text-sm">
+          <thead className="bg-cu-bg-secondary">
+            <tr className="border-b border-cu-border">
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-cu-text-muted whitespace-nowrap">
+                Member
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-cu-text-muted whitespace-nowrap">Role</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-cu-text-muted whitespace-nowrap">Status</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-cu-text-muted whitespace-nowrap">Last Active</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-cu-text-muted whitespace-nowrap">Tasks</th>
+              <th className="px-4 py-3 whitespace-nowrap">
+                <span className="sr-only">Actions</span>
+              </th>
               </tr>
             </thead>
             <tbody>
               {filteredMembers.map((member) => (
-                <tr key={member.id + member.user.email} className="border-b border-cu-border hover:bg-cu-hover">
-                  <td className="px-6 py-3 flex items-center gap-3">
+                <tr key={member.id + member.user.email} className="border-b border-cu-border last:border-b-0 hover:bg-cu-hover/70">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
                     <MemberAvatar
                       member={member}
                       brokenProfileImages={brokenProfileImages}
@@ -275,13 +288,14 @@ export function MembersTable({
                       getMemberProfilePicCandidates={getMemberProfilePicCandidates}
                       setBrokenProfileImages={setBrokenProfileImages}
                     />
-                    <div>
-                      <div className="font-medium text-cu-text-primary text-[12px] sm:text-sm truncate">{member.user.fullName || member.user.email}</div>
-                      <div className="text-xs text-cu-text-muted truncate">{member.user.email}</div>
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold text-cu-text-primary">{member.user.fullName || member.user.email}</div>
+                      <div className="truncate text-xs text-cu-text-muted">{member.user.email}</div>
+                    </div>
                     </div>
                   </td>
 
-                  <td className="px-4 py-3 align-middle whitespace-nowrap">
+                  <td className="px-4 py-4 align-middle whitespace-nowrap">
                     <RoleControl
                       member={member}
                       changingRoleId={changingRoleId}
@@ -291,39 +305,45 @@ export function MembersTable({
                     />
                   </td>
 
-                  <td className="px-4 py-3 align-middle whitespace-nowrap text-xs sm:text-sm">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_COLORS[member.status] || 'bg-gray-100 text-cu-text-secondary'}`}>{member.status}</span>
+                  <td className="px-4 py-4 align-middle whitespace-nowrap">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_COLORS[member.status] || 'bg-cu-bg-tertiary text-cu-text-secondary'}`}>{member.status}</span>
                   </td>
 
-                  <td className="px-4 py-3 align-middle whitespace-nowrap text-xs sm:text-sm">
+                  <td className="px-4 py-4 align-middle whitespace-nowrap text-sm text-cu-text-secondary">
                     {member.status === 'Pending' ? 'Never' : member.lastActive ? timeAgo(member.lastActive) : '-'}
                   </td>
 
-                  <td className="px-4 py-3 font-semibold text-cu-primary align-middle whitespace-nowrap text-xs sm:text-sm">{member.taskCount}</td>
+                  <td className="px-4 py-4 align-middle whitespace-nowrap">
+                    <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full bg-cu-primary/10 px-2 text-sm font-semibold text-cu-primary">
+                      {member.taskCount}
+                    </span>
+                  </td>
 
-                  <td className="px-4 py-3 text-right align-middle whitespace-nowrap">
+                  <td className="px-4 py-4 text-right align-middle whitespace-nowrap">
                     {canRemoveMember(member) && (
-                      <button
-                        onClick={() => onRequestRemove(member)}
-                        className="inline-flex items-center gap-2 min-h-[36px] px-3 rounded-lg border border-cu-danger/20 bg-cu-danger/10 text-sm font-semibold text-cu-danger hover:bg-cu-danger/15 transition-colors"
-                        title="Remove Member"
-                      >
-                        <Trash2 size={15} aria-hidden="true" />
-                        Remove
-                      </button>
+                      <Tooltip content="Remove member">
+                        <button
+                          onClick={() => onRequestRemove(member)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-cu-md border border-transparent text-cu-text-muted transition-colors hover:border-cu-danger/20 hover:bg-cu-danger-light hover:text-cu-danger"
+                          title="Remove Member"
+                          aria-label="Remove"
+                        >
+                          <Trash2 size={16} aria-hidden="true" />
+                        </button>
+                      </Tooltip>
                     )}
                   </td>
                 </tr>
               ))}
               {filteredMembers.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-cu-text-muted">No members found.</td>
+                  <td colSpan={6} className="px-6 py-12 text-center text-cu-text-muted">No members found.</td>
                 </tr>
               )}
             </tbody>
           </table>
-        </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
