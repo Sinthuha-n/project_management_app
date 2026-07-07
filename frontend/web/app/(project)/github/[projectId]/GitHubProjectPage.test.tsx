@@ -325,6 +325,58 @@ describe('GitHubProjectPage', () => {
     expect(await screen.findByText('Invitation sent to @octocat.')).toBeInTheDocument();
   });
 
+  it('renders existing collaborator success when GitHub updates access', async () => {
+    mockedInviteGitHubCollaborator.mockResolvedValueOnce({
+      projectId: 7,
+      integrationId: 42,
+      repositoryFullName: 'planora/web',
+      githubUsername: 'octocat',
+      permission: 'maintain',
+      githubStatus: 204,
+      status: 'COLLABORATOR_UPDATED',
+      message: 'GitHub collaborator already has access or permission was updated',
+    });
+
+    render(<GitHubProjectPage projectId="7" />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Invite$/ }));
+    fireEvent.change(screen.getByPlaceholderText('octocat or teammate@example.com'), {
+      target: { value: 'octocat' },
+    });
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: 'maintain' },
+    });
+    const inviteButtons = screen.getAllByRole('button', { name: /^Invite$/ });
+    fireEvent.click(inviteButtons[inviteButtons.length - 1]);
+
+    await waitFor(() => expect(mockedInviteGitHubCollaborator).toHaveBeenCalledWith('7', {
+      identifier: 'octocat',
+      permission: 'maintain',
+    }));
+    expect(await screen.findByText('@octocat already has access or was updated.')).toBeInTheDocument();
+  });
+
+  it('renders backend invite errors in the modal', async () => {
+    mockedInviteGitHubCollaborator.mockRejectedValueOnce({
+      response: {
+        data: {
+          message: 'GitHub username required for private-email accounts.',
+        },
+      },
+    });
+
+    render(<GitHubProjectPage projectId="7" />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Invite$/ }));
+    fireEvent.change(screen.getByPlaceholderText('octocat or teammate@example.com'), {
+      target: { value: 'private-email@example.com' },
+    });
+    const inviteButtons = screen.getAllByRole('button', { name: /^Invite$/ });
+    fireEvent.click(inviteButtons[inviteButtons.length - 1]);
+
+    expect(await screen.findByText('GitHub username required for private-email accounts.')).toBeInTheDocument();
+  });
+
   it('hides collaborator invite controls for regular project members', async () => {
     mockedFetchMembers.mockResolvedValue([{ userId: 10, role: 'MEMBER' }] as Awaited<ReturnType<typeof fetchMembers>>);
 

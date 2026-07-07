@@ -8,6 +8,9 @@ import com.planora.backend.exception.BadRequestException;
 import com.planora.backend.exception.ForbiddenException;
 import com.planora.backend.exception.GithubAuthenticationException;
 import com.planora.backend.exception.GithubIssueValidationException;
+import com.planora.backend.exception.GithubRateLimitException;
+import com.planora.backend.exception.GithubRepositoryNotFoundException;
+import com.planora.backend.exception.ResourceNotFoundException;
 import com.planora.backend.model.GithubIntegration;
 import com.planora.backend.model.Project;
 import com.planora.backend.model.Team;
@@ -157,6 +160,95 @@ class ProjectGithubIntegrationServiceTest {
     }
 
     @Test
+    void inviteCollaborator_returnsUpdatedWhenGithubReportsExistingCollaborator() {
+        Project project = project();
+        GithubCollaboratorInviteRequestDTO request = new GithubCollaboratorInviteRequestDTO();
+        request.setIdentifier("octocat");
+        request.setPermission("maintain");
+
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 1L)).thenReturn(Optional.of(member(TeamRole.OWNER, 1L, "owner")));
+        when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of(integration(project)));
+        when(githubTokenService.getToken(1L)).thenReturn("owner-token");
+        when(githubApiClient.fetchPublicUser("octocat", "owner-token"))
+                .thenReturn(objectMapper.createObjectNode().put("login", "octocat"));
+        when(githubApiClient.addRepositoryCollaborator("planora/web", "octocat", "maintain", "owner-token"))
+                .thenReturn(new GithubApiClient.CollaboratorInviteResult(204, objectMapper.createObjectNode()));
+
+        GithubCollaboratorInviteResponseDTO response = service.inviteCollaborator(7L, request, 1L);
+
+        assertEquals(204, response.getGithubStatus());
+        assertEquals("COLLABORATOR_UPDATED", response.getStatus());
+        assertEquals("GitHub collaborator already has access or permission was updated", response.getMessage());
+    }
+
+    @Test
+    void inviteCollaborator_rejectsMemberRole() {
+        Project project = project();
+        GithubCollaboratorInviteRequestDTO request = new GithubCollaboratorInviteRequestDTO();
+        request.setIdentifier("octocat");
+
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 2L)).thenReturn(Optional.of(member(TeamRole.MEMBER, 2L, "member")));
+
+        assertThrows(ForbiddenException.class, () -> service.inviteCollaborator(7L, request, 2L));
+        verify(githubApiClient, never()).addRepositoryCollaborator(any(), any(), any(), any());
+    }
+
+    @Test
+    void inviteCollaborator_requiresGithubToken() {
+        Project project = project();
+        GithubCollaboratorInviteRequestDTO request = new GithubCollaboratorInviteRequestDTO();
+        request.setIdentifier("octocat");
+
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 1L)).thenReturn(Optional.of(member(TeamRole.ADMIN, 1L, "admin")));
+        when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of(integration(project)));
+        when(githubTokenService.getToken(1L)).thenReturn(null);
+
+        assertThrows(GithubAuthenticationException.class, () -> service.inviteCollaborator(7L, request, 1L));
+        verify(githubApiClient, never()).addRepositoryCollaborator(any(), any(), any(), any());
+    }
+
+    @Test
+    void inviteCollaborator_requiresActiveLinkedRepo() {
+        Project project = project();
+        GithubCollaboratorInviteRequestDTO request = new GithubCollaboratorInviteRequestDTO();
+        request.setIdentifier("octocat");
+
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 1L)).thenReturn(Optional.of(member(TeamRole.ADMIN, 1L, "admin")));
+        when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of());
+
+        assertThrows(ResourceNotFoundException.class, () -> service.inviteCollaborator(7L, request, 1L));
+        verify(githubApiClient, never()).addRepositoryCollaborator(any(), any(), any(), any());
+    }
+
+    @Test
+    void inviteCollaborator_resolvesPlanoraEmailToGithubUsername() {
+        Project project = project();
+        User invitee = new User();
+        invitee.setEmail("dev@example.com");
+        invitee.setGithubUsername("octodev");
+        GithubCollaboratorInviteRequestDTO request = new GithubCollaboratorInviteRequestDTO();
+        request.setIdentifier("dev@example.com");
+
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 1L)).thenReturn(Optional.of(member(TeamRole.ADMIN, 1L, "admin")));
+        when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of(integration(project)));
+        when(githubTokenService.getToken(1L)).thenReturn("admin-token");
+        when(userRepository.findFirstByEmailIgnoreCase("dev@example.com")).thenReturn(Optional.of(invitee));
+        when(githubApiClient.addRepositoryCollaborator("planora/web", "octodev", "push", "admin-token"))
+                .thenReturn(new GithubApiClient.CollaboratorInviteResult(201, objectMapper.createObjectNode()));
+
+        GithubCollaboratorInviteResponseDTO response = service.inviteCollaborator(7L, request, 1L);
+
+        assertEquals("octodev", response.getGithubUsername());
+        verify(githubApiClient, never()).fetchPublicUser(any(), any());
+        verify(githubApiClient).addRepositoryCollaborator("planora/web", "octodev", "push", "admin-token");
+    }
+
+    @Test
     void inviteCollaborator_rejectsUnresolvedEmail() {
         Project project = project();
         GithubCollaboratorInviteRequestDTO request = new GithubCollaboratorInviteRequestDTO();
@@ -187,6 +279,59 @@ class ProjectGithubIntegrationServiceTest {
                 .thenThrow(new GithubApiClient.GithubApiException(422, "validation failed"));
 
         assertThrows(GithubIssueValidationException.class, () -> service.inviteCollaborator(7L, request, 1L));
+    }
+
+    @Test
+    void inviteCollaborator_mapsGithubForbidden() {
+        Project project = project();
+        GithubCollaboratorInviteRequestDTO request = new GithubCollaboratorInviteRequestDTO();
+        request.setIdentifier("octocat");
+
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 1L)).thenReturn(Optional.of(member(TeamRole.ADMIN, 1L, "admin")));
+        when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of(integration(project)));
+        when(githubTokenService.getToken(1L)).thenReturn("admin-token");
+        when(githubApiClient.fetchPublicUser("octocat", "admin-token"))
+                .thenReturn(objectMapper.createObjectNode().put("login", "octocat"));
+        when(githubApiClient.addRepositoryCollaborator("planora/web", "octocat", "push", "admin-token"))
+                .thenThrow(new GithubApiClient.GithubApiException(403, "forbidden"));
+
+        assertThrows(ForbiddenException.class, () -> service.inviteCollaborator(7L, request, 1L));
+    }
+
+    @Test
+    void inviteCollaborator_mapsGithubUserNotFound() {
+        Project project = project();
+        GithubCollaboratorInviteRequestDTO request = new GithubCollaboratorInviteRequestDTO();
+        request.setIdentifier("missing-user");
+
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 1L)).thenReturn(Optional.of(member(TeamRole.ADMIN, 1L, "admin")));
+        when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of(integration(project)));
+        when(githubTokenService.getToken(1L)).thenReturn("admin-token");
+        when(githubApiClient.fetchPublicUser("missing-user", "admin-token"))
+                .thenThrow(new GithubApiClient.GithubApiException(404, "not found"));
+
+        assertThrows(GithubRepositoryNotFoundException.class, () -> service.inviteCollaborator(7L, request, 1L));
+        verify(githubApiClient, never()).addRepositoryCollaborator(any(), any(), any(), any());
+    }
+
+    @Test
+    void inviteCollaborator_mapsGithubRateLimit() {
+        Project project = project();
+        GithubCollaboratorInviteRequestDTO request = new GithubCollaboratorInviteRequestDTO();
+        request.setIdentifier("octocat");
+
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 1L)).thenReturn(Optional.of(member(TeamRole.ADMIN, 1L, "admin")));
+        when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of(integration(project)));
+        when(githubTokenService.getToken(1L)).thenReturn("admin-token");
+        when(githubApiClient.fetchPublicUser("octocat", "admin-token"))
+                .thenReturn(objectMapper.createObjectNode().put("login", "octocat"));
+        when(githubApiClient.addRepositoryCollaborator("planora/web", "octocat", "push", "admin-token"))
+                .thenThrow(new GithubApiClient.GithubApiException(429, "rate limit"));
+
+        assertThrows(GithubRateLimitException.class, () -> service.inviteCollaborator(7L, request, 1L));
     }
 
     private Project project() {

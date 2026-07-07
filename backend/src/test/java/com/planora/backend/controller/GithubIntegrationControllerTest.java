@@ -139,6 +139,51 @@ class GithubIntegrationControllerTest {
 
     @Test
     @WithMockUserPrincipal
+    void inviteCollaborator_returnsOkForExistingCollaboratorOrPermissionUpdate() throws Exception {
+        GithubCollaboratorInviteRequestDTO req = new GithubCollaboratorInviteRequestDTO();
+        req.setIdentifier("octocat");
+        req.setPermission("maintain");
+
+        GithubCollaboratorInviteResponseDTO resp = GithubCollaboratorInviteResponseDTO.builder()
+                .projectId(10L)
+                .integrationId(1L)
+                .repositoryFullName("owner/repo")
+                .githubUsername("octocat")
+                .permission("maintain")
+                .githubStatus(204)
+                .status("COLLABORATOR_UPDATED")
+                .message("GitHub collaborator already has access or permission was updated")
+                .build();
+
+        when(integrationService.inviteCollaborator(eq(10L), any(), eq(1L))).thenReturn(resp);
+
+        mockMvc.perform(post("/api/github/project/10/collaborators")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.githubStatus").value(204))
+                .andExpect(jsonPath("$.status").value("COLLABORATOR_UPDATED"));
+    }
+
+    @Test
+    @WithMockUserPrincipal
+    void inviteCollaborator_invalidPayload_returns400() throws Exception {
+        GithubCollaboratorInviteRequestDTO req = new GithubCollaboratorInviteRequestDTO();
+        req.setIdentifier("");
+        req.setPermission("admin");
+
+        mockMvc.perform(post("/api/github/project/10/collaborators")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Validation failed"))
+                .andExpect(jsonPath("$.fieldErrors").isArray());
+    }
+
+    @Test
+    @WithMockUserPrincipal
     void linkRepository_invalidPayload_returns400() throws Exception {
         GithubLinkRequestDTO req = new GithubLinkRequestDTO();
         req.setProjectId(-10L); // Negative ID
