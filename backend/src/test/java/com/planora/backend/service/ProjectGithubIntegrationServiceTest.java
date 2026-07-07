@@ -237,7 +237,7 @@ class ProjectGithubIntegrationServiceTest {
         when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 1L)).thenReturn(Optional.of(member(TeamRole.ADMIN, 1L, "admin")));
         when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of(integration(project)));
         when(githubTokenService.getToken(1L)).thenReturn("admin-token");
-        when(userRepository.findFirstByEmailIgnoreCase("dev@example.com")).thenReturn(Optional.of(invitee));
+        when(teamMemberRepository.findByTeamId(11L)).thenReturn(List.of(teamMemberForUser(invitee)));
         when(githubApiClient.addRepositoryCollaborator("planora/web", "octodev", "push", "admin-token"))
                 .thenReturn(new GithubApiClient.CollaboratorInviteResult(201, objectMapper.createObjectNode()));
 
@@ -245,6 +245,30 @@ class ProjectGithubIntegrationServiceTest {
 
         assertEquals("octodev", response.getGithubUsername());
         verify(githubApiClient, never()).fetchPublicUser(any(), any());
+        verify(githubApiClient).addRepositoryCollaborator("planora/web", "octodev", "push", "admin-token");
+    }
+
+    @Test
+    void inviteCollaborator_resolvesStoredGithubEmailToGithubUsername() {
+        Project project = project();
+        User invitee = new User();
+        invitee.setEmail("dev@planora.test");
+        invitee.setGithubUsername("octodev");
+        invitee.setGithubEmail("dev@users.noreply.github.com");
+        GithubCollaboratorInviteRequestDTO request = new GithubCollaboratorInviteRequestDTO();
+        request.setIdentifier("dev@users.noreply.github.com");
+
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 1L)).thenReturn(Optional.of(member(TeamRole.ADMIN, 1L, "admin")));
+        when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of(integration(project)));
+        when(githubTokenService.getToken(1L)).thenReturn("admin-token");
+        when(teamMemberRepository.findByTeamId(11L)).thenReturn(List.of(teamMemberForUser(invitee)));
+        when(githubApiClient.addRepositoryCollaborator("planora/web", "octodev", "push", "admin-token"))
+                .thenReturn(new GithubApiClient.CollaboratorInviteResult(201, objectMapper.createObjectNode()));
+
+        GithubCollaboratorInviteResponseDTO response = service.inviteCollaborator(7L, request, 1L);
+
+        assertEquals("octodev", response.getGithubUsername());
         verify(githubApiClient).addRepositoryCollaborator("planora/web", "octodev", "push", "admin-token");
     }
 
@@ -258,7 +282,7 @@ class ProjectGithubIntegrationServiceTest {
         when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 1L)).thenReturn(Optional.of(member(TeamRole.ADMIN, 1L, "admin")));
         when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of(integration(project)));
         when(githubTokenService.getToken(1L)).thenReturn("admin-token");
-        when(userRepository.findFirstByEmailIgnoreCase("dev@example.com")).thenReturn(Optional.empty());
+        when(teamMemberRepository.findByTeamId(11L)).thenReturn(List.of());
 
         assertThrows(BadRequestException.class, () -> service.inviteCollaborator(7L, request, 1L));
     }
@@ -363,6 +387,16 @@ class ProjectGithubIntegrationServiceTest {
         member.setTeam(team);
         member.setUser(user);
         member.setRole(role);
+        return member;
+    }
+
+    private TeamMember teamMemberForUser(User user) {
+        Team team = new Team();
+        team.setId(11L);
+        TeamMember member = new TeamMember();
+        member.setTeam(team);
+        member.setUser(user);
+        member.setRole(TeamRole.MEMBER);
         return member;
     }
 }

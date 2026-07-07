@@ -59,7 +59,7 @@ import {
 } from '@/services/github-service';
 import IssueCard from '@/components/github/IssueCard';
 import GitHubMark from '@/components/github/GitHubMark';
-import { fetchMembers } from '@/services/members-service';
+import { fetchMembers, type Member } from '@/services/members-service';
 import { getUserFromToken } from '@/lib/auth';
 import type { Notification } from '@/services/notifications-service';
 
@@ -105,6 +105,26 @@ const iconButtonClass = 'rounded-xl border border-cu-border bg-cu-bg p-2 text-cu
 const githubConnectRequiredMessage = 'Connect your GitHub account to load repository activity.';
 type GitHubRouteState = 'initializing' | 'needsAppAuth' | 'needsGitHubAccount' | 'needsRepository' | 'connected' | 'error';
 type GithubCollaboratorPermission = 'pull' | 'triage' | 'push' | 'maintain';
+
+function getMemberUserId(member: Member): number | undefined {
+  return member.user?.userId ?? member.userId;
+}
+
+function getMemberGithubUsername(member: Member): string | null {
+  return member.user?.githubUsername ?? member.githubUsername ?? null;
+}
+
+function getMemberGithubEmail(member: Member): string | null {
+  return member.user?.githubEmail ?? member.githubEmail ?? null;
+}
+
+function getMemberDisplayName(member: Member): string {
+  return member.user?.username ?? member.username ?? member.user?.email ?? member.email ?? 'Team member';
+}
+
+function getMemberInviteIdentifier(member: Member): string | null {
+  return getMemberGithubUsername(member) ?? getMemberGithubEmail(member);
+}
 
 function getApiErrorMessage(error: unknown, fallback: string): string {
   if (error && typeof error === 'object' && 'response' in error) {
@@ -827,6 +847,7 @@ function RepoModal({
 
 function InviteCollaboratorModal({
   repoFullName,
+  members,
   loading,
   error,
   result,
@@ -834,6 +855,7 @@ function InviteCollaboratorModal({
   onClose,
 }: {
   repoFullName: string;
+  members: Member[];
   loading: boolean;
   error: string | null;
   result: GithubCollaboratorInviteResponse | null;
@@ -843,6 +865,8 @@ function InviteCollaboratorModal({
   const [identifier, setIdentifier] = useState('');
   const [permission, setPermission] = useState<GithubCollaboratorPermission>('push');
   const canSubmit = identifier.trim().length > 0 && !loading;
+  const inviteReadyMembers = members.filter(member => Boolean(getMemberInviteIdentifier(member)));
+  const inviteBlockedMembers = members.filter(member => !getMemberInviteIdentifier(member));
 
   return (
     <OverlayPortal>
@@ -898,6 +922,45 @@ function InviteCollaboratorModal({
                 style={glass.input}
               />
             </label>
+
+            {members.length > 0 && (
+              <div className="grid gap-2">
+                <span className="text-xs font-outfit font-semibold text-cu-text-secondary">Team members</span>
+                <div className="max-h-40 overflow-y-auto rounded-xl border border-cu-border bg-cu-bg-secondary p-2">
+                  {inviteReadyMembers.map(member => {
+                    const inviteIdentifier = getMemberInviteIdentifier(member);
+                    const githubUsername = getMemberGithubUsername(member);
+                    return (
+                      <button
+                        key={`ready-${member.id}`}
+                        type="button"
+                        onClick={() => inviteIdentifier && setIdentifier(inviteIdentifier)}
+                        className="flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-cu-hover"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-outfit font-semibold text-cu-text-primary">{getMemberDisplayName(member)}</span>
+                          <span className="block truncate text-xs font-outfit text-cu-text-tertiary">
+                            {githubUsername ? `@${githubUsername}` : inviteIdentifier}
+                          </span>
+                        </span>
+                        <UserPlus size={13} className="shrink-0 text-cu-text-tertiary" />
+                      </button>
+                    );
+                  })}
+                  {inviteBlockedMembers.map(member => (
+                    <div
+                      key={`blocked-${member.id}`}
+                      className="flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-left opacity-70"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-outfit font-semibold text-cu-text-secondary">{getMemberDisplayName(member)}</span>
+                        <span className="block truncate text-xs font-outfit text-cu-text-tertiary">Connect GitHub in profile first.</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <label className="grid gap-1.5">
               <span className="text-xs font-outfit font-semibold text-cu-text-secondary">Permission</span>
@@ -2028,6 +2091,7 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
   const [isPostLogout, setIsPostLogout] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState<SavedGitHubAccount[]>([]);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
+  const [projectMembers, setProjectMembers] = useState<Member[]>([]);
 
   const [showModal, setShowModal] = useState(false);
   const [allRepos, setAllRepos] = useState<GitHubRepository[]>([]);
@@ -2121,7 +2185,8 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
     if (!currentUser?.userId) return;
     fetchMembers(projectId)
       .then(members => {
-        const me = members.find(m => m.userId === currentUser.userId);
+        setProjectMembers(members);
+        const me = members.find(m => getMemberUserId(m) === currentUser.userId);
         setCanChangeRepo(me?.role === 'OWNER' || me?.role === 'ADMIN');
       })
       .catch(() => { });
@@ -2285,7 +2350,7 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
     const redirectUri = `${window.location.origin}/github/callback`;
     const params = new URLSearchParams({
       client_id: GITHUB_CLIENT_ID,
-      scope: 'repo',
+      scope: 'repo user:email',
       state: projectId,
       redirect_uri: redirectUri,
     });
@@ -2384,7 +2449,7 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
   const handleLogout = async () => {
     try {
       await api.post('/api/github/revoke');
-      // Fetch the updated user profile from the backend to clear the githubUsername field in local cache
+      // Fetch the updated user profile from the backend to clear GitHub identity fields in local cache.
       const profileRes = await api.get('/api/user/profile');
       if (profileRes.data) {
         localStorage.setItem('userProfile', JSON.stringify(profileRes.data));
@@ -2392,12 +2457,13 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
         localStorage.removeItem('userProfile');
       }
     } catch {
-      // Fallback: manually delete githubUsername from userProfile in localStorage if request fails
+      // Fallback: manually delete GitHub identity fields from userProfile in localStorage if request fails.
       const profile = localStorage.getItem('userProfile');
       if (profile) {
         try {
           const parsed = JSON.parse(profile);
           delete parsed.githubUsername;
+          delete parsed.githubEmail;
           localStorage.setItem('userProfile', JSON.stringify(parsed));
         } catch {
           localStorage.removeItem('userProfile');
@@ -2610,6 +2676,7 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
         {showInviteModal && connection && (
           <InviteCollaboratorModal
             repoFullName={connection.repoFullName}
+            members={projectMembers}
             loading={inviteLoading}
             error={inviteError}
             result={inviteResult}

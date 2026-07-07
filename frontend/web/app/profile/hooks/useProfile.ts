@@ -24,6 +24,8 @@ type UserResponse = {
     company: string | null;
     position: string | null;
     bio: string | null;
+    githubUsername: string | null;
+    githubEmail: string | null;
 };
 
 type PhotoUploadResponse = {
@@ -61,6 +63,8 @@ export function useProfile() {
     const [position, setPosition] = useState('');
     const [bio, setBio] = useState('');
     const [profilePicUrl, setProfilePicUrl] = useState('');
+    const [githubUsername, setGithubUsername] = useState<string | null>(null);
+    const [githubEmail, setGithubEmail] = useState<string | null>(null);
     const [imageKey, setImageKey] = useState(Date.now());
     const [lastActive, setLastActive] = useState<string | null>(null);
     const [loadedProfile, setLoadedProfile] = useState<EditableProfileFields | null>(null);
@@ -68,6 +72,7 @@ export function useProfile() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSavingName, setIsSavingName] = useState(false);
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+    const [isDisconnectingGithub, setIsDisconnectingGithub] = useState(false);
 
     const [errorMessage, setErrorMessage] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
@@ -128,7 +133,10 @@ export function useProfile() {
                 setPosition(p.position || '');
                 setBio(p.bio || '');
                 setProfilePicUrl(p.profilePicUrl || '');
+                setGithubUsername(p.githubUsername || null);
+                setGithubEmail(p.githubEmail || null);
                 setLastActive(p.lastActive || null);
+                localStorage.setItem('userProfile', JSON.stringify(p));
                 setLoadedProfile({
                     fullName: p.fullName || '',
                     firstName: p.firstName || '',
@@ -155,6 +163,41 @@ export function useProfile() {
 
     const reloadProfile = () => {
         setReloadToken((value) => value + 1);
+    };
+
+    const onConnectGithub = () => {
+        const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
+        if (!clientId) {
+            setErrorMessage('GitHub OAuth is not configured. Please set NEXT_PUBLIC_GITHUB_CLIENT_ID.');
+            return;
+        }
+        const redirectUri = `${window.location.origin}/github/callback`;
+        const params = new URLSearchParams({
+            client_id: clientId,
+            scope: 'repo user:email',
+            state: 'profile',
+            redirect_uri: redirectUri,
+        });
+        window.location.href = `https://github.com/login/oauth/authorize?${params}`;
+    };
+
+    const onDisconnectGithub = async () => {
+        setIsDisconnectingGithub(true);
+        setErrorMessage('');
+        setSuccessMessage('');
+        try {
+            await api.post('/api/github/revoke');
+            const response = await api.get<UserResponse>('/api/user/profile');
+            const p = response.data;
+            setGithubUsername(p.githubUsername || null);
+            setGithubEmail(p.githubEmail || null);
+            localStorage.setItem('userProfile', JSON.stringify(p));
+            setSuccessMessage('GitHub account disconnected.');
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(error, 'Failed to disconnect GitHub account.'));
+        } finally {
+            setIsDisconnectingGithub(false);
+        }
     };
 
     const onSaveProfile = async (event: FormEvent<HTMLFormElement>) => {
@@ -244,17 +287,22 @@ export function useProfile() {
         company, setCompany,
         position, setPosition,
         bio, setBio,
+        githubUsername,
+        githubEmail,
         resolvedProfilePicUrl,
         imageKey,
         lastActive,
         isLoading,
         isSavingName,
         isUploadingPhoto,
+        isDisconnectingGithub,
         hasUnsavedChanges,
         canSaveProfile,
         errorMessage,
         successMessage,
         reloadProfile,
+        onConnectGithub,
+        onDisconnectGithub,
         onSaveProfile,
         onUploadPhoto,
     };

@@ -25,6 +25,7 @@ import {
 import { useProfile } from './hooks/useProfile';
 import { useChangePassword } from './hooks/useChangePassword';
 import ChangePasswordCard from './components/ChangePasswordCard';
+import GitHubMark from '@/components/github/GitHubMark';
 import { BIO_MAX, disabledCls, formatRelativeTime, inputCls, labelCls, splitPhoneNumber } from './lib/profile-utils';
 
 type SectionProps = {
@@ -80,12 +81,14 @@ export default function ProfilePage() {
         company, setCompany,
         position, setPosition,
         bio, setBio,
+        githubUsername, githubEmail,
         resolvedProfilePicUrl, imageKey,
         lastActive,
-        isLoading, isSavingName, isUploadingPhoto,
+        isLoading, isSavingName, isUploadingPhoto, isDisconnectingGithub,
         hasUnsavedChanges, canSaveProfile,
         errorMessage, successMessage,
         reloadProfile,
+        onConnectGithub, onDisconnectGithub,
         onSaveProfile, onUploadPhoto,
     } = useProfile();
 
@@ -269,6 +272,45 @@ export default function ProfilePage() {
                                 <div>
                                     <label className={labelCls}>Email</label>
                                     <input type="email" value={email} disabled className={disabledCls} />
+                                </div>
+                            </div>
+                        </ProfileSection>
+
+                        <ProfileSection
+                            icon={<GitHubMark size={17} />}
+                            title="GitHub"
+                            description="Connect the GitHub account used for repository access and collaborator invites."
+                        >
+                            <div className="rounded-lg border border-cu-border bg-cu-bg-secondary px-3.5 py-3">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-cu-text-primary">
+                                            {githubUsername ? `Connected as @${githubUsername}` : 'GitHub is not connected'}
+                                        </p>
+                                        <p className="mt-1 truncate text-xs text-cu-text-muted">
+                                            {githubEmail || (githubUsername ? 'GitHub email is private or unavailable.' : 'Connect GitHub so project owners can invite you to repositories.')}
+                                        </p>
+                                    </div>
+                                    {githubUsername ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => void onDisconnectGithub()}
+                                            disabled={isDisconnectingGithub}
+                                            className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300"
+                                        >
+                                            {isDisconnectingGithub ? <RefreshCw size={14} className="animate-spin" /> : <GitHubMark size={14} />}
+                                            Disconnect
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={onConnectGithub}
+                                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-cu-primary px-3 py-2 text-sm font-semibold text-white shadow-cu-sm transition-colors hover:bg-cu-primary-hover"
+                                        >
+                                            <GitHubMark size={14} />
+                                            Connect GitHub
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </ProfileSection>

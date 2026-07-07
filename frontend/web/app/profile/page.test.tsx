@@ -71,17 +71,22 @@ function makeProfile(overrides: Partial<ReturnType<typeof useProfile>> = {}): Re
         setPosition: jest.fn(),
         bio: 'Building useful tools.',
         setBio: jest.fn(),
+        githubUsername: null,
+        githubEmail: null,
         resolvedProfilePicUrl: '',
         imageKey: 1,
         lastActive: '2026-07-07T06:30:00Z',
         isLoading: false,
         isSavingName: false,
         isUploadingPhoto: false,
+        isDisconnectingGithub: false,
         hasUnsavedChanges: false,
         canSaveProfile: false,
         errorMessage: '',
         successMessage: '',
         reloadProfile: jest.fn(),
+        onConnectGithub: jest.fn(),
+        onDisconnectGithub: jest.fn(),
         onSaveProfile: jest.fn(),
         onUploadPhoto: jest.fn(),
         ...overrides,
@@ -102,6 +107,33 @@ describe('ProfilePage', () => {
         expect(screen.getByDisplayValue('Suthan Kanthan')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled();
         expect(screen.getByText('Profile is up to date')).toBeInTheDocument();
+        expect(screen.getByText('GitHub is not connected')).toBeInTheDocument();
+    });
+
+    it('shows connected GitHub identity and disconnect action', () => {
+        const onDisconnectGithub = jest.fn();
+        mockedUseProfile.mockReturnValue(makeProfile({
+            githubUsername: 'octocat',
+            githubEmail: 'octocat@example.com',
+            onDisconnectGithub,
+        }));
+
+        render(<ProfilePage />);
+
+        expect(screen.getByText('Connected as @octocat')).toBeInTheDocument();
+        expect(screen.getByText('octocat@example.com')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: /disconnect/i }));
+        expect(onDisconnectGithub).toHaveBeenCalled();
+    });
+
+    it('calls connect GitHub from disconnected profile state', () => {
+        const onConnectGithub = jest.fn();
+        mockedUseProfile.mockReturnValue(makeProfile({ onConnectGithub }));
+
+        render(<ProfilePage />);
+
+        fireEvent.click(screen.getByRole('button', { name: /connect github/i }));
+        expect(onConnectGithub).toHaveBeenCalled();
     });
 
     it('splits selected phone country code from the contact number', () => {

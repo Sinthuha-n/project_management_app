@@ -68,6 +68,8 @@ public class GitHubIntegrationService {
 
     private final CiStatusResolver ciStatusResolver;
 
+    private record GithubIdentity(String username, String email) {}
+
     public String getClientId() {
         return clientId;
     }
@@ -429,16 +431,16 @@ public class GitHubIntegrationService {
 
             String accessToken = body.path("access_token").asText();
 
-            // Fetch GitHub profile username (login)
-            String githubUsername = fetchGitHubUsername(accessToken);
+            GithubIdentity githubIdentity = fetchGitHubIdentity(accessToken);
 
             // Save token encrypted
             githubTokenService.saveToken(userId, accessToken);
 
-            // Save GitHub username
+            // Save GitHub identity
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-            user.setGithubUsername(githubUsername);
+            user.setGithubUsername(githubIdentity.username());
+            user.setGithubEmail(githubIdentity.email());
             userRepository.save(user);
 
         } catch (RestClientException e) {
@@ -447,7 +449,7 @@ public class GitHubIntegrationService {
         }
     }
 
-    private String fetchGitHubUsername(String accessToken) {
+    private GithubIdentity fetchGitHubIdentity(String accessToken) {
         String url = GITHUB_API + "/user";
         HttpHeaders headers = buildHeaders(accessToken);
         try {
@@ -455,11 +457,38 @@ public class GitHubIntegrationService {
                     url, HttpMethod.GET, new HttpEntity<>(headers), JsonNode.class);
             JsonNode body = response.getBody();
             if (body != null && !body.path("login").isMissingNode()) {
-                return body.path("login").asText();
+                String username = body.path("login").asText();
+                String publicEmail = body.path("email").asText(null);
+                String primaryEmail = fetchPrimaryVerifiedGithubEmail(accessToken);
+                return new GithubIdentity(username, !isBlank(primaryEmail) ? primaryEmail : publicEmail);
             }
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to retrieve username from GitHub profile");
         } catch (RestClientException e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch GitHub user profile during OAuth", e);
+        }
+    }
+
+    private String fetchPrimaryVerifiedGithubEmail(String accessToken) {
+        String url = GITHUB_API + "/user/emails";
+        HttpHeaders headers = buildHeaders(accessToken);
+        try {
+            ResponseEntity<JsonNode> response = restTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), JsonNode.class);
+            JsonNode body = response.getBody();
+            if (body == null || !body.isArray()) {
+                return null;
+            }
+            for (JsonNode emailNode : body) {
+                boolean primary = emailNode.path("primary").asBoolean(false);
+                boolean verified = emailNode.path("verified").asBoolean(false);
+                String email = emailNode.path("email").asText(null);
+                if (primary && verified && !isBlank(email)) {
+                    return email;
+                }
+            }
+            return null;
+        } catch (RestClientException e) {
+            return null;
         }
     }
 
@@ -488,11 +517,12 @@ public class GitHubIntegrationService {
             // Log warning but proceed to clear local data
         }
 
-        // Clear local token and username
+        // Clear local token and GitHub identity
         githubTokenService.clearToken(userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         user.setGithubUsername(null);
+        user.setGithubEmail(null);
         userRepository.save(user);
     }
 

@@ -624,6 +624,7 @@ public class UserService {
                 user.getPosition(),
                 user.getBio(),
                 user.getGithubUsername(),
+                user.getGithubEmail(),
                 user.isNotifyDueDateReminders()
         );
     }
@@ -649,6 +650,7 @@ public class UserService {
         User user = getUserByEmail(email);
         validateGithubUsernameUniqueness(user, githubUsername);
         user.setGithubUsername(githubUsername);
+        user.setGithubEmail(null);
         return mapToUserResponseDTO(userRepository.save(user));
     }
 
@@ -657,6 +659,7 @@ public class UserService {
     public UserResponseDTO unlinkGithubUsernameAndGetDTO(String email) {
         User user = getUserByEmail(email);
         user.setGithubUsername(null);
+        user.setGithubEmail(null);
         return mapToUserResponseDTO(userRepository.save(user));
     }
 

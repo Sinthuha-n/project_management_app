@@ -1,5 +1,5 @@
 Planora API Contract Check
-Frontend call sites scanned: 406
+Frontend call sites scanned: 408
 Backend routes scanned: 272
 
 Backend endpoints with no frontend/mobile usage: 40
@@ -38,8 +38,8 @@ Backend endpoints with no frontend/mobile usage: 40
 - backend/src/main/java/com/planora/backend/controller/TeamController.java:87 DELETE /api/teams/:id
 - backend/src/main/java/com/planora/backend/controller/TeamInvitationController.java:27 GET /api/teams/:teamId/pending-invites
 - backend/src/main/java/com/planora/backend/controller/TeamMemberController.java:34 POST /api/teams/:teamId/members/:userId
-- backend/src/main/java/com/planora/backend/controller/TeamMemberController.java:98 PUT /api/teams/:teamId/members/:userId/role
-- backend/src/main/java/com/planora/backend/controller/TeamMemberController.java:112 DELETE /api/teams/:teamId/members/:userId
+- backend/src/main/java/com/planora/backend/controller/TeamMemberController.java:100 PUT /api/teams/:teamId/members/:userId/role
+- backend/src/main/java/com/planora/backend/controller/TeamMemberController.java:114 DELETE /api/teams/:teamId/members/:userId
 - backend/src/main/java/com/planora/backend/controller/UserController.java:96 POST /api/auth/resend-otp
 - backend/src/main/java/com/planora/backend/controller/UserController.java:181 GET /api/auth/users/:userId/photo
 - backend/src/main/java/com/planora/backend/controller/UserController.java:192 GET /api/auth/me

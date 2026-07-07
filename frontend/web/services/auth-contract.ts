@@ -32,6 +32,8 @@ export interface UserProfileDto {
   company: string | null;
   position: string | null;
   bio: string | null;
+  githubUsername: string | null;
+  githubEmail: string | null;
 }
 
 export interface PhotoUploadResponse {

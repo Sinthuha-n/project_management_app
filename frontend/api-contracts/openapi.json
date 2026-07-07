@@ -5227,6 +5227,9 @@
           "githubAccessToken": {
             "type": "string"
           },
+          "githubEmail": {
+            "type": "string"
+          },
           "githubUsername": {
             "type": "string"
           },
@@ -5285,6 +5288,12 @@
             "type": "string"
           },
           "fullName": {
+            "type": "string"
+          },
+          "githubEmail": {
+            "type": "string"
+          },
+          "githubUsername": {
             "type": "string"
           },
           "profilePicUrl": {

@@ -176,7 +176,17 @@ const backendConnection: ProjectGitHubConnection = {
 function arrangeDefaults() {
   mockedEnsureValidToken.mockResolvedValue('access-token');
   mockedGetUserFromToken.mockReturnValue({ email: 'owner@example.com', userId: 10 });
-  mockedFetchMembers.mockResolvedValue([{ userId: 10, role: 'OWNER' }] as Awaited<ReturnType<typeof fetchMembers>>);
+  mockedFetchMembers.mockResolvedValue([{
+    id: 1,
+    role: 'OWNER',
+    user: {
+      userId: 10,
+      username: 'owner',
+      email: 'owner@example.com',
+      githubUsername: 'ownerhub',
+      githubEmail: 'owner@users.noreply.github.com',
+    },
+  }] as Awaited<ReturnType<typeof fetchMembers>>);
   mockedFetchGitHubConnectionStatus.mockResolvedValue({ connected: true });
   mockedFetchProjectGitHubConnection.mockResolvedValue(backendConnection);
   mockedFetchProjectPullRequests.mockResolvedValue([]);
@@ -307,14 +317,34 @@ describe('GitHubProjectPage', () => {
   });
 
   it('allows owner/admin users to invite a GitHub collaborator', async () => {
+    mockedFetchMembers.mockResolvedValue([{
+      id: 1,
+      role: 'OWNER',
+      user: { userId: 10, username: 'owner', email: 'owner@example.com' },
+    }, {
+      id: 2,
+      role: 'MEMBER',
+      user: {
+        userId: 11,
+        username: 'octocat',
+        email: 'octocat@planora.test',
+        githubUsername: 'octocat',
+        githubEmail: 'octocat@users.noreply.github.com',
+      },
+    }, {
+      id: 3,
+      role: 'MEMBER',
+      user: { userId: 12, username: 'nohub', email: 'nohub@planora.test' },
+    }] as Awaited<ReturnType<typeof fetchMembers>>);
+
     render(<GitHubProjectPage projectId="7" />);
 
     const inviteButton = await screen.findByRole('button', { name: /^Invite$/ });
     fireEvent.click(inviteButton);
+    expect(screen.getByText('@octocat')).toBeInTheDocument();
+    expect(screen.getAllByText('Connect GitHub in profile first.').length).toBeGreaterThan(0);
 
-    fireEvent.change(screen.getByPlaceholderText('octocat or teammate@example.com'), {
-      target: { value: 'octocat' },
-    });
+    fireEvent.click(screen.getByRole('button', { name: /octocat/i }));
     const inviteButtons = screen.getAllByRole('button', { name: /^Invite$/ });
     fireEvent.click(inviteButtons[inviteButtons.length - 1]);
 

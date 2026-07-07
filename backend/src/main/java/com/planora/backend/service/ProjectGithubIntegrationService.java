@@ -24,7 +24,6 @@ import com.planora.backend.model.User;
 import com.planora.backend.repository.GithubIntegrationRepository;
 import com.planora.backend.repository.ProjectRepository;
 import com.planora.backend.repository.TeamMemberRepository;
-import com.planora.backend.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +39,6 @@ public class ProjectGithubIntegrationService {
     private final GithubTokenService githubTokenService;
     private final ProjectRepository projectRepository;
     private final TeamMemberRepository teamMemberRepository;
-    private final UserRepository userRepository;
 
     @Transactional
     public ProjectGithubRepositoryDTO linkRepository(GithubLinkRequestDTO request, Long userId) {
@@ -139,7 +137,7 @@ public class ProjectGithubIntegrationService {
 
         String identifier = normalizeIdentifier(request.getIdentifier());
         String permission = normalizePermission(request.getPermission());
-        String githubUsername = resolveGithubUsername(identifier, accessToken);
+        String githubUsername = resolveGithubUsername(project, identifier, accessToken);
 
         try {
             GithubApiClient.CollaboratorInviteResult result = githubApiClient.addRepositoryCollaborator(
@@ -217,9 +215,15 @@ public class ProjectGithubIntegrationService {
         }
     }
 
-    private String resolveGithubUsername(String identifier, String accessToken) {
+    private String resolveGithubUsername(Project project, String identifier, String accessToken) {
         if (identifier.contains("@")) {
-            return userRepository.findFirstByEmailIgnoreCase(identifier)
+            Long teamId = project.getTeam().getId();
+            return teamMemberRepository.findByTeamId(teamId).stream()
+                    .map(TeamMember::getUser)
+                    .filter(user -> user != null && (
+                            identifier.equalsIgnoreCase(user.getEmail())
+                                    || (user.getGithubEmail() != null && identifier.equalsIgnoreCase(user.getGithubEmail()))))
+                    .findFirst()
                     .map(User::getGithubUsername)
                     .filter(username -> username != null && !username.isBlank())
                     .orElseThrow(() -> new BadRequestException("GitHub username required for private-email accounts."));

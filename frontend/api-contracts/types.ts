@@ -5450,6 +5450,7 @@ export interface components {
             firstName?: string;
             fullName?: string;
             githubAccessToken?: string;
+            githubEmail?: string;
             githubUsername?: string;
             jobTitle?: string;
             /** Format: date-time */
@@ -5469,6 +5470,8 @@ export interface components {
         UserInfo: {
             email?: string;
             fullName?: string;
+            githubEmail?: string;
+            githubUsername?: string;
             profilePicUrl?: string;
             /** Format: int64 */
             userId?: number;

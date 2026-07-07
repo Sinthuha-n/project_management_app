@@ -49,6 +49,8 @@ const profileResponse = {
     company: 'Planora',
     position: 'Engineering',
     bio: 'Building useful tools.',
+    githubUsername: 'octocat',
+    githubEmail: 'octocat@example.com',
 };
 
 describe('useProfile', () => {
@@ -72,6 +74,8 @@ describe('useProfile', () => {
         expect(result.current.fullName).toBe('Suthan Kanthan');
         expect(result.current.contactNumber).toBe('5550000');
         expect(result.current.countryCode).toBe('+1');
+        expect(result.current.githubUsername).toBe('octocat');
+        expect(result.current.githubEmail).toBe('octocat@example.com');
         expect(result.current.hasUnsavedChanges).toBe(false);
         expect(result.current.canSaveProfile).toBe(false);
     });
@@ -134,5 +138,24 @@ describe('useProfile', () => {
         });
         expect(result.current.resolvedProfilePicUrl).toBe('/uploads/new-avatar.png');
         expect((event.target as HTMLInputElement).value).toBe('');
+    });
+
+    it('disconnects GitHub and refreshes stored profile identity', async () => {
+        mockedApi.post.mockResolvedValueOnce({ data: { success: true } });
+        mockedApi.get
+            .mockResolvedValueOnce({ data: profileResponse })
+            .mockResolvedValueOnce({ data: { ...profileResponse, githubUsername: null, githubEmail: null } });
+
+        const { result } = renderHook(() => useProfile());
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        await act(async () => {
+            await result.current.onDisconnectGithub();
+        });
+
+        expect(mockedApi.post).toHaveBeenCalledWith('/api/github/revoke');
+        expect(result.current.githubUsername).toBeNull();
+        expect(result.current.githubEmail).toBeNull();
+        expect(result.current.successMessage).toBe('GitHub account disconnected.');
     });
 });
