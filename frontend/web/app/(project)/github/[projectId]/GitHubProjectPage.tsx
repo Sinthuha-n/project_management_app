@@ -485,7 +485,7 @@ function AccountDropdown({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 6 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-64 rounded-2xl overflow-hidden z-[300]"
+            className="absolute right-0 top-full mt-2 w-64 rounded-2xl overflow-hidden z-[var(--cu-z-dropdown)]"
             style={glass.modal}
           >
             <div className="px-4 py-3.5" style={glass.divider}>
@@ -560,7 +560,7 @@ function RepoModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[500] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center p-4"
       style={{ background: 'rgba(5,8,20,0.72)', backdropFilter: 'blur(10px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -698,7 +698,7 @@ function AccountPickerModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[500] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center p-4"
       style={{ background: 'rgba(5,8,20,0.72)', backdropFilter: 'blur(10px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >

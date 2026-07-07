@@ -53,7 +53,7 @@ const StatusSection: React.FC<StatusSectionProps> = ({ projectId, status, onUpda
           <ChevronDown size={16} className="opacity-60" />
         </button>
         {isOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-cu-bg border border-cu-border rounded-lg shadow-cu-lg z-[100] overflow-hidden">
+          <div className="absolute top-full left-0 right-0 mt-1 bg-cu-bg border border-cu-border rounded-lg shadow-cu-lg z-[var(--cu-z-dropdown)] overflow-hidden">
             {statuses.map((option) => {
               const isCurrent = option.status === status;
               return (

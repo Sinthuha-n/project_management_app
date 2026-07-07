@@ -127,7 +127,7 @@ export default function DateRangeFilter({
       {/* Close overlay when clicking outside */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40"
+          className="fixed inset-0 z-[var(--cu-z-overlay)]"
           onClick={() => setIsOpen(false)}
         />
       )}

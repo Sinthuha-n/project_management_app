@@ -22,7 +22,7 @@ export function RemoveMemberModal({
   if (!isOpen || !memberToRemove) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50 p-4 sm:p-0">
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-[var(--cu-z-modal)] p-4 sm:p-0">
       <div className="bg-cu-bg rounded-lg shadow-lg p-4 sm:p-8 w-full max-w-sm relative">
         <button
           onClick={onClose}

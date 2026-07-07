@@ -341,7 +341,7 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999]" onClick={() => onClose(wasModified.current)}>
+    <div className="fixed inset-0 z-[var(--cu-z-modal)]" onClick={() => onClose(wasModified.current)}>
       {/* Backdrop */}
       <motion.div 
         initial={{ opacity: 0 }} 

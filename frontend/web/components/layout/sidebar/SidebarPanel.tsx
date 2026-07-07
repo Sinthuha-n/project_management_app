@@ -58,7 +58,7 @@ export function SidebarPanel({ open, onClose, title, badge, searchValue, onSearc
           animate={{ opacity: 1, x: 0, scale: 1 }}
           exit={{ opacity: 0, x: -12, scale: 0.97 }}
           transition={{ type: 'spring', stiffness: 420, damping: 30, mass: 0.7 }}
-          className="fixed z-[9999] flex flex-col bg-cu-bg border border-cu-border rounded-xl shadow-cu-xl overflow-hidden ring-1 ring-black/5"
+          className="fixed z-[var(--cu-z-sidebar-panel)] flex flex-col bg-cu-bg border border-cu-border rounded-xl shadow-cu-xl overflow-hidden ring-1 ring-black/5"
           style={{
             top: anchorTop !== undefined ? anchorTop : 8,
             left: anchorLeft + 8,

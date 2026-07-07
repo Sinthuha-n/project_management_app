@@ -207,7 +207,7 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label="Create GitHub Issue"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[var(--cu-z-modal-popover)] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
       onClick={handleBackdropClick}
     >
       <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">

@@ -453,7 +453,7 @@ export default function Sidebar() {
     <>
       {/* Mobile Backdrop Overlay - Full screen blur to cover everything */}
       <div
-        className={`md:hidden fixed inset-0 z-[9998] bg-slate-950/55 backdrop-blur-xl transition-all duration-300 ease-in-out ${isMobile && !collapsed ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        className={`md:hidden fixed inset-0 z-[var(--cu-z-overlay)] bg-slate-950/55 backdrop-blur-xl transition-all duration-300 ease-in-out ${isMobile && !collapsed ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
         onClick={() => {
           setCollapsed(true);
@@ -472,13 +472,13 @@ export default function Sidebar() {
 
       <div
         ref={sidebarRef}
-        className={`h-screen flex-shrink-0 ${isMobile ? 'fixed left-0 top-0 z-[9999]' : 'relative'} ${isMobile && collapsed ? 'pointer-events-none' : ''}`}
+        className={`h-screen flex-shrink-0 ${isMobile ? 'fixed left-0 top-0 z-[var(--cu-z-sidebar)]' : 'relative'} ${isMobile && collapsed ? 'pointer-events-none' : ''}`}
         style={{
           width: isMobile ? '260px' : (collapsed ? '64px' : '240px'),
         }}
       >
         <div
-          className={`bg-cu-sidebar transition-all duration-300 ease-in-out ${isMobile ? 'relative h-full' : 'fixed left-0 top-0 h-screen z-[9999]'} pointer-events-auto`}
+          className={`bg-cu-sidebar transition-all duration-300 ease-in-out ${isMobile ? 'relative h-full' : 'fixed left-0 top-0 h-screen z-[var(--cu-z-sidebar)]'} pointer-events-auto`}
           style={{
             width: isMobile ? '260px' : (collapsed ? '64px' : '240px'),
             transform: isMobile && collapsed ? 'translateX(-100%)' : 'translateX(0)',

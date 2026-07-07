@@ -95,7 +95,7 @@ export function NotificationsDropdown({
         top: fixedTop,
         left: fixedLeft,
         width: '260px',
-        zIndex: 9999,
+        zIndex: 'var(--cu-z-sidebar-panel)',
         animation: 'dropdownIn 180ms cubic-bezier(0.4,0,0.2,1)',
         maxHeight: '400px'
       }}

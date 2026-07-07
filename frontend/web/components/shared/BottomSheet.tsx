@@ -61,7 +61,7 @@ export default function BottomSheet({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.2 }}
-                        className="fixed inset-0 z-[150] bg-black/45"
+                        className="fixed inset-0 z-[var(--cu-z-modal)] bg-black/45"
                         onClick={onClose}
                         aria-hidden="true"
                     />
@@ -83,7 +83,7 @@ export default function BottomSheet({
                         onDragEnd={(_, info) => {
                             if (info.offset.y > 80 || info.velocity.y > 500) onClose();
                         }}
-                        className={`fixed bottom-0 inset-x-0 z-[151] bg-white rounded-t-[24px] flex flex-col ${maxHeightClass} overflow-hidden`}
+                        className={`fixed bottom-0 inset-x-0 z-[var(--cu-z-modal)] bg-white rounded-t-[24px] flex flex-col ${maxHeightClass} overflow-hidden`}
                         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
                     >
                         {/* Drag handle */}

@@ -133,7 +133,7 @@ export default function CreateTaskModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 bg-black/50 z-[var(--cu-z-modal)] flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-cu-bg rounded-2xl shadow-cu-xl border border-cu-border max-w-md w-full overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4">

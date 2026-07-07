@@ -351,7 +351,7 @@ function BacklogPageContent() {
 
             {/* ── Bulk action floating bar ── */}
             {selectedIds.size > 0 && (
-                <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-4 py-2.5 bg-cu-bg text-cu-text-primary border border-cu-border rounded-2xl shadow-2xl">
+                <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-[var(--cu-z-toast)] flex items-center gap-2 px-4 py-2.5 bg-cu-bg text-cu-text-primary border border-cu-border rounded-2xl shadow-2xl">
                     <span className="text-[13px] font-medium">{selectedIds.size} selected</span>
                     <button onClick={handleBulkDone} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-[12px] font-medium hover:bg-emerald-700 transition-colors">
                         <Check size={13} /> Mark Done

@@ -303,7 +303,7 @@ export default function CommandPalette() {
         <>
             {open && (
                 <div
-                    className="fixed inset-0 z-[200] flex items-start justify-center pt-[12vh] px-4"
+                    className="fixed inset-0 z-[var(--cu-z-command)] flex items-start justify-center pt-[12vh] px-4"
                     role="dialog"
                     aria-modal="true"
                     aria-label="Command palette"

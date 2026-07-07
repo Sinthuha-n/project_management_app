@@ -50,7 +50,7 @@ export default function StartSprintModal({ open, sprintName, loading, error, onS
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center"
+      className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center"
       style={{ backgroundColor: 'rgba(16, 24, 40, 0.55)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >

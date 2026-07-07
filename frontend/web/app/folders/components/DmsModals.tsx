@@ -332,7 +332,7 @@ export default function DmsModals({
     if (!isModalOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
             
             {/* 1. RENAME DOCUMENT MODAL */}
             {renameDoc !== null && (
@@ -388,7 +388,7 @@ export default function DmsModals({
 
             {/* 2. BACKGROUND UPLOAD WIDGET */}
             {isUploading && (
-                <div className="fixed bottom-8 right-8 z-50 w-80 rounded-xl border border-cu-border bg-cu-bg p-4 shadow-2xl animate-in slide-in-from-bottom-5 duration-300">
+                <div className="fixed bottom-8 right-8 z-[var(--cu-z-toast)] w-80 rounded-xl border border-cu-border bg-cu-bg p-4 shadow-2xl animate-in slide-in-from-bottom-5 duration-300">
                     <div className="flex justify-between items-center mb-2">
                         <p className="text-sm font-semibold text-cu-text-primary">Uploading to S3...</p>
                         <span className="text-xs font-bold text-cu-primary">{uploadProgress}%</span>

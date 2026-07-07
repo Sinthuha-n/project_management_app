@@ -549,7 +549,7 @@ export default function ScheduleReportModal({ open, onClose, projectId, projectN
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={() => { if (saveState !== 'loading') resetAndClose(); }}
-            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[3px]"
+            className="fixed inset-0 z-[var(--cu-z-modal)] bg-black/30 backdrop-blur-[3px]"
           />
 
           <motion.div
@@ -557,7 +557,7 @@ export default function ScheduleReportModal({ open, onClose, projectId, projectN
             animate={{ opacity: 1, y: 0,  scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
             transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+            className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center p-4 pointer-events-none"
           >
             <div
               className="pointer-events-auto w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl overflow-hidden shadow-2xl"

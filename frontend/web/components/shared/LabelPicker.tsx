@@ -124,7 +124,7 @@ export default function LabelPicker({ projectId, selectedLabels, onChange }: Lab
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute left-0 top-full mt-1.5 z-[200] w-64 bg-white rounded-xl border border-[#E5E7EB] shadow-lg overflow-hidden">
+        <div className="absolute left-0 top-full mt-1.5 z-[var(--cu-z-dropdown)] w-64 bg-white rounded-xl border border-[#E5E7EB] shadow-lg overflow-hidden">
           {/* Create new label */}
           <div className="p-2 border-b border-[#F3F4F6]">
             <div className="flex items-center gap-1.5">

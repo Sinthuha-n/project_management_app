@@ -160,7 +160,7 @@ export default function DesktopTaskRow(props: TaskRowProps) {
           )}
         </button>
         {assignOpen && typeof document !== 'undefined' && createPortal(
-          <div ref={assignPortalRef} className="fixed z-[9999] w-52 overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl" style={{ top: assignPosition.top, left: assignPosition.left }}>
+          <div ref={assignPortalRef} className="fixed z-[var(--cu-z-dropdown)] w-52 overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl" style={{ top: assignPosition.top, left: assignPosition.left }}>
             <div className="px-3 py-2 text-[10px] font-bold text-cu-text-secondary uppercase tracking-wider border-b border-cu-border bg-cu-bg-secondary">Assign To</div>
             {loadingMembers ? (
               <div className="px-3 py-3 text-[12px] text-cu-text-secondary">Loading…</div>
@@ -193,7 +193,7 @@ export default function DesktopTaskRow(props: TaskRowProps) {
             <ChevronDown size={9} className="flex-shrink-0 opacity-60" />
           </button>
           {statusOpen && typeof document !== 'undefined' && createPortal(
-            <div ref={statusPortalRef} className="fixed z-[9999] w-32 overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl" style={{ top: statusPosition.top, left: statusPosition.left }}>
+            <div ref={statusPortalRef} className="fixed z-[var(--cu-z-dropdown)] w-32 overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl" style={{ top: statusPosition.top, left: statusPosition.left }}>
               {(Object.keys(STATUS_LABELS) as TaskStatus[]).map((s) => (
                 <button key={s} onClick={() => { onStatusChange(task.id, s); setStatusOpen(false); }}
                   className={`w-full px-3 py-2 text-left text-[11px] font-bold hover:bg-cu-hover ${task.status?.toUpperCase() === s ? 'text-cu-primary' : 'text-cu-text-primary'}`}
@@ -249,7 +249,7 @@ export default function DesktopTaskRow(props: TaskRowProps) {
             <Tag size={12} />
           </button>
           {labelOpen && typeof document !== 'undefined' && createPortal(
-            <div ref={labelPortalRef} className="fixed z-[9999] w-56 overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl" style={{ top: labelPosition.top, left: labelPosition.left }}>
+            <div ref={labelPortalRef} className="fixed z-[var(--cu-z-dropdown)] w-56 overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl" style={{ top: labelPosition.top, left: labelPosition.left }}>
               <div className="px-3 py-2 border-b border-cu-border">
                 <input autoFocus type="text" value={labelInput}
                   onChange={(e) => setLabelInput(e.target.value)}

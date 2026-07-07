@@ -302,7 +302,7 @@ function KanbanPageContent() {
 
       {/* Complete All Tasks Confirmation Dialog */}
       {showCompleteConfirm && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-cu-bg rounded-2xl shadow-cu-xl border border-cu-border p-6 max-w-sm w-full mx-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">

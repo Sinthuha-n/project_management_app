@@ -185,7 +185,7 @@ export default function BacklogTaskRow({
                         </button>
                     </Popover.Trigger>
                     <Popover.Portal>
-                        <Popover.Content className="z-[10000] p-3 bg-cu-bg rounded-xl shadow-cu-xl border border-cu-border" sideOffset={5}>
+                        <Popover.Content className="z-[var(--cu-z-modal-popover)] p-3 bg-cu-bg rounded-xl shadow-cu-xl border border-cu-border" sideOffset={5}>
                             <DayPicker
                                 mode="single"
                                 selected={task.dueDate ? parseISO(task.dueDate) : undefined}
