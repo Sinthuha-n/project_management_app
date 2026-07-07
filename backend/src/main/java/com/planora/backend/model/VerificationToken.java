@@ -22,6 +22,8 @@ public class VerificationToken {
 
     private String token;
 
+    private String previousToken;
+
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
@@ -29,6 +31,8 @@ public class VerificationToken {
     private Instant expiry;
 
     private Instant usedAt;
+
+    private Instant previousTokenExpiresAt;
 
     @Builder.Default
     private boolean used = false;
