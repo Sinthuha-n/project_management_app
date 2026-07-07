@@ -27,7 +27,7 @@ jest.mock('@/components/ui', () => ({
 }));
 
 const mockedUploadChatDocument = uploadChatDocument as jest.Mock;
-const mockedToast = toast as jest.Mock;
+const mockedToast = toast as jest.MockedFunction<typeof toast>;
 
 describe('ChatInput', () => {
   beforeEach(() => {
