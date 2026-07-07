@@ -5,6 +5,8 @@ import com.planora.backend.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -28,6 +30,8 @@ class GitHubIntegrationServiceTest {
 
     private GithubTokenService githubTokenService;
     private UserRepository userRepository;
+    private CacheManager cacheManager;
+    private Cache userProfileCache;
     private GitHubIntegrationService service;
     private MockRestServiceServer server;
 
@@ -35,7 +39,11 @@ class GitHubIntegrationServiceTest {
     void setUp() {
         githubTokenService = mock(GithubTokenService.class);
         userRepository = mock(UserRepository.class);
-        service = new GitHubIntegrationService(githubTokenService, userRepository, mock(CiStatusResolver.class));
+        cacheManager = mock(CacheManager.class);
+        userProfileCache = mock(Cache.class);
+        when(cacheManager.getCache("userProfile")).thenReturn(userProfileCache);
+
+        service = new GitHubIntegrationService(githubTokenService, userRepository, mock(CiStatusResolver.class), cacheManager);
         ReflectionTestUtils.setField(service, "clientId", "client-id");
         ReflectionTestUtils.setField(service, "clientSecret", "client-secret");
         ReflectionTestUtils.setField(service, "mobileClientId", "client-id");
@@ -48,6 +56,7 @@ class GitHubIntegrationServiceTest {
     void exchangeAndSaveToken_storesGithubUsernameAndPrimaryVerifiedEmail() {
         User user = new User();
         user.setUserId(7L);
+        user.setEmail("planora-user@example.com");
         when(userRepository.findById(7L)).thenReturn(Optional.of(user));
 
         server.expect(requestTo("https://github.com/login/oauth/access_token"))
@@ -67,6 +76,7 @@ class GitHubIntegrationServiceTest {
         verify(userRepository).save(captor.capture());
         assertEquals("octocat", captor.getValue().getGithubUsername());
         assertEquals("octocat@example.com", captor.getValue().getGithubEmail());
+        verify(userProfileCache).evict("planora-user@example.com");
         server.verify();
     }
 
@@ -74,6 +84,7 @@ class GitHubIntegrationServiceTest {
     void exchangeAndSaveToken_storesUsernameWithNullEmailWhenPrivate() {
         User user = new User();
         user.setUserId(7L);
+        user.setEmail("planora-user@example.com");
         when(userRepository.findById(7L)).thenReturn(Optional.of(user));
 
         server.expect(requestTo("https://github.com/login/oauth/access_token"))
@@ -92,6 +103,7 @@ class GitHubIntegrationServiceTest {
         verify(userRepository).save(captor.capture());
         assertEquals("octocat", captor.getValue().getGithubUsername());
         assertNull(captor.getValue().getGithubEmail());
+        verify(userProfileCache).evict("planora-user@example.com");
         server.verify();
     }
 
@@ -99,6 +111,7 @@ class GitHubIntegrationServiceTest {
     void revokeToken_clearsTokenUsernameAndEmailEvenWhenGithubRevokeFails() {
         User user = new User();
         user.setUserId(7L);
+        user.setEmail("planora-user@example.com");
         user.setGithubUsername("octocat");
         user.setGithubEmail("octocat@example.com");
         when(githubTokenService.getToken(7L)).thenReturn("gh-token");
@@ -115,6 +128,7 @@ class GitHubIntegrationServiceTest {
         verify(userRepository).save(captor.capture());
         assertNull(captor.getValue().getGithubUsername());
         assertNull(captor.getValue().getGithubEmail());
+        verify(userProfileCache).evict("planora-user@example.com");
         server.verify();
     }
 }

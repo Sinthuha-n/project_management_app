@@ -19,6 +19,8 @@ import org.springframework.web.server.ResponseStatusException;
 import com.planora.backend.model.User;
 import com.planora.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -67,6 +69,7 @@ public class GitHubIntegrationService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     private final CiStatusResolver ciStatusResolver;
+    private final CacheManager cacheManager;
 
     private record GithubIdentity(String username, String email) {}
 
@@ -443,6 +446,8 @@ public class GitHubIntegrationService {
             user.setGithubEmail(githubIdentity.email());
             userRepository.save(user);
 
+            evictUserProfileCache(user.getEmail());
+
         } catch (RestClientException e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "Failed to connect to GitHub for token exchange", e);
@@ -524,6 +529,8 @@ public class GitHubIntegrationService {
         user.setGithubUsername(null);
         user.setGithubEmail(null);
         userRepository.save(user);
+
+        evictUserProfileCache(user.getEmail());
     }
 
     public JsonNode fetchGitHubUser(String githubToken) {
@@ -599,6 +606,15 @@ public class GitHubIntegrationService {
         } catch (RestClientException e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "Failed to fetch commits from GitHub", e);
+        }
+    }
+
+    private void evictUserProfileCache(String email) {
+        if (email != null && cacheManager != null) {
+            Cache cache = cacheManager.getCache("userProfile");
+            if (cache != null) {
+                cache.evict(email);
+            }
         }
     }
 }
