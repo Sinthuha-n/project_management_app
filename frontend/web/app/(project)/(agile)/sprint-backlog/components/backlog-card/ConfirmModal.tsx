@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { AlertTriangle, CheckCircle2, Trash2, X } from 'lucide-react';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 export interface ConfirmModalProps {
   open: boolean;
@@ -55,7 +56,8 @@ export default function ConfirmModal({
   const cfg = variantConfig[variant];
 
   return (
-    <div
+    <OverlayPortal>
+      <div
       className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center"
       style={{ backgroundColor: 'rgba(16, 24, 40, 0.6)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
@@ -109,6 +111,7 @@ export default function ConfirmModal({
           }
         `}</style>
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }

@@ -14,6 +14,7 @@ import {
   ScheduledReportRequest,
 } from '@/services/report-schedule-service';
 import { useTheme } from '@/components/providers/ThemeProvider';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface Props {
   open:        boolean;
@@ -542,7 +543,8 @@ export default function ScheduleReportModal({ open, onClose, projectId, projectN
   const isFinalStep = step === totalSteps;
 
   return (
-    <AnimatePresence>
+    <OverlayPortal>
+      <AnimatePresence>
       {open && (
         <>
           <motion.div
@@ -685,6 +687,7 @@ export default function ScheduleReportModal({ open, onClose, projectId, projectN
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+      </AnimatePresence>
+    </OverlayPortal>
   );
 }

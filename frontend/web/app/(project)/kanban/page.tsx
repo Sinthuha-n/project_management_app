@@ -15,6 +15,7 @@ import TaskCardModal from '@/app/taskcard/TaskCardModal';
 import EmptyState from '@/components/shared/EmptyState';
 import { useKanbanBoard } from './useKanbanBoard';
 import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 function KanbanPageContent() {
   const searchParams = useSearchParams();
@@ -302,40 +303,42 @@ function KanbanPageContent() {
 
       {/* Complete All Tasks Confirmation Dialog */}
       {showCompleteConfirm && (
-        <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-cu-bg rounded-2xl shadow-cu-xl border border-cu-border p-6 max-w-sm w-full mx-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                <CheckCircle2 size={20} className="text-emerald-600" />
+        <OverlayPortal>
+          <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="bg-cu-bg rounded-2xl shadow-cu-xl border border-cu-border p-6 max-w-sm w-full mx-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 size={20} className="text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="text-[16px] font-bold text-cu-text-primary">Complete All Tasks</h3>
+                  <p className="text-[13px] text-cu-text-secondary">Mark every task as Done?</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-[16px] font-bold text-cu-text-primary">Complete All Tasks</h3>
-                <p className="text-[13px] text-cu-text-secondary">Mark every task as Done?</p>
+              <p className="text-[14px] text-cu-text-secondary mb-5 leading-relaxed">
+                This will mark all remaining tasks as <span className="font-bold text-emerald-600">Done</span>. This action is definitive but allows you to clear your board quickly.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCompleteConfirm(false)}
+                  className="flex-1 px-4 py-2.5 border border-cu-border rounded-xl text-[14px] font-semibold text-cu-text-secondary hover:bg-cu-hover transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setShowCompleteConfirm(false);
+                    await handleCompleteBoard();
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[14px] font-bold transition-colors shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={16} />
+                  Confirm
+                </button>
               </div>
-            </div>
-            <p className="text-[14px] text-cu-text-secondary mb-5 leading-relaxed">
-              This will mark all remaining tasks as <span className="font-bold text-emerald-600">Done</span>. This action is definitive but allows you to clear your board quickly.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCompleteConfirm(false)}
-                className="flex-1 px-4 py-2.5 border border-cu-border rounded-xl text-[14px] font-semibold text-cu-text-secondary hover:bg-cu-hover transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  setShowCompleteConfirm(false);
-                  await handleCompleteBoard();
-                }}
-                className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[14px] font-bold transition-colors shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
-              >
-                <CheckCircle2 size={16} />
-                Confirm
-              </button>
             </div>
           </div>
-        </div>
+        </OverlayPortal>
       )}
 
       {/* Floating Action Button: Quick Create (mobile) */}

@@ -18,6 +18,9 @@ export default function FullLayout({ children, showTopBar = true }: FullLayoutPr
     const { isSidebarOpen } = useNavigation();
     const isChatRoute = pathname?.includes('/chat');
     const isSprintBacklogRoute = pathname?.includes('/sprint-backlog');
+    const contentInteractionClass = isSidebarOpen
+        ? 'max-md:blur-[3px] pointer-events-none md:pointer-events-auto'
+        : 'pointer-events-auto';
     
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -31,7 +34,7 @@ export default function FullLayout({ children, showTopBar = true }: FullLayoutPr
         <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-cu-bg relative overscroll-none">
             <Sidebar />
             <div
-                className={`flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden transition-[filter] duration-300 ease-out ${isSidebarOpen ? 'blur-[3px] pointer-events-none md:blur-0 md:pointer-events-auto' : 'blur-0 pointer-events-auto'}`}
+                className={`flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden transition-[filter] duration-300 ease-out ${contentInteractionClass}`}
                 style={{ transition: 'all 300ms cubic-bezier(0.4,0,0.2,1)' }}
             >
                 <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden main-content-area">

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface BottomSheetProps {
     isOpen: boolean;
@@ -51,9 +52,10 @@ export default function BottomSheet({
         'max-h-[92vh]';
 
     return (
-        <AnimatePresence>
-            {isOpen && (
-                <>
+        <OverlayPortal>
+            <AnimatePresence>
+                {isOpen && (
+                    <>
                     {/* Backdrop */}
                     <motion.div
                         key="backdrop"
@@ -116,8 +118,9 @@ export default function BottomSheet({
                             {children}
                         </div>
                     </motion.div>
-                </>
-            )}
-        </AnimatePresence>
+                    </>
+                )}
+            </AnimatePresence>
+        </OverlayPortal>
     );
 }

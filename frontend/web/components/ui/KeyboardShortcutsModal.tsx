@@ -3,6 +3,7 @@ import React from 'react';
 import { X, Keyboard } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import KbdKey from './KbdKey';
+import OverlayPortal from './OverlayPortal';
 
 interface ShortcutRow {
   keys: string[];
@@ -59,9 +60,10 @@ interface KeyboardShortcutsModalProps {
 }
 
 const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ open, onClose }) => (
-  <AnimatePresence>
-    {open && (
-      <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center p-4" onClick={onClose}>
+  <OverlayPortal>
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center p-4" onClick={onClose}>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -123,9 +125,10 @@ const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ open, o
             Press <KbdKey>?</KbdKey> anytime to toggle this panel
           </div>
         </motion.div>
-      </div>
-    )}
-  </AnimatePresence>
+        </div>
+      )}
+    </AnimatePresence>
+  </OverlayPortal>
 );
 
 export default KeyboardShortcutsModal;

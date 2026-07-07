@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import * as projectsApi from '@/services/projects-service';
 import { toast } from '@/components/ui';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 import GitHubMark from '@/components/github/GitHubMark';
 import {
   createGitHubAutomationRule,
@@ -368,7 +369,8 @@ function DeleteConfirmModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <OverlayPortal>
+      <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={!isDeleting ? handleClose : undefined}
@@ -474,7 +476,8 @@ function DeleteConfirmModal({
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }
 
@@ -496,7 +499,8 @@ function LeaveConfirmModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <OverlayPortal>
+      <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={!isLeaving ? onClose : undefined}
@@ -571,7 +575,8 @@ function LeaveConfirmModal({
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }
 

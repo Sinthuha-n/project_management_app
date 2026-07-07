@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertTriangle, CheckCircle2, Archive, ArrowRight } from 'lucide-react';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 export interface AvailableDestSprint {
   id: number;
@@ -35,7 +36,8 @@ export default function CompleteSprintModal({
   const hasIncomplete = incompleteCount > 0;
 
   return (
-    <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center bg-black/40 p-4">
+    <OverlayPortal>
+      <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-2xl shadow-2xl border border-[#EAECF0] p-6 max-w-md w-full">
         <h3 className="text-lg font-bold text-[#101828] mb-1">Complete Sprint</h3>
         <p className="text-sm text-[#667085] mb-4">
@@ -114,6 +116,7 @@ export default function CompleteSprintModal({
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }

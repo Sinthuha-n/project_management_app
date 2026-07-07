@@ -5,6 +5,7 @@ import TaskHeader from './TaskHeader';
 import TaskMainContent from './TaskMainContent';
 import TaskSidebar from './TaskSidebar';
 import { toast } from '@/components/ui';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 import { motion } from 'framer-motion';
 import { useStomp } from '@/ws/stomp-provider';
 import { getProjectGitHubRepo } from '@/services/github-service';
@@ -341,7 +342,8 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[var(--cu-z-modal)]" onClick={() => onClose(wasModified.current)}>
+    <OverlayPortal>
+      <div className="fixed inset-0 z-[var(--cu-z-modal)]" onClick={() => onClose(wasModified.current)}>
       {/* Backdrop */}
       <motion.div 
         initial={{ opacity: 0 }} 
@@ -513,6 +515,7 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
           </>
         )}
       </motion.div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }

@@ -7,6 +7,7 @@ import { GitBranch, Loader2, X } from 'lucide-react';
 import api from '@/lib/axios';
 import { type GitHubIssue } from '@/services/github-service';
 import { IssueStateBadge } from '@/components/github/IssueStateBadge';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface ImportIssueModalProps {
   issue: GitHubIssue;
@@ -75,7 +76,8 @@ export function ImportIssueModal({ issue, projectId, repoFullName, onSuccess, on
   };
 
   return (
-    <motion.div
+    <OverlayPortal>
+      <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -211,7 +213,8 @@ export function ImportIssueModal({ issue, projectId, repoFullName, onSuccess, on
           </div>
         </div>
       </motion.div>
-    </motion.div>
+      </motion.div>
+    </OverlayPortal>
   );
 }
 

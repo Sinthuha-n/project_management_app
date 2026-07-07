@@ -1,6 +1,9 @@
+'use client';
+
 import type { FormEvent } from 'react';
 import { Send, X } from 'lucide-react';
 import Button from '@/components/shared/Button';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface InviteMemberModalProps {
   isOpen: boolean;
@@ -32,7 +35,8 @@ export function InviteMemberModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-[var(--cu-z-modal)] p-4 sm:p-0">
+    <OverlayPortal>
+      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-[var(--cu-z-modal)] p-4 sm:p-0">
       <div className="bg-cu-bg rounded-lg shadow-lg p-4 sm:p-8 w-full max-w-sm sm:max-w-md max-h-[90vh] overflow-y-auto relative">
         <button
           onClick={onClose}
@@ -95,6 +99,7 @@ export function InviteMemberModal({
           </div>
         </form>
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }

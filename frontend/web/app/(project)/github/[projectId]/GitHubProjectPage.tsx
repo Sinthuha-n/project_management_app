@@ -22,6 +22,7 @@ import GitHubAutomationsPanel from '@/components/github/GitHubAutomationsPanel';
 import AutomationRuleBuilder from '@/components/github/AutomationRuleBuilder';
 import ImportIssueModal from '@/components/github/ImportIssueModal';
 import { Popover, toast } from '@/components/ui';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 import {
   getProjectGitHubRepo,
   setProjectGitHubRepo,
@@ -159,7 +160,8 @@ function DisconnectedView({
   isPostLogout: boolean;
 }) {
   return (
-    <motion.div
+    <OverlayPortal>
+      <motion.div
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -16 }}
@@ -308,7 +310,8 @@ function DisconnectedView({
           </p>
         </div>
       )}
-    </motion.div>
+      </motion.div>
+    </OverlayPortal>
   );
 }
 
@@ -556,7 +559,8 @@ function RepoModal({
   onRefresh: () => void;
 }) {
   return (
-    <motion.div
+    <OverlayPortal>
+      <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -677,7 +681,8 @@ function RepoModal({
           )}
         </div>
       </motion.div>
-    </motion.div>
+      </motion.div>
+    </OverlayPortal>
   );
 }
 

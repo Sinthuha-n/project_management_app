@@ -6,6 +6,7 @@ import { Loader2, X } from 'lucide-react';
 import api from '@/lib/axios';
 import { normalizeApiError } from '@/lib/api-error';
 import { toast } from '@/components/ui';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 import GitHubMark from '@/components/github/GitHubMark';
 import type { GitHubIssue } from '@/services/github-service';
 
@@ -107,7 +108,8 @@ export default function CreateIssueFromTaskModal({
   if (!open) return null;
 
   return (
-    <motion.div
+    <OverlayPortal>
+      <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -239,6 +241,7 @@ export default function CreateIssueFromTaskModal({
           </div>
         </div>
       </motion.div>
-    </motion.div>
+      </motion.div>
+    </OverlayPortal>
   );
 }

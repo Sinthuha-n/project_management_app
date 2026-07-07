@@ -6,6 +6,7 @@ import LabelPicker from '@/components/shared/LabelPicker';
 import type { Label } from '@/types';
 import { useProjectStatuses } from '@/hooks/useProjectStatuses';
 import { useProjectAssigneeOptions } from '@/hooks/projects/useProjectAssigneeOptions';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 export interface CreateTaskData {
   title: string;
@@ -110,7 +111,8 @@ export default function CreateTaskModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-[#00000040] z-[var(--cu-z-modal)] flex items-center justify-center p-4 backdrop-blur-sm">
+    <OverlayPortal>
+      <div className="fixed inset-0 bg-[#00000040] z-[var(--cu-z-modal)] flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-cu-bg rounded-2xl shadow-cu-xl border border-cu-border max-w-md w-full overflow-hidden animate-in zoom-in-95 fade-in duration-200">
         {/* Header */}
         <div className="bg-cu-primary px-6 py-4">
@@ -283,6 +285,7 @@ export default function CreateTaskModal({
           </div>
         </form>
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }

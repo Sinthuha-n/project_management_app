@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { FileText, X } from 'lucide-react';
 import api from '@/lib/axios';
 import type { TaskTemplate } from '@/types';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface TemplatePickerProps {
   projectId: number;
@@ -22,7 +23,8 @@ const TemplatePicker: React.FC<TemplatePickerProps> = ({ projectId, onApply, onC
   }, [projectId]);
 
   return (
-    <div className="fixed inset-0 z-[var(--cu-z-modal-popover)] flex items-center justify-center p-4" onClick={onClose}>
+    <OverlayPortal>
+      <div className="fixed inset-0 z-[var(--cu-z-modal-popover)] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40" />
       {/* stopPropagation keeps clicks inside the card from bubbling to the backdrop and closing the picker */}
       <div
@@ -65,7 +67,8 @@ const TemplatePicker: React.FC<TemplatePickerProps> = ({ projectId, onApply, onC
           ))}
         </div>
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 };
 

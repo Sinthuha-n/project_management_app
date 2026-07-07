@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, Rocket, Calendar, Target } from 'lucide-react';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface CreateSprintModalProps {
   isOpen: boolean;
@@ -72,7 +73,8 @@ export default function CreateSprintModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-[var(--cu-z-modal)] flex items-center justify-center p-4 backdrop-blur-sm">
+    <OverlayPortal>
+      <div className="fixed inset-0 bg-black/40 z-[var(--cu-z-modal)] flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-cu-bg rounded-2xl shadow-xl border border-cu-border max-w-md w-full overflow-hidden animate-in zoom-in-95 fade-in duration-200">
         {/* Header */}
         <div className="relative bg-cu-primary px-6 py-5">
@@ -166,6 +168,7 @@ export default function CreateSprintModal({
           </div>
         </form>
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }

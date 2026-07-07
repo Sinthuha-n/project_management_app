@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { X, BarChart3, CheckCircle2, Clock, AlertTriangle, Users } from 'lucide-react';
 import type { SprintItem } from '@/types';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface SprintReportModalProps {
   sprint: SprintItem;
@@ -53,7 +54,8 @@ export default function SprintReportModal({ sprint, isOpen, onClose }: SprintRep
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
+    <OverlayPortal>
+      <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
       <div className="relative w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto rounded-2xl border border-cu-border bg-cu-bg shadow-2xl animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-cu-border bg-cu-bg px-6 py-4 rounded-t-2xl">
@@ -204,6 +206,7 @@ export default function SprintReportModal({ sprint, isOpen, onClose }: SprintRep
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }

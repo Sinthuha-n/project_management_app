@@ -12,6 +12,7 @@ import {
     ArrowLeftRight, FileText, Download, Eye, Clock 
 } from 'lucide-react';
 import { formatBytes, toDateLabel } from '@/app/folders/components/dmsUtils';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface DmsModalsProps {
     selectedVersionsDocId: number | null;
@@ -332,7 +333,8 @@ export default function DmsModals({
     if (!isModalOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
+        <OverlayPortal>
+            <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
             
             {/* 1. RENAME DOCUMENT MODAL */}
             {renameDoc !== null && (
@@ -849,6 +851,7 @@ export default function DmsModals({
                     </div>
                 </div>
             )}
-        </div>
+            </div>
+        </OverlayPortal>
     );
 }

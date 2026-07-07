@@ -1,6 +1,9 @@
+'use client';
+
 import type { MemberCombined } from '../types';
 import { Trash2, X } from 'lucide-react';
 import Button from '@/components/shared/Button';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface RemoveMemberModalProps {
   isOpen: boolean;
@@ -22,7 +25,8 @@ export function RemoveMemberModal({
   if (!isOpen || !memberToRemove) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-[var(--cu-z-modal)] p-4 sm:p-0">
+    <OverlayPortal>
+      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-[var(--cu-z-modal)] p-4 sm:p-0">
       <div className="bg-cu-bg rounded-lg shadow-lg p-4 sm:p-8 w-full max-w-sm relative">
         <button
           onClick={onClose}
@@ -59,6 +63,7 @@ export function RemoveMemberModal({
           </Button>
         </div>
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }

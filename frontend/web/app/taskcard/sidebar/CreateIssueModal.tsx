@@ -9,6 +9,7 @@ import {
 } from '@/services/github-service';
 import api from '@/lib/axios';
 import { normalizeApiError } from '@/lib/api-error';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -203,7 +204,8 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
   if (!open) return null;
 
   return (
-    <div
+    <OverlayPortal>
+      <div
       role="dialog"
       aria-modal="true"
       aria-label="Create GitHub Issue"
@@ -422,7 +424,8 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
           </form>
         )}
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 };
 

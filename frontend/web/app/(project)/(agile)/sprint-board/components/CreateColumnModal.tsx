@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X, Layout, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface CreateColumnModalProps {
   isOpen: boolean;
@@ -37,7 +38,8 @@ export default function CreateColumnModal({
   ];
 
   return (
-    <AnimatePresence>
+    <OverlayPortal>
+      <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center p-4 sm:p-6">
           <motion.div
@@ -149,6 +151,7 @@ export default function CreateColumnModal({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+      </AnimatePresence>
+    </OverlayPortal>
   );
 }

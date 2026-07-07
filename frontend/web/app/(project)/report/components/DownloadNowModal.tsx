@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { downloadProjectReport } from '@/services/report-download-service';
 import { useTheme } from '@/components/providers/ThemeProvider';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 type DlState = 'idle' | 'loading' | 'done' | 'error';
 type Format  = 'pdf' | 'excel' | 'both';
@@ -85,7 +86,8 @@ export default function DownloadNowModal({ open, onClose, projectId, projectName
   };
 
   return (
-    <AnimatePresence>
+    <OverlayPortal>
+      <AnimatePresence>
       {open && (
         <>
           <motion.div
@@ -226,6 +228,7 @@ export default function DownloadNowModal({ open, onClose, projectId, projectName
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+      </AnimatePresence>
+    </OverlayPortal>
   );
 }

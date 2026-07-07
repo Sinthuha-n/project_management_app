@@ -1,6 +1,9 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Hash, MessageSquare, Search } from 'lucide-react';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface ModalProps {
   isOpen: boolean;
@@ -22,7 +25,8 @@ export function BaseModal({ isOpen, onClose, title, icon, children, onSubmit, su
   }, [isOpen, onClose]);
 
   return (
-    <AnimatePresence>
+    <OverlayPortal>
+      <AnimatePresence>
       {isOpen && (
         <>
           <motion.div
@@ -74,7 +78,8 @@ export function BaseModal({ isOpen, onClose, title, icon, children, onSubmit, su
           </div>
         </>
       )}
-    </AnimatePresence>
+      </AnimatePresence>
+    </OverlayPortal>
   );
 }
 

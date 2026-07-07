@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { usePageEditor } from './usePageEditor';
 import { useRouter } from 'next/navigation';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 export default function PageDetailPage() {
   const router = useRouter();
@@ -350,7 +351,7 @@ export default function PageDetailPage() {
       )}
 
       {showDeleteConfirm && (
-        <>
+        <OverlayPortal>
           <div className="fixed inset-0 bg-black/40 z-[var(--cu-z-modal)]" onClick={() => setShowDeleteConfirm(false)} />
           <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[var(--cu-z-modal)] w-[340px] bg-white rounded-2xl shadow-xl p-6 flex flex-col gap-4">
             <div className="flex items-start gap-3">
@@ -379,11 +380,11 @@ export default function PageDetailPage() {
               </button>
             </div>
           </div>
-        </>
+        </OverlayPortal>
       )}
 
       {showMoveModal && selectedPage && (
-        <>
+        <OverlayPortal>
           <div className="fixed inset-0 bg-black/40 z-[var(--cu-z-modal)]" onClick={() => setShowMoveModal(false)} />
           <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[var(--cu-z-modal)] w-[380px] bg-white rounded-2xl shadow-xl p-6 flex flex-col gap-4">
             <div>
@@ -448,7 +449,7 @@ export default function PageDetailPage() {
               </button>
             </div>
           </div>
-        </>
+        </OverlayPortal>
       )}
     </div>
   );
