@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/axios';
 import { ensureValidToken, getUserFromToken } from '@/lib/auth';
 import { updateProfile } from '@planora/contracts';
+import { EditableProfileFields, hasProfileChanges, normalizeEditableProfile } from '../lib/profile-utils';
 
 type UserResponse = {
     userId: number;
@@ -62,6 +63,7 @@ export function useProfile() {
     const [profilePicUrl, setProfilePicUrl] = useState('');
     const [imageKey, setImageKey] = useState(Date.now());
     const [lastActive, setLastActive] = useState<string | null>(null);
+    const [loadedProfile, setLoadedProfile] = useState<EditableProfileFields | null>(null);
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSavingName, setIsSavingName] = useState(false);
@@ -71,6 +73,22 @@ export function useProfile() {
     const [successMessage, setSuccessMessage] = useState('');
 
     const resolvedProfilePicUrl = useMemo(() => profilePicUrl || '', [profilePicUrl]);
+    const currentProfile = useMemo<EditableProfileFields>(() => ({
+        fullName,
+        firstName,
+        lastName,
+        contactNumber,
+        countryCode,
+        jobTitle,
+        company,
+        position,
+        bio,
+    }), [bio, company, contactNumber, countryCode, firstName, fullName, jobTitle, lastName, position]);
+    const hasUnsavedChanges = useMemo(
+        () => hasProfileChanges(currentProfile, loadedProfile),
+        [currentProfile, loadedProfile],
+    );
+    const canSaveProfile = hasUnsavedChanges && !isSavingName;
 
     useEffect(() => {
         let isMounted = true;
@@ -111,6 +129,17 @@ export function useProfile() {
                 setBio(p.bio || '');
                 setProfilePicUrl(p.profilePicUrl || '');
                 setLastActive(p.lastActive || null);
+                setLoadedProfile({
+                    fullName: p.fullName || '',
+                    firstName: p.firstName || '',
+                    lastName: p.lastName || '',
+                    contactNumber: p.contactNumber || '',
+                    countryCode: p.countryCode || '',
+                    jobTitle: p.jobTitle || '',
+                    company: p.company || '',
+                    position: p.position || '',
+                    bio: p.bio || '',
+                });
             } catch (error: unknown) {
                 if (isMounted) setErrorMessage(getApiErrorMessage(error, 'Failed to load profile details.'));
             } finally {
@@ -130,20 +159,22 @@ export function useProfile() {
 
     const onSaveProfile = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        if (!hasUnsavedChanges) return;
         setErrorMessage('');
         setSuccessMessage('');
         try {
             setIsSavingName(true);
+            const normalizedProfile = normalizeEditableProfile(currentProfile);
             const response = await updateProfile(api, {
-                fullName: fullName.trim() || undefined,
-                firstName: firstName.trim() || undefined,
-                lastName: lastName.trim() || undefined,
-                contactNumber: contactNumber.trim() || undefined,
-                countryCode: countryCode.trim() || undefined,
-                jobTitle: jobTitle.trim() || undefined,
-                company: company.trim() || undefined,
-                position: position.trim() || undefined,
-                bio: bio.trim() || undefined,
+                fullName: normalizedProfile.fullName || undefined,
+                firstName: normalizedProfile.firstName || undefined,
+                lastName: normalizedProfile.lastName || undefined,
+                contactNumber: normalizedProfile.contactNumber || undefined,
+                countryCode: normalizedProfile.countryCode || undefined,
+                jobTitle: normalizedProfile.jobTitle || undefined,
+                company: normalizedProfile.company || undefined,
+                position: normalizedProfile.position || undefined,
+                bio: normalizedProfile.bio || undefined,
             });
             const p = response.data;
             setFullName(p.fullName || '');
@@ -155,6 +186,17 @@ export function useProfile() {
             setCompany(p.company || '');
             setPosition(p.position || '');
             setBio(p.bio || '');
+            setLoadedProfile({
+                fullName: p.fullName || '',
+                firstName: p.firstName || '',
+                lastName: p.lastName || '',
+                contactNumber: p.contactNumber || '',
+                countryCode: p.countryCode || '',
+                jobTitle: p.jobTitle || '',
+                company: p.company || '',
+                position: p.position || '',
+                bio: p.bio || '',
+            });
             setSuccessMessage('Profile updated successfully.');
         } catch (error: unknown) {
             setErrorMessage(getApiErrorMessage(error, 'Failed to update profile.'));
@@ -208,6 +250,8 @@ export function useProfile() {
         isLoading,
         isSavingName,
         isUploadingPhoto,
+        hasUnsavedChanges,
+        canSaveProfile,
         errorMessage,
         successMessage,
         reloadProfile,

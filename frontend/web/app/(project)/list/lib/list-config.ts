@@ -20,7 +20,7 @@ export const PRIORITY_CONFIG: Record<string, { color: string; icon: React.Elemen
 };
 
 export const LIST_GRID_CLASS =
-  "grid items-center gap-3 px-4 py-2.5 " +
+  "md:grid items-center gap-3 px-4 py-2.5 " +
   "grid-cols-[24px_72px_minmax(180px,1fr)_120px_120px_96px_40px] " +
   "xl:grid-cols-[24px_78px_minmax(220px,1fr)_150px_140px_130px_120px_96px_40px]";
 

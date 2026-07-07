@@ -31,6 +31,16 @@ const awsS3Sources = [
   ]),
 ];
 const githubAvatarImageSource = 'https://avatars.githubusercontent.com';
+const diceBearImageSource = 'https://api.dicebear.com';
+
+function originsFromCsv(rawValue) {
+  if (!rawValue) return [];
+
+  return rawValue
+    .split(',')
+    .map((value) => originFromUrl(value.trim()))
+    .filter(Boolean);
+}
 
 function originFromUrl(rawUrl) {
   if (!rawUrl) return null;
@@ -54,6 +64,25 @@ function websocketOriginFromUrl(rawUrl) {
 function uniqueSources(sources) {
   return sources.filter(Boolean).filter((source, index, all) => all.indexOf(source) === index);
 }
+
+function remotePatternFromOrigin(origin) {
+  try {
+    const url = new URL(origin);
+    return {
+      protocol: url.protocol.replace(':', ''),
+      hostname: url.hostname,
+      port: url.port,
+      pathname: '/**',
+    };
+  } catch {
+    return null;
+  }
+}
+
+const allowedImageOrigins = uniqueSources(originsFromCsv(process.env.NEXT_PUBLIC_IMAGE_ALLOWED_ORIGINS));
+const allowedImageRemotePatterns = allowedImageOrigins
+  .map(remotePatternFromOrigin)
+  .filter(Boolean);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -132,7 +161,9 @@ const nextConfig = {
       'blob:',
       ...awsS3Sources,
       githubAvatarImageSource,
+      diceBearImageSource,
       ...backendSources,
+      ...allowedImageOrigins,
     ]);
     const frameSources = uniqueSources([
       "'self'",
@@ -187,10 +218,17 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'api.dicebear.com',
+        port: '',
+        pathname: '/**',
+      },
       // AWS backend (App Runner / ECS ALB) — set NEXT_PUBLIC_BACKEND_HOST in Netlify env vars
       ...(process.env.NEXT_PUBLIC_BACKEND_HOST
         ? [{ protocol: 'https', hostname: process.env.NEXT_PUBLIC_BACKEND_HOST, port: '', pathname: '/**' }]
         : []),
+      ...allowedImageRemotePatterns,
     ],
   },
 };

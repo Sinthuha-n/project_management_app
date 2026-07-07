@@ -10,6 +10,7 @@ import type {
   UnreadBadgeSummary,
 } from '@/app/(project)/project/[id]/chat/components/chat';
 import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
+import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 import { isSameIdentity, mergeMessage, normalizeRoom } from './chat-utils';
 
 export interface RoomEvent {
@@ -162,8 +163,14 @@ function buildProfilePicMap(profiles: chatApi.AuthUserSummary[]): Record<string,
   profiles.forEach((profile) => {
     const key = (profile.username || profile.email || '').toLowerCase();
     const raw = profile as Record<string, unknown>;
-    if (key && raw.profilePicUrl) {
-      map[key] = raw.profilePicUrl as string;
+    if (key) {
+      const resolvedUrl = resolveProfilePhotoUrl(
+        typeof raw.profilePicUrl === 'string' ? raw.profilePicUrl : null,
+        typeof raw.userId === 'number' || typeof raw.userId === 'string' ? raw.userId : null,
+      );
+      if (resolvedUrl) {
+        map[key] = resolvedUrl;
+      }
     }
   });
   return map;

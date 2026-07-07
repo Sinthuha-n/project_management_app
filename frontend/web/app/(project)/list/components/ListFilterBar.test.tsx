@@ -67,4 +67,28 @@ describe('ListFilterBar', () => {
     fireEvent.click(screen.getByRole('button', { name: /High/i }));
     expect(onChange).toHaveBeenCalledWith({ ...baseFilters, priorities: [] });
   });
+
+  it('opens mobile filters in a sheet and clears filters', () => {
+    const onChange = jest.fn();
+    const onGroupByChange = jest.fn();
+    render(
+      <ListFilterBar
+        filters={{ ...baseFilters, statuses: ['TODO'], search: 'api' }}
+        onChange={onChange}
+        assigneeNames={['Alex']}
+        groupBy="status"
+        onGroupByChange={onGroupByChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Filters/i }));
+
+    expect(screen.getByRole('dialog', { name: /Filters/i })).toBeInTheDocument();
+
+    const clearButtons = screen.getAllByRole('button', { name: /Clear all/i });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    expect(onChange).toHaveBeenCalledWith(baseFilters);
+    expect(onGroupByChange).toHaveBeenCalledWith('none');
+  });
 });

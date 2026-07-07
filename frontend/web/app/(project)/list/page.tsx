@@ -110,42 +110,31 @@ function ListPageContent() {
   );
 
   const totalPages = Math.max(1, Math.ceil(flatGroupedTasks.length / TASKS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
   const paginatedTasks = useMemo(() => {
-    const startIndex = (currentPage - 1) * TASKS_PER_PAGE;
+    const startIndex = (safeCurrentPage - 1) * TASKS_PER_PAGE;
     return flatGroupedTasks.slice(startIndex, startIndex + TASKS_PER_PAGE);
-  }, [currentPage, flatGroupedTasks]);
+  }, [safeCurrentPage, flatGroupedTasks]);
+
+  const paginatedTaskIds = useMemo(
+    () => new Set(paginatedTasks.map((task) => task.id)),
+    [paginatedTasks],
+  );
 
   const paginatedGroupedEntries = useMemo(() => {
-    const startIndex = (currentPage - 1) * TASKS_PER_PAGE;
-    const endIndex = startIndex + TASKS_PER_PAGE;
-    let cursor = 0;
-
     return groupedEntries
       .map((entry) => {
-        const visibleItems = entry.items.filter(() => {
-          const visible = cursor >= startIndex && cursor < endIndex;
-          cursor += 1;
-          return visible;
-        });
+        const visibleItems = entry.items.filter((task) => paginatedTaskIds.has(task.id));
         return { ...entry, items: visibleItems };
       })
       .filter((entry) => entry.items.length > 0);
-  }, [currentPage, groupedEntries]);
+  }, [groupedEntries, paginatedTaskIds]);
 
   // Clean ?action= query param from URL on mount — no setState here
   useEffect(() => {
     stripQueryParam('action');
   }, []);
-
-  useEffect(() => {
-    setCurrentPage(1); // eslint-disable-line react-hooks/set-state-in-effect
-  }, [filters, groupBy, projectId, showArchived]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages); // eslint-disable-line react-hooks/set-state-in-effect
-    }
-  }, [currentPage, totalPages]);
 
   const selectedCount = selectedIds.size;
 
@@ -195,9 +184,9 @@ function ListPageContent() {
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-cu-bg-secondary">
-      <div className="mx-auto w-full max-w-[1400px] animate-fade-in px-3 py-4 sm:px-6 lg:px-8 lg:py-6">
+      <div className="mx-auto w-full max-w-[1400px] animate-fade-in overflow-x-hidden px-3 py-4 sm:px-6 lg:px-8 lg:py-6">
 
-        <div className="mb-4 rounded-cu-lg border border-cu-border bg-cu-bg px-4 py-4 shadow-cu-sm sm:px-5">
+        <div className="mb-4 rounded-cu-lg border border-cu-border bg-cu-bg px-3 py-4 shadow-cu-sm sm:px-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="min-w-0">
               <h1 className="truncate text-[20px] font-extrabold tracking-tight text-cu-text-primary sm:text-2xl">Task List</h1>
@@ -205,13 +194,14 @@ function ListPageContent() {
                 {filteredTasks.length} visible of {sortedTasks.length} {showArchived ? 'archived ' : ''}task{sortedTasks.length !== 1 ? 's' : ''}
               </p>
             </div>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="inline-flex rounded-cu-md border border-cu-border bg-cu-bg-secondary p-1">
+            <div className="flex flex-col gap-2 min-[380px]:flex-row min-[380px]:items-center sm:gap-3">
+              <div className="grid grid-cols-2 rounded-cu-md border border-cu-border bg-cu-bg-secondary p-1 min-[380px]:inline-flex">
               <button
                 type="button"
                 onClick={() => {
                   setShowArchived(false);
                   setSelectedIds(new Set());
+                  setCurrentPage(1);
                 }}
                 className={`min-h-9 rounded-cu-md px-3 text-[12px] font-bold transition-colors ${
                   !showArchived
@@ -226,6 +216,7 @@ function ListPageContent() {
                 onClick={() => {
                   setShowArchived(true);
                   setSelectedIds(new Set());
+                  setCurrentPage(1);
                 }}
                 className={`inline-flex min-h-9 items-center gap-1.5 rounded-cu-md px-3 text-[12px] font-bold transition-colors ${
                   showArchived
@@ -241,10 +232,10 @@ function ListPageContent() {
               onClick={() => setShowCreateModal(true)}
               disabled={showArchived || !canModifyTasks}
               title={showArchived ? 'Switch to Active to create tasks' : !canModifyTasks ? 'Viewers cannot create tasks' : 'Create task'}
-              className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-cu-md bg-cu-primary px-3 text-[12px] font-bold text-white shadow-cu-sm transition-colors hover:bg-cu-primary-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-cu-primary sm:px-4"
+              className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-cu-md bg-cu-primary px-3 text-[12px] font-bold text-white shadow-cu-sm transition-colors hover:bg-cu-primary-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-cu-primary sm:px-4"
             >
               <Plus size={14} />
-              <span className="hidden sm:inline">Create Task</span>
+              <span>Create Task</span>
             </button>
             </div>
           </div>
@@ -252,10 +243,16 @@ function ListPageContent() {
 
         <ListFilterBar
           filters={filters}
-          onChange={setFilters}
+          onChange={(next) => {
+            setFilters(next);
+            setCurrentPage(1);
+          }}
           assigneeNames={allAssigneeNames}
           groupBy={groupBy}
-          onGroupByChange={setGroupBy}
+          onGroupByChange={(next) => {
+            setGroupBy(next);
+            setCurrentPage(1);
+          }}
         />
 
         {/* Error */}
@@ -282,7 +279,7 @@ function ListPageContent() {
         {loading ? (
           <div className="flex flex-col gap-2">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="skeleton h-[56px] rounded-cu-lg md:h-[48px]" />
+              <div key={i} className="skeleton h-[60px] rounded-cu-md md:h-[48px]" />
             ))}
           </div>
         ) : (
@@ -314,14 +311,14 @@ function ListPageContent() {
                 {paginatedGroupedEntries.map((entry) => (
                   <section key={entry.key} aria-label={entry.label}>
                     {groupBy !== 'none' && (
-                      <div className="flex items-center justify-between border-y border-cu-border bg-cu-bg-secondary/80 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-cu-text-secondary first:border-t-0">
+                      <div className="flex items-center justify-between gap-3 border-y border-cu-border bg-cu-bg-secondary/80 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-cu-text-secondary first:border-t-0 sm:px-4">
                         <span className="truncate">{entry.label}</span>
-                        <span className="rounded-full bg-cu-bg px-2 py-0.5 text-[10px] text-cu-text-tertiary">
+                        <span className="shrink-0 rounded-full bg-cu-bg px-2 py-0.5 text-[10px] text-cu-text-tertiary">
                           {entry.items.length}
                         </span>
                       </div>
                     )}
-                    <div className="space-y-2 bg-cu-bg-secondary p-2 md:space-y-0 md:bg-cu-bg md:p-0">
+                    <div className="space-y-1.5 bg-cu-bg-secondary p-2 md:space-y-0 md:bg-cu-bg md:p-0">
                       {entry.items.map((task) => (
                         <TaskRow
                           key={task.id}
@@ -355,25 +352,29 @@ function ListPageContent() {
         )}
 
         {!loading && flatGroupedTasks.length > TASKS_PER_PAGE && (
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 pb-20 sm:pb-2">
+          <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 pb-24 sm:flex sm:flex-wrap sm:justify-center sm:pb-2">
             <button
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className="inline-flex min-h-9 items-center gap-1 rounded-cu-md border border-cu-border bg-cu-bg px-3 text-[13px] font-semibold text-cu-text-primary transition-colors hover:bg-cu-hover disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => setCurrentPage(Math.max(safeCurrentPage - 1, 1))}
+              disabled={safeCurrentPage === 1}
+              className="inline-flex min-h-10 items-center justify-center gap-1 rounded-cu-md border border-cu-border bg-cu-bg px-3 text-[13px] font-semibold text-cu-text-primary transition-colors hover:bg-cu-hover disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
             >
               <ChevronLeft size={14} />
               Prev
             </button>
 
+            <span className="rounded-cu-md border border-cu-border bg-cu-bg px-3 py-2 text-center text-[12px] font-bold text-cu-text-secondary sm:hidden">
+              {safeCurrentPage} / {totalPages}
+            </span>
+
             {Array.from({ length: totalPages }, (_, index) => {
               const pageNumber = index + 1;
-              const isActive = pageNumber === currentPage;
+              const isActive = pageNumber === safeCurrentPage;
 
               return (
                 <button
                   key={pageNumber}
                   onClick={() => setCurrentPage(pageNumber)}
-                  className={`h-9 min-w-9 rounded-cu-md border px-3 text-[13px] font-bold transition-colors ${
+                  className={`hidden h-9 min-w-9 rounded-cu-md border px-3 text-[13px] font-bold transition-colors sm:inline-flex sm:items-center sm:justify-center ${
                     isActive
                       ? 'bg-cu-primary text-white border-cu-primary'
                       : 'bg-cu-bg text-cu-text-primary border-cu-border hover:bg-cu-hover'
@@ -385,9 +386,9 @@ function ListPageContent() {
             })}
 
             <button
-              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className="inline-flex min-h-9 items-center gap-1 rounded-cu-md border border-cu-border bg-cu-bg px-3 text-[13px] font-semibold text-cu-text-primary transition-colors hover:bg-cu-hover disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => setCurrentPage(Math.min(safeCurrentPage + 1, totalPages))}
+              disabled={safeCurrentPage === totalPages}
+              className="inline-flex min-h-10 items-center justify-center gap-1 rounded-cu-md border border-cu-border bg-cu-bg px-3 text-[13px] font-semibold text-cu-text-primary transition-colors hover:bg-cu-hover disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
             >
               Next
               <ChevronRight size={14} />

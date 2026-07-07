@@ -10,7 +10,7 @@ export default function TaskTableHeader({
   toggleSelectAllVisible,
 }: TaskTableHeaderProps) {
   return (
-    <div className={`sticky top-0 z-10 hidden border-b border-cu-border bg-cu-bg-secondary/95 text-[10px] font-bold uppercase tracking-wider text-cu-text-tertiary md:${LIST_GRID_CLASS}`}>
+    <div className={`sticky top-0 z-10 hidden border-b border-cu-border bg-cu-bg-secondary/95 text-[10px] font-bold uppercase tracking-wider text-cu-text-tertiary ${LIST_GRID_CLASS}`}>
       <span className="flex items-center justify-center">
         {toggleSelectAllVisible && (
           <input
@@ -33,4 +33,3 @@ export default function TaskTableHeader({
     </div>
   );
 }
-

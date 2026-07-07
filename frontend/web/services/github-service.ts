@@ -1,10 +1,10 @@
 import { gitHubApi, tasksApi } from './api-contract';
 import api from '@/lib/axios';
 import type {
-  GithubRepository,
-  GithubPr,
-  GithubCommit,
-  GithubIssue,
+  GithubRepository as BackendGithubRepository,
+  GithubPr as BackendGithubPr,
+  GithubCommit as BackendGithubCommit,
+  GithubIssue as BackendGithubIssue,
   GithubStats,
   PageResponse,
   LinkRepositoryRequest,
@@ -12,10 +12,10 @@ import type {
 } from './api-contract';
 
 export type {
-  GithubRepository,
-  GithubPr,
-  GithubCommit,
-  GithubIssue,
+  BackendGithubRepository,
+  BackendGithubPr,
+  BackendGithubCommit,
+  BackendGithubIssue,
   GithubStats,
   PageResponse,
   LinkRepositoryRequest,
@@ -24,7 +24,7 @@ export type {
 
 // ── Repository endpoints ────────────────────────────────────────────────────
 
-export async function linkRepository(request: LinkRepositoryRequest): Promise<GithubRepository> {
+export async function linkRepository(request: LinkRepositoryRequest): Promise<BackendGithubRepository> {
   return gitHubApi.linkRepository(request);
 }
 
@@ -32,7 +32,7 @@ export async function unlinkRepository(integrationId: number, projectId: number)
   return gitHubApi.unlinkRepository(integrationId, projectId);
 }
 
-export async function getLinkedRepositories(projectId: number): Promise<GithubRepository[]> {
+export async function getLinkedRepositories(projectId: number): Promise<BackendGithubRepository[]> {
   return gitHubApi.getLinkedRepositories(projectId);
 }
 
@@ -41,7 +41,7 @@ export async function getLinkedRepositories(projectId: number): Promise<GithubRe
 export async function getPullRequests(
   projectId: number,
   options: { state?: 'open' | 'closed' | 'merged' | 'all'; page?: number; size?: number } = {}
-): Promise<PageResponse<GithubPr>> {
+): Promise<PageResponse<BackendGithubPr>> {
   return gitHubApi.getPullRequests(projectId, options);
 }
 
@@ -58,7 +58,7 @@ export async function linkTaskToPr(
 export async function getCommits(
   projectId: number,
   options: { page?: number; size?: number } = {}
-): Promise<PageResponse<GithubCommit>> {
+): Promise<PageResponse<BackendGithubCommit>> {
   return gitHubApi.getCommits(projectId, options);
 }
 
@@ -67,14 +67,14 @@ export async function getCommits(
 export async function getIssues(
   projectId: number,
   options: { state?: 'open' | 'closed' | 'all'; page?: number; size?: number } = {}
-): Promise<PageResponse<GithubIssue>> {
+): Promise<PageResponse<BackendGithubIssue>> {
   return gitHubApi.getIssues(projectId, options);
 }
 
 export async function createIssue(
   projectId: number,
   request: CreateIssueRequest
-): Promise<GithubIssue> {
+): Promise<BackendGithubIssue> {
   return gitHubApi.createIssue(projectId, request);
 }
 
@@ -170,12 +170,155 @@ export interface GitHubCommit {
 
 export interface ProjectGitHubConnection {
   repoId: number;
+  integrationId?: number;
   repoName: string;
   repoFullName: string;
+  repositoryUrl?: string;
   private: boolean;
   defaultBranch: string;
   ownerLogin: string;
   connectedAt: string;
+  active?: boolean;
+  source?: 'backend' | 'legacy';
+}
+
+function splitRepoFullName(repoFullName: string): { ownerLogin: string; repoName: string } {
+  const [ownerLogin = '', repoName = ''] = repoFullName.split('/', 2);
+  return { ownerLogin, repoName };
+}
+
+export function backendRepositoryToProjectConnection(
+  repository: BackendGithubRepository,
+): ProjectGitHubConnection {
+  const { ownerLogin, repoName } = splitRepoFullName(repository.repositoryFullName);
+
+  return {
+    repoId: repository.integrationId,
+    integrationId: repository.integrationId,
+    repoName,
+    repoFullName: repository.repositoryFullName,
+    repositoryUrl: repository.repositoryUrl,
+    private: false,
+    defaultBranch: 'main',
+    ownerLogin,
+    connectedAt: new Date().toISOString(),
+    active: repository.active,
+    source: 'backend',
+  };
+}
+
+export function accountRepositoryToProjectConnection(
+  repo: GitHubRepository,
+): ProjectGitHubConnection {
+  return {
+    repoId: repo.id,
+    repoName: repo.name,
+    repoFullName: repo.full_name,
+    private: repo.private,
+    defaultBranch: repo.default_branch,
+    ownerLogin: repo.owner.login,
+    connectedAt: new Date().toISOString(),
+    source: 'legacy',
+  };
+}
+
+export function projectConnectionToLinkRequest(
+  projectId: string | number,
+  connection: Pick<ProjectGitHubConnection, 'repoFullName'>,
+): LinkRepositoryRequest {
+  return {
+    projectId: Number(projectId),
+    repositoryFullName: connection.repoFullName,
+  };
+}
+
+export function backendPrToGitHubPullRequest(pr: BackendGithubPr): GitHubPullRequest {
+  return {
+    id: pr.id,
+    number: pr.githubPrNumber,
+    title: pr.title,
+    state: pr.state === 'merged' ? 'closed' : pr.state,
+    merged_at: pr.mergedAt,
+    created_at: pr.githubCreatedAt ?? '',
+    updated_at: pr.githubUpdatedAt ?? pr.githubCreatedAt ?? '',
+    html_url: pr.githubUrl ?? '',
+    draft: false,
+    user: {
+      login: pr.authorLogin ?? 'unknown',
+      avatar_url: '',
+      html_url: pr.authorLogin ? `https://github.com/${pr.authorLogin}` : '',
+    },
+    labels: [],
+    head: { ref: pr.headBranch ?? '' },
+    base: { ref: pr.baseBranch ?? '' },
+  };
+}
+
+export function backendCommitToGitHubCommit(commit: BackendGithubCommit): GitHubCommit {
+  const authorLogin = commit.authorName ?? 'unknown';
+
+  return {
+    sha: commit.sha,
+    html_url: commit.commitUrl ?? '',
+    commit: {
+      message: commit.message ?? '',
+      author: {
+        name: authorLogin,
+        date: commit.authoredAt ?? '',
+      },
+    },
+    author: {
+      login: authorLogin,
+      avatar_url: '',
+      html_url: '',
+    },
+  };
+}
+
+function normalizeBackendIssueLabels(labels: BackendGithubIssue['labels']): GitHubLabel[] {
+  if (!Array.isArray(labels)) return [];
+
+  return (labels as unknown[]).map((label, index) => {
+    if (typeof label === 'string') {
+      return { id: index, name: label, color: '64748b' };
+    }
+
+    const labelLike = label as { id?: number; name?: string; color?: string };
+    return {
+      id: labelLike.id ?? index,
+      name: labelLike.name ?? '',
+      color: labelLike.color ?? '64748b',
+    };
+  }).filter(label => label.name);
+}
+
+export function backendIssueToGitHubIssue(issue: BackendGithubIssue): GitHubIssue {
+  const issueLike = issue as BackendGithubIssue & {
+    number?: number;
+    htmlUrl?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    comments?: number;
+    assignees?: Array<GitHubIssueAssignee | string>;
+  };
+  const number = issue.githubIssueNumber ?? issueLike.number ?? 0;
+  const htmlUrl = issue.githubUrl ?? issueLike.htmlUrl ?? '';
+  const createdAt = issue.githubCreatedAt ?? issueLike.createdAt ?? '';
+  const updatedAt = issue.githubUpdatedAt ?? issueLike.updatedAt ?? createdAt;
+
+  return {
+    id: issue.id,
+    number,
+    title: issue.title,
+    body: issue.body ?? undefined,
+    state: issue.state,
+    labels: normalizeBackendIssueLabels(issue.labels),
+    assignees: Array.isArray(issueLike.assignees) ? issueLike.assignees : [],
+    createdAt,
+    updatedAt,
+    htmlUrl,
+    comments: issueLike.comments ?? 0,
+  };
 }
 
 export type GithubAutomationTrigger =
@@ -316,7 +459,8 @@ export function getProjectGitHubRepo(projectId: string | number): ProjectGitHubC
   const raw = localStorage.getItem(`github_project_${projectId}`);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as ProjectGitHubConnection;
+    const parsed = JSON.parse(raw) as ProjectGitHubConnection;
+    return { ...parsed, source: parsed.source ?? 'legacy' };
   } catch {
     return null;
   }
@@ -324,21 +468,55 @@ export function getProjectGitHubRepo(projectId: string | number): ProjectGitHubC
 
 export function setProjectGitHubRepo(projectId: string | number, repo: GitHubRepository): void {
   if (typeof window === 'undefined') return;
-  const connection: ProjectGitHubConnection = {
-    repoId: repo.id,
-    repoName: repo.name,
-    repoFullName: repo.full_name,
-    private: repo.private,
-    defaultBranch: repo.default_branch,
-    ownerLogin: repo.owner.login,
-    connectedAt: new Date().toISOString(),
-  };
+  localStorage.setItem(`github_project_${projectId}`, JSON.stringify(accountRepositoryToProjectConnection(repo)));
+}
+
+export function setProjectGitHubConnection(projectId: string | number, connection: ProjectGitHubConnection): void {
+  if (typeof window === 'undefined') return;
   localStorage.setItem(`github_project_${projectId}`, JSON.stringify(connection));
 }
 
 export function clearProjectGitHubRepo(projectId: string | number): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(`github_project_${projectId}`);
+}
+
+export async function fetchProjectGitHubConnection(
+  projectId: string | number,
+): Promise<ProjectGitHubConnection | null> {
+  const repositories = await getLinkedRepositories(Number(projectId));
+  const activeRepository = repositories.find(repository => repository.active) ?? repositories[0];
+  return activeRepository ? backendRepositoryToProjectConnection(activeRepository) : null;
+}
+
+export async function persistProjectGitHubConnection(
+  projectId: string | number,
+  repoFullName: string,
+): Promise<ProjectGitHubConnection> {
+  const linkedRepository = await linkRepository({
+    projectId: Number(projectId),
+    repositoryFullName: repoFullName,
+  });
+  return backendRepositoryToProjectConnection(linkedRepository);
+}
+
+export async function fetchProjectPullRequests(projectId: string | number): Promise<GitHubPullRequest[]> {
+  const response = await getPullRequests(Number(projectId), { state: 'all', page: 0, size: 100 });
+  return (response.content || []).map(backendPrToGitHubPullRequest);
+}
+
+export async function fetchProjectCommits(projectId: string | number): Promise<GitHubCommit[]> {
+  const response = await getCommits(Number(projectId), { page: 0, size: 100 });
+  return (response.content || []).map(backendCommitToGitHubCommit);
+}
+
+export async function fetchProjectIssues(projectId: string | number): Promise<GitHubIssue[]> {
+  const response = await getIssues(Number(projectId), { state: 'all', page: 0, size: 100 });
+  return (response.content || []).map(backendIssueToGitHubIssue);
+}
+
+export async function syncProjectGitHub(projectId: string | number): Promise<void> {
+  await syncProject(Number(projectId));
 }
 
 export async function fetchGitHubAutomationRules(

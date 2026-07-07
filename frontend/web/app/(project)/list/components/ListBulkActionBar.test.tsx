@@ -44,4 +44,25 @@ describe('ListBulkActionBar', () => {
     fireEvent.click(screen.getByRole('button', { name: /Clear selection/i }));
     expect(onClear).toHaveBeenCalled();
   });
+
+  it('renders compact selected-state actions and changes status', () => {
+    const onStatusChange = jest.fn();
+    render(
+      <ListBulkActionBar
+        selectedCount={3}
+        onStatusChange={onStatusChange}
+        onDelete={jest.fn()}
+        onClear={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Status/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Delete/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Status/i }));
+    fireEvent.click(screen.getByRole('button', { name: /In Progress/i }));
+
+    expect(onStatusChange).toHaveBeenCalledWith('IN_PROGRESS');
+  });
 });

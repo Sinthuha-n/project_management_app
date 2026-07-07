@@ -11,8 +11,10 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
+  Tag,
   Target,
   Trash2,
+  UserPlus,
 } from 'lucide-react';
 import { hexToLabelStyle } from '@/components/shared/LabelPicker';
 import { AvatarStack } from '@/components/ui/Avatar';
@@ -67,6 +69,9 @@ const priorityClasses: Record<string, string> = {
   MEDIUM: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
   LOW: 'bg-green-500/10 text-green-500 border-green-500/20',
 };
+
+const mobileIconButtonClass =
+  'relative flex h-8 w-8 shrink-0 items-center justify-center rounded-cu-md border border-cu-border bg-cu-bg-secondary text-cu-text-secondary transition-colors hover:bg-cu-hover hover:text-cu-text-primary';
 
 function StatusDot({ status }: { status?: string | null }) {
   const safeStatus = normalizeStatus(status);
@@ -311,10 +316,10 @@ function AssigneeControl({ task, members, onAssigneesChange }: Pick<TaskRowProps
 function StatusControl({ task, projectStatuses, onStatusChange }: Pick<TaskRowProps, 'task' | 'projectStatuses' | 'onStatusChange'>) {
   const taskStatus = normalizeStatus(task.status);
   const options = projectStatuses?.length
-    ? projectStatuses.map((status) => ({ value: status.status, label: status.name }))
+    ? projectStatuses.map((status) => ({ value: normalizeStatus(status.status), label: status.name || formatStatusLabel(status.status) }))
     : STATUS_ORDER.map((status) => ({ value: status, label: formatStatusLabel(status) }));
-  const current = projectStatuses?.find((status) => status.status === taskStatus);
-  const label = current?.name ?? STATUS_CONFIG[taskStatus]?.label ?? formatStatusLabel(taskStatus);
+  const current = projectStatuses?.find((status) => normalizeStatus(status.status) === taskStatus);
+  const label = current?.name || STATUS_CONFIG[taskStatus]?.label || formatStatusLabel(taskStatus);
 
   return (
     <StopPropagation>
@@ -473,6 +478,247 @@ function ActionsMenu({
   );
 }
 
+function MobilePriorityControl({ task, onPriorityChange }: Pick<TaskRowProps, 'task' | 'onPriorityChange'>) {
+  const priority = task.priority ?? '';
+  const config = priority ? PRIORITY_CONFIG[priority] : null;
+  const Icon = config?.icon ?? Plus;
+
+  return (
+    <StopPropagation>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className={`${mobileIconButtonClass} ${priorityClasses[priority] ?? ''}`}
+          aria-label={`Priority: ${formatPriorityLabel(priority)}`}
+          title={`Priority: ${formatPriorityLabel(priority)}`}
+        >
+          <Icon size={14} className="shrink-0" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-[140px]">
+          {PRIORITY_ORDER.map((value) => {
+            const itemConfig = PRIORITY_CONFIG[value];
+            const ItemIcon = itemConfig.icon;
+            return (
+              <DropdownMenuItem
+                key={value}
+                onSelect={() => onPriorityChange?.(task.id, value)}
+                className="min-h-9 justify-between text-[12px] font-semibold"
+              >
+                <span className="flex items-center gap-2" style={{ color: itemConfig.color }}>
+                  <ItemIcon size={13} />
+                  {itemConfig.label}
+                </span>
+                {priority === value && <Check size={13} className="text-cu-primary" />}
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </StopPropagation>
+  );
+}
+
+function MobileStatusControl({ task, projectStatuses, onStatusChange }: Pick<TaskRowProps, 'task' | 'projectStatuses' | 'onStatusChange'>) {
+  const taskStatus = normalizeStatus(task.status);
+  const options = projectStatuses?.length
+    ? projectStatuses.map((status) => ({ value: normalizeStatus(status.status), label: status.name || formatStatusLabel(status.status) }))
+    : STATUS_ORDER.map((status) => ({ value: status, label: formatStatusLabel(status) }));
+  const current = projectStatuses?.find((status) => normalizeStatus(status.status) === taskStatus);
+  const label = current?.name || STATUS_CONFIG[taskStatus]?.label || formatStatusLabel(taskStatus);
+
+  return (
+    <StopPropagation>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className={mobileIconButtonClass}
+          aria-label={`Status: ${label}`}
+          title={`Status: ${label}`}
+        >
+          <StatusDot status={taskStatus} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-[160px]">
+          {options.map((option) => (
+            <DropdownMenuItem
+              key={option.value}
+              onSelect={() => onStatusChange(task.id, option.value)}
+              className="min-h-9 justify-between text-[12px] font-semibold"
+            >
+              <span className="flex items-center gap-2">
+                <StatusDot status={option.value} />
+                {option.label}
+              </span>
+              {taskStatus === option.value && <Check size={13} className="text-cu-primary" />}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </StopPropagation>
+  );
+}
+
+function MobileDueDateControl({ task, onDueDateChange }: Pick<TaskRowProps, 'task' | 'onDueDateChange'>) {
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const overdue = isTaskOverdue(task);
+  const label = overdue ? 'Overdue' : formatDueDate(task.dueDate);
+
+  return (
+    <StopPropagation>
+      <button
+        type="button"
+        className={`${mobileIconButtonClass} ${overdue ? 'border-red-500/20 bg-red-500/10 text-red-500' : ''}`}
+        onClick={() => dateInputRef.current?.showPicker?.() ?? dateInputRef.current?.click()}
+        aria-label={`Due date: ${label}`}
+        title={`Due date: ${label}`}
+      >
+        <CalendarDays size={14} />
+      </button>
+      <input
+        ref={dateInputRef}
+        type="date"
+        className="sr-only"
+        value={task.dueDate ?? ''}
+        onChange={(event) => onDueDateChange(task.id, event.target.value || null)}
+      />
+    </StopPropagation>
+  );
+}
+
+function MobileAssigneeControl({ task, members, onAssigneesChange }: Pick<TaskRowProps, 'task' | 'members' | 'onAssigneesChange'>) {
+  const assignedUsers = getAssignedUsers(task);
+  const selectedIds = new Set((task.assignees ?? []).map((person) => person.id).filter(Boolean) as number[]);
+  const label = assignedUsers.length > 0
+    ? `Assignee: ${assignedUsers[0]?.name}${assignedUsers.length > 1 ? ` +${assignedUsers.length - 1}` : ''}`
+    : 'Assign task';
+
+  return (
+    <StopPropagation>
+      <DropdownMenu>
+        <DropdownMenuTrigger className={mobileIconButtonClass} aria-label={label} title={label}>
+          {assignedUsers.length > 0 ? (
+            <AvatarStack users={assignedUsers} size="xs" max={2} />
+          ) : (
+            <UserPlus size={14} />
+          )}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="max-h-64 min-w-[220px] overflow-y-auto">
+          <DropdownMenuItem onSelect={() => onAssigneesChange(task.id, [])} className="min-h-9 text-[12px]">
+            Unassigned
+          </DropdownMenuItem>
+          {members.map((member) => {
+            const selectedMemberIds = selectedIds.size > 0
+              ? Array.from(selectedIds)
+              : task.assigneeId ? [task.assigneeId] : [];
+            const checked = selectedMemberIds.includes(member.id);
+            return (
+              <DropdownMenuItem
+                key={member.id}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  const nextIds = checked
+                    ? selectedMemberIds.filter((id) => id !== member.id)
+                    : [...selectedMemberIds, member.id];
+                  onAssigneesChange(task.id, nextIds);
+                }}
+                className="min-h-9 justify-between text-[12px]"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <AvatarStack users={[{ name: member.name, src: member.photoUrl }]} size="xs" max={1} />
+                  <span className="truncate">{member.name}</span>
+                </span>
+                {checked && <Check size={13} className="text-cu-primary" />}
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </StopPropagation>
+  );
+}
+
+function MobileLabelControl({ task, availableLabels, onToggleLabel }: Pick<TaskRowProps, 'task' | 'availableLabels' | 'onToggleLabel'>) {
+  const firstLabel = task.labels?.[0];
+  const labelCount = task.labels?.length ?? 0;
+
+  return (
+    <StopPropagation>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className={mobileIconButtonClass}
+          aria-label={labelCount > 0 ? `${labelCount} label${labelCount === 1 ? '' : 's'}` : 'Labels'}
+          title={labelCount > 0 ? `${labelCount} label${labelCount === 1 ? '' : 's'}` : 'Labels'}
+        >
+          <Tag size={14} style={firstLabel?.color ? { color: firstLabel.color } : undefined} />
+          {labelCount > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-cu-primary px-1 text-[9px] font-bold text-white">
+              {labelCount}
+            </span>
+          )}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="max-h-64 min-w-[210px] overflow-y-auto">
+          <DropdownMenuLabel>Labels</DropdownMenuLabel>
+          {availableLabels.length === 0 ? (
+            <div className="px-2.5 py-2 text-[12px] text-cu-text-muted">No labels yet</div>
+          ) : (
+            availableLabels.map((label) => {
+              const attached = Boolean(task.labels?.some((item) => item.id === label.id));
+              return (
+                <DropdownMenuItem
+                  key={label.id}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    onToggleLabel(task.id, label, !attached);
+                  }}
+                  className="min-h-9 justify-between text-[12px]"
+                >
+                  <span
+                    style={hexToLabelStyle(label.color ?? '#6366F1')}
+                    className="max-w-[150px] truncate rounded-full border border-black/5 px-2 py-0.5 text-[11px] font-semibold"
+                  >
+                    {label.name}
+                  </span>
+                  {attached && <Check size={13} className="text-cu-primary" />}
+                </DropdownMenuItem>
+              );
+            })
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </StopPropagation>
+  );
+}
+
+function MobileMilestoneControl({ task, milestones, onMilestoneChange }: Pick<TaskRowProps, 'task' | 'milestones' | 'onMilestoneChange'>) {
+  const label = task.milestoneName ? `Milestone: ${task.milestoneName}` : 'Milestone';
+
+  return (
+    <StopPropagation>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className={`${mobileIconButtonClass} ${task.milestoneName ? 'text-cu-primary' : ''}`}
+          aria-label={label}
+          title={label}
+        >
+          <Target size={14} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="max-h-64 min-w-[210px] overflow-y-auto">
+          <DropdownMenuItem onSelect={() => onMilestoneChange(task.id, null)} className="min-h-9 text-[12px]">
+            No milestone
+          </DropdownMenuItem>
+          {milestones.map((milestone) => (
+            <DropdownMenuItem
+              key={milestone.id}
+              onSelect={() => onMilestoneChange(task.id, milestone.id)}
+              className="min-h-9 justify-between text-[12px]"
+            >
+              <span className="truncate">{milestone.name}</span>
+              {task.milestoneId === milestone.id && <Check size={13} className="text-cu-primary" />}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </StopPropagation>
+  );
+}
+
 export function DesktopTaskRow(props: TaskRowProps) {
   const {
     task,
@@ -485,7 +731,7 @@ export function DesktopTaskRow(props: TaskRowProps) {
 
   return (
     <div
-      className={`hidden min-h-[48px] cursor-pointer border-b border-cu-border/50 transition-colors md:${LIST_GRID_CLASS} ${
+      className={`hidden min-h-[48px] cursor-pointer border-b border-cu-border/50 transition-colors ${LIST_GRID_CLASS} ${
         selected ? 'border-l-2 border-l-cu-primary bg-cu-primary/[0.04]' : 'border-l-2 border-l-transparent bg-cu-bg hover:bg-cu-hover/70'
       } ${showArchived ? 'opacity-75' : ''}`}
       onClick={() => onOpenModal(task.id)}
@@ -530,81 +776,69 @@ export function DesktopTaskRow(props: TaskRowProps) {
   );
 }
 
-export function MobileTaskCard(props: TaskRowProps) {
+export function MobileTaskRow(props: TaskRowProps) {
   const { task, onOpenModal, selected, onToggleSelect, showArchived } = props;
-  const assignedUsers = getAssignedUsers(task);
-  const priority = task.priority ?? '';
-  const priorityConfig = PRIORITY_CONFIG[priority];
+  const priorityColor = PRIORITY_CONFIG[task.priority ?? '']?.color ?? '#9CA3AF';
 
   return (
     <div
-      className={`rounded-cu-lg border border-cu-border bg-cu-bg shadow-cu-sm transition-colors md:hidden ${
-        selected ? 'ring-2 ring-cu-primary/30' : ''
+      className={`flex min-h-[60px] items-center overflow-hidden rounded-cu-md border border-cu-border bg-cu-bg shadow-cu-sm transition-colors md:hidden ${
+        selected ? 'ring-2 ring-cu-primary/25' : ''
       } ${showArchived ? 'opacity-75' : ''}`}
-      data-testid="mobile-task-card"
+      data-testid="mobile-task-row"
     >
-      <div className="flex gap-3 p-3">
+      <span className="h-10 w-1 shrink-0 rounded-r-full" style={{ backgroundColor: priorityColor }} />
+      <div className="flex min-w-0 flex-1 items-center gap-2 px-2 py-2">
         <SelectionCell {...props} selected={selected} onToggleSelect={onToggleSelect} />
         <button
           type="button"
           onClick={() => onOpenModal(task.id)}
           className="min-w-0 flex-1 text-left"
         >
-          <div className="flex min-w-0 items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="truncate text-[14px] font-bold leading-5 text-cu-text-primary">{task.title}</h3>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                <TaskBadges task={task} compact />
-                {task.labels?.slice(0, 2).map((label) => (
-                  <span
-                    key={label.id}
-                    style={hexToLabelStyle(label.color ?? '#6366F1')}
-                    className="max-w-[120px] truncate rounded-full border border-black/5 px-2 py-0.5 text-[10px] font-semibold"
-                  >
-                    {label.name}
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <h3 className="truncate text-[13px] font-bold leading-5 text-cu-text-primary">
+                {task.title}
+              </h3>
+              <TaskBadges task={task} compact />
+            </div>
+            <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] font-semibold text-cu-text-tertiary">
+              <span className="truncate">{formatPriorityLabel(task.priority)}</span>
+              <span aria-hidden="true">/</span>
+              <span className="truncate">{formatDueDate(task.dueDate)}</span>
+              {task.labels?.[0] && (
+                <>
+                  <span aria-hidden="true">/</span>
+                  <span className="truncate" style={{ color: task.labels[0].color ?? undefined }}>
+                    {task.labels[0].name}
                   </span>
-                ))}
-              </div>
+                </>
+              )}
             </div>
           </div>
         </button>
-        <ActionsMenu {...props} />
-      </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto border-t border-cu-border/60 bg-cu-bg-secondary/60 px-3 py-2 no-scrollbar">
-        <PriorityControl {...props} />
-        <StatusControl {...props} />
-        <DueDateControl {...props} />
-        <StopPropagation>
-          <div className="flex h-8 items-center gap-2 rounded-cu-md border border-cu-border bg-cu-bg px-2">
-            {assignedUsers.length > 0 ? (
-              <>
-                <AvatarStack users={assignedUsers} size="xs" max={3} />
-                <span className="max-w-[120px] truncate text-[11px] font-semibold text-cu-text-secondary">
-                  {assignedUsers[0]?.name}{assignedUsers.length > 1 ? ` +${assignedUsers.length - 1}` : ''}
-                </span>
-              </>
-            ) : (
-              <span className="text-[11px] font-semibold text-cu-text-muted">Unassigned</span>
-            )}
-          </div>
-        </StopPropagation>
-        {task.milestoneName && (
-          <span className="inline-flex h-8 max-w-[150px] shrink-0 items-center gap-1.5 rounded-cu-md border border-cu-border bg-cu-bg px-2 text-[11px] font-semibold text-cu-text-secondary">
-            <Target size={12} />
-            <span className="truncate">{task.milestoneName}</span>
-          </span>
-        )}
+        <div className="flex shrink-0 items-center gap-1">
+          <MobilePriorityControl {...props} />
+          <MobileStatusControl {...props} />
+          <MobileDueDateControl {...props} />
+          <MobileAssigneeControl {...props} />
+          <MobileLabelControl {...props} />
+          <MobileMilestoneControl {...props} />
+          <ActionsMenu {...props} />
+        </div>
       </div>
     </div>
   );
 }
 
+export const MobileTaskCard = MobileTaskRow;
+
 const TaskRow = React.memo(function TaskRow(props: TaskRowProps) {
   return (
     <>
       <DesktopTaskRow {...props} />
-      <MobileTaskCard {...props} />
+      <MobileTaskRow {...props} />
     </>
   );
 });

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import TaskRow, { DesktopTaskRow, MobileTaskCard, type TaskRowProps } from './TaskRow';
+import TaskRow, { DesktopTaskRow, MobileTaskRow, type TaskRowProps } from './TaskRow';
 
 const task = {
   id: 10,
@@ -55,25 +55,53 @@ describe('TaskRow responsive surfaces', () => {
   it('renders the desktop row with task essentials', () => {
     render(<DesktopTaskRow {...defaultProps} />);
 
-    expect(screen.getByTestId('desktop-task-row')).toBeInTheDocument();
+    const row = screen.getByTestId('desktop-task-row');
+    expect(row).toBeInTheDocument();
+    expect(row).toHaveClass('hidden', 'md:grid');
     expect(screen.getByText('Polish list page responsiveness')).toBeInTheDocument();
     expect(screen.getByText('High')).toBeInTheDocument();
     expect(screen.getByText('In Progress')).toBeInTheDocument();
-    expect(screen.getByText('Frontend')).toBeInTheDocument();
+    expect(screen.getAllByText('Frontend').length).toBeGreaterThan(0);
     expect(screen.getByText('Launch')).toBeInTheDocument();
     expect(screen.getByText('Alex Rivera')).toBeInTheDocument();
   });
 
-  it('renders the mobile card with the same essential metadata', () => {
-    render(<MobileTaskCard {...defaultProps} />);
+  it('renders the compact mobile row with the same essential metadata', () => {
+    render(<MobileTaskRow {...defaultProps} />);
 
-    expect(screen.getByTestId('mobile-task-card')).toBeInTheDocument();
+    expect(screen.getByTestId('mobile-task-row')).toBeInTheDocument();
     expect(screen.getByText('Polish list page responsiveness')).toBeInTheDocument();
     expect(screen.getByText('High')).toBeInTheDocument();
-    expect(screen.getByText('In Progress')).toBeInTheDocument();
     expect(screen.getByText('Feb 14')).toBeInTheDocument();
-    expect(screen.getByText('Frontend')).toBeInTheDocument();
-    expect(screen.getByText('Launch')).toBeInTheDocument();
+    expect(screen.getAllByText('Frontend').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /Status: In Progress/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Milestone: Launch/i })).toBeInTheDocument();
+  });
+
+  it('renders compact editable mobile row controls', () => {
+    render(<MobileTaskRow {...defaultProps} />);
+
+    expect(screen.getByTestId('mobile-task-row')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /select polish list/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /actions for polish list/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Priority: High/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Status: In Progress/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Due date: Feb 14/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Assignee: Alex Rivera/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /1 label/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Milestone: Launch/i })).toBeInTheDocument();
+  });
+
+  it('falls back to To Do when a task status is missing', () => {
+    render(
+      <DesktopTaskRow
+        {...defaultProps}
+        task={{ ...task, status: null } as TaskRowProps['task']}
+        projectStatuses={[{ status: null as unknown as string, name: '', color: '' }]}
+      />,
+    );
+
+    expect(screen.getByText('To Do')).toBeInTheDocument();
   });
 
   it('opens the task from row click and toggles selection from the checkbox', () => {

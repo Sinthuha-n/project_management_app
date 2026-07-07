@@ -36,7 +36,7 @@ interface ListFilterBarProps {
 }
 
 const chipClass =
-  'inline-flex min-h-8 items-center gap-1.5 rounded-cu-md border border-cu-border bg-cu-bg px-2.5 text-[12px] font-semibold text-cu-text-secondary';
+  'inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-cu-md border border-cu-border bg-cu-bg px-2.5 text-[12px] font-semibold text-cu-text-secondary';
 
 function toggleValue(values: string[], value: string) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
@@ -78,9 +78,9 @@ function FilterDropdown({
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex h-9 items-center gap-1.5 rounded-cu-md border border-cu-border bg-cu-bg px-3 text-[12px] font-semibold text-cu-text-secondary shadow-cu-sm transition-colors hover:bg-cu-hover hover:text-cu-text-primary">
+      <DropdownMenuTrigger className="inline-flex h-9 w-full min-w-0 items-center justify-between gap-1.5 rounded-cu-md border border-cu-border bg-cu-bg px-3 text-[12px] font-semibold text-cu-text-secondary shadow-cu-sm transition-colors hover:bg-cu-hover hover:text-cu-text-primary md:w-auto">
         {icon}
-        <span>{label}</span>
+        <span className="min-w-0 truncate">{label}</span>
         {count ? (
           <span className="rounded-full bg-cu-primary px-1.5 text-[10px] font-bold text-white">{count}</span>
         ) : null}
@@ -210,10 +210,10 @@ export default function ListFilterBar({
           <button
             type="button"
             onClick={() => setMobileFiltersOpen(true)}
-            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-cu-md border border-cu-border bg-cu-bg px-3 text-[12px] font-bold text-cu-text-primary shadow-cu-sm md:hidden"
+            className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-cu-md border border-cu-border bg-cu-bg px-2.5 text-[12px] font-bold text-cu-text-primary shadow-cu-sm min-[360px]:gap-2 min-[360px]:px-3 md:hidden"
           >
             <SlidersHorizontal size={15} />
-            Filters
+            <span className="hidden min-[360px]:inline">Filters</span>
             {activeFilterCount > 0 && (
               <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-cu-primary px-1.5 text-[10px] text-white">
                 {activeFilterCount}
@@ -244,7 +244,7 @@ export default function ListFilterBar({
                 onClick={() => onChange({ ...filters, statuses: filters.statuses.filter((item) => item !== status) })}
                 className={chipClass}
               >
-                {formatStatusLabel(status)}
+                <span className="min-w-0 truncate">{formatStatusLabel(status)}</span>
                 <X size={12} />
               </button>
             ))}
@@ -255,7 +255,7 @@ export default function ListFilterBar({
                 onClick={() => onChange({ ...filters, priorities: filters.priorities.filter((item) => item !== priority) })}
                 className={chipClass}
               >
-                {formatPriorityLabel(priority)}
+                <span className="min-w-0 truncate">{formatPriorityLabel(priority)}</span>
                 <X size={12} />
               </button>
             ))}
@@ -265,7 +265,7 @@ export default function ListFilterBar({
                 onClick={() => onChange({ ...filters, assignee: '' })}
                 className={chipClass}
               >
-                {filters.assignee}
+                <span className="min-w-0 truncate">{filters.assignee}</span>
                 <X size={12} />
               </button>
             )}
@@ -275,7 +275,7 @@ export default function ListFilterBar({
                 onClick={() => onGroupByChange('none')}
                 className={chipClass}
               >
-                Grouped by {groupLabel}
+                <span className="min-w-0 truncate">Grouped by {groupLabel}</span>
                 <X size={12} />
               </button>
             )}
@@ -290,7 +290,7 @@ export default function ListFilterBar({
         snapPoint="auto"
       >
         <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-2 gap-2">{filterControls}</div>
+          <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">{filterControls}</div>
           {(activeFilterCount > 0 || groupBy !== 'none' || hasSearch) && (
             <button
               type="button"

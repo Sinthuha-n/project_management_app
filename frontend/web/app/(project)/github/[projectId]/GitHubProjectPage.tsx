@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell, GitBranch, Globe, Lock, RefreshCw, Search, X, Check, Link2,
@@ -25,21 +26,23 @@ import { Popover, toast } from '@/components/ui';
 import OverlayPortal from '@/components/ui/OverlayPortal';
 import {
   getProjectGitHubRepo,
-  setProjectGitHubRepo,
+  setProjectGitHubConnection,
   clearProjectGitHubRepo,
   hasConnectedGitHubAccount,
   fetchRepositories,
   fetchGitHubConnectionStatus,
   fetchGitHubUser,
-  fetchPullRequest,
-  fetchPullRequests,
-  fetchCommits,
-  fetchIssues,
+  fetchProjectGitHubConnection,
+  persistProjectGitHubConnection,
+  fetchProjectPullRequests,
+  fetchProjectCommits,
+  fetchProjectIssues,
   fetchImportedGitHubIssueNumbers,
   fetchGitHubAutomationRules,
   fetchGitHubAutomationLogs,
   deleteGitHubAutomationRule,
   setGitHubAutomationRuleEnabled,
+  syncProjectGitHub,
   getSavedGitHubAccounts,
   upsertSavedGitHubAccount,
   type GitHubRepository,
@@ -98,6 +101,7 @@ const panelClass = 'rounded-2xl border border-cu-border bg-cu-bg px-4 py-4 shado
 const secondaryButtonClass = 'rounded-xl border border-cu-border bg-cu-bg px-3 py-2 font-outfit font-semibold text-cu-text-secondary shadow-cu-sm transition-colors hover:bg-cu-hover hover:text-cu-text-primary disabled:opacity-40';
 const iconButtonClass = 'rounded-xl border border-cu-border bg-cu-bg p-2 text-cu-text-secondary shadow-cu-sm transition-colors hover:bg-cu-hover hover:text-cu-text-primary disabled:opacity-40';
 const githubConnectRequiredMessage = 'Connect your GitHub account to load repository activity.';
+type GitHubRouteState = 'initializing' | 'needsAppAuth' | 'needsGitHubAccount' | 'needsRepository' | 'connected' | 'error';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function timeAgo(dateStr: string): string {
@@ -160,7 +164,6 @@ function DisconnectedView({
   isPostLogout: boolean;
 }) {
   return (
-    <OverlayPortal>
       <motion.div
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
@@ -311,7 +314,110 @@ function DisconnectedView({
         </div>
       )}
       </motion.div>
-    </OverlayPortal>
+  );
+}
+
+function RouteStatusView({
+  title,
+  subtitle,
+  icon,
+  action,
+}: {
+  title: string;
+  subtitle: string;
+  icon: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex w-full max-w-md flex-col items-center gap-5 text-center"
+    >
+      <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${iconSurfaceClass}`}>
+        {icon}
+      </div>
+      <div className="flex flex-col gap-2">
+        <h2 className="text-xl font-outfit font-black tracking-tight text-cu-text-primary">{title}</h2>
+        <p className="text-sm font-outfit leading-relaxed text-cu-text-secondary">{subtitle}</p>
+      </div>
+      {action}
+    </motion.div>
+  );
+}
+
+function InitializingView() {
+  return (
+    <RouteStatusView
+      title="Loading GitHub view"
+      subtitle="Checking your Planora session, GitHub account, and linked project repository."
+      icon={<RefreshCw size={22} className="animate-spin text-cu-text-secondary" />}
+    />
+  );
+}
+
+function AppAuthRequiredView({ onLogin }: { onLogin: () => void }) {
+  return (
+    <RouteStatusView
+      title="Sign in required"
+      subtitle="Your Planora session could not be restored. Sign in again to open this GitHub project view."
+      icon={<Lock size={22} className="text-cu-text-secondary" />}
+      action={(
+        <button
+          type="button"
+          onClick={onLogin}
+          className="rounded-2xl bg-cu-primary px-5 py-2.5 text-sm font-outfit font-bold text-white shadow-cu-sm transition-colors hover:bg-cu-primary-hover"
+        >
+          Go to login
+        </button>
+      )}
+    />
+  );
+}
+
+function RepositoryRequiredView({ onSelectRepo, loading }: { onSelectRepo: () => void; loading: boolean }) {
+  return (
+    <RouteStatusView
+      title="Choose a repository"
+      subtitle="Your GitHub account is connected. Link a repository to this project to load pull requests, commits, issues, and automations."
+      icon={<Link2 size={22} className="text-cu-text-secondary" />}
+      action={(
+        <button
+          type="button"
+          onClick={onSelectRepo}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-2xl bg-cu-primary px-5 py-2.5 text-sm font-outfit font-bold text-white shadow-cu-sm transition-colors hover:bg-cu-primary-hover disabled:opacity-50"
+        >
+          <GitHubMark size={16} className="text-white" />
+          {loading ? 'Loading repositories...' : 'Select repository'}
+        </button>
+      )}
+    />
+  );
+}
+
+function GitHubRouteErrorView({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <RouteStatusView
+      title="Unable to load GitHub view"
+      subtitle={message}
+      icon={<AlertCircle size={22} className="text-red-500" />}
+      action={(
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-2xl border border-cu-border bg-cu-bg px-5 py-2.5 text-sm font-outfit font-bold text-cu-text-secondary shadow-cu-sm transition-colors hover:bg-cu-hover hover:text-cu-text-primary"
+        >
+          Retry
+        </button>
+      )}
+    />
   );
 }
 
@@ -1722,6 +1828,8 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
   const router = useRouter();
 
   const [connection, setConnection] = useState<ProjectGitHubConnection | null>(null);
+  const [routeState, setRouteState] = useState<GitHubRouteState>('initializing');
+  const [routeError, setRouteError] = useState<string | null>(null);
   const [user, setUser] = useState<GitHubUser | null>(null);
   const [prs, setPRs] = useState<GitHubPullRequest[]>([]);
   const [commits, setCommits] = useState<GitHubCommit[]>([]);
@@ -1749,19 +1857,77 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [repoError, setRepoError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    setConnection(getProjectGitHubRepo(projectId));
-    const loadSocketToken = async () => {
-      const token = await ensureValidToken();
-      if (active) setSocketToken(token);
-    };
-    void loadSocketToken();
-
-    return () => {
-      active = false;
-    };
+  const resolveBackendConnectionAfterConflict = useCallback(async (): Promise<ProjectGitHubConnection | null> => {
+    try {
+      return await fetchProjectGitHubConnection(projectId);
+    } catch {
+      return null;
+    }
   }, [projectId]);
+
+  const initializeGitHubView = useCallback(async () => {
+    setRouteState('initializing');
+    setRouteError(null);
+    setConnection(null);
+
+    try {
+      const token = await ensureValidToken({ allowCookieRefresh: true });
+      setSocketToken(token);
+
+      if (!token) {
+        setRouteState('needsAppAuth');
+        return;
+      }
+
+      const status = await fetchGitHubConnectionStatus().catch(() => ({ connected: false }));
+      if (!status.connected) {
+        setRouteState('needsGitHubAccount');
+        return;
+      }
+
+      const backendConnection = await fetchProjectGitHubConnection(projectId);
+      if (backendConnection) {
+        setProjectGitHubConnection(projectId, backendConnection);
+        setConnection(backendConnection);
+        setRouteState('connected');
+        return;
+      }
+
+      const legacyConnection = getProjectGitHubRepo(projectId);
+      if (legacyConnection?.repoFullName) {
+        try {
+          const persistedConnection = await persistProjectGitHubConnection(projectId, legacyConnection.repoFullName);
+          const mergedConnection = {
+            ...persistedConnection,
+            private: legacyConnection.private,
+            defaultBranch: legacyConnection.defaultBranch || persistedConnection.defaultBranch,
+          };
+          setProjectGitHubConnection(projectId, mergedConnection);
+          setConnection(mergedConnection);
+          setRouteState('connected');
+          return;
+        } catch (error) {
+          const existingConnection = await resolveBackendConnectionAfterConflict();
+          if (existingConnection) {
+            setProjectGitHubConnection(projectId, existingConnection);
+            setConnection(existingConnection);
+            setRouteState('connected');
+            return;
+          }
+          throw error;
+        }
+      }
+
+      setRouteState('needsRepository');
+    } catch (error) {
+      setRouteError(error instanceof Error ? error.message : 'The GitHub project connection failed to load.');
+      setRouteState('error');
+    }
+  }, [projectId, resolveBackendConnectionAfterConflict]);
+
+  useEffect(() => {
+    void initializeGitHubView();
+  }, [initializeGitHubView]);
 
   useEffect(() => {
     localStorage.removeItem('github_force_relogin');
@@ -1806,9 +1972,9 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
     }
 
     const [prResult, commitResult, issueResult, userResult] = await Promise.allSettled([
-      fetchPullRequests(conn.ownerLogin, conn.repoName),
-      fetchCommits(conn.ownerLogin, conn.repoName),
-      fetchIssues(conn.repoFullName),
+      fetchProjectPullRequests(projectId),
+      fetchProjectCommits(projectId),
+      fetchProjectIssues(projectId),
       fetchGitHubUser(),
     ]);
 
@@ -1828,7 +1994,7 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
       setSavedAccounts(getSavedGitHubAccounts());
     }
     setLoading(false);
-  }, []);
+  }, [projectId]);
 
   const loadIssues = useCallback(async (conn: ProjectGitHubConnection) => {
     let isGitHubConnected = false;
@@ -1846,13 +2012,13 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
     }
 
     try {
-      const latestIssues = await fetchIssues(conn.repoFullName);
+      const latestIssues = await fetchProjectIssues(projectId);
       setIssues(latestIssues);
       setIssueError(null);
     } catch (error) {
       setIssueError(error instanceof Error ? error.message : 'Failed to load issues');
     }
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     if (connection) void loadData(connection);
@@ -1968,14 +2134,44 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
     await loadRepos();
   };
 
-  const handleSelectRepo = (repo: GitHubRepository) => {
-    setProjectGitHubRepo(projectId, repo);
-    const newConn = getProjectGitHubRepo(projectId)!;
-    setConnection(newConn);
-    setIsPostLogout(false);
-    setShowModal(false);
-    setRepoSearch('');
-    void loadData(newConn);
+  const handleSelectRepo = async (repo: GitHubRepository) => {
+    setLoadingRepos(true);
+    setRepoError(null);
+
+    try {
+      const persistedConnection = await persistProjectGitHubConnection(projectId, repo.full_name);
+      const newConn: ProjectGitHubConnection = {
+        ...persistedConnection,
+        repoId: persistedConnection.repoId || repo.id,
+        repoName: repo.name,
+        private: repo.private,
+        defaultBranch: repo.default_branch,
+        ownerLogin: repo.owner.login,
+      };
+      setProjectGitHubConnection(projectId, newConn);
+      setConnection(newConn);
+      setRouteState('connected');
+      setIsPostLogout(false);
+      setShowModal(false);
+      setRepoSearch('');
+      void loadData(newConn);
+    } catch (error) {
+      const existingConnection = await resolveBackendConnectionAfterConflict();
+      if (existingConnection) {
+        setProjectGitHubConnection(projectId, existingConnection);
+        setConnection(existingConnection);
+        setRouteState('connected');
+        setIsPostLogout(false);
+        setShowModal(false);
+        setRepoSearch('');
+        void loadData(existingConnection);
+        return;
+      }
+
+      setRepoError(error instanceof Error ? error.message : 'Failed to link repository to this project.');
+    } finally {
+      setLoadingRepos(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -2004,6 +2200,8 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
     clearProjectGitHubRepo(projectId);
     setIsPostLogout(true);
     setConnection(null);
+    setRouteState('needsGitHubAccount');
+    setRouteError(null);
     setUser(null);
     setPRs([]);
     setCommits([]);
@@ -2043,8 +2241,7 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
 
     if (update.type === 'opened') {
       try {
-        const pr = await fetchPullRequest(connection.ownerLogin, connection.repoName, update.prNumber);
-        setPRs((current) => [pr, ...current.filter((existing) => existing.number !== pr.number)]);
+        await loadData(connection);
         setPRError(null);
       } catch (error) {
         setPRError(error instanceof Error
@@ -2063,13 +2260,27 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
         updated_at: new Date().toISOString(),
       };
     }));
-  }, [connection]);
+  }, [connection, loadData]);
 
   const handleIssueUpdate = useCallback(() => {
     if (!connection) return;
 
     void loadIssues(connection);
   }, [connection, loadIssues]);
+
+  const handleRefreshDashboard = useCallback(async () => {
+    if (!connection) return;
+
+    try {
+      await syncProjectGitHub(projectId);
+    } catch {
+      // The local dashboard can still refresh from cached/project data when sync is unavailable.
+    }
+
+    await loadData(connection);
+    void loadAutomationRules();
+    void loadAutomationLogs();
+  }, [connection, loadAutomationLogs, loadAutomationRules, loadData, projectId]);
 
   const filteredRepos = allRepos.filter(r =>
     r.full_name.toLowerCase().includes(repoSearch.toLowerCase())
@@ -2088,7 +2299,7 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
       commitError={commitError}
       issueError={issueError}
       user={user}
-      onRefresh={() => void loadData(connection)}
+      onRefresh={() => void handleRefreshDashboard()}
       onLogout={() => void handleLogout()}
       onChangeRepo={handleOpenModal}
       onPRUpdate={(update) => void handlePRUpdate(update)}
@@ -2108,16 +2319,57 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
     />
   ) : null;
 
+  const routeContent = (() => {
+    if (routeState === 'initializing') {
+      return <InitializingView />;
+    }
+
+    if (routeState === 'needsAppAuth') {
+      return <AppAuthRequiredView onLogin={() => router.replace('/login')} />;
+    }
+
+    if (routeState === 'needsGitHubAccount') {
+      return (
+        <DisconnectedView
+          key="disconnected"
+          onConnect={handleInitiateConnect}
+          onLogout={() => void handleLogout()}
+          isPostLogout={isPostLogout}
+        />
+      );
+    }
+
+    if (routeState === 'needsRepository') {
+      return <RepositoryRequiredView onSelectRepo={() => void handleOpenModal()} loading={loadingRepos} />;
+    }
+
+    if (routeState === 'error') {
+      return (
+        <GitHubRouteErrorView
+          message={routeError ?? 'The GitHub project data failed to load.'}
+          onRetry={() => void initializeGitHubView()}
+        />
+      );
+    }
+
+    if (connection) {
+      return socketToken ? (
+        <StompProvider token={socketToken}>{connectedDashboard}</StompProvider>
+      ) : connectedDashboard;
+    }
+
+    return (
+      <GitHubRouteErrorView
+        message="The GitHub project connection is missing. Retry to resolve the linked repository."
+        onRetry={() => void initializeGitHubView()}
+      />
+    );
+  })();
+
   return (
-    <div className={`w-full px-6 py-6 ${connection ? '' : 'min-h-[calc(100vh-130px)] flex flex-col items-center justify-center'}`}>
+    <div className={`w-full px-6 py-6 ${routeState === 'connected' ? '' : 'min-h-[calc(100vh-130px)] flex flex-col items-center justify-center'}`}>
       <AnimatePresence mode="wait">
-        {connection ? (
-          socketToken ? (
-            <StompProvider token={socketToken}>{connectedDashboard}</StompProvider>
-          ) : connectedDashboard
-        ) : (
-          <DisconnectedView key="disconnected" onConnect={handleInitiateConnect} onLogout={() => void handleLogout()} isPostLogout={isPostLogout} />
-        )}
+        {routeContent}
       </AnimatePresence>
 
 

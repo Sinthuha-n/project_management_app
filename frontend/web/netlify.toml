@@ -10,12 +10,15 @@
 #
 #   BACKEND_URL             = https://<your-aws-backend-url>   (server-side proxy rewrites)
 #   NEXT_PUBLIC_WS_BASE_URL = https://<your-aws-backend-url>   (browser WebSocket/STOMP)
-#   NEXT_PUBLIC_BACKEND_HOST = <your-aws-backend-hostname>     (image remotePatterns)
+#   NEXT_PUBLIC_BACKEND_HOST = <your-aws-backend-hostname>     (backend-hosted images)
+#   NEXT_PUBLIC_IMAGE_ALLOWED_ORIGINS = https://cdn.example.com,https://images.example.com
+#                         (optional extra image origins for Content-Security-Policy and next/image)
 #
 # The server-side rewrites in next.config.mjs proxy /api/* to your AWS backend,
 # so the browser never needs to know the backend URL for REST calls. WebSocket
 # connections cannot rely on those rewrites, so NEXT_PUBLIC_WS_BASE_URL must
-# point at the backend origin that serves /ws-native.
+# point at the backend origin that serves /ws-native. Browser-extension warnings
+# such as "content.js unload is not allowed" are not emitted by this application.
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

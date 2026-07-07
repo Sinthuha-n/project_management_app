@@ -9,6 +9,7 @@ import TaskCardModal from '@/app/taskcard/TaskCardModal';
 import EmptyState from '@/components/shared/EmptyState';
 import { RefreshCw } from 'lucide-react';
 import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
+import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 
 interface Member {
     userId: number;
@@ -39,11 +40,12 @@ function initials(member: Member): string {
 function Avatar({ member, size = 32 }: { member: Member; size?: number }) {
     const [imgError, setImgError] = useState(false);
     const dim = `${size}px`;
-    if (member.profilePicUrl && !imgError) {
+    const profilePicUrl = resolveProfilePhotoUrl(member.profilePicUrl, member.userId);
+    if (profilePicUrl && !imgError) {
         return (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-                src={member.profilePicUrl}
+                src={profilePicUrl}
                 alt={member.fullName || member.username}
                 width={size}
                 height={size}

@@ -8,6 +8,7 @@ import { EditMessageModal, ConfirmDeleteModal } from './chatModals';
 import { useVirtualizer, Virtualizer } from '@tanstack/react-virtual';
 import api from '@/lib/axios';
 import { avatarColor } from '@/hooks/chat/chat-utils';
+import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 
 interface ChatMessagesProps {
   projectId: string;
@@ -108,6 +109,8 @@ function messageIsMentioned(content: string | undefined | null, aliasSet: Set<st
 }
 
 function TypingIndicator({ user, userProfilePics = {} }: { user: string; userProfilePics?: Record<string, string> }) {
+  const profilePicUrl = resolveProfilePhotoUrl(userProfilePics?.[user]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -115,9 +118,9 @@ function TypingIndicator({ user, userProfilePics = {} }: { user: string; userPro
       exit={{ opacity: 0, y: 8 }}
       className="flex items-end gap-2.5 px-4 py-1"
     >
-      {userProfilePics?.[user] ? (
+      {profilePicUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={userProfilePics[user]} alt={user} className="w-7 h-7 rounded-full object-cover shadow-cu-sm flex-shrink-0" />
+        <img src={profilePicUrl} alt={user} className="w-7 h-7 rounded-full object-cover shadow-cu-sm flex-shrink-0" />
       ) : (
         <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${avatarColor(user)} flex items-center justify-center text-white text-xs font-semibold flex-shrink-0`}>
           {user.charAt(0).toUpperCase()}
@@ -308,6 +311,7 @@ export const ChatMessages = ({
             const isLoadingFile = loadingFileId === msg.id;
             const isMentioned = !isMe && !msg.deleted && !fileDoc && messageIsMentioned(msg.content, aliasSet);
             const isActiveMessage = !!msg.id && activeMessageId === msg.id;
+            const profilePicUrl = resolveProfilePhotoUrl(userProfilePics?.[msg.sender]);
 
             return (
               <div
@@ -339,9 +343,9 @@ export const ChatMessages = ({
                 {/* Avatar */}
                 {hasAvatar && (
                   <div className={`relative flex-shrink-0 ${grouped ? 'opacity-0' : 'opacity-100'}`}>
-                    {userProfilePics?.[msg.sender] ? (
+                    {profilePicUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={userProfilePics[msg.sender]} alt={msg.sender} className="w-7 h-7 rounded-full object-cover shadow-cu-sm" />
+                      <img src={profilePicUrl} alt={msg.sender} className="w-7 h-7 rounded-full object-cover shadow-cu-sm" />
                     ) : (
                       <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${avatarColor(msg.sender || '')} flex items-center justify-center text-white text-xs font-bold`}>
                         {(msg.sender || '?').charAt(0).toUpperCase()}
