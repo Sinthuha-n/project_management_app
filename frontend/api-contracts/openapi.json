@@ -78,8 +78,49 @@
         ],
         "type": "object"
       },
+      "BurndownBreakdownDTO": {
+        "properties": {
+          "byPriority": {
+            "items": {
+              "$ref": "#/components/schemas/BurndownBreakdownItemDTO"
+            },
+            "type": "array"
+          },
+          "byStatus": {
+            "items": {
+              "$ref": "#/components/schemas/BurndownBreakdownItemDTO"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "BurndownBreakdownItemDTO": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "storyPoints": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "taskCount": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "BurndownDataPointDTO": {
         "properties": {
+          "completedPoints": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "dailyBurn": {
+            "format": "int32",
+            "type": "integer"
+          },
           "date": {
             "type": "string"
           },
@@ -87,7 +128,14 @@
             "format": "int32",
             "type": "integer"
           },
+          "isToday": {
+            "type": "boolean"
+          },
           "remainingPoints": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "variancePoints": {
             "format": "int32",
             "type": "integer"
           }
@@ -96,6 +144,9 @@
       },
       "BurndownResponseDTO": {
         "properties": {
+          "breakdown": {
+            "$ref": "#/components/schemas/BurndownBreakdownDTO"
+          },
           "dataPoints": {
             "items": {
               "$ref": "#/components/schemas/BurndownDataPointDTO"
@@ -104,6 +155,12 @@
           },
           "endDate": {
             "type": "string"
+          },
+          "insights": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "sprintId": {
             "format": "int64",
@@ -115,7 +172,73 @@
           "startDate": {
             "type": "string"
           },
+          "summary": {
+            "$ref": "#/components/schemas/BurndownSummaryDTO"
+          },
           "totalStoryPoints": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "BurndownSummaryDTO": {
+        "properties": {
+          "actualBurnRate": {
+            "format": "double",
+            "type": "number"
+          },
+          "completedStoryPoints": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "completedTasks": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "daysElapsed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "daysRemaining": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "healthStatus": {
+            "type": "string"
+          },
+          "idealRemainingPoints": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "progressPercent": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "projectedCompletionDate": {
+            "type": "string"
+          },
+          "remainingStoryPoints": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "remainingTasks": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "requiredBurnRate": {
+            "format": "double",
+            "type": "number"
+          },
+          "totalStoryPoints": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalTasks": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "variancePoints": {
             "format": "int32",
             "type": "integer"
           }

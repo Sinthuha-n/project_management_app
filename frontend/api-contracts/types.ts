@@ -3576,22 +3576,73 @@ export interface components {
             status: string;
             taskIds: number[];
         };
+        BurndownBreakdownDTO: {
+            byPriority?: components["schemas"]["BurndownBreakdownItemDTO"][];
+            byStatus?: components["schemas"]["BurndownBreakdownItemDTO"][];
+        };
+        BurndownBreakdownItemDTO: {
+            name?: string;
+            /** Format: int32 */
+            storyPoints?: number;
+            /** Format: int32 */
+            taskCount?: number;
+        };
         BurndownDataPointDTO: {
+            /** Format: int32 */
+            completedPoints?: number;
+            /** Format: int32 */
+            dailyBurn?: number;
             date?: string;
             /** Format: int32 */
             idealPoints?: number;
+            isToday?: boolean;
             /** Format: int32 */
             remainingPoints?: number;
+            /** Format: int32 */
+            variancePoints?: number;
         };
         BurndownResponseDTO: {
+            breakdown?: components["schemas"]["BurndownBreakdownDTO"];
             dataPoints?: components["schemas"]["BurndownDataPointDTO"][];
             endDate?: string;
+            insights?: string[];
             /** Format: int64 */
             sprintId?: number;
             sprintName?: string;
             startDate?: string;
+            summary?: components["schemas"]["BurndownSummaryDTO"];
             /** Format: int32 */
             totalStoryPoints?: number;
+        };
+        BurndownSummaryDTO: {
+            /** Format: double */
+            actualBurnRate?: number;
+            /** Format: int32 */
+            completedStoryPoints?: number;
+            /** Format: int32 */
+            completedTasks?: number;
+            /** Format: int64 */
+            daysElapsed?: number;
+            /** Format: int64 */
+            daysRemaining?: number;
+            healthStatus?: string;
+            /** Format: int32 */
+            idealRemainingPoints?: number;
+            /** Format: int32 */
+            progressPercent?: number;
+            projectedCompletionDate?: string;
+            /** Format: int32 */
+            remainingStoryPoints?: number;
+            /** Format: int32 */
+            remainingTasks?: number;
+            /** Format: double */
+            requiredBurnRate?: number;
+            /** Format: int32 */
+            totalStoryPoints?: number;
+            /** Format: int32 */
+            totalTasks?: number;
+            /** Format: int32 */
+            variancePoints?: number;
         };
         CalendarEventDTO: {
             assignee?: string;

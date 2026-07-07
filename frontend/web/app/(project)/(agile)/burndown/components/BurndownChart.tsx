@@ -1,12 +1,24 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 export interface BurndownPoint {
   date: string;
   remainingPoints: number;
   idealPoints: number;
+  completedPoints?: number;
+  dailyBurn?: number;
+  variancePoints?: number;
+  isToday?: boolean;
 }
 
 interface BurndownChartProps {
@@ -15,284 +27,132 @@ interface BurndownChartProps {
   totalStoryPoints: number;
 }
 
-const PAD = { top: 32, right: 24, bottom: 56, left: 56 };
-const BLUE = 'var(--cu-primary)';
-const BLUE_LIGHT = 'var(--cu-primary-light)';
-const GREY = 'var(--cu-text-muted)';
-const GREY_DASHED = 'var(--cu-border)';
-
-function formatLabel(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
 export default function BurndownChart({ sprintName, dataPoints, totalStoryPoints }: BurndownChartProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(700);
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; point: BurndownPoint } | null>(null);
-  const [actualPathLen, setActualPathLen] = useState<number | null>(null);
-  const [idealPathLen, setIdealPathLen] = useState<number | null>(null);
-  const actualRef = useRef<SVGPathElement | null>(null);
-  const idealRef = useRef<SVGPathElement | null>(null);
-
-  // Reset lengths when data changes so the animation remounts and replays
-  // We do this during render to avoid cascading renders from an effect
-  const [prevDataPoints, setPrevDataPoints] = useState(dataPoints);
-  if (dataPoints !== prevDataPoints) {
-    setPrevDataPoints(dataPoints);
-    setActualPathLen(null);
-    setIdealPathLen(null);
-  }
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const ro = new ResizeObserver(([entry]) => {
-      setWidth(entry.contentRect.width || 700);
-    });
-    ro.observe(containerRef.current);
-    return () => ro.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const rafId = requestAnimationFrame(() => {
-      if (actualRef.current) setActualPathLen(actualRef.current.getTotalLength());
-      if (idealRef.current)  setIdealPathLen(idealRef.current.getTotalLength());
-    });
-    return () => cancelAnimationFrame(rafId);
-  }, [dataPoints]);
-
   if (!dataPoints.length) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-xl bg-cu-bg-secondary text-sm text-cu-text-muted">
+      <div className="flex h-[360px] items-center justify-center rounded-lg bg-cu-bg-secondary text-[13px] text-cu-text-muted">
         No data available for this sprint.
       </div>
     );
   }
 
-  const height = Math.min(380, Math.max(240, width * 0.4));
-  const innerW = width  - PAD.left - PAD.right;
-  const innerH = height - PAD.top  - PAD.bottom;
-
-  const n = dataPoints.length;
-  const maxY = Math.max(totalStoryPoints, 1);
-
-  const xScale = (i: number) => PAD.left + (n === 1 ? innerW / 2 : (i / (n - 1)) * innerW);
-  const yScale = (v: number) => PAD.top + innerH - (v / maxY) * innerH;
-
-  const toPath = (pts: BurndownPoint[], getValue: (p: BurndownPoint) => number) =>
-    pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${xScale(i).toFixed(1)},${yScale(getValue(p)).toFixed(1)}`).join(' ');
-
-  const actualPath = toPath(dataPoints, (p) => p.remainingPoints);
-  const idealPath  = toPath(dataPoints, (p) => p.idealPoints);
-
-  // Y-axis ticks
-  const yTicks = Array.from({ length: 5 }, (_, i) => Math.round((maxY / 4) * i));
-
-  // X-axis ticks: show at most 8 labels, evenly spaced
-  const xTickStep = Math.max(1, Math.ceil(n / 8));
-  const xTicks = dataPoints.filter((_, i) => i % xTickStep === 0 || i === n - 1);
+  const todayPoint = dataPoints.find((point) => point.isToday);
+  const maxY = Math.max(totalStoryPoints, ...dataPoints.map((point) => point.remainingPoints), 1);
+  const current = dataPoints.find((point) => point.isToday) ?? dataPoints[dataPoints.length - 1];
+  const varianceTone = (current.variancePoints ?? 0) > 0 ? 'text-red-500' : (current.variancePoints ?? 0) < 0 ? 'text-emerald-500' : 'text-cu-text-secondary';
 
   return (
-    <div ref={containerRef} className="w-full select-none">
-      {/* Legend */}
-      <div className="mb-3 flex items-center justify-between px-1">
-        <h3 className="text-[15px] font-semibold text-cu-text-primary">{sprintName}</h3>
-        <div className="flex items-center gap-5">
-          <div className="flex items-center gap-1.5">
-            <svg width="24" height="4">
-              <line x1="0" y1="2" x2="24" y2="2" stroke={BLUE} strokeWidth="2.5" strokeLinecap="round" />
-            </svg>
-            <span className="text-[12px] text-cu-text-secondary">Actual</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <svg width="24" height="4">
-              <line x1="0" y1="2" x2="24" y2="2" stroke={GREY_DASHED} strokeWidth="2" strokeDasharray="4 3" strokeLinecap="round" />
-            </svg>
-            <span className="text-[12px] text-cu-text-secondary">Ideal</span>
-          </div>
+    <section className="rounded-lg border border-cu-border bg-cu-bg p-4 shadow-cu-sm">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-cu-text-muted">Burndown trajectory</p>
+          <h2 className="truncate text-[16px] font-bold text-cu-text-primary">{sprintName}</h2>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-[12px] text-cu-text-secondary">
+          <LegendSwatch className="bg-cu-primary" label="Actual remaining" />
+          <LegendSwatch className="border border-dashed border-cu-text-muted" label="Ideal" />
+          <span className={varianceTone}>Variance {signed(current.variancePoints ?? 0)} pts</span>
         </div>
       </div>
 
-      <div className="relative">
-        <svg
-          width={width}
-          height={height}
-          viewBox={`0 0 ${width} ${height}`}
-          onMouseLeave={() => setTooltip(null)}
-        >
-          {/* Background */}
-          <rect x={PAD.left} y={PAD.top} width={innerW} height={innerH}
-            rx="6" fill={BLUE_LIGHT} fillOpacity="0.25" />
-
-          {/* Y grid lines */}
-          {yTicks.map((tick, i) => {
-            const y = yScale(tick);
-            return (
-              <g key={`ytick-${i}`}>
-                <line x1={PAD.left} y1={y} x2={PAD.left + innerW} y2={y}
-                  stroke={GREY_DASHED} strokeWidth="1" strokeDasharray={tick === 0 ? '0' : '4 3'} />
-                <text x={PAD.left - 8} y={y + 4} textAnchor="end"
-                  fontSize="11" fill={GREY} fontFamily="Inter, system-ui, sans-serif">
-                  {tick}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* X axis line */}
-          <line x1={PAD.left} y1={PAD.top + innerH} x2={PAD.left + innerW} y2={PAD.top + innerH}
-            stroke={GREY_DASHED} strokeWidth="1" />
-
-          {/* X axis ticks */}
-          {xTicks.map((p) => {
-            const idx = dataPoints.indexOf(p);
-            const x = xScale(idx);
-            return (
-              <g key={p.date}>
-                <line x1={x} y1={PAD.top + innerH} x2={x} y2={PAD.top + innerH + 5}
-                  stroke={GREY} strokeWidth="1" />
-                <text x={x} y={PAD.top + innerH + 18} textAnchor="middle"
-                  fontSize="11" fill={GREY} fontFamily="Inter, system-ui, sans-serif">
-                  {formatLabel(p.date)}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Axis labels */}
-          <text
-            x={PAD.left - 40}
-            y={PAD.top + innerH / 2}
-            textAnchor="middle"
-            fontSize="11"
-            fill={GREY}
-            fontFamily="Inter, system-ui, sans-serif"
-            transform={`rotate(-90, ${PAD.left - 40}, ${PAD.top + innerH / 2})`}
-          >Story Points</text>
-          <text
-            x={PAD.left + innerW / 2}
-            y={height - 6}
-            textAnchor="middle"
-            fontSize="11"
-            fill={GREY}
-            fontFamily="Inter, system-ui, sans-serif"
-          >Sprint Days</text>
-
-          {/* Ideal line (dashed, grey) — drawn first so actual sits on top */}
-          <path
-            ref={idealRef}
-            d={idealPath}
-            fill="none"
-            stroke={GREY_DASHED}
-            strokeWidth="2"
-            strokeDasharray="6 4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          {idealPathLen != null && (
-            <motion.path
-              d={idealPath}
-              fill="none"
-              stroke={GREY_DASHED}
-              strokeWidth="2"
-              strokeDasharray={`${idealPathLen} ${idealPathLen}`}
-              strokeDashoffset={idealPathLen}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              animate={{ strokeDashoffset: 0 }}
-              transition={{ duration: 1.0, ease: 'easeInOut' }}
+      <div className="h-[360px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={dataPoints} margin={{ top: 12, right: 18, bottom: 8, left: -14 }}>
+            <CartesianGrid stroke="var(--cu-border)" strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="date"
+              minTickGap={18}
+              tickFormatter={formatTick}
+              tick={{ fontSize: 11, fill: 'var(--cu-text-muted)' }}
+              axisLine={false}
+              tickLine={false}
             />
-          )}
-
-          {/* Area fill under actual line */}
-          {n > 1 && (
-            <path
-              d={`${actualPath} L${xScale(n - 1).toFixed(1)},${(PAD.top + innerH).toFixed(1)} L${xScale(0).toFixed(1)},${(PAD.top + innerH).toFixed(1)} Z`}
-              fill={BLUE}
-              fillOpacity="0.07"
+            <YAxis
+              domain={[0, Math.ceil(maxY * 1.1)]}
+              tick={{ fontSize: 11, fill: 'var(--cu-text-muted)' }}
+              axisLine={false}
+              tickLine={false}
+              width={42}
             />
-          )}
-
-          {/* Actual line (solid, blue) — hidden clone just to measure length */}
-          <path
-            ref={actualRef}
-            d={actualPath}
-            fill="none"
-            stroke="transparent"
-            strokeWidth="0"
-          />
-          {actualPathLen != null && (
-            <motion.path
-              d={actualPath}
-              fill="none"
-              stroke={BLUE}
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeDasharray={`${actualPathLen} ${actualPathLen}`}
-              strokeDashoffset={actualPathLen}
-              animate={{ strokeDashoffset: 0 }}
-              transition={{ duration: 1.2, ease: 'easeInOut', delay: 0.15 }}
+            <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--cu-primary)', strokeDasharray: '3 3' }} />
+            {todayPoint && (
+              <ReferenceLine
+                x={todayPoint.date}
+                stroke="var(--cu-primary)"
+                strokeDasharray="4 4"
+                label={{ value: 'Today', fill: 'var(--cu-primary)', fontSize: 11, position: 'insideTopRight' }}
+              />
+            )}
+            <Line
+              type="linear"
+              dataKey="idealPoints"
+              name="Ideal"
+              stroke="var(--cu-text-muted)"
+              strokeWidth={2}
+              strokeDasharray="6 5"
+              dot={false}
+              activeDot={false}
             />
-          )}
-
-          {/* Hover targets & dots */}
-          {dataPoints.map((p, i) => {
-            const cx = xScale(i);
-            const cy = yScale(p.remainingPoints);
-            return (
-              <g key={p.date}>
-                {/* Invisible wider hit area */}
-                <rect
-                  x={cx - (innerW / n / 2)}
-                  y={PAD.top}
-                  width={innerW / n}
-                  height={innerH}
-                  fill="transparent"
-                  onMouseEnter={() => setTooltip({ x: cx, y: cy, point: p })}
-                />
-                {tooltip?.point.date === p.date && (
-                  <>
-                    <line x1={cx} y1={PAD.top} x2={cx} y2={PAD.top + innerH}
-                      stroke={BLUE} strokeWidth="1" strokeDasharray="3 2" strokeOpacity="0.4" />
-                    <circle cx={cx} cy={cy} r={5} fill={BLUE} stroke="var(--cu-bg)" strokeWidth="2" />
-                    <circle cx={xScale(i)} cy={yScale(p.idealPoints)} r={4}
-                      fill={GREY_DASHED} stroke="var(--cu-bg)" strokeWidth="2" />
-                  </>
-                )}
-              </g>
-            );
-          })}
-        </svg>
-
-        {/* Tooltip */}
-        {tooltip && (() => {
-          const svgLeft = 0;
-          const tw = 148;
-          const th = 72;
-          let tx = tooltip.x - tw / 2;
-          if (tx < svgLeft + 4) tx = svgLeft + 4;
-          if (tx + tw > width - 4) tx = width - tw - 4;
-          // Flip tooltip below the dot when it would overflow above the chart
-          const ty = tooltip.y - PAD.top < th + 14 ? tooltip.y + 12 : tooltip.y - th - 10;
-          return (
-            <div
-              className="pointer-events-none absolute rounded-lg border border-cu-border bg-cu-bg px-3 py-2.5 shadow-cu-lg"
-              style={{ left: tx, top: Math.max(4, ty), width: tw }}
-            >
-              <p className="mb-1.5 text-[11px] font-semibold text-cu-text-secondary">{formatLabel(tooltip.point.date)}</p>
-              <div className="flex items-center justify-between text-[12px]">
-                <span className="text-cu-text-primary">Remaining</span>
-                <span className="font-bold text-cu-primary">{tooltip.point.remainingPoints} pts</span>
-              </div>
-              <div className="mt-0.5 flex items-center justify-between text-[12px]">
-                <span className="text-cu-text-muted">Ideal</span>
-                <span className="font-medium text-cu-text-muted">{tooltip.point.idealPoints} pts</span>
-              </div>
-            </div>
-          );
-        })()}
+            <Line
+              type="stepAfter"
+              dataKey="remainingPoints"
+              name="Actual"
+              stroke="var(--cu-primary)"
+              strokeWidth={3}
+              dot={{ r: 3, strokeWidth: 2, fill: 'var(--cu-bg)', stroke: 'var(--cu-primary)' }}
+              activeDot={{ r: 5, strokeWidth: 2, fill: 'var(--cu-primary)', stroke: 'var(--cu-bg)' }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
+    </section>
+  );
+}
+
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ payload: BurndownPoint }>; label?: string }) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0].payload;
+  const variance = point.variancePoints ?? point.remainingPoints - point.idealPoints;
+  return (
+    <div className="min-w-[190px] rounded-lg border border-cu-border bg-cu-bg px-3 py-2.5 shadow-cu-lg">
+      <p className="mb-2 text-[12px] font-bold text-cu-text-primary">{formatFullDate(String(label))}</p>
+      <TooltipRow label="Remaining" value={`${point.remainingPoints} pts`} strong />
+      <TooltipRow label="Ideal" value={`${point.idealPoints} pts`} />
+      <TooltipRow label="Completed" value={`${point.completedPoints ?? 0} pts`} />
+      <TooltipRow label="Daily burn" value={`${point.dailyBurn ?? 0} pts`} />
+      <TooltipRow label="Variance" value={`${signed(variance)} pts`} tone={variance > 0 ? 'bad' : variance < 0 ? 'good' : 'neutral'} />
     </div>
   );
+}
+
+function TooltipRow({ label, value, strong, tone = 'neutral' }: { label: string; value: string; strong?: boolean; tone?: 'good' | 'bad' | 'neutral' }) {
+  const color = tone === 'good' ? 'text-emerald-500' : tone === 'bad' ? 'text-red-500' : strong ? 'text-cu-primary' : 'text-cu-text-secondary';
+  return (
+    <div className="flex items-center justify-between gap-4 text-[12px]">
+      <span className="text-cu-text-muted">{label}</span>
+      <span className={`font-semibold ${color}`}>{value}</span>
+    </div>
+  );
+}
+
+function LegendSwatch({ className, label }: { className: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className={`h-0.5 w-5 rounded-full ${className}`} />
+      {label}
+    </span>
+  );
+}
+
+function formatTick(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatFullDate(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function signed(value: number) {
+  if (value > 0) return `+${value}`;
+  return String(value);
 }
