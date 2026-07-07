@@ -1,0 +1,223 @@
+package com.planora.backend.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.planora.backend.dto.GithubCollaboratorInviteRequestDTO;
+import com.planora.backend.dto.GithubCollaboratorInviteResponseDTO;
+import com.planora.backend.dto.GithubLinkRequestDTO;
+import com.planora.backend.exception.BadRequestException;
+import com.planora.backend.exception.ForbiddenException;
+import com.planora.backend.exception.GithubAuthenticationException;
+import com.planora.backend.exception.GithubIssueValidationException;
+import com.planora.backend.model.GithubIntegration;
+import com.planora.backend.model.Project;
+import com.planora.backend.model.Team;
+import com.planora.backend.model.TeamMember;
+import com.planora.backend.model.TeamRole;
+import com.planora.backend.model.User;
+import com.planora.backend.repository.GithubIntegrationRepository;
+import com.planora.backend.repository.ProjectRepository;
+import com.planora.backend.repository.TeamMemberRepository;
+import com.planora.backend.repository.UserRepository;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class ProjectGithubIntegrationServiceTest {
+
+    @Mock
+    private GithubIntegrationRepository integrationRepository;
+
+    @Mock
+    private GithubApiClient githubApiClient;
+
+    @Mock
+    private GithubTokenService githubTokenService;
+
+    @Mock
+    private ProjectRepository projectRepository;
+
+    @Mock
+    private TeamMemberRepository teamMemberRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @InjectMocks
+    private ProjectGithubIntegrationService service;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Test
+    void linkRepository_allowsOwner() {
+        Project project = project();
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 1L)).thenReturn(Optional.of(member(TeamRole.OWNER, 1L, "owner")));
+        when(githubTokenService.getToken(1L)).thenReturn("token");
+        when(integrationRepository.save(any(GithubIntegration.class))).thenAnswer(invocation -> {
+            GithubIntegration integration = invocation.getArgument(0);
+            integration.setId(42L);
+            return integration;
+        });
+
+        GithubLinkRequestDTO request = new GithubLinkRequestDTO();
+        request.setProjectId(7L);
+        request.setRepositoryFullName("planora/web");
+
+        assertEquals("planora/web", service.linkRepository(request, 1L).getRepositoryFullName());
+        verify(githubApiClient).fetchRepository("planora/web", "token");
+    }
+
+    @Test
+    void linkRepository_rejectsMember() {
+        Project project = project();
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 2L)).thenReturn(Optional.of(member(TeamRole.MEMBER, 2L, "member")));
+
+        GithubLinkRequestDTO request = new GithubLinkRequestDTO();
+        request.setProjectId(7L);
+        request.setRepositoryFullName("planora/web");
+
+        assertThrows(ForbiddenException.class, () -> service.linkRepository(request, 2L));
+        verify(integrationRepository, never()).save(any());
+    }
+
+    @Test
+    void getLinkedRepositories_returnsReposForCollaboratingMember() {
+        Project project = project();
+        GithubIntegration integration = integration(project);
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 2L)).thenReturn(Optional.of(member(TeamRole.MEMBER, 2L, "octo")));
+        when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of(integration));
+        when(githubTokenService.getToken(2L)).thenReturn("member-token");
+        when(githubApiClient.getRepositoryPermission("planora/web", "octo", "member-token"))
+                .thenReturn(objectMapper.createObjectNode().put("permission", "push"));
+
+        assertEquals(1, service.getLinkedRepositories(7L, 2L).size());
+    }
+
+    @Test
+    void getLinkedRepositories_requiresGithubConnectionForMember() {
+        Project project = project();
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 2L)).thenReturn(Optional.of(member(TeamRole.MEMBER, 2L, null)));
+        when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of(integration(project)));
+
+        assertThrows(GithubAuthenticationException.class, () -> service.getLinkedRepositories(7L, 2L));
+    }
+
+    @Test
+    void getLinkedRepositories_hidesReposWhenMemberIsNotGithubCollaborator() {
+        Project project = project();
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 2L)).thenReturn(Optional.of(member(TeamRole.MEMBER, 2L, "octo")));
+        when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of(integration(project)));
+        when(githubTokenService.getToken(2L)).thenReturn("member-token");
+        when(githubApiClient.getRepositoryPermission("planora/web", "octo", "member-token"))
+                .thenThrow(new GithubApiClient.GithubApiException(404, "not collaborator"));
+
+        assertEquals(0, service.getLinkedRepositories(7L, 2L).size());
+    }
+
+    @Test
+    void inviteCollaborator_succeedsByUsername() {
+        Project project = project();
+        GithubIntegration integration = integration(project);
+        GithubCollaboratorInviteRequestDTO request = new GithubCollaboratorInviteRequestDTO();
+        request.setIdentifier("octocat");
+        request.setPermission("triage");
+
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 1L)).thenReturn(Optional.of(member(TeamRole.ADMIN, 1L, "admin")));
+        when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of(integration));
+        when(githubTokenService.getToken(1L)).thenReturn("admin-token");
+        when(githubApiClient.fetchPublicUser("octocat", "admin-token"))
+                .thenReturn(objectMapper.createObjectNode().put("login", "octocat"));
+        when(githubApiClient.addRepositoryCollaborator("planora/web", "octocat", "triage", "admin-token"))
+                .thenReturn(new GithubApiClient.CollaboratorInviteResult(201, objectMapper.createObjectNode()));
+
+        GithubCollaboratorInviteResponseDTO response = service.inviteCollaborator(7L, request, 1L);
+
+        assertEquals("octocat", response.getGithubUsername());
+        assertEquals(201, response.getGithubStatus());
+        assertEquals("INVITATION_CREATED", response.getStatus());
+    }
+
+    @Test
+    void inviteCollaborator_rejectsUnresolvedEmail() {
+        Project project = project();
+        GithubCollaboratorInviteRequestDTO request = new GithubCollaboratorInviteRequestDTO();
+        request.setIdentifier("dev@example.com");
+
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 1L)).thenReturn(Optional.of(member(TeamRole.ADMIN, 1L, "admin")));
+        when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of(integration(project)));
+        when(githubTokenService.getToken(1L)).thenReturn("admin-token");
+        when(userRepository.findFirstByEmailIgnoreCase("dev@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(BadRequestException.class, () -> service.inviteCollaborator(7L, request, 1L));
+    }
+
+    @Test
+    void inviteCollaborator_mapsGithubValidationFailure() {
+        Project project = project();
+        GithubCollaboratorInviteRequestDTO request = new GithubCollaboratorInviteRequestDTO();
+        request.setIdentifier("octocat");
+
+        when(projectRepository.findById(7L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 1L)).thenReturn(Optional.of(member(TeamRole.ADMIN, 1L, "admin")));
+        when(integrationRepository.findByProjectIdAndActiveTrue(7L)).thenReturn(List.of(integration(project)));
+        when(githubTokenService.getToken(1L)).thenReturn("admin-token");
+        when(githubApiClient.fetchPublicUser("octocat", "admin-token"))
+                .thenReturn(objectMapper.createObjectNode().put("login", "octocat"));
+        when(githubApiClient.addRepositoryCollaborator("planora/web", "octocat", "push", "admin-token"))
+                .thenThrow(new GithubApiClient.GithubApiException(422, "validation failed"));
+
+        assertThrows(GithubIssueValidationException.class, () -> service.inviteCollaborator(7L, request, 1L));
+    }
+
+    private Project project() {
+        Team team = new Team();
+        team.setId(11L);
+        Project project = new Project();
+        project.setId(7L);
+        project.setTeam(team);
+        return project;
+    }
+
+    private GithubIntegration integration(Project project) {
+        GithubIntegration integration = new GithubIntegration();
+        integration.setId(42L);
+        integration.setProject(project);
+        integration.setRepositoryFullName("planora/web");
+        integration.setRepositoryUrl("https://github.com/planora/web");
+        integration.setActive(true);
+        return integration;
+    }
+
+    private TeamMember member(TeamRole role, Long userId, String githubUsername) {
+        Team team = new Team();
+        team.setId(11L);
+        User user = new User();
+        user.setUserId(userId);
+        user.setGithubUsername(githubUsername);
+        TeamMember member = new TeamMember();
+        member.setTeam(team);
+        member.setUser(user);
+        member.setRole(role);
+        return member;
+    }
+}

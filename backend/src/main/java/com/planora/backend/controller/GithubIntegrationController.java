@@ -1,5 +1,7 @@
 package com.planora.backend.controller;
 
+import com.planora.backend.dto.GithubCollaboratorInviteRequestDTO;
+import com.planora.backend.dto.GithubCollaboratorInviteResponseDTO;
 import com.planora.backend.dto.GithubLinkRequestDTO;
 import com.planora.backend.dto.ProjectGithubRepositoryDTO;
 import com.planora.backend.exception.GithubAuthenticationException;
@@ -39,7 +41,10 @@ public class GithubIntegrationController {
             @RequestParam Long projectId,
             @AuthenticationPrincipal UserPrincipal principal) {
 
-        integrationService.unlinkRepository(integrationId, projectId);
+        if (principal == null) {
+            throw new GithubAuthenticationException("Authentication is required");
+        }
+        integrationService.unlinkRepository(integrationId, projectId, principal.getUserId());
         return ResponseEntity.noContent().build();
     }
 
@@ -48,7 +53,24 @@ public class GithubIntegrationController {
             @PathVariable Long projectId,
             @AuthenticationPrincipal UserPrincipal principal) {
 
-        List<ProjectGithubRepositoryDTO> repos = integrationService.getLinkedRepositories(projectId);
+        if (principal == null) {
+            throw new GithubAuthenticationException("Authentication is required");
+        }
+        List<ProjectGithubRepositoryDTO> repos = integrationService.getLinkedRepositories(projectId, principal.getUserId());
         return ResponseEntity.ok(repos);
+    }
+
+    @PostMapping("/project/{projectId}/collaborators")
+    public ResponseEntity<GithubCollaboratorInviteResponseDTO> inviteCollaborator(
+            @PathVariable Long projectId,
+            @Valid @RequestBody GithubCollaboratorInviteRequestDTO request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        if (principal == null) {
+            throw new GithubAuthenticationException("Authentication is required");
+        }
+        GithubCollaboratorInviteResponseDTO result = integrationService.inviteCollaborator(projectId, request, principal.getUserId());
+        HttpStatus status = result.getGithubStatus() == 201 ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(result);
     }
 }

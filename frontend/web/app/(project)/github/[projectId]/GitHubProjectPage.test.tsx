@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import GitHubProjectPage from './GitHubProjectPage';
 import { ensureValidToken, getUserFromToken } from '@/lib/auth';
@@ -14,6 +14,7 @@ import {
   fetchGitHubAutomationLogs,
   getProjectGitHubRepo,
   getSavedGitHubAccounts,
+  inviteGitHubCollaborator,
   persistProjectGitHubConnection,
   setProjectGitHubConnection,
   type ProjectGitHubConnection,
@@ -62,6 +63,7 @@ jest.mock('@/services/github-service', () => ({
   fetchGitHubUser: jest.fn(),
   fetchImportedGitHubIssueNumbers: jest.fn(() => Promise.resolve([])),
   fetchIssues: jest.fn(),
+  inviteGitHubCollaborator: jest.fn(),
   fetchProjectCommits: jest.fn(),
   fetchProjectGitHubConnection: jest.fn(),
   fetchProjectIssues: jest.fn(),
@@ -153,6 +155,7 @@ const mockedFetchGitHubAutomationRules = fetchGitHubAutomationRules as jest.Mock
 const mockedFetchGitHubAutomationLogs = fetchGitHubAutomationLogs as jest.MockedFunction<typeof fetchGitHubAutomationLogs>;
 const mockedGetProjectGitHubRepo = getProjectGitHubRepo as jest.MockedFunction<typeof getProjectGitHubRepo>;
 const mockedGetSavedGitHubAccounts = getSavedGitHubAccounts as jest.MockedFunction<typeof getSavedGitHubAccounts>;
+const mockedInviteGitHubCollaborator = inviteGitHubCollaborator as jest.MockedFunction<typeof inviteGitHubCollaborator>;
 const mockedPersistProjectGitHubConnection = persistProjectGitHubConnection as jest.MockedFunction<typeof persistProjectGitHubConnection>;
 const mockedSetProjectGitHubConnection = setProjectGitHubConnection as jest.MockedFunction<typeof setProjectGitHubConnection>;
 
@@ -191,6 +194,16 @@ function arrangeDefaults() {
   mockedFetchGitHubAutomationLogs.mockResolvedValue([]);
   mockedGetProjectGitHubRepo.mockReturnValue(null);
   mockedGetSavedGitHubAccounts.mockReturnValue([]);
+  mockedInviteGitHubCollaborator.mockResolvedValue({
+    projectId: 7,
+    integrationId: 42,
+    repositoryFullName: 'planora/web',
+    githubUsername: 'octocat',
+    permission: 'push',
+    githubStatus: 201,
+    status: 'INVITATION_CREATED',
+    message: 'GitHub collaborator invitation created',
+  });
 }
 
 describe('GitHubProjectPage', () => {
@@ -291,5 +304,34 @@ describe('GitHubProjectPage', () => {
 
     expect(await screen.findByText('Unable to load GitHub view')).toBeInTheDocument();
     expect(screen.getByText('Backend unavailable')).toBeInTheDocument();
+  });
+
+  it('allows owner/admin users to invite a GitHub collaborator', async () => {
+    render(<GitHubProjectPage projectId="7" />);
+
+    const inviteButton = await screen.findByRole('button', { name: /^Invite$/ });
+    fireEvent.click(inviteButton);
+
+    fireEvent.change(screen.getByPlaceholderText('octocat or teammate@example.com'), {
+      target: { value: 'octocat' },
+    });
+    const inviteButtons = screen.getAllByRole('button', { name: /^Invite$/ });
+    fireEvent.click(inviteButtons[inviteButtons.length - 1]);
+
+    await waitFor(() => expect(mockedInviteGitHubCollaborator).toHaveBeenCalledWith('7', {
+      identifier: 'octocat',
+      permission: 'push',
+    }));
+    expect(await screen.findByText('Invitation sent to @octocat.')).toBeInTheDocument();
+  });
+
+  it('hides collaborator invite controls for regular project members', async () => {
+    mockedFetchMembers.mockResolvedValue([{ userId: 10, role: 'MEMBER' }] as Awaited<ReturnType<typeof fetchMembers>>);
+
+    render(<GitHubProjectPage projectId="7" />);
+
+    expect(await screen.findByText('planora/web')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Invite$/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('Invite collaborator')).not.toBeInTheDocument();
   });
 });

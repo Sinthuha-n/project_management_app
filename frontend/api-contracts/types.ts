@@ -533,6 +533,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/github/project/{projectId}/collaborators": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["inviteCollaborator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/github/project/{projectId}/commits": {
         parameters: {
             query?: never;
@@ -4029,6 +4045,23 @@ export interface components {
             /** @enum {string} */
             trigger?: "PR_MERGED" | "PR_OPENED" | "CI_FAILED" | "ISSUE_OPENED" | "ISSUE_LABELED" | "RELEASE_PUBLISHED";
         };
+        GithubCollaboratorInviteRequestDTO: {
+            identifier: string;
+            permission?: string;
+        };
+        GithubCollaboratorInviteResponseDTO: {
+            /** Format: int32 */
+            githubStatus?: number;
+            githubUsername?: string;
+            /** Format: int64 */
+            integrationId?: number;
+            message?: string;
+            permission?: string;
+            /** Format: int64 */
+            projectId?: number;
+            repositoryFullName?: string;
+            status?: string;
+        };
         GithubCommentDTO: {
             body?: string;
             /** Format: date-time */
@@ -6195,6 +6228,32 @@ export interface operations {
                     "*/*": {
                         [key: string]: Record<string, never>;
                     };
+                };
+            };
+        };
+    };
+    inviteCollaborator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCollaboratorInviteRequestDTO"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GithubCollaboratorInviteResponseDTO"];
                 };
             };
         };

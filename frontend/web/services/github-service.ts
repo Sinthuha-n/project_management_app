@@ -8,6 +8,8 @@ import type {
   GithubStats,
   PageResponse,
   LinkRepositoryRequest,
+  GithubCollaboratorInviteRequest,
+  GithubCollaboratorInviteResponse,
   CreateIssueRequest,
 } from './api-contract';
 
@@ -19,6 +21,8 @@ export type {
   GithubStats,
   PageResponse,
   LinkRepositoryRequest,
+  GithubCollaboratorInviteRequest,
+  GithubCollaboratorInviteResponse,
   CreateIssueRequest,
 };
 
@@ -34,6 +38,13 @@ export async function unlinkRepository(integrationId: number, projectId: number)
 
 export async function getLinkedRepositories(projectId: number): Promise<BackendGithubRepository[]> {
   return gitHubApi.getLinkedRepositories(projectId);
+}
+
+export async function inviteGitHubCollaborator(
+  projectId: string | number,
+  request: GithubCollaboratorInviteRequest,
+): Promise<GithubCollaboratorInviteResponse> {
+  return gitHubApi.inviteCollaborator(Number(projectId), request);
 }
 
 // ── Pull Request endpoints ──────────────────────────────────────────────────

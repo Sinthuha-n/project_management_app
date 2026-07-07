@@ -1324,6 +1324,55 @@
         },
         "type": "object"
       },
+      "GithubCollaboratorInviteRequestDTO": {
+        "properties": {
+          "identifier": {
+            "maxLength": 255,
+            "minLength": 0,
+            "type": "string"
+          },
+          "permission": {
+            "pattern": "^(pull|triage|push|maintain)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier"
+        ],
+        "type": "object"
+      },
+      "GithubCollaboratorInviteResponseDTO": {
+        "properties": {
+          "githubStatus": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "githubUsername": {
+            "type": "string"
+          },
+          "integrationId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          },
+          "permission": {
+            "type": "string"
+          },
+          "projectId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "repositoryFullName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "GithubCommentDTO": {
         "properties": {
           "body": {
@@ -6331,6 +6380,47 @@
         },
         "tags": [
           "git-hub-controller"
+        ]
+      }
+    },
+    "/api/github/project/{projectId}/collaborators": {
+      "post": {
+        "operationId": "inviteCollaborator",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GithubCollaboratorInviteRequestDTO"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubCollaboratorInviteResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "github-integration-controller"
         ]
       }
     },

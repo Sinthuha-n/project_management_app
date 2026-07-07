@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell, GitBranch, Globe, Lock, RefreshCw, Search, X, Check, Link2,
   LogOut, User, ExternalLink, GitPullRequest, ChevronDown, AlertCircle, GitCommit,
-  SlidersHorizontal, ChevronLeft, ChevronRight,
+  SlidersHorizontal, ChevronLeft, ChevronRight, UserPlus,
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -43,6 +43,7 @@ import {
   deleteGitHubAutomationRule,
   setGitHubAutomationRuleEnabled,
   syncProjectGitHub,
+  inviteGitHubCollaborator,
   getSavedGitHubAccounts,
   upsertSavedGitHubAccount,
   type GitHubRepository,
@@ -53,6 +54,7 @@ import {
   type ProjectGitHubConnection,
   type GithubAutomationRule,
   type GithubAutomationLog,
+  type GithubCollaboratorInviteResponse,
   type SavedGitHubAccount,
 } from '@/services/github-service';
 import IssueCard from '@/components/github/IssueCard';
@@ -102,6 +104,16 @@ const secondaryButtonClass = 'rounded-xl border border-cu-border bg-cu-bg px-3 p
 const iconButtonClass = 'rounded-xl border border-cu-border bg-cu-bg p-2 text-cu-text-secondary shadow-cu-sm transition-colors hover:bg-cu-hover hover:text-cu-text-primary disabled:opacity-40';
 const githubConnectRequiredMessage = 'Connect your GitHub account to load repository activity.';
 type GitHubRouteState = 'initializing' | 'needsAppAuth' | 'needsGitHubAccount' | 'needsRepository' | 'connected' | 'error';
+type GithubCollaboratorPermission = 'pull' | 'triage' | 'push' | 'maintain';
+
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const response = (error as { response?: { data?: { message?: string; error?: string } } }).response;
+    const message = response?.data?.message ?? response?.data?.error;
+    if (message) return message;
+  }
+  return error instanceof Error ? error.message : fallback;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function timeAgo(dateStr: string): string {
@@ -424,6 +436,7 @@ function GitHubRouteErrorView({
 // ── PR Card ───────────────────────────────────────────────────────────────────
 function PRCard({ pr }: { pr: GitHubPullRequest }) {
   const status = prStatus(pr);
+  const avatarUrl = pr.user.avatar_url?.trim() || null;
   return (
     <motion.a
       href={pr.html_url}
@@ -463,14 +476,23 @@ function PRCard({ pr }: { pr: GitHubPullRequest }) {
 
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-1.5">
-          <Image
-            src={pr.user.avatar_url}
-            alt={pr.user.login}
-            width={18}
-            height={18}
-            className="h-[18px] w-[18px] rounded-full ring-1 ring-white/10"
-            unoptimized
-          />
+          {avatarUrl ? (
+            <Image
+              src={avatarUrl}
+              alt={pr.user.login}
+              width={18}
+              height={18}
+              className="h-[18px] w-[18px] rounded-full ring-1 ring-white/10"
+              unoptimized
+            />
+          ) : (
+            <div
+              className="w-[18px] h-[18px] rounded-full flex items-center justify-center shrink-0"
+              style={{ background: 'rgba(255,255,255,0.08)' }}
+            >
+              <User size={10} className="text-cu-text-tertiary" />
+            </div>
+          )}
           <span className="text-[11px] text-cu-text-tertiary font-outfit">@{pr.user.login}</span>
         </div>
         {pr.labels.slice(0, 3).map(label => (
@@ -548,11 +570,13 @@ function AccountDropdown({
   user,
   onLogout,
   onChangeRepo,
+  onInviteCollaborator,
   canChangeRepo,
 }: {
   user: GitHubUser | null;
   onLogout: () => void;
   onChangeRepo: () => void;
+  onInviteCollaborator: () => void;
   canChangeRepo: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -628,13 +652,22 @@ function AccountDropdown({
 
             <div className="py-1.5">
               {canChangeRepo && (
-                <button
-                  onClick={() => { setOpen(false); onChangeRepo(); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-outfit font-semibold text-cu-text-secondary hover:bg-cu-hover hover:text-cu-text-primary transition-colors text-left"
-                >
-                  <Link2 size={14} className="text-cu-text-tertiary" />
-                  Change repository
-                </button>
+                <>
+                  <button
+                    onClick={() => { setOpen(false); onInviteCollaborator(); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-outfit font-semibold text-cu-text-secondary hover:bg-cu-hover hover:text-cu-text-primary transition-colors text-left"
+                  >
+                    <UserPlus size={14} className="text-cu-text-tertiary" />
+                    Invite collaborator
+                  </button>
+                  <button
+                    onClick={() => { setOpen(false); onChangeRepo(); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-outfit font-semibold text-cu-text-secondary hover:bg-cu-hover hover:text-cu-text-primary transition-colors text-left"
+                  >
+                    <Link2 size={14} className="text-cu-text-tertiary" />
+                    Change repository
+                  </button>
+                </>
               )}
               <button
                 onClick={() => { setOpen(false); onLogout(); }}
@@ -787,6 +820,133 @@ function RepoModal({
           )}
         </div>
       </motion.div>
+      </motion.div>
+    </OverlayPortal>
+  );
+}
+
+function InviteCollaboratorModal({
+  repoFullName,
+  loading,
+  error,
+  result,
+  onSubmit,
+  onClose,
+}: {
+  repoFullName: string;
+  loading: boolean;
+  error: string | null;
+  result: GithubCollaboratorInviteResponse | null;
+  onSubmit: (identifier: string, permission: GithubCollaboratorPermission) => void;
+  onClose: () => void;
+}) {
+  const [identifier, setIdentifier] = useState('');
+  const [permission, setPermission] = useState<GithubCollaboratorPermission>('push');
+  const canSubmit = identifier.trim().length > 0 && !loading;
+
+  return (
+    <OverlayPortal>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center p-4"
+        style={{ background: 'rgba(5,8,20,0.72)', backdropFilter: 'blur(10px)' }}
+        onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      >
+        <motion.form
+          initial={{ opacity: 0, scale: 0.96, y: 14 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 14 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          className="w-full max-w-md overflow-hidden rounded-2xl"
+          style={glass.modal}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (canSubmit) onSubmit(identifier, permission);
+          }}
+        >
+          <div className="flex items-center justify-between px-5 py-4" style={glass.divider}>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${iconSurfaceClass}`}>
+                <UserPlus size={15} className="text-cu-text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-outfit font-bold text-cu-text-primary text-base">Invite collaborator</p>
+                <p className="truncate text-xs font-outfit text-cu-text-tertiary">{repoFullName}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-cu-text-secondary hover:text-cu-text-primary hover:bg-cu-hover transition-colors"
+              aria-label="Close collaborator invite"
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          <div className="grid gap-4 px-5 py-5">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-outfit font-semibold text-cu-text-secondary">GitHub username or email</span>
+              <input
+                autoFocus
+                value={identifier}
+                onChange={event => setIdentifier(event.target.value)}
+                placeholder="octocat or teammate@example.com"
+                className="w-full rounded-xl px-3 py-2.5 text-sm font-outfit text-cu-text-primary outline-none placeholder:text-cu-text-tertiary"
+                style={glass.input}
+              />
+            </label>
+
+            <label className="grid gap-1.5">
+              <span className="text-xs font-outfit font-semibold text-cu-text-secondary">Permission</span>
+              <select
+                value={permission}
+                onChange={event => setPermission(event.target.value as GithubCollaboratorPermission)}
+                className="w-full rounded-xl px-3 py-2.5 text-sm font-outfit font-semibold text-cu-text-primary outline-none"
+                style={glass.input}
+              >
+                <option value="pull">Read</option>
+                <option value="triage">Triage</option>
+                <option value="push">Write</option>
+                <option value="maintain">Maintain</option>
+              </select>
+            </label>
+
+            {error && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-outfit text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300">
+                {error}
+              </div>
+            )}
+
+            {result && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-outfit text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300">
+                {result.githubStatus === 201
+                  ? `Invitation sent to @${result.githubUsername}.`
+                  : `@${result.githubUsername} already has access or was updated.`}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-2 px-5 py-4" style={glass.divider}>
+            <button
+              type="button"
+              onClick={onClose}
+              className={secondaryButtonClass}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="inline-flex min-w-24 items-center justify-center gap-2 rounded-xl bg-cu-primary px-4 py-2 text-sm font-outfit font-bold text-white shadow-cu-sm transition-colors hover:bg-cu-primary-hover disabled:opacity-40"
+            >
+              {loading ? <RefreshCw size={14} className="animate-spin" /> : <UserPlus size={14} />}
+              Invite
+            </button>
+          </div>
+        </motion.form>
       </motion.div>
     </OverlayPortal>
   );
@@ -1246,6 +1406,7 @@ function ConnectedDashboard({
   onRefresh,
   onLogout,
   onChangeRepo,
+  onInviteCollaborator,
   onPRUpdate,
   onIssueUpdate,
   automationRules,
@@ -1274,6 +1435,7 @@ function ConnectedDashboard({
   onRefresh: () => void;
   onLogout: () => void;
   onChangeRepo: () => void;
+  onInviteCollaborator: () => void;
   onPRUpdate: (update: GithubPRUpdate) => void;
   onIssueUpdate: (update: GithubIssueUpdate) => void;
   automationRules: GithubAutomationRule[];
@@ -1445,16 +1607,32 @@ function ConnectedDashboard({
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
           {canChangeRepo && (
-            <button
-              onClick={onChangeRepo}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-outfit font-semibold text-cu-text-secondary hover:text-cu-text-primary hover:bg-cu-hover transition-all"
-              style={glass.button}
-            >
-              <Link2 size={13} />
-              Change repo
-            </button>
+            <>
+              <button
+                onClick={onInviteCollaborator}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-outfit font-semibold text-cu-text-secondary hover:text-cu-text-primary hover:bg-cu-hover transition-all"
+                style={glass.button}
+              >
+                <UserPlus size={13} />
+                Invite
+              </button>
+              <button
+                onClick={onChangeRepo}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-outfit font-semibold text-cu-text-secondary hover:text-cu-text-primary hover:bg-cu-hover transition-all"
+                style={glass.button}
+              >
+                <Link2 size={13} />
+                Change repo
+              </button>
+            </>
           )}
-          <AccountDropdown user={user} onLogout={onLogout} onChangeRepo={onChangeRepo} canChangeRepo={canChangeRepo} />
+          <AccountDropdown
+            user={user}
+            onLogout={onLogout}
+            onChangeRepo={onChangeRepo}
+            onInviteCollaborator={onInviteCollaborator}
+            canChangeRepo={canChangeRepo}
+          />
         </div>
       </div>
 
@@ -1856,6 +2034,10 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
   const [repoSearch, setRepoSearch] = useState('');
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [repoError, setRepoError] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteResult, setInviteResult] = useState<GithubCollaboratorInviteResponse | null>(null);
 
   const resolveBackendConnectionAfterConflict = useCallback(async (): Promise<ProjectGitHubConnection | null> => {
     try {
@@ -2174,6 +2356,31 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
     }
   };
 
+  const handleOpenInviteModal = () => {
+    setInviteError(null);
+    setInviteResult(null);
+    setShowInviteModal(true);
+  };
+
+  const handleInviteCollaborator = async (identifier: string, permission: GithubCollaboratorPermission) => {
+    setInviteLoading(true);
+    setInviteError(null);
+    setInviteResult(null);
+
+    try {
+      const result = await inviteGitHubCollaborator(projectId, {
+        identifier: identifier.trim(),
+        permission,
+      });
+      setInviteResult(result);
+      toast(result.githubStatus === 201 ? 'GitHub invitation sent' : 'GitHub collaborator updated', 'success');
+    } catch (error) {
+      setInviteError(getApiErrorMessage(error, 'Failed to invite GitHub collaborator.'));
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await api.post('/api/github/revoke');
@@ -2302,6 +2509,7 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
       onRefresh={() => void handleRefreshDashboard()}
       onLogout={() => void handleLogout()}
       onChangeRepo={handleOpenModal}
+      onInviteCollaborator={handleOpenInviteModal}
       onPRUpdate={(update) => void handlePRUpdate(update)}
       onIssueUpdate={() => void handleIssueUpdate()}
       automationRules={automationRules}
@@ -2394,6 +2602,19 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
             projectId={projectId}
             onCreated={handleAutomationRuleCreated}
             onClose={() => setShowAutomationBuilder(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showInviteModal && connection && (
+          <InviteCollaboratorModal
+            repoFullName={connection.repoFullName}
+            loading={inviteLoading}
+            error={inviteError}
+            result={inviteResult}
+            onSubmit={(identifier, permission) => void handleInviteCollaborator(identifier, permission)}
+            onClose={() => setShowInviteModal(false)}
           />
         )}
       </AnimatePresence>
