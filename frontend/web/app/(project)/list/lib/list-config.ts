@@ -16,3 +16,12 @@ export const PRIORITY_CONFIG: Record<string, { color: string; icon: React.Elemen
   MEDIUM: { color: '#F59E0B', icon: ArrowRight, label: 'Medium' },
   LOW:    { color: '#22C55E', icon: ArrowDown,  label: 'Low'    },
 };
+
+export const LIST_GRID_CLASS =
+  "grid items-center gap-4 px-4 py-2.5 " +
+  "grid-cols-[24px_6px_1fr_100px_32px] " + // Mobile default: Checkbox, PriorityBar, Title, Status, Actions
+  "sm:grid-cols-[24px_6px_1fr_100px_80px_32px] " + // sm: adds Due (80px)
+  "md:grid-cols-[24px_6px_1fr_120px_100px_80px_32px] " + // md: adds Assignees (120px)
+  "lg:grid-cols-[24px_6px_75px_1fr_120px_120px_100px_80px_32px] " + // lg: adds Priority (75px), Labels (120px)
+  "xl:grid-cols-[24px_6px_75px_1fr_120px_120px_120px_100px_80px_32px]"; // xl: adds Milestones (120px)
+

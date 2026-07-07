@@ -189,26 +189,30 @@ function ListPageContent() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 h-full bg-cu-bg-secondary overflow-y-auto">
-      <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-[1400px] mx-auto w-full">
+    <div className="flex-1 flex flex-col min-w-0 h-full bg-cu-bg-secondary overflow-y-auto scrollbar-thin">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-[1400px] mx-auto w-full animate-fade-in">
 
         {/* Header */}
-        <div className="sticky-section-header glass-panel border border-cu-border rounded-2xl px-4 sm:px-6 py-4 mb-4 flex items-center gap-3 flex-wrap">
+        <div className="sticky-section-header glass-panel border border-cu-border/50 rounded-2xl px-4 sm:px-6 py-4 mb-4 flex items-center gap-3 flex-wrap shadow-cu-md">
           <div>
-            <h1 className="text-[20px] sm:text-2xl font-bold text-cu-text-primary">Task List</h1>
-            <p className="text-[12px] sm:text-[13px] text-cu-text-secondary mt-0.5">
+            <h1 className="text-[20px] sm:text-2xl font-extrabold text-cu-text-primary tracking-tight">Task List</h1>
+            <p className="text-[12px] sm:text-[13px] text-cu-text-secondary mt-0.5 font-medium">
               {filteredTasks.length} visible of {sortedTasks.length} {showArchived ? 'archived ' : ''}task{sortedTasks.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <div className="flex items-center gap-2 ml-auto">
-            <div className="inline-flex rounded-lg border border-cu-border bg-cu-bg p-1 shadow-cu-sm">
+          <div className="flex items-center gap-3.5 ml-auto">
+            <div className="inline-flex rounded-xl border border-cu-border/60 bg-cu-bg p-1 shadow-cu-sm">
               <button
                 type="button"
                 onClick={() => {
                   setShowArchived(false);
                   setSelectedIds(new Set());
                 }}
-                className={`px-3 py-1.5 text-[12px] font-semibold rounded-md transition-colors ${!showArchived ? 'bg-cu-primary text-white' : 'text-cu-text-secondary hover:bg-cu-hover'}`}
+                className={`px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all duration-200 cursor-pointer ${
+                  !showArchived
+                    ? 'bg-cu-primary text-white shadow-sm'
+                    : 'text-cu-text-secondary hover:bg-cu-hover/60 hover:text-cu-text-primary'
+                }`}
               >
                 Active
               </button>
@@ -218,30 +222,24 @@ function ListPageContent() {
                   setShowArchived(true);
                   setSelectedIds(new Set());
                 }}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold rounded-md transition-colors ${showArchived ? 'bg-cu-primary text-white' : 'text-cu-text-secondary hover:bg-cu-hover'}`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all duration-200 cursor-pointer ${
+                  showArchived
+                    ? 'bg-cu-primary text-white shadow-sm'
+                    : 'text-cu-text-secondary hover:bg-cu-hover/60 hover:text-cu-text-primary'
+                }`}
               >
-                <Archive size={13} />
+                <Archive size={12} />
                 Archived
               </button>
-            </div>
-            <div className="flex items-center gap-2 bg-cu-bg border border-cu-border rounded-lg px-3 py-2 shadow-cu-sm">
-              <Search size={14} className="text-cu-text-tertiary shrink-0" />
-              <input
-                type="text"
-                placeholder="Search tasks…"
-                value={filters.search}
-                onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
-                className="text-[13px] text-cu-text-primary bg-transparent focus:outline-none placeholder:text-cu-text-muted w-44"
-              />
             </div>
             <button
               onClick={() => setShowCreateModal(true)}
               disabled={showArchived || !canModifyTasks}
               title={showArchived ? 'Switch to Active to create tasks' : !canModifyTasks ? 'Viewers cannot create tasks' : 'Create task'}
-              className="flex items-center gap-1.5 px-3 py-2 bg-cu-primary text-white text-[13px] font-medium rounded-lg hover:bg-cu-primary-hover transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-cu-primary"
+              className="flex items-center gap-1.5 px-4 py-2 bg-cu-primary text-white text-[12px] font-bold rounded-xl hover:bg-cu-primary-hover shadow-md shadow-cu-primary/10 transition-all duration-200 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-cu-primary cursor-pointer active:scale-95"
             >
-              <Plus size={15} />
-              <span className="hidden sm:inline">Create Task</span>
+              <Plus size={14} />
+              <span>Create Task</span>
             </button>
           </div>
         </div>
@@ -283,19 +281,11 @@ function ListPageContent() {
             ))}
           </div>
         ) : (
-          <div className="bg-cu-bg rounded-2xl border border-cu-border overflow-hidden">
-            <div className="hidden md:flex items-center px-4 py-2 border-b border-cu-border bg-cu-bg-secondary">
-              <label className="inline-flex items-center gap-2 text-[12px] text-cu-text-secondary font-medium cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={allVisibleSelected}
-                  onChange={toggleSelectAllVisible}
-                  className="h-4 w-4 rounded border-cu-border accent-cu-primary cursor-pointer"
-                />
-                Select visible
-              </label>
-            </div>
-            <TaskTableHeader />
+          <div className="bg-cu-bg rounded-2xl border border-cu-border/50 shadow-cu-sm overflow-hidden transition-all duration-300">
+            <TaskTableHeader
+              allVisibleSelected={allVisibleSelected}
+              toggleSelectAllVisible={toggleSelectAllVisible}
+            />
             {flatGroupedTasks.length === 0 ? (
               <EmptyState
                 icon={<Search size={24} />}
@@ -306,7 +296,7 @@ function ListPageContent() {
                     <button
                       type="button"
                       onClick={() => setShowCreateModal(true)}
-                      className="inline-flex items-center gap-2 rounded-xl bg-cu-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-cu-primary-hover transition-colors"
+                      className="inline-flex items-center gap-2 rounded-xl bg-cu-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-cu-primary-hover transition-colors shadow-md shadow-cu-primary/10 cursor-pointer"
                     >
                       <Plus size={14} />
                       Create Task
@@ -315,29 +305,31 @@ function ListPageContent() {
                 }
               />
             ) : (
-              paginatedTasks.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  members={members}
-                  availableLabels={labels}
-                  milestones={milestones}
-                  onDueDateChange={handleDueDateChange}
-                  onAssigneesChange={handleAssigneesChange}
-                  onToggleLabel={handleToggleTaskLabel}
-                  onMilestoneChange={handleMilestoneChange}
-                  selected={selectedIds.has(task.id)}
-                  onToggleSelect={toggleSelect}
-                  onOpenModal={setSelectedTaskId}
-                  onStatusChange={handleStatusChange}
-                  onDelete={handleDelete}
-                  onArchive={handleArchive}
-                  onRestore={handleRestore}
-                  canModifyTasks={canModifyTasks}
-                  showArchived={showArchived}
-                  projectStatuses={projectStatuses}
-                />
-              ))
+              <div className="divide-y divide-cu-border/20">
+                {paginatedTasks.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    members={members}
+                    availableLabels={labels}
+                    milestones={milestones}
+                    onDueDateChange={handleDueDateChange}
+                    onAssigneesChange={handleAssigneesChange}
+                    onToggleLabel={handleToggleTaskLabel}
+                    onMilestoneChange={handleMilestoneChange}
+                    selected={selectedIds.has(task.id)}
+                    onToggleSelect={toggleSelect}
+                    onOpenModal={setSelectedTaskId}
+                    onStatusChange={handleStatusChange}
+                    onDelete={handleDelete}
+                    onArchive={handleArchive}
+                    onRestore={handleRestore}
+                    canModifyTasks={canModifyTasks}
+                    showArchived={showArchived}
+                    projectStatuses={projectStatuses}
+                  />
+                ))}
+              </div>
             )}
           </div>
         )}
