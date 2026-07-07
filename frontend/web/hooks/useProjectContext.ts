@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useState, useEffect, useMemo, useSyncExternalStore, startTransition } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import api from '@/lib/axios';
@@ -115,7 +115,7 @@ export function useProjectContext() {
     }
 
     if (!projectId) {
-      setIsFavorite(false);
+      startTransition(() => { setIsFavorite(false); });
     }
   }, [projectId]);
 
@@ -124,8 +124,10 @@ export function useProjectContext() {
 
     const resolvedProjectType = projectData?.type || 'KANBAN';
     const isFav = Boolean(projectData?.isFavorite);
-    setIsFavorite(isFav);
-    setProjectType(resolvedProjectType);
+    startTransition(() => {
+      setIsFavorite(isFav);
+      setProjectType(resolvedProjectType);
+    });
     setScopedProjectValue('currentProjectType', resolvedProjectType);
 
     if (projectData?.name && getScopedProjectValue('currentProjectName') !== projectData.name) {

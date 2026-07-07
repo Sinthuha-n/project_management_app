@@ -110,7 +110,7 @@ const toTaskData = (task: Task & {
   subtasks: task.subtasks ?? [],
   dependencies: task.dependencies ?? [],
   assignees: task.assignees?.map((assignee) => {
-    const raw = assignee as any;
+    const raw = assignee as MultiAssignee & { id?: number; memberId?: number; userId?: number; avatar?: string; profilePicUrl?: string };
     const memberId = raw.memberId ?? raw.id;
     const userId = raw.userId ?? raw.id;
     const photoUrl = raw.photoUrl ?? resolveProfilePhotoUrl(raw.avatar ?? raw.profilePicUrl, userId);

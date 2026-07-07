@@ -184,9 +184,7 @@ export function MembersTable({
   const [page, setPage] = useState(1);
 
   // Reset page to 1 if search filters reduce the results count
-  useEffect(() => {
-    setPage(1);
-  }, [filteredMembers.length]);
+  // Note: currentPage below is derived via Math.min(page, totalPages), so no effect needed.
 
   const safePageSize = Math.max(1, pageSize);
   const totalFilteredCount = filteredMembers.length;

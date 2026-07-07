@@ -96,7 +96,7 @@ describe('TaskRow responsive surfaces', () => {
     render(
       <DesktopTaskRow
         {...defaultProps}
-        task={{ ...task, status: null } as TaskRowProps['task']}
+        task={{ ...task, status: null } as unknown as TaskRowProps['task']}
         projectStatuses={[{ status: null as unknown as string, name: '', color: '' }]}
       />,
     );

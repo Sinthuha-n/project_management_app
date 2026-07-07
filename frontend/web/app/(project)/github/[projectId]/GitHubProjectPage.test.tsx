@@ -27,7 +27,7 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: (props: any) => <img {...props} alt={props.alt ?? ''} />,
+  default: (props: React.ImgHTMLAttributes<HTMLImageElement> & { alt?: string }) => <img {...props} alt={props.alt ?? ''} />,
 }));
 
 jest.mock('framer-motion', () => ({

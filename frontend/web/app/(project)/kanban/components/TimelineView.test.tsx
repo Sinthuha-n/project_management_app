@@ -22,7 +22,7 @@ jest.mock('@/components/shared/BottomSheet', () => ({
 }));
 
 const mockedUpdateTaskDates = updateTaskDates as jest.Mock;
-const mockedToast = toast as jest.Mock;
+const mockedToast = toast as unknown as jest.Mock;
 
 const tasks: Task[] = [
   {
