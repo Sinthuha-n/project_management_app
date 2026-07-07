@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X, Plus, User, Hash } from 'lucide-react';
 import { useProjectAssigneeOptions } from '@/hooks/projects/useProjectAssigneeOptions';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface CreateTaskModalProps {
   isOpen: boolean;
@@ -73,7 +74,8 @@ export default function CreateTaskModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+    <OverlayPortal>
+      <div className="fixed inset-0 bg-black/40 z-[var(--cu-z-modal)] flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-cu-bg rounded-2xl shadow-xl border border-cu-border max-w-md w-full overflow-hidden animate-in zoom-in-95 fade-in duration-200">
         {/* Header */}
         <div className="bg-cu-primary px-6 py-4">
@@ -206,6 +208,7 @@ export default function CreateTaskModal({
           </div>
         </form>
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }

@@ -6,5 +6,9 @@ package com.planora.backend.dto;
 public record BurndownDataPointDTO(
         String date,           // "YYYY-MM-DD"
         int remainingPoints,   // actual remaining story points on this day
-        int idealPoints        // ideal remaining story points on this day
+        int idealPoints,       // ideal remaining story points on this day
+        Integer completedPoints,
+        Integer dailyBurn,
+        Integer variancePoints,
+        Boolean isToday
 ) {}

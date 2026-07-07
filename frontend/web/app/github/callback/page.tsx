@@ -12,7 +12,7 @@ export default function GitHubCallbackPage() {
 
   useEffect(() => {
     const code = searchParams.get('code');
-    const state = searchParams.get('state'); // projectId
+    const state = searchParams.get('state'); // projectId or profile
 
     if (!code) {
       setError('No authorization code received from GitHub.');
@@ -33,7 +33,9 @@ export default function GitHubCallbackPage() {
           localStorage.setItem('userProfile', JSON.stringify(profileRes.data));
         }
 
-        if (state) {
+        if (state === 'profile') {
+          router.replace('/profile?github_connected=1');
+        } else if (state) {
           router.replace(`/github/${state}?select_repo=1`);
         } else {
           router.replace('/dashboard');

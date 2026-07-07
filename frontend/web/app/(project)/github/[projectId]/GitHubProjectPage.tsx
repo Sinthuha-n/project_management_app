@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell, GitBranch, Globe, Lock, RefreshCw, Search, X, Check, Link2,
   LogOut, User, ExternalLink, GitPullRequest, ChevronDown, AlertCircle, GitCommit,
-  SlidersHorizontal, ChevronLeft, ChevronRight,
+  SlidersHorizontal, ChevronLeft, ChevronRight, UserPlus,
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -21,24 +22,28 @@ import CIStatusBanner from '@/components/github/CIStatusBanner';
 import GitHubAutomationsPanel from '@/components/github/GitHubAutomationsPanel';
 import AutomationRuleBuilder from '@/components/github/AutomationRuleBuilder';
 import ImportIssueModal from '@/components/github/ImportIssueModal';
-import { Popover } from '@/components/ui';
+import { Popover, toast } from '@/components/ui';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 import {
   getProjectGitHubRepo,
-  setProjectGitHubRepo,
+  setProjectGitHubConnection,
   clearProjectGitHubRepo,
   hasConnectedGitHubAccount,
   fetchRepositories,
   fetchGitHubConnectionStatus,
   fetchGitHubUser,
-  fetchPullRequest,
-  fetchPullRequests,
-  fetchCommits,
-  fetchIssues,
+  fetchProjectGitHubConnection,
+  persistProjectGitHubConnection,
+  fetchProjectPullRequests,
+  fetchProjectCommits,
+  fetchProjectIssues,
   fetchImportedGitHubIssueNumbers,
   fetchGitHubAutomationRules,
   fetchGitHubAutomationLogs,
   deleteGitHubAutomationRule,
   setGitHubAutomationRuleEnabled,
+  syncProjectGitHub,
+  inviteGitHubCollaborator,
   getSavedGitHubAccounts,
   upsertSavedGitHubAccount,
   type GitHubRepository,
@@ -49,11 +54,12 @@ import {
   type ProjectGitHubConnection,
   type GithubAutomationRule,
   type GithubAutomationLog,
+  type GithubCollaboratorInviteResponse,
   type SavedGitHubAccount,
-} from '@/services/githubService';
+} from '@/services/github-service';
 import IssueCard from '@/components/github/IssueCard';
 import GitHubMark from '@/components/github/GitHubMark';
-import { fetchMembers } from '@/services/members-service';
+import { fetchMembers, type Member } from '@/services/members-service';
 import { getUserFromToken } from '@/lib/auth';
 import type { Notification } from '@/services/notifications-service';
 
@@ -97,6 +103,37 @@ const panelClass = 'rounded-2xl border border-cu-border bg-cu-bg px-4 py-4 shado
 const secondaryButtonClass = 'rounded-xl border border-cu-border bg-cu-bg px-3 py-2 font-outfit font-semibold text-cu-text-secondary shadow-cu-sm transition-colors hover:bg-cu-hover hover:text-cu-text-primary disabled:opacity-40';
 const iconButtonClass = 'rounded-xl border border-cu-border bg-cu-bg p-2 text-cu-text-secondary shadow-cu-sm transition-colors hover:bg-cu-hover hover:text-cu-text-primary disabled:opacity-40';
 const githubConnectRequiredMessage = 'Connect your GitHub account to load repository activity.';
+type GitHubRouteState = 'initializing' | 'needsAppAuth' | 'needsGitHubAccount' | 'needsRepository' | 'connected' | 'error';
+type GithubCollaboratorPermission = 'pull' | 'triage' | 'push' | 'maintain';
+
+function getMemberUserId(member: Member): number | undefined {
+  return member.user?.userId ?? member.userId;
+}
+
+function getMemberGithubUsername(member: Member): string | null {
+  return member.user?.githubUsername ?? member.githubUsername ?? null;
+}
+
+function getMemberGithubEmail(member: Member): string | null {
+  return member.user?.githubEmail ?? member.githubEmail ?? null;
+}
+
+function getMemberDisplayName(member: Member): string {
+  return member.user?.username ?? member.username ?? member.user?.email ?? member.email ?? 'Team member';
+}
+
+function getMemberInviteIdentifier(member: Member): string | null {
+  return getMemberGithubUsername(member) ?? getMemberGithubEmail(member);
+}
+
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const response = (error as { response?: { data?: { message?: string; error?: string } } }).response;
+    const message = response?.data?.message ?? response?.data?.error;
+    if (message) return message;
+  }
+  return error instanceof Error ? error.message : fallback;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function timeAgo(dateStr: string): string {
@@ -159,7 +196,7 @@ function DisconnectedView({
   isPostLogout: boolean;
 }) {
   return (
-    <motion.div
+      <motion.div
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -16 }}
@@ -308,13 +345,118 @@ function DisconnectedView({
           </p>
         </div>
       )}
+      </motion.div>
+  );
+}
+
+function RouteStatusView({
+  title,
+  subtitle,
+  icon,
+  action,
+}: {
+  title: string;
+  subtitle: string;
+  icon: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex w-full max-w-md flex-col items-center gap-5 text-center"
+    >
+      <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${iconSurfaceClass}`}>
+        {icon}
+      </div>
+      <div className="flex flex-col gap-2">
+        <h2 className="text-xl font-outfit font-black tracking-tight text-cu-text-primary">{title}</h2>
+        <p className="text-sm font-outfit leading-relaxed text-cu-text-secondary">{subtitle}</p>
+      </div>
+      {action}
     </motion.div>
+  );
+}
+
+function InitializingView() {
+  return (
+    <RouteStatusView
+      title="Loading GitHub view"
+      subtitle="Checking your Planora session, GitHub account, and linked project repository."
+      icon={<RefreshCw size={22} className="animate-spin text-cu-text-secondary" />}
+    />
+  );
+}
+
+function AppAuthRequiredView({ onLogin }: { onLogin: () => void }) {
+  return (
+    <RouteStatusView
+      title="Sign in required"
+      subtitle="Your Planora session could not be restored. Sign in again to open this GitHub project view."
+      icon={<Lock size={22} className="text-cu-text-secondary" />}
+      action={(
+        <button
+          type="button"
+          onClick={onLogin}
+          className="rounded-2xl bg-cu-primary px-5 py-2.5 text-sm font-outfit font-bold text-white shadow-cu-sm transition-colors hover:bg-cu-primary-hover"
+        >
+          Go to login
+        </button>
+      )}
+    />
+  );
+}
+
+function RepositoryRequiredView({ onSelectRepo, loading }: { onSelectRepo: () => void; loading: boolean }) {
+  return (
+    <RouteStatusView
+      title="Choose a repository"
+      subtitle="Your GitHub account is connected. Link a repository to this project to load pull requests, commits, issues, and automations."
+      icon={<Link2 size={22} className="text-cu-text-secondary" />}
+      action={(
+        <button
+          type="button"
+          onClick={onSelectRepo}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-2xl bg-cu-primary px-5 py-2.5 text-sm font-outfit font-bold text-white shadow-cu-sm transition-colors hover:bg-cu-primary-hover disabled:opacity-50"
+        >
+          <GitHubMark size={16} className="text-white" />
+          {loading ? 'Loading repositories...' : 'Select repository'}
+        </button>
+      )}
+    />
+  );
+}
+
+function GitHubRouteErrorView({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <RouteStatusView
+      title="Unable to load GitHub view"
+      subtitle={message}
+      icon={<AlertCircle size={22} className="text-red-500" />}
+      action={(
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-2xl border border-cu-border bg-cu-bg px-5 py-2.5 text-sm font-outfit font-bold text-cu-text-secondary shadow-cu-sm transition-colors hover:bg-cu-hover hover:text-cu-text-primary"
+        >
+          Retry
+        </button>
+      )}
+    />
   );
 }
 
 // ── PR Card ───────────────────────────────────────────────────────────────────
 function PRCard({ pr }: { pr: GitHubPullRequest }) {
   const status = prStatus(pr);
+  const avatarUrl = pr.user.avatar_url?.trim() || null;
   return (
     <motion.a
       href={pr.html_url}
@@ -354,14 +496,23 @@ function PRCard({ pr }: { pr: GitHubPullRequest }) {
 
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-1.5">
-          <Image
-            src={pr.user.avatar_url}
-            alt={pr.user.login}
-            width={18}
-            height={18}
-            className="h-[18px] w-[18px] rounded-full ring-1 ring-white/10"
-            unoptimized
-          />
+          {avatarUrl ? (
+            <Image
+              src={avatarUrl}
+              alt={pr.user.login}
+              width={18}
+              height={18}
+              className="h-[18px] w-[18px] rounded-full ring-1 ring-white/10"
+              unoptimized
+            />
+          ) : (
+            <div
+              className="w-[18px] h-[18px] rounded-full flex items-center justify-center shrink-0"
+              style={{ background: 'rgba(255,255,255,0.08)' }}
+            >
+              <User size={10} className="text-cu-text-tertiary" />
+            </div>
+          )}
           <span className="text-[11px] text-cu-text-tertiary font-outfit">@{pr.user.login}</span>
         </div>
         {pr.labels.slice(0, 3).map(label => (
@@ -439,11 +590,13 @@ function AccountDropdown({
   user,
   onLogout,
   onChangeRepo,
+  onInviteCollaborator,
   canChangeRepo,
 }: {
   user: GitHubUser | null;
   onLogout: () => void;
   onChangeRepo: () => void;
+  onInviteCollaborator: () => void;
   canChangeRepo: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -485,7 +638,7 @@ function AccountDropdown({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 6 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-64 rounded-2xl overflow-hidden z-[300]"
+            className="absolute right-0 top-full mt-2 w-64 rounded-2xl overflow-hidden z-[var(--cu-z-dropdown)]"
             style={glass.modal}
           >
             <div className="px-4 py-3.5" style={glass.divider}>
@@ -519,13 +672,22 @@ function AccountDropdown({
 
             <div className="py-1.5">
               {canChangeRepo && (
-                <button
-                  onClick={() => { setOpen(false); onChangeRepo(); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-outfit font-semibold text-cu-text-secondary hover:bg-cu-hover hover:text-cu-text-primary transition-colors text-left"
-                >
-                  <Link2 size={14} className="text-cu-text-tertiary" />
-                  Change repository
-                </button>
+                <>
+                  <button
+                    onClick={() => { setOpen(false); onInviteCollaborator(); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-outfit font-semibold text-cu-text-secondary hover:bg-cu-hover hover:text-cu-text-primary transition-colors text-left"
+                  >
+                    <UserPlus size={14} className="text-cu-text-tertiary" />
+                    Invite collaborator
+                  </button>
+                  <button
+                    onClick={() => { setOpen(false); onChangeRepo(); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-outfit font-semibold text-cu-text-secondary hover:bg-cu-hover hover:text-cu-text-primary transition-colors text-left"
+                  >
+                    <Link2 size={14} className="text-cu-text-tertiary" />
+                    Change repository
+                  </button>
+                </>
               )}
               <button
                 onClick={() => { setOpen(false); onLogout(); }}
@@ -556,11 +718,12 @@ function RepoModal({
   onRefresh: () => void;
 }) {
   return (
-    <motion.div
+    <OverlayPortal>
+      <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[500] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center p-4"
       style={{ background: 'rgba(5,8,20,0.72)', backdropFilter: 'blur(10px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -677,7 +840,178 @@ function RepoModal({
           )}
         </div>
       </motion.div>
-    </motion.div>
+      </motion.div>
+    </OverlayPortal>
+  );
+}
+
+function InviteCollaboratorModal({
+  repoFullName,
+  members,
+  loading,
+  error,
+  result,
+  onSubmit,
+  onClose,
+}: {
+  repoFullName: string;
+  members: Member[];
+  loading: boolean;
+  error: string | null;
+  result: GithubCollaboratorInviteResponse | null;
+  onSubmit: (identifier: string, permission: GithubCollaboratorPermission) => void;
+  onClose: () => void;
+}) {
+  const [identifier, setIdentifier] = useState('');
+  const [permission, setPermission] = useState<GithubCollaboratorPermission>('push');
+  const canSubmit = identifier.trim().length > 0 && !loading;
+  const inviteReadyMembers = members.filter(member => Boolean(getMemberInviteIdentifier(member)));
+  const inviteBlockedMembers = members.filter(member => !getMemberInviteIdentifier(member));
+
+  return (
+    <OverlayPortal>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center p-4"
+        style={{ background: 'rgba(5,8,20,0.72)', backdropFilter: 'blur(10px)' }}
+        onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      >
+        <motion.form
+          initial={{ opacity: 0, scale: 0.96, y: 14 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 14 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          className="w-full max-w-md overflow-hidden rounded-2xl"
+          style={glass.modal}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (canSubmit) onSubmit(identifier, permission);
+          }}
+        >
+          <div className="flex items-center justify-between px-5 py-4" style={glass.divider}>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${iconSurfaceClass}`}>
+                <UserPlus size={15} className="text-cu-text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-outfit font-bold text-cu-text-primary text-base">Invite collaborator</p>
+                <p className="truncate text-xs font-outfit text-cu-text-tertiary">{repoFullName}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-cu-text-secondary hover:text-cu-text-primary hover:bg-cu-hover transition-colors"
+              aria-label="Close collaborator invite"
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          <div className="grid gap-4 px-5 py-5">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-outfit font-semibold text-cu-text-secondary">GitHub username or email</span>
+              <input
+                autoFocus
+                value={identifier}
+                onChange={event => setIdentifier(event.target.value)}
+                placeholder="octocat or teammate@example.com"
+                className="w-full rounded-xl px-3 py-2.5 text-sm font-outfit text-cu-text-primary outline-none placeholder:text-cu-text-tertiary"
+                style={glass.input}
+              />
+            </label>
+
+            {members.length > 0 && (
+              <div className="grid gap-2">
+                <span className="text-xs font-outfit font-semibold text-cu-text-secondary">Team members</span>
+                <div className="max-h-40 overflow-y-auto rounded-xl border border-cu-border bg-cu-bg-secondary p-2">
+                  {inviteReadyMembers.map(member => {
+                    const inviteIdentifier = getMemberInviteIdentifier(member);
+                    const githubUsername = getMemberGithubUsername(member);
+                    return (
+                      <button
+                        key={`ready-${member.id}`}
+                        type="button"
+                        onClick={() => inviteIdentifier && setIdentifier(inviteIdentifier)}
+                        className="flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-cu-hover"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-outfit font-semibold text-cu-text-primary">{getMemberDisplayName(member)}</span>
+                          <span className="block truncate text-xs font-outfit text-cu-text-tertiary">
+                            {githubUsername ? `@${githubUsername}` : inviteIdentifier}
+                          </span>
+                        </span>
+                        <UserPlus size={13} className="shrink-0 text-cu-text-tertiary" />
+                      </button>
+                    );
+                  })}
+                  {inviteBlockedMembers.map(member => (
+                    <div
+                      key={`blocked-${member.id}`}
+                      className="flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-left opacity-70"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-outfit font-semibold text-cu-text-secondary">{getMemberDisplayName(member)}</span>
+                        <span className="block truncate text-xs font-outfit text-cu-text-tertiary">Connect GitHub in profile first.</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <label className="grid gap-1.5">
+              <span className="text-xs font-outfit font-semibold text-cu-text-secondary">Permission</span>
+              <select
+                value={permission}
+                onChange={event => setPermission(event.target.value as GithubCollaboratorPermission)}
+                className="w-full rounded-xl px-3 py-2.5 text-sm font-outfit font-semibold text-cu-text-primary outline-none"
+                style={glass.input}
+              >
+                <option value="pull">Read</option>
+                <option value="triage">Triage</option>
+                <option value="push">Write</option>
+                <option value="maintain">Maintain</option>
+              </select>
+            </label>
+
+            {error && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-outfit text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300">
+                {error}
+              </div>
+            )}
+
+            {result && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-outfit text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300">
+                {result.githubStatus === 201
+                  ? `Invitation sent to @${result.githubUsername}.`
+                  : `@${result.githubUsername} already has access or was updated.`}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-2 px-5 py-4" style={glass.divider}>
+            <button
+              type="button"
+              onClick={onClose}
+              className={secondaryButtonClass}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="inline-flex min-w-24 items-center justify-center gap-2 rounded-xl bg-cu-primary px-4 py-2 text-sm font-outfit font-bold text-white shadow-cu-sm transition-colors hover:bg-cu-primary-hover disabled:opacity-40"
+            >
+              {loading ? <RefreshCw size={14} className="animate-spin" /> : <UserPlus size={14} />}
+              Invite
+            </button>
+          </div>
+        </motion.form>
+      </motion.div>
+    </OverlayPortal>
   );
 }
 
@@ -698,7 +1032,7 @@ function AccountPickerModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[500] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center p-4"
       style={{ background: 'rgba(5,8,20,0.72)', backdropFilter: 'blur(10px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -1135,6 +1469,7 @@ function ConnectedDashboard({
   onRefresh,
   onLogout,
   onChangeRepo,
+  onInviteCollaborator,
   onPRUpdate,
   onIssueUpdate,
   automationRules,
@@ -1163,6 +1498,7 @@ function ConnectedDashboard({
   onRefresh: () => void;
   onLogout: () => void;
   onChangeRepo: () => void;
+  onInviteCollaborator: () => void;
   onPRUpdate: (update: GithubPRUpdate) => void;
   onIssueUpdate: (update: GithubIssueUpdate) => void;
   automationRules: GithubAutomationRule[];
@@ -1334,16 +1670,32 @@ function ConnectedDashboard({
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
           {canChangeRepo && (
-            <button
-              onClick={onChangeRepo}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-outfit font-semibold text-cu-text-secondary hover:text-cu-text-primary hover:bg-cu-hover transition-all"
-              style={glass.button}
-            >
-              <Link2 size={13} />
-              Change repo
-            </button>
+            <>
+              <button
+                onClick={onInviteCollaborator}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-outfit font-semibold text-cu-text-secondary hover:text-cu-text-primary hover:bg-cu-hover transition-all"
+                style={glass.button}
+              >
+                <UserPlus size={13} />
+                Invite
+              </button>
+              <button
+                onClick={onChangeRepo}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-outfit font-semibold text-cu-text-secondary hover:text-cu-text-primary hover:bg-cu-hover transition-all"
+                style={glass.button}
+              >
+                <Link2 size={13} />
+                Change repo
+              </button>
+            </>
           )}
-          <AccountDropdown user={user} onLogout={onLogout} onChangeRepo={onChangeRepo} canChangeRepo={canChangeRepo} />
+          <AccountDropdown
+            user={user}
+            onLogout={onLogout}
+            onChangeRepo={onChangeRepo}
+            onInviteCollaborator={onInviteCollaborator}
+            canChangeRepo={canChangeRepo}
+          />
         </div>
       </div>
 
@@ -1717,6 +2069,8 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
   const router = useRouter();
 
   const [connection, setConnection] = useState<ProjectGitHubConnection | null>(null);
+  const [routeState, setRouteState] = useState<GitHubRouteState>('initializing');
+  const [routeError, setRouteError] = useState<string | null>(null);
   const [user, setUser] = useState<GitHubUser | null>(null);
   const [prs, setPRs] = useState<GitHubPullRequest[]>([]);
   const [commits, setCommits] = useState<GitHubCommit[]>([]);
@@ -1737,26 +2091,89 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
   const [isPostLogout, setIsPostLogout] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState<SavedGitHubAccount[]>([]);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
+  const [projectMembers, setProjectMembers] = useState<Member[]>([]);
 
   const [showModal, setShowModal] = useState(false);
   const [allRepos, setAllRepos] = useState<GitHubRepository[]>([]);
   const [repoSearch, setRepoSearch] = useState('');
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [repoError, setRepoError] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteResult, setInviteResult] = useState<GithubCollaboratorInviteResponse | null>(null);
+
+  const resolveBackendConnectionAfterConflict = useCallback(async (): Promise<ProjectGitHubConnection | null> => {
+    try {
+      return await fetchProjectGitHubConnection(projectId);
+    } catch {
+      return null;
+    }
+  }, [projectId]);
+
+  const initializeGitHubView = useCallback(async () => {
+    setRouteState('initializing');
+    setRouteError(null);
+    setConnection(null);
+
+    try {
+      const token = await ensureValidToken({ allowCookieRefresh: true });
+      setSocketToken(token);
+
+      if (!token) {
+        setRouteState('needsAppAuth');
+        return;
+      }
+
+      const status = await fetchGitHubConnectionStatus().catch(() => ({ connected: false }));
+      if (!status.connected) {
+        setRouteState('needsGitHubAccount');
+        return;
+      }
+
+      const backendConnection = await fetchProjectGitHubConnection(projectId);
+      if (backendConnection) {
+        setProjectGitHubConnection(projectId, backendConnection);
+        setConnection(backendConnection);
+        setRouteState('connected');
+        return;
+      }
+
+      const legacyConnection = getProjectGitHubRepo(projectId);
+      if (legacyConnection?.repoFullName) {
+        try {
+          const persistedConnection = await persistProjectGitHubConnection(projectId, legacyConnection.repoFullName);
+          const mergedConnection = {
+            ...persistedConnection,
+            private: legacyConnection.private,
+            defaultBranch: legacyConnection.defaultBranch || persistedConnection.defaultBranch,
+          };
+          setProjectGitHubConnection(projectId, mergedConnection);
+          setConnection(mergedConnection);
+          setRouteState('connected');
+          return;
+        } catch (error) {
+          const existingConnection = await resolveBackendConnectionAfterConflict();
+          if (existingConnection) {
+            setProjectGitHubConnection(projectId, existingConnection);
+            setConnection(existingConnection);
+            setRouteState('connected');
+            return;
+          }
+          throw error;
+        }
+      }
+
+      setRouteState('needsRepository');
+    } catch (error) {
+      setRouteError(error instanceof Error ? error.message : 'The GitHub project connection failed to load.');
+      setRouteState('error');
+    }
+  }, [projectId, resolveBackendConnectionAfterConflict]);
 
   useEffect(() => {
-    let active = true;
-    setConnection(getProjectGitHubRepo(projectId));
-    const loadSocketToken = async () => {
-      const token = await ensureValidToken();
-      if (active) setSocketToken(token);
-    };
-    void loadSocketToken();
-
-    return () => {
-      active = false;
-    };
-  }, [projectId]);
+    void initializeGitHubView();
+  }, [initializeGitHubView]);
 
   useEffect(() => {
     localStorage.removeItem('github_force_relogin');
@@ -1768,7 +2185,8 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
     if (!currentUser?.userId) return;
     fetchMembers(projectId)
       .then(members => {
-        const me = members.find(m => m.userId === currentUser.userId);
+        setProjectMembers(members);
+        const me = members.find(m => getMemberUserId(m) === currentUser.userId);
         setCanChangeRepo(me?.role === 'OWNER' || me?.role === 'ADMIN');
       })
       .catch(() => { });
@@ -1801,9 +2219,9 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
     }
 
     const [prResult, commitResult, issueResult, userResult] = await Promise.allSettled([
-      fetchPullRequests(conn.ownerLogin, conn.repoName),
-      fetchCommits(conn.ownerLogin, conn.repoName),
-      fetchIssues(conn.repoFullName),
+      fetchProjectPullRequests(projectId),
+      fetchProjectCommits(projectId),
+      fetchProjectIssues(projectId),
       fetchGitHubUser(),
     ]);
 
@@ -1823,7 +2241,7 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
       setSavedAccounts(getSavedGitHubAccounts());
     }
     setLoading(false);
-  }, []);
+  }, [projectId]);
 
   const loadIssues = useCallback(async (conn: ProjectGitHubConnection) => {
     let isGitHubConnected = false;
@@ -1841,13 +2259,13 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
     }
 
     try {
-      const latestIssues = await fetchIssues(conn.repoFullName);
+      const latestIssues = await fetchProjectIssues(projectId);
       setIssues(latestIssues);
       setIssueError(null);
     } catch (error) {
       setIssueError(error instanceof Error ? error.message : 'Failed to load issues');
     }
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     if (connection) void loadData(connection);
@@ -1926,13 +2344,13 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
 
   const handleConnectGitHub = (loginHint?: string) => {
     if (!GITHUB_CLIENT_ID) {
-      alert('GitHub OAuth is not configured.\nPlease set NEXT_PUBLIC_GITHUB_CLIENT_ID.');
+      toast('GitHub OAuth is not configured. Please set NEXT_PUBLIC_GITHUB_CLIENT_ID.', 'error');
       return;
     }
     const redirectUri = `${window.location.origin}/github/callback`;
     const params = new URLSearchParams({
       client_id: GITHUB_CLIENT_ID,
-      scope: 'repo',
+      scope: 'repo user:email',
       state: projectId,
       redirect_uri: redirectUri,
     });
@@ -1963,20 +2381,75 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
     await loadRepos();
   };
 
-  const handleSelectRepo = (repo: GitHubRepository) => {
-    setProjectGitHubRepo(projectId, repo);
-    const newConn = getProjectGitHubRepo(projectId)!;
-    setConnection(newConn);
-    setIsPostLogout(false);
-    setShowModal(false);
-    setRepoSearch('');
-    void loadData(newConn);
+  const handleSelectRepo = async (repo: GitHubRepository) => {
+    setLoadingRepos(true);
+    setRepoError(null);
+
+    try {
+      const persistedConnection = await persistProjectGitHubConnection(projectId, repo.full_name);
+      const newConn: ProjectGitHubConnection = {
+        ...persistedConnection,
+        repoId: persistedConnection.repoId || repo.id,
+        repoName: repo.name,
+        private: repo.private,
+        defaultBranch: repo.default_branch,
+        ownerLogin: repo.owner.login,
+      };
+      setProjectGitHubConnection(projectId, newConn);
+      setConnection(newConn);
+      setRouteState('connected');
+      setIsPostLogout(false);
+      setShowModal(false);
+      setRepoSearch('');
+      void loadData(newConn);
+    } catch (error) {
+      const existingConnection = await resolveBackendConnectionAfterConflict();
+      if (existingConnection) {
+        setProjectGitHubConnection(projectId, existingConnection);
+        setConnection(existingConnection);
+        setRouteState('connected');
+        setIsPostLogout(false);
+        setShowModal(false);
+        setRepoSearch('');
+        void loadData(existingConnection);
+        return;
+      }
+
+      setRepoError(error instanceof Error ? error.message : 'Failed to link repository to this project.');
+    } finally {
+      setLoadingRepos(false);
+    }
+  };
+
+  const handleOpenInviteModal = () => {
+    setInviteError(null);
+    setInviteResult(null);
+    setShowInviteModal(true);
+  };
+
+  const handleInviteCollaborator = async (identifier: string, permission: GithubCollaboratorPermission) => {
+    setInviteLoading(true);
+    setInviteError(null);
+    setInviteResult(null);
+
+    try {
+      const result = await inviteGitHubCollaborator(projectId, {
+        identifier: identifier.trim(),
+        permission,
+      });
+      setInviteResult(result);
+      toast(result.githubStatus === 201 ? 'GitHub invitation sent' : 'GitHub collaborator updated', 'success');
+    } catch (error) {
+      setInviteError(getApiErrorMessage(error, 'Failed to invite GitHub collaborator.'));
+    } finally {
+      setInviteLoading(false);
+    }
   };
 
   const handleLogout = async () => {
     try {
       await api.post('/api/github/revoke');
-      // Fetch the updated user profile from the backend to clear the githubUsername field in local cache
+      // Fetch the updated user profile from the backend to clear GitHub identity fields in local cache.
       const profileRes = await api.get('/api/user/profile');
       if (profileRes.data) {
         localStorage.setItem('userProfile', JSON.stringify(profileRes.data));
@@ -1984,12 +2457,13 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
         localStorage.removeItem('userProfile');
       }
     } catch {
-      // Fallback: manually delete githubUsername from userProfile in localStorage if request fails
+      // Fallback: manually delete GitHub identity fields from userProfile in localStorage if request fails.
       const profile = localStorage.getItem('userProfile');
       if (profile) {
         try {
           const parsed = JSON.parse(profile);
           delete parsed.githubUsername;
+          delete parsed.githubEmail;
           localStorage.setItem('userProfile', JSON.stringify(parsed));
         } catch {
           localStorage.removeItem('userProfile');
@@ -1999,6 +2473,8 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
     clearProjectGitHubRepo(projectId);
     setIsPostLogout(true);
     setConnection(null);
+    setRouteState('needsGitHubAccount');
+    setRouteError(null);
     setUser(null);
     setPRs([]);
     setCommits([]);
@@ -2038,8 +2514,7 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
 
     if (update.type === 'opened') {
       try {
-        const pr = await fetchPullRequest(connection.ownerLogin, connection.repoName, update.prNumber);
-        setPRs((current) => [pr, ...current.filter((existing) => existing.number !== pr.number)]);
+        await loadData(connection);
         setPRError(null);
       } catch (error) {
         setPRError(error instanceof Error
@@ -2058,13 +2533,27 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
         updated_at: new Date().toISOString(),
       };
     }));
-  }, [connection]);
+  }, [connection, loadData]);
 
   const handleIssueUpdate = useCallback(() => {
     if (!connection) return;
 
     void loadIssues(connection);
   }, [connection, loadIssues]);
+
+  const handleRefreshDashboard = useCallback(async () => {
+    if (!connection) return;
+
+    try {
+      await syncProjectGitHub(projectId);
+    } catch {
+      // The local dashboard can still refresh from cached/project data when sync is unavailable.
+    }
+
+    await loadData(connection);
+    void loadAutomationRules();
+    void loadAutomationLogs();
+  }, [connection, loadAutomationLogs, loadAutomationRules, loadData, projectId]);
 
   const filteredRepos = allRepos.filter(r =>
     r.full_name.toLowerCase().includes(repoSearch.toLowerCase())
@@ -2083,9 +2572,10 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
       commitError={commitError}
       issueError={issueError}
       user={user}
-      onRefresh={() => void loadData(connection)}
+      onRefresh={() => void handleRefreshDashboard()}
       onLogout={() => void handleLogout()}
       onChangeRepo={handleOpenModal}
+      onInviteCollaborator={handleOpenInviteModal}
       onPRUpdate={(update) => void handlePRUpdate(update)}
       onIssueUpdate={() => void handleIssueUpdate()}
       automationRules={automationRules}
@@ -2103,16 +2593,57 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
     />
   ) : null;
 
+  const routeContent = (() => {
+    if (routeState === 'initializing') {
+      return <InitializingView />;
+    }
+
+    if (routeState === 'needsAppAuth') {
+      return <AppAuthRequiredView onLogin={() => router.replace('/login')} />;
+    }
+
+    if (routeState === 'needsGitHubAccount') {
+      return (
+        <DisconnectedView
+          key="disconnected"
+          onConnect={handleInitiateConnect}
+          onLogout={() => void handleLogout()}
+          isPostLogout={isPostLogout}
+        />
+      );
+    }
+
+    if (routeState === 'needsRepository') {
+      return <RepositoryRequiredView onSelectRepo={() => void handleOpenModal()} loading={loadingRepos} />;
+    }
+
+    if (routeState === 'error') {
+      return (
+        <GitHubRouteErrorView
+          message={routeError ?? 'The GitHub project data failed to load.'}
+          onRetry={() => void initializeGitHubView()}
+        />
+      );
+    }
+
+    if (connection) {
+      return socketToken ? (
+        <StompProvider token={socketToken}>{connectedDashboard}</StompProvider>
+      ) : connectedDashboard;
+    }
+
+    return (
+      <GitHubRouteErrorView
+        message="The GitHub project connection is missing. Retry to resolve the linked repository."
+        onRetry={() => void initializeGitHubView()}
+      />
+    );
+  })();
+
   return (
-    <div className={`w-full px-6 py-6 ${connection ? '' : 'min-h-[calc(100vh-130px)] flex flex-col items-center justify-center'}`}>
+    <div className={`w-full px-6 py-6 ${routeState === 'connected' ? '' : 'min-h-[calc(100vh-130px)] flex flex-col items-center justify-center'}`}>
       <AnimatePresence mode="wait">
-        {connection ? (
-          socketToken ? (
-            <StompProvider token={socketToken}>{connectedDashboard}</StompProvider>
-          ) : connectedDashboard
-        ) : (
-          <DisconnectedView key="disconnected" onConnect={handleInitiateConnect} onLogout={() => void handleLogout()} isPostLogout={isPostLogout} />
-        )}
+        {routeContent}
       </AnimatePresence>
 
 
@@ -2137,6 +2668,20 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
             projectId={projectId}
             onCreated={handleAutomationRuleCreated}
             onClose={() => setShowAutomationBuilder(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showInviteModal && connection && (
+          <InviteCollaboratorModal
+            repoFullName={connection.repoFullName}
+            members={projectMembers}
+            loading={inviteLoading}
+            error={inviteError}
+            result={inviteResult}
+            onSubmit={(identifier, permission) => void handleInviteCollaborator(identifier, permission)}
+            onClose={() => setShowInviteModal(false)}
           />
         )}
       </AnimatePresence>

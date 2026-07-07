@@ -10,6 +10,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import TaskCardModal from '@/app/taskcard/TaskCardModal';
 import KeyboardShortcutsModal from '@/components/ui/KeyboardShortcutsModal';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 import useCommandPalette, { hasMinRole } from '@/hooks/useCommandPalette';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import type { Project } from '@/types';
@@ -302,8 +303,9 @@ export default function CommandPalette() {
     return (
         <>
             {open && (
+                <OverlayPortal>
                 <div
-                    className="fixed inset-0 z-[200] flex items-start justify-center pt-[12vh] px-4"
+                    className="fixed inset-0 z-[var(--cu-z-command)] flex items-start justify-center pt-[12vh] px-4"
                     role="dialog"
                     aria-modal="true"
                     aria-label="Command palette"
@@ -508,6 +510,7 @@ export default function CommandPalette() {
                         </div>
                     </div>
                 </div>
+                </OverlayPortal>
             )}
 
             {selectedTaskId !== null && (

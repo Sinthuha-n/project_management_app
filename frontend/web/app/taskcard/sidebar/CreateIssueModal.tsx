@@ -6,9 +6,10 @@ import {
   fetchRepositories,
   hasConnectedGitHubAccount,
   getProjectGitHubRepo,
-} from '@/services/githubService';
+} from '@/services/github-service';
 import api from '@/lib/axios';
 import { normalizeApiError } from '@/lib/api-error';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -203,11 +204,12 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
   if (!open) return null;
 
   return (
-    <div
+    <OverlayPortal>
+      <div
       role="dialog"
       aria-modal="true"
       aria-label="Create GitHub Issue"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[var(--cu-z-modal-popover)] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
       onClick={handleBackdropClick}
     >
       <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
@@ -422,7 +424,8 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
           </form>
         )}
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 };
 

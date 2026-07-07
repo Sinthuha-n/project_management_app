@@ -72,6 +72,8 @@ function startBackend() {
 
 function buildBackendEnv() {
   const env = { ...process.env, SPRING_PROFILES_ACTIVE: 'test' };
+  env.SPRING_DEVTOOLS_RESTART_ENABLED = 'false';
+  env.SPRING_DEVTOOLS_ADD_PROPERTIES = 'false';
   env.SPRING_DATASOURCE_URL = 'jdbc:h2:mem:openapi;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=VALUE';
   env.SPRING_DATASOURCE_USERNAME = 'sa';
   env.SPRING_DATASOURCE_PASSWORD = '';

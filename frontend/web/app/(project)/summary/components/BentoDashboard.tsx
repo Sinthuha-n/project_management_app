@@ -2,8 +2,6 @@
 
 import React, { useMemo } from 'react';
 import { Task, Sprint, ProjectMetrics, PageItem, MilestoneResponse } from '@/types';
-import api from '@/lib/axios';
-import useSWR from 'swr';
 
 // Legacy layer for React-Grid-Layout v1 compatibility
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -41,21 +39,20 @@ import { GenerateReport } from './management/GenerateReport';
 import { WorkloadDistribution } from './workload/WorkloadDistribution';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
-const fetcher = (url: string) => api.get(url).then((r) => r.data);
 
 /**
  * Main Summary Dashboard that organizes widgets into a responsive Bento grid.
  */
 export default function BentoDashboard({
-  projectId, tasks, sprints, metrics, projectDetails, isAgile,
+  projectId, tasks, sprints, metrics, projectDetails, pages = [], milestones = [], isAgile,
 }: {
   projectId: number; tasks: Task[]; sprints: Sprint[]; metrics: ProjectMetrics;
-  projectDetails: { description?: string } | null; isAgile: boolean;
+  projectDetails: { description?: string } | null;
+  pages?: PageItem[];
+  milestones?: MilestoneResponse[];
+  members?: unknown[];
+  isAgile: boolean;
 }) {
-  // Fetch secondary project data
-  const { data: pages = [], isLoading: pagesLoading } = useSWR<PageItem[]>(projectId ? `/api/projects/${projectId}/pages` : null, fetcher);
-  const { data: milestones = [], isLoading: milestonesLoading } = useSWR<MilestoneResponse[]>(projectId ? `/api/projects/${projectId}/milestones` : null, fetcher);
-
   // Initialize layout state
   const defaultLayouts = useMemo(() => buildDefaultLayouts(isAgile), [isAgile]);
   const { layouts, onLayoutChange, resetLayouts, isHydrated } = useBentoLayout(projectId, defaultLayouts);
@@ -183,13 +180,13 @@ export default function BentoDashboard({
 
         <div key="milestones">
           <BentoCard title="Upcoming Milestones" icon={Icons.milestone} noPadding bodyClassName="p-4 overflow-y-auto custom-scrollbar">
-            <UpcomingMilestones projectId={projectId} milestones={milestones} isLoading={milestonesLoading} />
+            <UpcomingMilestones projectId={projectId} milestones={milestones} isLoading={false} />
           </BentoCard>
         </div>
 
         <div key="docs">
           <BentoCard title="Project Docs" icon={Icons.docs} noPadding bodyClassName="p-4 overflow-y-auto custom-scrollbar">
-            <ProjectDocs projectId={projectId} pages={pages} isLoading={pagesLoading} />
+            <ProjectDocs projectId={projectId} pages={pages} isLoading={false} />
           </BentoCard>
         </div>
 

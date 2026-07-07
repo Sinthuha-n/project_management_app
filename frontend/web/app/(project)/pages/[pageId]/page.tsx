@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { usePageEditor } from './usePageEditor';
 import { useRouter } from 'next/navigation';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 export default function PageDetailPage() {
   const router = useRouter();
@@ -344,15 +345,15 @@ export default function PageDetailPage() {
       </div>
 
       {error && (
-        <div className="fixed bottom-4 right-4 p-4 bg-red-50 dark:bg-cu-danger-light border border-red-200 dark:border-cu-danger/30 rounded-lg shadow-md z-[10000]">
+        <div className="fixed bottom-4 right-4 p-4 bg-red-50 dark:bg-cu-danger-light border border-red-200 dark:border-cu-danger/30 rounded-lg shadow-md z-[var(--cu-z-toast)]">
           <p className="text-sm text-red-600 dark:text-cu-danger">{error}</p>
         </div>
       )}
 
       {showDeleteConfirm && (
-        <>
-          <div className="fixed inset-0 bg-black/40 z-[10000]" onClick={() => setShowDeleteConfirm(false)} />
-          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[10000] w-[340px] bg-white rounded-2xl shadow-xl p-6 flex flex-col gap-4">
+        <OverlayPortal>
+          <div className="fixed inset-0 bg-black/40 z-[var(--cu-z-modal)]" onClick={() => setShowDeleteConfirm(false)} />
+          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[var(--cu-z-modal)] w-[340px] bg-white rounded-2xl shadow-xl p-6 flex flex-col gap-4">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 w-9 h-9 rounded-full bg-red-100 dark:bg-cu-danger-light flex items-center justify-center">
                 <Trash2 size={18} className="text-red-600 dark:text-cu-danger" />
@@ -379,13 +380,13 @@ export default function PageDetailPage() {
               </button>
             </div>
           </div>
-        </>
+        </OverlayPortal>
       )}
 
       {showMoveModal && selectedPage && (
-        <>
-          <div className="fixed inset-0 bg-black/40 z-[10000]" onClick={() => setShowMoveModal(false)} />
-          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[10000] w-[380px] bg-white rounded-2xl shadow-xl p-6 flex flex-col gap-4">
+        <OverlayPortal>
+          <div className="fixed inset-0 bg-black/40 z-[var(--cu-z-modal)]" onClick={() => setShowMoveModal(false)} />
+          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[var(--cu-z-modal)] w-[380px] bg-white rounded-2xl shadow-xl p-6 flex flex-col gap-4">
             <div>
               <p className="font-semibold text-gray-900 text-sm">Move document</p>
               <p className="text-gray-500 text-xs mt-0.5">
@@ -448,7 +449,7 @@ export default function PageDetailPage() {
               </button>
             </div>
           </div>
-        </>
+        </OverlayPortal>
       )}
     </div>
   );

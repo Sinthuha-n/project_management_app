@@ -20,6 +20,7 @@ import com.planora.backend.dto.GithubCommitDTO;
 import com.planora.backend.dto.GithubCreateIssueRequestDTO;
 import com.planora.backend.dto.GithubIssueDTO;
 import com.planora.backend.dto.GithubLinkTaskRequestDTO;
+import com.planora.backend.dto.PageResponseDto;
 import com.planora.backend.dto.GithubPrDTO;
 import com.planora.backend.dto.GithubStatsDTO;
 import com.planora.backend.exception.GithubAuthenticationException;
@@ -52,7 +53,7 @@ public class GithubDataController {
     private final UserRepository userRepository;
 
     @GetMapping("/pull-requests")
-    public ResponseEntity<Page<GithubPrDTO>> getPullRequests(
+    public ResponseEntity<PageResponseDto<GithubPrDTO>> getPullRequests(
             @PathVariable Long projectId,
             @RequestParam(defaultValue = "all") String state,
             @RequestParam(defaultValue = "0") int page,
@@ -60,22 +61,22 @@ public class GithubDataController {
             @AuthenticationPrincipal UserPrincipal principal) {
 
         Page<GithubPrDTO> result = pullRequestService.getPullRequests(projectId, state, page, size);
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(PageResponseDto.from(result));
     }
 
     @GetMapping("/commits")
-    public ResponseEntity<Page<GithubCommitDTO>> getCommits(
+    public ResponseEntity<PageResponseDto<GithubCommitDTO>> getCommits(
             @PathVariable Long projectId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal UserPrincipal principal) {
 
         Page<GithubCommitDTO> result = commitService.getCommits(projectId, page, size);
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(PageResponseDto.from(result));
     }
 
     @GetMapping("/issues")
-    public ResponseEntity<Page<GithubIssueDTO>> getIssues(
+    public ResponseEntity<PageResponseDto<GithubIssueDTO>> getIssues(
             @PathVariable Long projectId,
             @RequestParam(defaultValue = "open") String state,
             @RequestParam(defaultValue = "0") int page,
@@ -83,7 +84,7 @@ public class GithubDataController {
             @AuthenticationPrincipal UserPrincipal principal) {
 
         Page<GithubIssueDTO> result = issueService.getIssues(projectId, state, page, size);
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(PageResponseDto.from(result));
     }
 
     @GetMapping("/stats")

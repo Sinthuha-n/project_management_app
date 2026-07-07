@@ -1,6 +1,10 @@
+'use client';
+
 import type { FormEvent } from 'react';
-import { Send, X } from 'lucide-react';
+import { ChevronDown, Mail, Send, ShieldCheck } from 'lucide-react';
 import Button from '@/components/shared/Button';
+import { Modal } from '@/components/ui/Modal';
+import { ROLE_LABELS } from '../constants';
 
 interface InviteMemberModalProps {
   isOpen: boolean;
@@ -29,54 +33,61 @@ export function InviteMemberModal({
   onInviteRoleChange,
   onSubmit,
 }: InviteMemberModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50 p-4 sm:p-0">
-      <div className="bg-cu-bg rounded-lg shadow-lg p-4 sm:p-8 w-full max-w-sm sm:max-w-md max-h-[90vh] overflow-y-auto relative">
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 p-1 rounded hover:bg-cu-hover text-cu-text-muted"
-        >
-          <X size={18} />
-        </button>
-        <h2 className="text-xl font-bold mb-4">Invite Team Member</h2>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <Modal
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      title="Invite Team Member"
+      description="Send a project invitation with the right access level."
+      size="md"
+      className="mx-4 overflow-hidden"
+    >
+        <form onSubmit={onSubmit} className="flex flex-col gap-4 pt-2">
           <div>
-            <label className="block text-xs sm:text-sm font-medium mb-1">Email Address <span className="text-red-500">*</span></label>
-            <input
-              type="email"
-              className="w-full border border-cu-border bg-cu-bg text-cu-text-primary rounded px-3 py-2.5 min-h-[44px] text-sm focus:outline-none focus:border-cu-primary"
-              value={inviteEmail}
-              onChange={(e) => onInviteEmailChange(e.target.value)}
-              required
-            />
+            <label className="mb-1.5 block text-xs font-semibold uppercase text-cu-text-muted">Email Address <span className="text-cu-danger">*</span></label>
+            <div className="relative">
+              <Mail size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-cu-text-muted" aria-hidden="true" />
+              <input
+                type="email"
+                className="h-11 w-full rounded-cu-md border border-cu-border bg-cu-bg text-cu-text-primary pl-10 pr-3 text-sm shadow-cu-sm transition-colors placeholder:text-cu-text-muted focus:border-cu-primary/40 focus:outline-none focus:ring-2 focus:ring-cu-primary/15"
+                value={inviteEmail}
+                onChange={(e) => onInviteEmailChange(e.target.value)}
+                placeholder="teammate@example.com"
+                required
+              />
+            </div>
           </div>
           <div>
-            <label className="block text-xs sm:text-sm font-medium mb-1">Role <span className="text-red-500">*</span></label>
-            <select
-              className="w-full border border-cu-border bg-cu-bg text-cu-text-primary rounded px-3 py-2.5 min-h-[44px] text-sm focus:outline-none focus:border-cu-primary"
-              value={inviteRole}
-              onChange={(e) => onInviteRoleChange(e.target.value)}
-              required
-            >
-              <option value="">Select a role</option>
-              {roleOptions.map((role) => (
-                <option key={role} value={role}>{role}</option>
-              ))}
-            </select>
+            <label className="mb-1.5 block text-xs font-semibold uppercase text-cu-text-muted">Role <span className="text-cu-danger">*</span></label>
+            <div className="relative">
+              <ShieldCheck size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-cu-text-muted" aria-hidden="true" />
+              <select
+                className="h-11 w-full appearance-none rounded-cu-md border border-cu-border bg-cu-bg text-cu-text-primary pl-10 pr-9 text-sm shadow-cu-sm transition-colors focus:border-cu-primary/40 focus:outline-none focus:ring-2 focus:ring-cu-primary/15"
+                value={inviteRole}
+                onChange={(e) => onInviteRoleChange(e.target.value)}
+                required
+              >
+                <option value="">Select a role</option>
+                {roleOptions.map((role) => (
+                  <option key={role} value={role}>{ROLE_LABELS[role] || role}</option>
+                ))}
+              </select>
+              <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-cu-text-muted" aria-hidden="true" />
+            </div>
             {!inviteRole && (
-              <div className="text-red-500 text-xs mt-1">Please select a role.</div>
+              <div className="mt-1 text-xs text-cu-danger">Please select a role.</div>
             )}
           </div>
-          {inviteError && <div className="text-cu-danger text-sm">{inviteError}</div>}
-          {inviteSuccess && <div className="text-emerald-500 text-sm">{inviteSuccess}</div>}
-          <div className="flex flex-col sm:flex-row gap-2 mt-4">
+          {inviteError && <div className="rounded-cu-md border border-cu-danger/20 bg-cu-danger-light px-3 py-2 text-sm font-medium text-cu-danger">{inviteError}</div>}
+          {inviteSuccess && <div className="rounded-cu-md border border-cu-success/20 bg-cu-success-light px-3 py-2 text-sm font-medium text-cu-success">{inviteSuccess}</div>}
+          <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variant="secondary"
               size="lg"
-              className="flex-1"
+              className="sm:min-w-[120px]"
               onClick={onClose}
               disabled={inviteLoading}
             >
@@ -86,7 +97,7 @@ export function InviteMemberModal({
               type="submit"
               variant="primary"
               size="lg"
-              className="flex-1"
+              className="sm:min-w-[140px]"
               isLoading={inviteLoading}
               leftIcon={<Send size={16} />}
             >
@@ -94,7 +105,6 @@ export function InviteMemberModal({
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -216,7 +216,12 @@ export async function createTask(taskData: Partial<Task> & { projectId: number; 
       assigneeId: taskData.assigneeId ? Number(taskData.assigneeId) : undefined,
     };
 
-    if (process.env.NODE_ENV === 'development') console.log('Creating task with data:', requestData);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Creating task', {
+        titleLength: requestData.title.length,
+        status: requestData.status,
+      });
+    }
     return await tasksApi.create(requestData);
   } catch (error) {
     console.error('Error creating task:', error);

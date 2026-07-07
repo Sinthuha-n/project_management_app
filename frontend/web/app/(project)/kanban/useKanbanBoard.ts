@@ -93,8 +93,6 @@ export function useKanbanBoard(projectId: string | null) {
     handleAddTask: actions.handleAddTask,
     handleCreateTask: actions.handleCreateTask,
     handleOpenCreateModal: actions.handleOpenCreateModal,
-    handleEditTask: actions.handleEditTask,
-    handleUpdateTask: actions.handleUpdateTask,
     handleInlineUpdate: actions.handleInlineUpdate,
     handleDeleteTask: actions.handleDeleteTask,
     handleCompleteBoard: actions.handleCompleteBoard,

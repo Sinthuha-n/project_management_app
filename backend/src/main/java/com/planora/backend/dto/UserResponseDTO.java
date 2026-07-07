@@ -29,5 +29,6 @@ public class UserResponseDTO {
     private String position;
     private String bio;
     private String githubUsername;
+    private String githubEmail;
     private boolean notifyDueDateReminders;
 }

@@ -20,6 +20,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findFirstByUsernameIgnoreCase(String username);
 
     List<User> findByGithubUsernameIgnoreCase(String githubUsername);
+
+    List<User> findByGithubEmailIgnoreCase(String githubEmail);
     
     boolean existsByEmail(String email);
     

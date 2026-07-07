@@ -3,20 +3,30 @@ package com.planora.backend.repository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.planora.backend.model.TaskAccess;
-import com.planora.backend.model.Task;
-import com.planora.backend.model.User;
 
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface TaskAccessRepository extends JpaRepository<TaskAccess, Long> {
-    Optional<TaskAccess> findByTaskAndUser(Task task, User user);
+    /**
+     * Atomically records a task view. PostgreSQL serializes concurrent conflicts on
+     * the (task_id, user_id) constraint, so a second viewer updates the existing
+     * row instead of surfacing a unique-constraint violation.
+     */
+    @Modifying
+    @Query(value = """
+            INSERT INTO task_access (task_id, user_id, last_accessed_at)
+            VALUES (:taskId, :userId, CURRENT_TIMESTAMP)
+            ON CONFLICT (task_id, user_id)
+            DO UPDATE SET last_accessed_at = EXCLUDED.last_accessed_at
+            """, nativeQuery = true)
+    void upsertTaskAccess(@Param("taskId") Long taskId, @Param("userId") Long userId);
     
     // For "Recent Tasks" endpoints
     @EntityGraph(attributePaths = {

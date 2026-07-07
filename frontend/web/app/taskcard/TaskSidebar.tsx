@@ -16,7 +16,7 @@ import { Check, ChevronDown, Link2, Plus } from 'lucide-react';
 import GitHubIssueBadge from '@/components/github/GitHubIssueBadge';
 import GitHubMark from '@/components/github/GitHubMark';
 import { projectsApi } from '@/services/projects-contract';
-import type { ProjectGitHubConnection } from '@/services/githubService';
+import type { ProjectGitHubConnection } from '@/services/github-service';
 
 interface MultiAssignee {
   memberId: number;

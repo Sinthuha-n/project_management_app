@@ -5,9 +5,10 @@ import TaskHeader from './TaskHeader';
 import TaskMainContent from './TaskMainContent';
 import TaskSidebar from './TaskSidebar';
 import { toast } from '@/components/ui';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 import { motion } from 'framer-motion';
 import { useStomp } from '@/ws/stomp-provider';
-import { getProjectGitHubRepo } from '@/services/githubService';
+import { getProjectGitHubRepo } from '@/services/github-service';
 import CreateIssueFromTaskModal from '@/components/github/CreateIssueFromTaskModal';
 import { authApi } from '@/services/auth-contract';
 import api from '@/lib/axios';
@@ -108,12 +109,18 @@ const toTaskData = (task: Task & {
   dueDate: task.dueDate ?? null,
   subtasks: task.subtasks ?? [],
   dependencies: task.dependencies ?? [],
-  assignees: task.assignees?.map((assignee) => ({
-    memberId: assignee.id,
-    userId: assignee.id,
-    name: assignee.name,
-    photoUrl: resolveProfilePhotoUrl(assignee.avatar ?? assignee.profilePicUrl, assignee.id),
-  })),
+  assignees: task.assignees?.map((assignee) => {
+    const raw = assignee as MultiAssignee & { id?: number; memberId?: number; userId?: number; avatar?: string; profilePicUrl?: string };
+    const memberId = raw.memberId ?? raw.id;
+    const userId = raw.userId ?? raw.id;
+    const photoUrl = raw.photoUrl ?? resolveProfilePhotoUrl(raw.avatar ?? raw.profilePicUrl, userId);
+    return {
+      memberId,
+      userId,
+      name: assignee.name,
+      photoUrl,
+    };
+  }),
   recurrenceRule: task.recurrenceRule ?? null,
   recurrenceEnd: task.recurrenceEnd ?? null,
   customInterval: task.customInterval ?? null,
@@ -222,7 +229,7 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
     const cached = localStorage.getItem(`planora:task:${taskId}`);
     if (cached) {
       try {
-        setTaskData(JSON.parse(cached) as TaskData);
+        setTaskData(toTaskData(JSON.parse(cached)));
         setLoading(false);
       } catch { /* ignore */ }
     }
@@ -341,7 +348,8 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999]" onClick={() => onClose(wasModified.current)}>
+    <OverlayPortal>
+      <div className="fixed inset-0 z-[var(--cu-z-modal)]" onClick={() => onClose(wasModified.current)}>
       {/* Backdrop */}
       <motion.div 
         initial={{ opacity: 0 }} 
@@ -513,6 +521,7 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
           </>
         )}
       </motion.div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }

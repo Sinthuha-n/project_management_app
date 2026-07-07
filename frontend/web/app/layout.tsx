@@ -10,6 +10,8 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { GlobalNotificationProvider } from "@/components/providers/GlobalNotificationProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import KeyboardShortcutsProvider from "@/components/providers/KeyboardShortcutsProvider";
+import AuthBootstrapProvider from "@/components/providers/AuthBootstrapProvider";
+import SWRProvider from "@/components/providers/SWRProvider";
 import NextTopLoader from 'nextjs-toploader';
 import Script from 'next/script';
 
@@ -77,16 +79,20 @@ export default function RootLayout({
           shadow="0 0 10px #2563EB,0 0 5px #2563EB"
         />
         <NavigationProvider>
-          <ThemeProvider>
-            <ToastProvider>
-              <GlobalNotificationProvider>
-                <KeyboardShortcutsProvider />
-                <Suspense fallback={null}>
-                  {children}
-                </Suspense>
-              </GlobalNotificationProvider>
-            </ToastProvider>
-          </ThemeProvider>
+          <SWRProvider>
+            <AuthBootstrapProvider>
+              <ThemeProvider>
+                <ToastProvider>
+                  <GlobalNotificationProvider>
+                    <KeyboardShortcutsProvider />
+                    <Suspense fallback={null}>
+                      {children}
+                    </Suspense>
+                  </GlobalNotificationProvider>
+                </ToastProvider>
+              </ThemeProvider>
+            </AuthBootstrapProvider>
+          </SWRProvider>
         </NavigationProvider>
       </body>
     </html>

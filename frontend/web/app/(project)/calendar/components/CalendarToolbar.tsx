@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { CalendarDays, ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from 'lucide-react';
 import type { CalendarFilters, CalendarView } from '../types';
 import FilterDropdown from './FilterDropdown';
 import BottomSheet from '@/components/shared/BottomSheet';
-import { SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Tooltip, TooltipProvider } from '@/components/ui/Tooltip';
 
 interface CalendarToolbarProps {
   view: CalendarView;
@@ -25,6 +26,12 @@ interface CalendarToolbarProps {
   onMoreFiltersChange: (values: string[]) => void;
 }
 
+const VIEWS: Array<{ value: CalendarView; label: string }> = [
+  { value: 'month', label: 'Month' },
+  { value: 'week', label: 'Week' },
+  { value: 'agenda', label: 'Agenda' },
+];
+
 export default function CalendarToolbar({
   view,
   currentLabel,
@@ -44,228 +51,177 @@ export default function CalendarToolbar({
   onMoreFiltersChange,
 }: CalendarToolbarProps) {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
-
   const activeFilterCount = [
+    filters.search ? 1 : 0,
     filters.assignees.length,
     filters.types.length,
     filters.statuses.length,
     filters.moreFilters.length,
-    filters.search ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  ].reduce((total, count) => total + count, 0);
 
-  const controlClassName =
-    'h-10 rounded-md border border-cu-primary/20 bg-cu-bg/80 px-3 text-sm font-medium text-cu-text-secondary shadow-sm hover:border-cu-primary hover:bg-cu-primary/10 hover:text-cu-primary';
+  const clearFilters = () => {
+    onSearchChange('');
+    onAssigneesChange([]);
+    onTypesChange([]);
+    onStatusesChange([]);
+    onMoreFiltersChange([]);
+  };
 
   return (
-    <div className="space-y-3 rounded-xl border border-cu-primary/15 bg-gradient-to-r from-cu-primary/10 via-cyan-500/10 to-emerald-500/10 p-3 shadow-cu-sm">
+    <TooltipProvider>
+      <div className="rounded-xl border border-cu-border bg-cu-bg p-3 shadow-cu-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 flex-1 flex-col gap-3 md:flex-row md:items-center">
+            <div className="relative min-w-0 flex-1 md:max-w-sm">
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-cu-text-muted" />
+              <input
+                value={filters.search}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Search tasks, sprints, assignees"
+                className="h-10 w-full rounded-lg border border-cu-border bg-cu-bg-secondary pl-9 pr-9 text-sm text-cu-text-primary outline-none transition-colors placeholder:text-cu-text-muted focus:border-cu-primary focus:bg-cu-bg focus:ring-2 focus:ring-cu-primary/15"
+              />
+              {filters.search && (
+                <button
+                  type="button"
+                  onClick={() => onSearchChange('')}
+                  aria-label="Clear search"
+                  className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-cu-text-muted hover:bg-cu-hover hover:text-cu-text-primary"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
 
-      {/* ── Desktop toolbar (md+) ─────────────────────────────────────────── */}
-      <div className="hidden md:flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            value={filters.search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search calendar"
-            className="h-10 w-56 rounded-[4px] border border-cu-primary/20 bg-cu-bg/80 px-3 text-sm text-cu-text-primary outline-none placeholder:text-cu-text-muted focus:border-cu-primary focus:bg-cu-bg"
-          />
-
-          <FilterDropdown
-            label="Assignee"
-            options={assigneeOptions}
-            selected={filters.assignees}
-            onChange={onAssigneesChange}
-            searchablePlaceholder="Search assignee"
-            widthClassName="w-44"
-          />
-
-          <FilterDropdown
-            label="Type"
-            options={typeOptions}
-            selected={filters.types}
-            onChange={onTypesChange}
-            searchablePlaceholder="Search Type"
-            widthClassName="w-44"
-          />
-
-          <FilterDropdown
-            label="Status"
-            options={statusOptions}
-            selected={filters.statuses}
-            onChange={onStatusesChange}
-            searchablePlaceholder="Search status"
-            widthClassName="w-44"
-          />
-
-          <FilterDropdown
-            label="More filters"
-            options={moreFilterOptions}
-            selected={filters.moreFilters}
-            onChange={onMoreFiltersChange}
-            searchablePlaceholder="Search more filters"
-            widthClassName="w-44"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={onToday} className={controlClassName}>Today</button>
-          <button type="button" onClick={onPrev} className={`${controlClassName} w-10 px-0 text-base`} aria-label="Previous">{'<'}</button>
-          <div className="h-10 min-w-[130px] rounded-[4px] border border-violet-500/25 bg-violet-500/10 px-4 text-center text-sm font-semibold leading-10 text-violet-500">{currentLabel}</div>
-          <button type="button" onClick={onNext} className={`${controlClassName} w-10 px-0 text-base`} aria-label="Next">{'>'}</button>
-          <div className="relative">
-            <select
-              value={view}
-              onChange={(e) => onViewChange(e.target.value as CalendarView)}
-              className="h-10 min-w-[120px] appearance-none rounded-md border border-cu-primary/20 bg-cu-bg/80 pl-3 pr-9 text-sm font-medium text-cu-text-secondary outline-none transition-all hover:border-cu-primary hover:bg-cu-primary/10 focus:border-cu-primary"
-            >
-              <option value="month">Month</option>
-              <option value="week">Week</option>
-              <option value="agenda">Agenda</option>
-            </select>
-            <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cu-text-muted" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Mobile toolbar (<md) ───────────────────────────────────────────── */}
-      <div className="flex md:hidden items-center gap-2">
-        {/* Nav: prev / label / next */}
-        <button onClick={onPrev} className="p-2 rounded-lg border border-cu-primary/20 bg-cu-bg/80 text-cu-text-secondary active:scale-95 transition-transform" aria-label="Previous">
-          <ChevronLeft size={18} />
-        </button>
-        <div className="flex-1 text-center text-sm font-semibold text-violet-500 bg-violet-500/10 border border-violet-500/25 rounded-lg py-2 px-2 truncate">
-          {currentLabel}
-        </div>
-        <button onClick={onNext} className="p-2 rounded-lg border border-cu-primary/20 bg-cu-bg/80 text-cu-text-secondary active:scale-95 transition-transform" aria-label="Next">
-          <ChevronRight size={18} />
-        </button>
-
-        {/* View select */}
-        <div className="relative">
-          <select
-            value={view}
-            onChange={(e) => onViewChange(e.target.value as CalendarView)}
-            className="h-9 appearance-none rounded-lg border border-cu-primary/20 bg-cu-bg/80 pl-2.5 pr-7 text-xs font-medium text-cu-text-secondary outline-none"
-          >
-            <option value="month">Month</option>
-            <option value="week">Week</option>
-            <option value="agenda">Agenda</option>
-          </select>
-          <svg className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-cu-text-muted" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
-
-        {/* Filters button */}
-        <button
-          onClick={() => setFilterSheetOpen(true)}
-          className="relative flex items-center gap-1.5 h-9 px-3 rounded-lg border border-cu-primary/20 bg-gradient-to-r from-cu-primary/10 to-cyan-500/10 text-cu-primary text-sm font-medium active:scale-95 transition-transform"
-        >
-          <SlidersHorizontal size={15} />
-          <span>Filters</span>
-          {activeFilterCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-cu-primary text-white text-[10px] font-bold flex items-center justify-center">
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* ── Filter BottomSheet (mobile) ────────────────────────────────────── */}
-      <BottomSheet
-        isOpen={filterSheetOpen}
-        onClose={() => setFilterSheetOpen(false)}
-        title="Filters"
-        snapPoint="full"
-      >
-        <div className="px-4 pb-8 pt-2 space-y-5">
-          {/* Search */}
-          <div>
-            <label className="block text-xs font-semibold text-cu-text-muted uppercase tracking-wider mb-1.5">Search</label>
-            <input
-              value={filters.search}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search calendar…"
-              className="w-full h-10 rounded-xl border border-cu-border bg-cu-bg-secondary px-3 text-sm text-cu-text-primary outline-none placeholder:text-cu-text-muted focus:border-cu-primary"
-            />
+            <div className="hidden items-center gap-2 xl:flex">
+              <FilterDropdown label="Assignee" options={assigneeOptions} selected={filters.assignees} onChange={onAssigneesChange} searchablePlaceholder="Search assignee" widthClassName="w-40" />
+              <FilterDropdown label="Type" options={typeOptions} selected={filters.types} onChange={onTypesChange} searchablePlaceholder="Search type" widthClassName="w-40" />
+              <FilterDropdown label="Status" options={statusOptions} selected={filters.statuses} onChange={onStatusesChange} searchablePlaceholder="Search status" widthClassName="w-40" />
+              <FilterDropdown label="More" options={moreFilterOptions} selected={filters.moreFilters} onChange={onMoreFiltersChange} searchablePlaceholder="Search filters" widthClassName="w-40" />
+            </div>
           </div>
 
-          {/* Assignee */}
-          <div>
-            <label className="block text-xs font-semibold text-cu-text-muted uppercase tracking-wider mb-1.5">Assignee</label>
-            <FilterDropdown
-              label="Assignee"
-              options={assigneeOptions}
-              selected={filters.assignees}
-              onChange={onAssigneesChange}
-              searchablePlaceholder="Search assignee"
-              widthClassName="w-full"
-            />
-          </div>
-
-          {/* Type */}
-          <div>
-            <label className="block text-xs font-semibold text-cu-text-muted uppercase tracking-wider mb-1.5">Type</label>
-            <FilterDropdown
-              label="Type"
-              options={typeOptions}
-              selected={filters.types}
-              onChange={onTypesChange}
-              searchablePlaceholder="Search Type"
-              widthClassName="w-full"
-            />
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className="block text-xs font-semibold text-cu-text-muted uppercase tracking-wider mb-1.5">Status</label>
-            <FilterDropdown
-              label="Status"
-              options={statusOptions}
-              selected={filters.statuses}
-              onChange={onStatusesChange}
-              searchablePlaceholder="Search status"
-              widthClassName="w-full"
-            />
-          </div>
-
-          {/* More filters */}
-          <div>
-            <label className="block text-xs font-semibold text-cu-text-muted uppercase tracking-wider mb-1.5">More Filters</label>
-            <FilterDropdown
-              label="More filters"
-              options={moreFilterOptions}
-              selected={filters.moreFilters}
-              onChange={onMoreFiltersChange}
-              searchablePlaceholder="Search more filters"
-              widthClassName="w-full"
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-2 mt-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => {
-                onSearchChange('');
-                onAssigneesChange([]);
-                onTypesChange([]);
-                onStatusesChange([]);
-                onMoreFiltersChange([]);
-              }}
-              className="flex-1 py-2.5 rounded-xl border border-cu-border bg-cu-bg-secondary text-sm font-medium text-cu-text-secondary hover:bg-cu-hover"
+              type="button"
+              onClick={onToday}
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-cu-border bg-cu-bg-secondary px-3 text-sm font-bold text-cu-text-primary transition-colors hover:bg-cu-hover"
             >
-              Clear All
+              <CalendarDays size={15} />
+              Today
             </button>
+
+            <div className="flex items-center rounded-lg border border-cu-border bg-cu-bg-secondary p-1">
+              <Tooltip content="Previous">
+                <button
+                  type="button"
+                  onClick={onPrev}
+                  aria-label="Previous calendar range"
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-cu-text-secondary transition-colors hover:bg-cu-bg hover:text-cu-primary"
+                >
+                  <ChevronLeft size={17} />
+                </button>
+              </Tooltip>
+              <div className="min-w-[8.5rem] px-2 text-center text-sm font-bold text-cu-text-primary sm:min-w-[11rem]">
+                {currentLabel}
+              </div>
+              <Tooltip content="Next">
+                <button
+                  type="button"
+                  onClick={onNext}
+                  aria-label="Next calendar range"
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-cu-text-secondary transition-colors hover:bg-cu-bg hover:text-cu-primary"
+                >
+                  <ChevronRight size={17} />
+                </button>
+              </Tooltip>
+            </div>
+
+            <div className="hidden rounded-lg border border-cu-border bg-cu-bg-secondary p-1 sm:inline-flex">
+              {VIEWS.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => onViewChange(item.value)}
+                  className={[
+                    'h-8 rounded-md px-3 text-xs font-bold transition-colors',
+                    view === item.value ? 'bg-cu-primary text-white shadow-cu-sm' : 'text-cu-text-secondary hover:bg-cu-bg hover:text-cu-text-primary',
+                  ].join(' ')}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
             <button
-              onClick={() => setFilterSheetOpen(false)}
-              className="flex-1 py-2.5 rounded-xl bg-cu-primary text-white text-sm font-semibold"
+              type="button"
+              onClick={() => setFilterSheetOpen(true)}
+              className="relative inline-flex h-10 items-center gap-2 rounded-lg border border-cu-border bg-cu-bg-secondary px-3 text-sm font-bold text-cu-text-primary transition-colors hover:bg-cu-hover xl:hidden"
             >
-              Apply
+              <SlidersHorizontal size={15} />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-cu-primary px-1 text-[10px] font-bold text-white">
+                  {activeFilterCount}
+                </span>
+              )}
             </button>
           </div>
         </div>
-      </BottomSheet>
-    </div>
+
+        <div className="mt-3 flex rounded-lg border border-cu-border bg-cu-bg-secondary p-1 sm:hidden">
+          {VIEWS.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              onClick={() => onViewChange(item.value)}
+              className={[
+                'h-9 flex-1 rounded-md text-xs font-bold transition-colors',
+                view === item.value ? 'bg-cu-primary text-white shadow-cu-sm' : 'text-cu-text-secondary hover:bg-cu-bg hover:text-cu-text-primary',
+              ].join(' ')}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        <BottomSheet isOpen={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} title="Calendar filters" snapPoint="full">
+          <div className="space-y-5 px-4 pb-8 pt-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase text-cu-text-muted">Search</label>
+              <input
+                value={filters.search}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Search calendar"
+                className="h-10 w-full rounded-lg border border-cu-border bg-cu-bg-secondary px-3 text-sm text-cu-text-primary outline-none placeholder:text-cu-text-muted focus:border-cu-primary"
+              />
+            </div>
+
+            <div className="space-y-4">
+              <FilterDropdown label="Assignee" options={assigneeOptions} selected={filters.assignees} onChange={onAssigneesChange} searchablePlaceholder="Search assignee" widthClassName="w-full" />
+              <FilterDropdown label="Type" options={typeOptions} selected={filters.types} onChange={onTypesChange} searchablePlaceholder="Search type" widthClassName="w-full" />
+              <FilterDropdown label="Status" options={statusOptions} selected={filters.statuses} onChange={onStatusesChange} searchablePlaceholder="Search status" widthClassName="w-full" />
+              <FilterDropdown label="More filters" options={moreFilterOptions} selected={filters.moreFilters} onChange={onMoreFiltersChange} searchablePlaceholder="Search more filters" widthClassName="w-full" />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="h-10 flex-1 rounded-lg border border-cu-border bg-cu-bg text-sm font-bold text-cu-text-secondary transition-colors hover:bg-cu-hover"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterSheetOpen(false)}
+                className="h-10 flex-1 rounded-lg bg-cu-primary text-sm font-bold text-white transition-colors hover:bg-cu-primary-hover"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </BottomSheet>
+      </div>
+    </TooltipProvider>
   );
 }

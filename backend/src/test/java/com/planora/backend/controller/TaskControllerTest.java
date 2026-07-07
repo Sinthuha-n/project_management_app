@@ -6,6 +6,7 @@ import com.planora.backend.dto.TaskActivityResponseDTO;
 import com.planora.backend.dto.TaskRequestDTO;
 import com.planora.backend.dto.TaskResponseDTO;
 import com.planora.backend.dto.TaskTemplateDTO;
+import com.planora.backend.exception.ForbiddenException;
 import com.planora.backend.model.UserPrincipal;
 import com.planora.backend.model.User;
 import com.planora.backend.service.JWTService;
@@ -23,6 +24,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import com.planora.backend.annotation.WithMockUserPrincipal;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
@@ -86,7 +88,7 @@ class TaskControllerTest {
     @Test
     @WithMockUserPrincipal
     void getTaskById_returnsTask() throws Exception {
-        when(service.getTaskById(1L)).thenReturn(sampleTask);
+        when(service.getTaskById(1L, 1L)).thenReturn(sampleTask);
 
         mockMvc.perform(get("/api/tasks/1"))
                 .andExpect(status().isOk())
@@ -96,13 +98,51 @@ class TaskControllerTest {
 
     @Test
     @WithMockUserPrincipal
-    void getTasksByProject_returnsPageOfTasks() throws Exception {
-        when(service.getTasksByProject(eq(10L), any(), any(Pageable.class), eq(false)))
-                .thenReturn(new PageImpl<>(List.of(sampleTask)));
+    void getTaskById_returnsTaskWhenAccessRecordingFails() throws Exception {
+        when(service.getTaskById(1L, 1L)).thenReturn(sampleTask);
+        doThrow(new RuntimeException("recently viewed is unavailable"))
+                .when(service).recordTaskAccess(1L, 1L);
 
-        mockMvc.perform(get("/api/tasks/project/10"))
+        mockMvc.perform(get("/api/tasks/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].title").value("Implement login"));
+                .andExpect(jsonPath("$.id").value(1));
+
+        verify(service).recordTaskAccess(1L, 1L);
+    }
+
+    @Test
+    @WithMockUserPrincipal
+    void getTaskById_returnsForbiddenForNonMember() throws Exception {
+        when(service.getTaskById(1L, 1L))
+                .thenThrow(new ForbiddenException("User is not a member of this team"));
+
+        mockMvc.perform(get("/api/tasks/1"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("User is not a member of this team"));
+
+        verify(service, never()).recordTaskAccess(anyLong(), anyLong());
+    }
+
+    @Test
+    @WithMockUserPrincipal
+    void getTasksByProject_returnsPageOfTasks() throws Exception {
+        PageRequest pageable = PageRequest.of(1, 1);
+        when(service.getTasksByProject(eq(10L), any(), any(Pageable.class), eq(false)))
+                .thenReturn(new PageImpl<>(List.of(sampleTask), pageable, 3));
+
+        mockMvc.perform(get("/api/tasks/project/10").param("page", "1").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].title").value("Implement login"))
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.totalPages").value(3))
+                .andExpect(jsonPath("$.size").value(1))
+                .andExpect(jsonPath("$.number").value(1))
+                .andExpect(jsonPath("$.first").value(false))
+                .andExpect(jsonPath("$.last").value(false))
+                .andExpect(jsonPath("$.empty").value(false))
+                .andExpect(jsonPath("$.numberOfElements").value(1))
+                .andExpect(jsonPath("$.pageable").doesNotExist())
+                .andExpect(jsonPath("$.sort").doesNotExist());
     }
 
     @Test
@@ -114,7 +154,13 @@ class TaskControllerTest {
 
         mockMvc.perform(get("/api/tasks/project/10").param("archived", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].archived").value(true));
+                .andExpect(jsonPath("$.content[0].archived").value(true))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andExpect(jsonPath("$.size").value(1))
+                .andExpect(jsonPath("$.number").value(0))
+                .andExpect(jsonPath("$.first").value(true))
+                .andExpect(jsonPath("$.last").value(true));
 
         verify(service).getTasksByProject(eq(10L), any(), any(Pageable.class), eq(true));
     }
@@ -208,12 +254,34 @@ class TaskControllerTest {
     void getActivities_returnsActivityList() throws Exception {
         TaskActivityResponseDTO activity = TaskActivityResponseDTO.builder()
                 .id(1L).activityType("CREATED").actorName("admin").description("Task created").createdAt("2024-01-01T00:00:00").build();
-        when(activityService.getActivities(1L)).thenReturn(List.of(activity));
+        when(activityService.getActivities(1L, 1L)).thenReturn(List.of(activity));
 
         mockMvc.perform(get("/api/tasks/1/activities"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].actorName").value("admin"))
                 .andExpect(jsonPath("$[0].activityType").value("CREATED"));
+    }
+
+    @Test
+    @WithMockUserPrincipal
+    void getActivities_returnsForbiddenForNonMember() throws Exception {
+        when(activityService.getActivities(1L, 1L))
+                .thenThrow(new ForbiddenException("User is not a member of this team"));
+
+        mockMvc.perform(get("/api/tasks/1/activities"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("User is not a member of this team"));
+    }
+
+    @Test
+    @WithMockUserPrincipal
+    void getTaskGithubSummary_returnsForbiddenForNonMember() throws Exception {
+        when(taskGithubService.getTaskGithubSummary(1L, 1L))
+                .thenThrow(new ForbiddenException("User is not a member of this team"));
+
+        mockMvc.perform(get("/api/tasks/1/github"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("User is not a member of this team"));
     }
 
     @Test

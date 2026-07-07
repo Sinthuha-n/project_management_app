@@ -6,6 +6,7 @@ import { ChatMessage, ChatRoom } from './chat';
 import { isFileDocument } from './chatMessage';
 import { CreateChannelModal, EditChannelModal, ConfirmDeleteModal } from './chatModals';
 import { avatarColor } from '@/hooks/chat/chat-utils';
+import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 
 interface ChatSidebarProps {
   currentUser: string;
@@ -339,6 +340,7 @@ export const ChatSidebar = ({
                   const isTyping = privateTypingUsers.includes(user.toLowerCase());
                   const isSelectedDm = selectedUser === user;
                   const showTyping = isTyping && !isSelectedDm;
+                  const profilePicUrl = resolveProfilePhotoUrl(userProfilePics?.[user]);
                   return (
                     <button
                       key={user}
@@ -352,9 +354,9 @@ export const ChatSidebar = ({
                       {/* Avatar */}
                       {/* Avatar */}
                       <div className="relative flex-shrink-0">
-                        {userProfilePics?.[user] ? (
+                        {profilePicUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={userProfilePics[user]} alt={user} className="w-9 h-9 rounded-full object-cover shadow-cu-sm" />
+                          <img src={profilePicUrl} alt={user} className="w-9 h-9 rounded-full object-cover shadow-cu-sm" />
                         ) : (
                           <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${avatarColor(user)} flex items-center justify-center text-white font-semibold text-[13px]`}>
                             {user.charAt(0).toUpperCase()}

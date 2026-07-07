@@ -40,3 +40,4 @@ export { ToastProvider, toast } from './Toast';
 
 export { ArchiveBadge } from './ArchiveBadge';
 
+export { default as OverlayPortal } from './OverlayPortal';

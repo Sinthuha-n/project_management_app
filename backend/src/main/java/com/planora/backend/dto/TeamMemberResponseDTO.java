@@ -31,6 +31,8 @@ public class TeamMemberResponseDTO {
         private String username;      // Short handle; fallback display when fullName is blank.
         private String fullName;      // Preferred display name shown in the members list.
         private String email;         // Used for invite lookup and member identification.
+        private String githubUsername;
+        private String githubEmail;
         private String profilePicUrl; // Pre-signed S3 URL generated at query time for secure image access.
     }
 }

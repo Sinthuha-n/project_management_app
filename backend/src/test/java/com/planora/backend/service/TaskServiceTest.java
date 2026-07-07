@@ -95,6 +95,8 @@ class TaskServiceTest {
     @Mock
     private TeamMembershipLookupService teamMembershipLookupService;
     @Mock
+    private TaskGithubService taskGithubService;
+    @Mock
     private SimpMessagingTemplate messagingTemplate;
 
     @InjectMocks
@@ -195,6 +197,15 @@ class TaskServiceTest {
         task.setStatus("TODO");
         task.setPriority(Priority.MEDIUM);
         return task;
+    }
+
+    @Test
+    void getTaskById_throwsForbidden_whenUserIsNotTeamMember() {
+        ForbiddenException exception = assertThrows(ForbiddenException.class,
+                () -> taskService.getTaskById(1L, 999L));
+
+        assertEquals("User is not a member of this team", exception.getMessage());
+        verify(taskRepository, never()).findByIdFullyFetched(1L);
     }
 
     @Test
@@ -678,6 +689,18 @@ class TaskServiceTest {
                 () -> taskService.addDependency(50L, 60L, 500L));
 
         assertEquals("User is not a member of this team", exception.getMessage());
+    }
+
+    @Test
+    void recordTaskAccess_usesAtomicUpsert() {
+        Task task = buildTask(1L);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(userRepository.findById(500L)).thenReturn(Optional.of(actorUser));
+
+        taskService.recordTaskAccess(1L, 500L);
+
+        verify(taskAccessRepository).upsertTaskAccess(1L, 500L);
+        verify(taskAccessRepository, never()).save(any());
     }
 
     @Test

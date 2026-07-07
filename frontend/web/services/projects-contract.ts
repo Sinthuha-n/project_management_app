@@ -34,10 +34,14 @@ export interface Member {
   userId?: number;
   username?: string;
   email?: string;
+  githubUsername?: string | null;
+  githubEmail?: string | null;
   user?: {
     userId: number;
     username: string;
     email?: string;
+    githubUsername?: string | null;
+    githubEmail?: string | null;
     profilePicUrl?: string | null;
   };
 }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { tasksApi, sprintsApi, projectsApi } from '@/services/api-contract';
 import { toast } from '@/components/ui';
 import type { SprintItem, TaskItem } from '@/types';
+import { formatLocalDate } from '@/lib/date-format';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -302,13 +303,13 @@ export function useBacklogCardHandlers({
 
     try {
       await sprintsApi.start(sprint.id, {
-        startDate: baseDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
+        startDate: formatLocalDate(baseDate),
+        endDate: formatLocalDate(endDate),
       });
       setShowStartSprintModal(false);
       sprint.status = 'ACTIVE';
-      sprint.startDate = baseDate.toISOString().split('T')[0];
-      sprint.endDate = endDate.toISOString().split('T')[0];
+      sprint.startDate = formatLocalDate(baseDate);
+      sprint.endDate = formatLocalDate(endDate);
       window.dispatchEvent(new CustomEvent('planora:task-updated'));
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };

@@ -54,6 +54,7 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 public class UserService {
 
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+    private static final Duration REFRESH_TOKEN_RETRY_GRACE = Duration.ofSeconds(10);
     private final UserRepository userRepository;
     private final JWTService jwtService;
 
@@ -164,6 +165,7 @@ public class UserService {
 
     // Verifies a registration OTP.
     @Transactional
+    @CacheEvict(cacheNames = "user-details", key = "#email.toLowerCase()", condition = "#result == true")
     public boolean verifyToken(String email, String otp) {
         // Step 1. Fetch user. If no user, fail immediately.
         User user = userRepository.findFirstByEmailIgnoreCase(email.toLowerCase()).orElse(null);
@@ -377,17 +379,23 @@ public class UserService {
             return null;
         }
 
-        if (!jti.equals(storedToken.getToken())) {
-            logger.warn("Refresh token JTI mismatch for user: {} — possible token reuse attack", email);
-            tokenRepository.deleteByUserAndTokenType(user, VerificationToken.TokenType.REFRESH_TOKEN);
+        Instant now = Instant.now();
+        boolean matchesCurrentToken = jti.equals(storedToken.getToken());
+        boolean matchesRecentPreviousToken = storedToken.getPreviousToken() != null
+                && jti.equals(storedToken.getPreviousToken())
+                && storedToken.getPreviousTokenExpiresAt() != null
+                && now.isBefore(storedToken.getPreviousTokenExpiresAt());
+
+        if (!matchesCurrentToken && !matchesRecentPreviousToken) {
+            logger.warn("Refresh token JTI mismatch for user: {} — rejected stale or reused token", email);
             return null;
         }
 
-        // Rotate refresh token on every use. The old JTI disappears from storage,
-        // so replaying the old cookie no longer matches an active record.
+        // Rotate refresh token on every use. Keep the previous JTI briefly so
+        // legitimate duplicate refresh requests do not revoke the active session.
         String newAccessToken  = jwtService.generateToken(email, user.getUsername(), user.getUserId());
         String newRefreshToken = jwtService.generateRefreshToken(email);
-        storeRefreshTokenJti(user, newRefreshToken);
+        storeRefreshTokenJti(user, newRefreshToken, matchesCurrentToken ? jti : null);
 
         LoginResponse response = new LoginResponse();
         response.setSuccess(true);
@@ -402,6 +410,10 @@ public class UserService {
      * The JTI is a UUID extracted from the JWT claims — short enough to store in the token column.
      */
     private void storeRefreshTokenJti(User user, String refreshToken) {
+        storeRefreshTokenJti(user, refreshToken, null);
+    }
+
+    private void storeRefreshTokenJti(User user, String refreshToken, String previousJti) {
         String jti = jwtService.extractJti(refreshToken);
         if (jti == null) return;
 
@@ -413,6 +425,8 @@ public class UserService {
         VerificationToken jtiRecord = new VerificationToken();
         jtiRecord.setUser(user);
         jtiRecord.setToken(jti);
+        jtiRecord.setPreviousToken(previousJti);
+        jtiRecord.setPreviousTokenExpiresAt(previousJti == null ? null : Instant.now().plus(REFRESH_TOKEN_RETRY_GRACE));
         jtiRecord.setTokenType(VerificationToken.TokenType.REFRESH_TOKEN);
         jtiRecord.setExpiry(java.time.Instant.now().plus(java.time.Duration.ofDays(30)));
         jtiRecord.setUsed(false);
@@ -610,6 +624,7 @@ public class UserService {
                 user.getPosition(),
                 user.getBio(),
                 user.getGithubUsername(),
+                user.getGithubEmail(),
                 user.isNotifyDueDateReminders()
         );
     }
@@ -635,6 +650,7 @@ public class UserService {
         User user = getUserByEmail(email);
         validateGithubUsernameUniqueness(user, githubUsername);
         user.setGithubUsername(githubUsername);
+        user.setGithubEmail(null);
         return mapToUserResponseDTO(userRepository.save(user));
     }
 
@@ -643,6 +659,7 @@ public class UserService {
     public UserResponseDTO unlinkGithubUsernameAndGetDTO(String email) {
         User user = getUserByEmail(email);
         user.setGithubUsername(null);
+        user.setGithubEmail(null);
         return mapToUserResponseDTO(userRepository.save(user));
     }
 

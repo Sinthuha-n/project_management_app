@@ -28,7 +28,7 @@ export function DropdownMenuContent({
         align={align}
         sideOffset={sideOffset}
         className={[
-          'z-50 min-w-[180px] bg-cu-bg rounded-cu-lg shadow-cu-lg border border-cu-border p-1',
+          'z-[var(--cu-z-dropdown)] min-w-[180px] bg-cu-bg rounded-cu-lg shadow-cu-lg border border-cu-border p-1',
           'animate-fade-in',
           className,
         ].join(' ')}

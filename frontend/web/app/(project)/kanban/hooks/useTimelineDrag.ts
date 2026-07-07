@@ -67,10 +67,12 @@ export function useTimelineDrag(
     try {
       // Use the specialized dates endpoint to avoid 400 errors from missing required fields in PUT
       await updateTaskDates(taskId, updates.startDate, updates.dueDate);
+      toast('Timeline dates updated.', 'success');
     } catch {
       setLocalTasks?.(prev => prev.map(t =>
         t.id === taskId ? { ...t, startDate: format(origStart, 'yyyy-MM-dd'), dueDate: format(origDue, 'yyyy-MM-dd') } : t
       ));
+      toast('Could not save timeline dates. Reverted the task schedule.', 'error');
     }
   }, [activeDrag, dragOffset, milestones, onTaskUpdated, setLocalTasks]);
 

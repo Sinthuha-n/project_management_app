@@ -1,6 +1,9 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Hash, MessageSquare, Search } from 'lucide-react';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface ModalProps {
   isOpen: boolean;
@@ -22,7 +25,8 @@ export function BaseModal({ isOpen, onClose, title, icon, children, onSubmit, su
   }, [isOpen, onClose]);
 
   return (
-    <AnimatePresence>
+    <OverlayPortal>
+      <AnimatePresence>
       {isOpen && (
         <>
           <motion.div
@@ -30,9 +34,9 @@ export function BaseModal({ isOpen, onClose, title, icon, children, onSubmit, su
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[var(--cu-z-modal)]"
           />
-          <div className="fixed inset-0 flex items-center justify-center p-4 z-50 pointer-events-none">
+          <div className="fixed inset-0 flex items-center justify-center p-4 z-[var(--cu-z-modal)] pointer-events-none">
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -74,7 +78,8 @@ export function BaseModal({ isOpen, onClose, title, icon, children, onSubmit, su
           </div>
         </>
       )}
-    </AnimatePresence>
+      </AnimatePresence>
+    </OverlayPortal>
   );
 }
 

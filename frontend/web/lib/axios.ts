@@ -1,5 +1,6 @@
 import axios from "axios";
 import { clearTokens, getRefreshToken, getValidToken, getUserFromToken, refreshAccessToken } from "@/lib/auth";
+import { buildVerifyEmailPath, isEmailVerificationRequired, rememberPendingVerificationEmail } from "@/lib/email-verification";
 import { getApiBaseUrl } from "@/lib/api-base-url";
 
 const api = axios.create({
@@ -86,6 +87,15 @@ api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
+
+        if (isEmailVerificationRequired(error, ['EMAIL_NOT_VERIFIED'])) {
+            if (typeof window !== 'undefined') {
+                const email = getUserFromToken()?.email;
+                rememberPendingVerificationEmail(email);
+                window.location.assign(buildVerifyEmailPath(email));
+            }
+            return Promise.reject(error);
+        }
 
         // Don't attempt refresh on auth endpoints
         const authEndpoints = ['/api/auth/login', '/api/auth/forgot', '/api/auth/reset', '/api/auth/register', '/api/auth/reg/verify', '/api/auth/refresh'];

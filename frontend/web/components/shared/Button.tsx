@@ -14,25 +14,25 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const BASE =
-    'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none';
+    'inline-flex items-center justify-center gap-2 rounded-cu-md font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cu-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-cu-bg disabled:pointer-events-none disabled:opacity-50 select-none whitespace-nowrap';
 
 const VARIANT: Record<Variant, string> = {
     primary:
-        'bg-[#155DFC] text-white shadow-sm hover:bg-[#0042a3] active:bg-[#003a94] focus-visible:ring-[#155DFC]',
+        'bg-cu-primary text-white shadow-cu-sm hover:bg-cu-primary-hover hover:shadow-cu-md active:translate-y-px active:bg-cu-primary-dark',
     secondary:
-        'bg-white/10 text-[#1D293D] border border-[#E3E8EF] backdrop-blur hover:bg-white/40 focus-visible:ring-[#155DFC]',
+        'border border-cu-border bg-cu-bg text-cu-text-primary shadow-cu-sm hover:bg-cu-bg-secondary hover:border-cu-border-light',
     ghost:
-        'text-[#4B5563] hover:bg-gray-100 focus-visible:ring-gray-300',
+        'text-cu-text-secondary hover:bg-cu-bg-secondary hover:text-cu-text-primary',
     danger:
-        'bg-red-500 text-white shadow-sm hover:bg-red-600 active:bg-red-700 focus-visible:ring-red-400',
+        'bg-cu-danger text-white shadow-cu-sm hover:bg-[#E54545] hover:shadow-cu-md active:translate-y-px active:bg-[#CC3D3D]',
     outline:
-        'border border-[#155DFC] text-[#155DFC] hover:bg-[#EAF2FF] focus-visible:ring-[#155DFC]',
+        'border border-cu-primary/35 bg-cu-primary/5 text-cu-primary hover:bg-cu-primary/10 hover:border-cu-primary/50',
 };
 
 const SIZE: Record<Size, string> = {
     sm:  'text-xs px-3 py-1.5 min-h-[32px]',
-    md:  'text-sm px-4 py-2   min-h-[36px]',
-    lg:  'text-sm px-5 py-2.5 min-h-[42px]',
+    md:  'text-sm px-4 py-2 min-h-[38px]',
+    lg:  'text-sm px-5 py-2.5 min-h-[44px]',
 };
 
 export default function Button({

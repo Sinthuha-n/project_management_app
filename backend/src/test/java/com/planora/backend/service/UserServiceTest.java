@@ -578,7 +578,7 @@ public class UserServiceTest {
     }
 
     @Test
-    void testRefreshTokens_JtiMismatch_DeletesTokenAndReturnsNull() {
+    void testRefreshTokens_JtiMismatch_ReturnsNullWithoutRevokingCurrentToken() {
         testUser.setVerified(true);
 
         VerificationToken storedToken = new VerificationToken();
@@ -595,7 +595,40 @@ public class UserServiceTest {
         LoginResponse result = userService.refreshTokens("tampered-token");
 
         assertNull(result);
+        verify(tokenRepository, never()).deleteByUserAndTokenType(testUser, VerificationToken.TokenType.REFRESH_TOKEN);
+    }
+
+    @Test
+    void testRefreshTokens_RecentPreviousJti_RotatesTokenPair() {
+        testUser.setVerified(true);
+
+        VerificationToken storedToken = new VerificationToken();
+        storedToken.setToken("current-jti");
+        storedToken.setPreviousToken("old-jti");
+        storedToken.setPreviousTokenExpiresAt(Instant.now().plusSeconds(5));
+        storedToken.setExpiry(Instant.now().plusSeconds(600));
+        storedToken.setUsed(false);
+        storedToken.setTokenType(VerificationToken.TokenType.REFRESH_TOKEN);
+
+        when(jwtService.validateRefreshToken("old-refresh")).thenReturn("test@example.com");
+        when(userRepository.findFirstByEmailIgnoreCase("test@example.com")).thenReturn(Optional.of(testUser));
+        when(jwtService.extractJti("old-refresh")).thenReturn("old-jti");
+        when(jwtService.extractJti("new-refresh")).thenReturn("new-jti");
+        when(tokenRepository.findByUserAndTokenType(testUser, VerificationToken.TokenType.REFRESH_TOKEN)).thenReturn(storedToken);
+        when(jwtService.generateToken(anyString(), anyString(), any())).thenReturn("new-access");
+        when(jwtService.generateRefreshToken(anyString())).thenReturn("new-refresh");
+
+        LoginResponse result = userService.refreshTokens("old-refresh");
+
+        assertNotNull(result);
+        assertTrue(result.isSuccess());
+        assertEquals("new-access", result.getToken());
+        assertEquals("new-refresh", result.getRefreshToken());
         verify(tokenRepository).deleteByUserAndTokenType(testUser, VerificationToken.TokenType.REFRESH_TOKEN);
+        verify(tokenRepository).save(argThat(token ->
+                "new-jti".equals(token.getToken())
+                        && token.getPreviousToken() == null
+                        && token.getPreviousTokenExpiresAt() == null));
     }
 
     @Test

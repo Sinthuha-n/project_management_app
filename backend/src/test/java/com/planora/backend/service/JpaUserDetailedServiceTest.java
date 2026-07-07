@@ -9,7 +9,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
@@ -58,12 +57,14 @@ class JpaUserDetailedServiceTest {
     }
 
     @Test
-    void loadUserByUsername_throwsDisabledException_whenUserNotVerified() {
+    void loadUserByUsername_returnsDisabledPrincipal_whenUserNotVerified() {
         verifiedUser.setVerified(false);
         when(repository.findFirstByEmailIgnoreCase("alice@example.com")).thenReturn(Optional.of(verifiedUser));
 
-        assertThrows(DisabledException.class,
-                () -> jpaUserDetailedService.loadUserByUsername("alice@example.com"));
+        UserDetails result = jpaUserDetailedService.loadUserByUsername("alice@example.com");
+
+        assertInstanceOf(UserPrincipal.class, result);
+        assertFalse(result.isEnabled());
     }
 
     @Test

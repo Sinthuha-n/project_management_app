@@ -102,6 +102,22 @@ export interface LinkRepositoryRequest {
   repositoryFullName: string;
 }
 
+export interface GithubCollaboratorInviteRequest {
+  identifier: string;
+  permission?: 'pull' | 'triage' | 'push' | 'maintain';
+}
+
+export interface GithubCollaboratorInviteResponse {
+  projectId: number;
+  integrationId: number;
+  repositoryFullName: string;
+  githubUsername: string;
+  permission: 'pull' | 'triage' | 'push' | 'maintain';
+  githubStatus: number;
+  status: 'INVITATION_CREATED' | 'COLLABORATOR_UPDATED';
+  message: string;
+}
+
 export interface CreateIssueRequest {
   integrationId: number;
   title: string;
@@ -234,6 +250,13 @@ export const gitHubApi = {
   },
   getLinkedRepositories: async (projectId: number): Promise<GithubRepository[]> => {
     const { data } = await api.get(`/api/github/project/${projectId}/repos`);
+    return data;
+  },
+  inviteCollaborator: async (
+    projectId: number,
+    payload: GithubCollaboratorInviteRequest,
+  ): Promise<GithubCollaboratorInviteResponse> => {
+    const { data } = await api.post(`/api/github/project/${projectId}/collaborators`, payload);
     return data;
   },
   getPullRequests: async (projectId: number, options: { state?: string; page?: number; size?: number } = {}): Promise<PageResponse<GithubPr>> => {

@@ -1,20 +1,25 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { motion, type PanInfo } from 'framer-motion';
+import { AlertCircle, CalendarCheck2, CalendarDays, Clock, Flag, RefreshCw } from 'lucide-react';
 import { useBreakpoint } from '@/lib/useBreakpoint';
+import EmptyState from '@/components/shared/EmptyState';
 import CalendarToolbar from './components/CalendarToolbar';
 import MonthCalendarView from './components/MonthCalendarView';
 import WeekCalendarView from './components/WeekCalendarView';
 import AgendaCalendarView from './components/AgendaCalendarView';
 import { fetchCalendarEvents } from './api';
 import type { CalendarEventItem, CalendarFilters, CalendarView } from './types';
-import { addDays, addMonths, formatMonthLabel, formatWeekLabel } from './utils/date';
+import { addDays, addMonths, formatMonthLabel, formatWeekLabel, getCalendarSummary, toDateKey } from './utils/date';
 import CreateTaskModal, { type CreateTaskData } from '@/components/shared/CreateTaskModal';
 import { patchTaskDates } from './api';
 import { tasksApi } from '@/services/api-contract';
 import { normalizeTaskPriority } from '@/services/tasks-contract';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
+import TaskCardModal from '@/app/taskcard/TaskCardModal';
 
 const DEFAULT_FILTERS: CalendarFilters = {
   search: '',
@@ -82,7 +87,7 @@ const evaluateMoreFilter = (event: CalendarEventItem, selectedMoreFilter: string
   }
 };
 
-export default function CalendarPage() {
+function CalendarPageContent() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId') || (typeof window !== 'undefined' ? localStorage.getItem('currentProjectId') : null);
 
@@ -96,6 +101,8 @@ export default function CalendarPage() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [prefilledDate, setPrefilledDate] = useState<string | undefined>(undefined);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const patchingTaskIdsRef = useRef(new Set<number>());
 
   const loadEvents = async () => {
     if (!projectId) return;
@@ -112,10 +119,7 @@ export default function CalendarPage() {
   };
 
   useEffect(() => {
-    if (!projectId) {
-      setError('No project selected.');
-      return;
-    }
+    if (!projectId) return;
     void loadEvents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
@@ -160,6 +164,8 @@ export default function CalendarPage() {
     return `${left} - ${right}`;
   }, [currentDate, view]);
 
+  const summary = useMemo(() => getCalendarSummary(filteredEvents), [filteredEvents]);
+
   const handlePrev = () => {
     if (view === 'month') {
       setCurrentDate((prev) => addMonths(prev, -1));
@@ -195,10 +201,7 @@ export default function CalendarPage() {
   };
 
   const handleDayClick = (date: Date) => {
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    setPrefilledDate(`${yyyy}-${mm}-${dd}`);
+    setPrefilledDate(toDateKey(date));
     setShowCreateModal(true);
   };
 
@@ -217,13 +220,13 @@ export default function CalendarPage() {
   };
 
   const handleEventDrop = async (eventId: string, newDate: Date) => {
-    const yyyy = newDate.getFullYear();
-    const mm = String(newDate.getMonth() + 1).padStart(2, '0');
-    const dd = String(newDate.getDate()).padStart(2, '0');
-    const dateStr = `${yyyy}-${mm}-${dd}`;
+    const dateStr = toDateKey(newDate);
 
     const event = events.find((e) => e.id === eventId);
     if (!event?.taskId) return;
+
+    if (patchingTaskIdsRef.current.has(event.taskId)) return;
+    patchingTaskIdsRef.current.add(event.taskId);
 
     // Optimistic update
     setEvents((prev) =>
@@ -239,55 +242,204 @@ export default function CalendarPage() {
     } catch {
       // Revert on failure
       void loadEvents();
+    } finally {
+      patchingTaskIdsRef.current.delete(event.taskId);
     }
   };
 
-  return (
-    <div className="min-h-full space-y-4 bg-[radial-gradient(circle_at_top_left,rgba(21,93,252,0.16),transparent_30%),radial-gradient(circle_at_top_right,rgba(236,72,153,0.11),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(34,197,94,0.1),transparent_28%),linear-gradient(180deg,var(--cu-bg-secondary),var(--cu-bg-secondary))] px-4 py-4 md:px-6 md:py-5">
-      <div className="rounded-xl border border-cu-primary/15 bg-gradient-to-r from-cu-primary/10 via-violet-500/10 to-emerald-500/10 px-4 py-3 shadow-cu-sm">
-        <h1 className="text-xl font-semibold text-cu-text-primary">Calendar</h1>
-        <p className="text-sm text-cu-text-secondary">Track sprints and work items in month, week, and agenda formats.</p>
-      </div>
-
-      <CalendarToolbar
-        view={view}
-        currentLabel={currentLabel}
-        filters={filters}
-        assigneeOptions={assigneeOptions}
-        typeOptions={TYPE_OPTIONS}
-        statusOptions={STATUS_OPTIONS}
-        moreFilterOptions={MORE_FILTER_OPTIONS}
-        onViewChange={setView}
-        onPrev={handlePrev}
-        onNext={handleNext}
-        onToday={handleToday}
-        onSearchChange={(value) => setFilters((prev) => ({ ...prev, search: value }))}
-        onAssigneesChange={(values) => setFilters((prev) => ({ ...prev, assignees: values }))}
-        onTypesChange={(values) => setFilters((prev) => ({ ...prev, types: values }))}
-        onStatusesChange={(values) => setFilters((prev) => ({ ...prev, statuses: values }))}
-        onMoreFiltersChange={(values) => setFilters((prev) => ({ ...prev, moreFilters: values }))}
-      />
-
-      {loading && <div className="rounded-lg border border-cu-primary/20 bg-gradient-to-r from-cu-primary/10 to-violet-500/10 p-6 text-sm text-cu-text-secondary">Loading calendar events...</div>}
-      {!loading && error && <div className="rounded-lg border border-red-500/25 bg-gradient-to-r from-red-500/10 to-orange-500/10 p-6 text-sm text-red-500">{error}</div>}
-
-      {!loading && !error && (
-        <motion.div onPanEnd={handlePanEnd} className="touch-pan-y">
-          {view === 'month' && <MonthCalendarView currentDate={currentDate} events={filteredEvents} onDayClick={handleDayClick} onEventDrop={handleEventDrop} />}
-          {view === 'week' && <WeekCalendarView currentDate={currentDate} events={filteredEvents} onDayClick={handleDayClick} onEventDrop={handleEventDrop} />}
-          {view === 'agenda' && <AgendaCalendarView currentDate={currentDate} events={filteredEvents} />}
-        </motion.div>
-      )}
-
-      {showCreateModal && projectId && (
-        <CreateTaskModal
-          isOpen={showCreateModal}
-          onClose={() => { setShowCreateModal(false); setPrefilledDate(undefined); }}
-          onCreateTask={handleCreateTask}
-          projectId={parseInt(projectId, 10)}
-          initialDueDate={prefilledDate}
+  if (!projectId) {
+    return (
+      <div className="min-h-full bg-cu-bg-secondary">
+        <EmptyState
+          icon={<CalendarDays size={24} />}
+          title="Select a project to view its calendar"
+          subtitle="Choose a project from your dashboard to see scheduled tasks and important dates."
+          action={(
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-xl bg-cu-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cu-primary-hover"
+            >
+              Go to Dashboard
+            </Link>
+          )}
+          className="min-h-[60vh]"
         />
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto bg-cu-bg-secondary">
+      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
+        <div className="sticky-section-header glass-panel flex flex-col gap-4 rounded-2xl border border-cu-border px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-cu-primary text-white shadow-cu-sm">
+                <CalendarDays size={17} />
+              </span>
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold text-cu-text-primary sm:text-2xl">Calendar</h1>
+                <p className="mt-0.5 text-xs text-cu-text-secondary sm:text-sm">
+                  {filteredEvents.length} visible of {events.length} scheduled item{events.length === 1 ? '' : 's'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[520px]">
+            {[
+              { label: 'Today', value: summary.today, icon: Clock, tone: 'text-cu-primary' },
+              { label: 'Scheduled', value: summary.scheduled, icon: CalendarCheck2, tone: 'text-cu-primary' },
+              { label: 'Overdue', value: summary.overdue, icon: AlertCircle, tone: 'text-cu-danger' },
+              { label: 'Sprints', value: summary.sprints, icon: Flag, tone: 'text-cu-success' },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.label} className="rounded-xl border border-cu-border bg-cu-bg px-3 py-2 shadow-cu-sm">
+                  <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-cu-text-secondary">
+                    <Icon size={11} className={item.tone} />
+                    {item.label}
+                  </p>
+                  <p className={`mt-1 text-lg font-bold ${item.tone}`}>{item.value}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <CalendarToolbar
+          view={view}
+          currentLabel={currentLabel}
+          filters={filters}
+          assigneeOptions={assigneeOptions}
+          typeOptions={TYPE_OPTIONS}
+          statusOptions={STATUS_OPTIONS}
+          moreFilterOptions={MORE_FILTER_OPTIONS}
+          onViewChange={setView}
+          onPrev={handlePrev}
+          onNext={handleNext}
+          onToday={handleToday}
+          onSearchChange={(value) => setFilters((prev) => ({ ...prev, search: value }))}
+          onAssigneesChange={(values) => setFilters((prev) => ({ ...prev, assignees: values }))}
+          onTypesChange={(values) => setFilters((prev) => ({ ...prev, types: values }))}
+          onStatusesChange={(values) => setFilters((prev) => ({ ...prev, statuses: values }))}
+          onMoreFiltersChange={(values) => setFilters((prev) => ({ ...prev, moreFilters: values }))}
+        />
+
+        {loading && (
+          <div className="space-y-3 rounded-xl border border-cu-border bg-cu-bg p-4 shadow-cu-sm">
+            <div className="skeleton h-10 w-48 rounded-lg" />
+            <div className="grid grid-cols-7 gap-2">
+              {Array.from({ length: 28 }).map((_, index) => (
+                <div key={index} className="skeleton h-24 rounded-lg" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!loading && error && (
+          <EmptyState
+            icon={<AlertCircle size={24} />}
+            title="Unable to load calendar"
+            subtitle={error}
+            action={
+              <button
+                type="button"
+                onClick={() => void loadEvents()}
+                className="inline-flex items-center gap-2 rounded-xl bg-cu-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cu-primary-hover"
+              >
+                <RefreshCw size={14} />
+                Retry
+              </button>
+            }
+            className="rounded-xl border border-cu-border bg-cu-bg shadow-cu-sm"
+          />
+        )}
+
+        {!loading && !error && filteredEvents.length === 0 && (
+          <EmptyState
+            icon={<CalendarDays size={24} />}
+            title={events.length === 0 ? 'No scheduled work yet' : 'No calendar items match your filters'}
+            subtitle={events.length === 0 ? 'Create tasks with due dates or start a sprint to see work on the calendar.' : 'Try clearing search or filters to bring scheduled work back into view.'}
+            action={events.length === 0 ? (
+              <button
+                type="button"
+                onClick={() => handleDayClick(new Date())}
+                className="inline-flex items-center justify-center rounded-xl bg-cu-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cu-primary-hover"
+              >
+                Create task
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setFilters(DEFAULT_FILTERS)}
+                className="inline-flex items-center justify-center rounded-xl bg-cu-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cu-primary-hover"
+              >
+                Clear filters
+              </button>
+            )}
+            className="rounded-xl border border-cu-border bg-cu-bg shadow-cu-sm"
+          />
+        )}
+
+        {!loading && !error && filteredEvents.length > 0 && (
+          <motion.div onPanEnd={handlePanEnd} className="touch-pan-y">
+            {view === 'month' && (
+              <MonthCalendarView
+                currentDate={currentDate}
+                events={filteredEvents}
+                onDayClick={handleDayClick}
+                onEventDrop={handleEventDrop}
+                onOpenTask={setSelectedTaskId}
+              />
+            )}
+            {view === 'week' && (
+              <WeekCalendarView
+                currentDate={currentDate}
+                events={filteredEvents}
+                onDayClick={handleDayClick}
+                onEventDrop={handleEventDrop}
+                onOpenTask={setSelectedTaskId}
+              />
+            )}
+            {view === 'agenda' && (
+              <AgendaCalendarView
+                currentDate={currentDate}
+                events={filteredEvents}
+                onOpenTask={setSelectedTaskId}
+              />
+            )}
+          </motion.div>
+        )}
+
+        {showCreateModal && projectId && (
+          <CreateTaskModal
+            isOpen={showCreateModal}
+            onClose={() => { setShowCreateModal(false); setPrefilledDate(undefined); }}
+            onCreateTask={handleCreateTask}
+            projectId={parseInt(projectId, 10)}
+            initialDueDate={prefilledDate}
+          />
+        )}
+
+        {selectedTaskId !== null && (
+          <TaskCardModal
+            taskId={selectedTaskId}
+            onClose={(wasModified) => {
+              setSelectedTaskId(null);
+              if (wasModified) void loadEvents();
+            }}
+          />
+        )}
+      </div>
     </div>
+  );
+}
+
+export default function CalendarPage() {
+  return (
+    <Suspense fallback={<RouteLoadingState title="Loading calendar" subtitle="Preparing the project calendar." variant="cards" />}>
+      <CalendarPageContent />
+    </Suspense>
   );
 }
