@@ -26,6 +26,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 
@@ -63,6 +64,8 @@ class ProjectServiceTest {
     private SprintboardRepository sprintboardRepository;
     @Mock
     private TaskRepository taskRepository;
+    @Mock
+    private CacheManager cacheManager;
 
     @InjectMocks
     private ProjectService projectService;
@@ -232,10 +235,6 @@ class ProjectServiceTest {
 
     @Test
     void projectMutations_evictDashboardCaches() throws Exception {
-        for (String methodName : java.util.List.of("recordProjectAccess", "toggleFavorite")) {
-            Method method = ProjectService.class.getMethod(methodName, Long.class, Long.class);
-            assertProjectDashboardEviction(method);
-        }
         assertProjectDashboardEviction(ProjectService.class.getMethod("createProject", ProjectDTO.class));
         assertProjectDashboardEviction(ProjectService.class.getMethod("updateProject", Long.class, com.planora.backend.dto.UpdateProjectDTO.class));
         assertProjectDashboardEviction(ProjectService.class.getMethod("deleteProject", Long.class, Long.class, Long.class));

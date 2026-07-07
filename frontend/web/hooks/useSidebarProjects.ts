@@ -63,11 +63,6 @@ export function useSidebarProjects() {
   const handleProjectClick = useCallback(async (project: Project) => {
     localStorage.setItem('currentProjectName', project.name);
     localStorage.setItem('currentProjectId', project.id.toString());
-    try {
-      await projectsApi.recordAccess(project.id);
-    } catch {
-      // ignore
-    }
   }, []);
 
   const handleToggleFavourite = useCallback(
