@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 
-export default function TimelineRedirect() {
+function TimelineRedirectContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -15,4 +16,12 @@ export default function TimelineRedirect() {
   }, [searchParams, router]);
 
   return null;
+}
+
+export default function TimelineRedirect() {
+  return (
+    <Suspense fallback={<RouteLoadingState title="Opening timeline" subtitle="Resolving the selected project." variant="detail" />}>
+      <TimelineRedirectContent />
+    </Suspense>
+  );
 }

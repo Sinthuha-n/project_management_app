@@ -110,6 +110,8 @@ class ProjectMemberControllerTest {
         memberUser.setUsername("teammate");
         memberUser.setFullName("Team Mate");
         memberUser.setEmail("mate@example.com");
+        memberUser.setGithubUsername("octomate");
+        memberUser.setGithubEmail("mate@users.noreply.github.com");
 
         TeamMember member = new TeamMember();
         member.setId(200L);
@@ -127,6 +129,8 @@ class ProjectMemberControllerTest {
                 .andExpect(jsonPath("$[0].id").value(200L))
                 .andExpect(jsonPath("$[0].role").value("MEMBER"))
                 .andExpect(jsonPath("$[0].user.username").value("teammate"))
+                .andExpect(jsonPath("$[0].user.githubUsername").value("octomate"))
+                .andExpect(jsonPath("$[0].user.githubEmail").value("mate@users.noreply.github.com"))
                 .andExpect(jsonPath("$[0].taskCount").value(3));
 
         verify(teamMemberService).enforceCreatorOnlyOwnerRole(50L, 5L);

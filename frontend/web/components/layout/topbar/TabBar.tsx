@@ -99,7 +99,7 @@ export function TabBar({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 4 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute left-full top-0 ml-1 w-[150px] bg-cu-bg border border-cu-border rounded-xl shadow-cu-lg py-1.5 z-[300]"
+                  className="absolute left-full top-0 ml-1 w-[150px] bg-cu-bg border border-cu-border rounded-xl shadow-cu-lg py-1.5 z-[var(--cu-z-dropdown)]"
                 >
                   <button
                     onClick={() => { setDmsOpen(false); setMoreOpen(false); router.push(buildHref('/pages')); }}
@@ -177,7 +177,7 @@ export function TabBar({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.97 }}
                   transition={{ duration: 0.18, ease: 'easeOut' }}
-                  className="fixed z-[9999] mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-cu-lg py-1.5 min-w-[140px] overflow-hidden"
+                  className="fixed z-[var(--cu-z-dropdown)] mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-cu-lg py-1.5 min-w-[140px] overflow-hidden"
                   style={{ top: dmsDropdownPos.top, left: dmsDropdownPos.left }}
                 >
                   <button
@@ -293,7 +293,7 @@ export function TabBar({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                className="absolute top-full right-0 mt-2 z-[200] bg-cu-bg border border-cu-border rounded-xl shadow-cu-lg py-1.5 min-w-[160px] overflow-hidden"
+                className="absolute top-full right-0 mt-2 z-[var(--cu-z-dropdown)] bg-cu-bg border border-cu-border rounded-xl shadow-cu-lg py-1.5 min-w-[160px] overflow-hidden"
               >
                 {overflowTabs.map(tab => renderTab(tab, true))}
               </motion.div>

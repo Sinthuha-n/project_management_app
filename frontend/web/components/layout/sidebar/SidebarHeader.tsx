@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { PranoraIcon } from '@/components/brand/PranoraLogo';
+import { PlanoraIcon } from '@/components/brand/PlanoraLogo';
 
 export function SidebarHeader({
   collapsed,
@@ -27,7 +27,7 @@ export function SidebarHeader({
         aria-label={collapsed ? 'Expand sidebar' : 'Sidebar'}
         title={collapsed ? 'Expand sidebar' : 'Planora'}
       >
-        <PranoraIcon size={32} />
+        <PlanoraIcon size={32} />
 
         {/* Wordmark (Website Name) */}
         {!collapsed && (
@@ -59,7 +59,7 @@ export function CollapseButton({
     <button
       onClick={onToggle}
       title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      className="hidden md:flex absolute top-[18px] right-[-12px] z-[200] w-[24px] h-[24px] items-center justify-center rounded-full bg-cu-bg border border-cu-sidebar-border shadow-md text-cu-sidebar-text hover:text-cu-primary hover:border-cu-primary/40 hover:shadow-lg hover:scale-110 transition-all duration-200 active:scale-95"
+      className="hidden md:flex absolute top-[18px] right-[-12px] z-[var(--cu-z-sidebar-panel)] w-[24px] h-[24px] items-center justify-center rounded-full bg-cu-bg border border-cu-sidebar-border shadow-md text-cu-sidebar-text hover:text-cu-primary hover:border-cu-primary/40 hover:shadow-lg hover:scale-110 transition-all duration-200 active:scale-95"
     >
       <svg 
         width="12" 

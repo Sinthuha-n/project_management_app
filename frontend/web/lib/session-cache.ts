@@ -1,7 +1,7 @@
 'use client';
 
 const CACHE_PREFIX = 'planora:session-cache:';
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const SESSION_META_KEY = `${CACHE_PREFIX}meta`;
 
 export type SessionCacheEnvelope<T> = {
@@ -25,6 +25,8 @@ type JwtPayload = {
   sub?: string;
   exp?: number;
   jti?: string;
+  userId?: number;
+  id?: number;
 };
 
 function safeStorageGet(storage: Storage, key: string): string | null {
@@ -51,11 +53,6 @@ function safeStorageRemove(storage: Storage, key: string): void {
   }
 }
 
-function getRawTokenFromStorage(): string | null {
-  if (typeof window === 'undefined') return null;
-  return safeStorageGet(localStorage, 'token') || safeStorageGet(sessionStorage, 'token');
-}
-
 function decodeJwtPayload(token: string): JwtPayload | null {
   try {
     const tokenParts = token.split('.');
@@ -79,26 +76,71 @@ function sanitizeKeyPart(part: string | number): string {
   return String(part).trim().replace(/[^a-zA-Z0-9:_-]/g, '_');
 }
 
-function computeSessionKey(payload: JwtPayload): string {
-  if (payload.jti && payload.jti.trim().length > 0) {
-    return sanitizeKeyPart(payload.jti);
+function stableHash(value: string): string {
+  let hash = 5381;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) + hash) ^ value.charCodeAt(index);
   }
+  return (hash >>> 0).toString(36);
+}
 
-  const sub = normalizeUserKey(payload.sub || 'unknown');
-  const exp = typeof payload.exp === 'number' ? payload.exp : 'no-exp';
-  return sanitizeKeyPart(`${sub}:${exp}`);
+function computeStableUserKey(payload: JwtPayload): string | null {
+  const identity = payload.userId ?? payload.id ?? payload.sub;
+  if (identity === undefined || identity === null || String(identity).trim().length === 0) return null;
+  return `u_${stableHash(normalizeUserKey(String(identity)))}`;
+}
+
+function readPersistedScope(): SessionCacheScope | null {
+  if (typeof window === 'undefined') return null;
+
+  const raw = safeStorageGet(localStorage, SESSION_META_KEY);
+  if (!raw) return null;
+
+  try {
+    const meta = JSON.parse(raw) as Partial<SessionCacheScope> & { version?: number };
+    if (
+      meta.version !== CACHE_VERSION
+      || !meta.userKey
+      || !meta.sessionKey
+    ) {
+      safeStorageRemove(localStorage, SESSION_META_KEY);
+      return null;
+    }
+    return {
+      userKey: sanitizeKeyPart(meta.userKey),
+      sessionKey: sanitizeKeyPart(meta.sessionKey),
+    };
+  } catch {
+    safeStorageRemove(localStorage, SESSION_META_KEY);
+    return null;
+  }
+}
+
+function removeSessionCacheEntriesForOtherUsers(activeUserKey: string): void {
+  if (typeof window === 'undefined') return;
+
+  Object.keys(localStorage)
+    .filter((key) => (
+      key.startsWith(CACHE_PREFIX)
+      && key !== SESSION_META_KEY
+      && !key.startsWith(`${CACHE_PREFIX}${activeUserKey}:`)
+    ))
+    .forEach((key) => safeStorageRemove(localStorage, key));
 }
 
 export function resolveSessionCacheScope(tokenOverride?: string | null): SessionCacheScope | null {
-  const token = tokenOverride || getRawTokenFromStorage();
-  if (!token) return null;
+  if (!tokenOverride) {
+    return readPersistedScope();
+  }
 
-  const payload = decodeJwtPayload(token);
+  const payload = decodeJwtPayload(tokenOverride);
   if (!payload || !payload.sub) return null;
+  const userKey = computeStableUserKey(payload);
+  if (!userKey) return null;
 
   return {
-    userKey: sanitizeKeyPart(normalizeUserKey(payload.sub)),
-    sessionKey: computeSessionKey(payload),
+    userKey,
+    sessionKey: 'stable',
   };
 }
 
@@ -125,10 +167,16 @@ export function initializeSessionCacheForCurrentAuth(tokenOverride?: string | nu
   const scope = resolveSessionCacheScope(tokenOverride);
   if (!scope) return;
 
+  const previousScope = readPersistedScope();
+  if (previousScope && previousScope.userKey !== scope.userKey) {
+    removeSessionCacheEntriesForOtherUsers(scope.userKey);
+  }
+
   safeStorageSet(
     localStorage,
     SESSION_META_KEY,
     JSON.stringify({
+      version: CACHE_VERSION,
       userKey: scope.userKey,
       sessionKey: scope.sessionKey,
       initializedAt: Date.now(),

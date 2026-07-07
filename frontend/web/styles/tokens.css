@@ -93,13 +93,17 @@
   --cu-input-lg: 40px;
 
   /* ── Z-index scale ── */
-  --cu-z-base:       1;
-  --cu-z-dropdown:   50;
-  --cu-z-overlay:    90;
-  --cu-z-topbar:     100;
-  --cu-z-modal:      200;
-  --cu-z-toast:      250;
-  --cu-z-sidebar:    500;
+  --cu-z-base:          1;
+  --cu-z-sticky:        20;
+  --cu-z-dropdown:      300;
+  --cu-z-topbar:        400;
+  --cu-z-sidebar:       500;
+  --cu-z-sidebar-panel: 550;
+  --cu-z-overlay:       900;
+  --cu-z-modal:         1000;
+  --cu-z-modal-popover: 1100;
+  --cu-z-toast:         1200;
+  --cu-z-command:       1300;
 
   /* ── Border radius ── */
   --cu-radius-sm: 4px;

@@ -1,122 +1,133 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useMemo, useRef } from 'react';
+import { CalendarDays, ExternalLink, Flag, UserRound, X } from 'lucide-react';
 import type { CalendarEventItem } from '../types';
+import { getEventEndDate, getEventStartDate, isSameDay } from '../utils/date';
 
 interface CalendarEventPopupProps {
-    event: CalendarEventItem;
-    position: { x: number; y: number };
-    onClose: () => void;
+  event: CalendarEventItem;
+  position: { x: number; y: number };
+  onClose: () => void;
+  onOpenTask?: (taskId: number) => void;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-    TODO:        'bg-cu-bg-tertiary text-cu-text-secondary',
-    IN_PROGRESS: 'bg-cu-primary/10 text-cu-primary',
-    IN_REVIEW:   'bg-amber-400/15 text-amber-500',
-    DONE:        'bg-emerald-500/15 text-emerald-500',
-    Planned:     'bg-cu-bg-tertiary text-cu-text-secondary',
-    Active:      'bg-cu-primary/10 text-cu-primary',
-    Completed:   'bg-emerald-500/15 text-emerald-500',
+const statusTone = (status?: string) => {
+  const normalized = (status || '').toUpperCase().replace(/\s+/g, '_');
+  if (normalized === 'DONE' || normalized === 'COMPLETED') return 'bg-cu-success-light text-cu-success';
+  if (normalized === 'IN_PROGRESS' || normalized === 'ACTIVE') return 'bg-cu-primary-light text-cu-primary';
+  if (normalized === 'IN_REVIEW') return 'bg-amber-400/15 text-amber-600';
+  return 'bg-cu-bg-tertiary text-cu-text-secondary';
 };
 
-function formatDate(d?: string) {
-    if (!d) return null;
-    try {
-        return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch {
-        return d;
-    }
-}
+const formatDate = (date: Date | null) =>
+  date?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) ?? null;
 
-export default function CalendarEventPopup({ event, position, onClose }: CalendarEventPopupProps) {
-    const ref = useRef<HTMLDivElement>(null);
+export default function CalendarEventPopup({ event, position, onClose, onOpenTask }: CalendarEventPopupProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const start = getEventStartDate(event);
+  const end = getEventEndDate(event);
+  const dateLabel = start && end && !isSameDay(start, end)
+    ? `${formatDate(start)} - ${formatDate(end)}`
+    : formatDate(start || end);
 
-    // Close on Escape
-    useEffect(() => {
-        const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-        document.addEventListener('keydown', handler);
-        return () => document.removeEventListener('keydown', handler);
-    }, [onClose]);
+  const coordinates = useMemo(() => {
+    if (typeof window === 'undefined') return { left: position.x, top: position.y + 10 };
 
-    // Close on outside click
-    useEffect(() => {
-        const handler = (e: MouseEvent) => {
-            if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-        };
-        // Small delay so the same click that opened the popup doesn't immediately close it
-        const id = setTimeout(() => document.addEventListener('mousedown', handler), 50);
-        return () => { clearTimeout(id); document.removeEventListener('mousedown', handler); };
-    }, [onClose]);
+    const width = 320;
+    const height = 280;
+    return {
+      left: Math.max(8, Math.min(position.x, window.innerWidth - width - 8)),
+      top: Math.max(8, Math.min(position.y + 10, window.innerHeight - height - 8)),
+    };
+  }, [position.x, position.y]);
 
-    // Clamp popup to viewport
-    const POPUP_W = 288;
-    const POPUP_H = 240;
-    const left = typeof window !== 'undefined'
-        ? Math.min(position.x, window.innerWidth - POPUP_W - 8)
-        : position.x;
-    const top = typeof window !== 'undefined'
-        ? Math.min(position.y + 8, window.innerHeight - POPUP_H - 8)
-        : position.y + 8;
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
 
-    return (
-        <div
-            ref={ref}
-            style={{ position: 'fixed', left, top, zIndex: 200, width: POPUP_W }}
-            className="bg-cu-bg rounded-xl border border-cu-border shadow-xl overflow-hidden"
-        >
-            {/* Header */}
-            <div className={`px-4 py-3 flex items-start justify-between gap-2 ${event.kind === 'sprint' ? 'bg-cu-primary/10' : 'bg-cu-bg-secondary'}`}>
-                <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold text-cu-text-primary truncate">{event.title}</p>
-                    <span className={`inline-block mt-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${event.kind === 'sprint' ? 'bg-cu-primary/20 text-cu-primary' : 'bg-cu-bg-tertiary text-cu-text-secondary'}`}>
-                        {event.kind === 'sprint' ? 'Sprint' : (event.type ?? 'Task')}
-                    </span>
-                </div>
-                <button
-                    onClick={onClose}
-                    className="p-1 text-cu-text-muted hover:text-cu-text-primary rounded transition-colors shrink-0 mt-0.5"
-                >
-                    <X size={14} />
-                </button>
-            </div>
+  useEffect(() => {
+    const onMouseDown = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) onClose();
+    };
+    const timer = window.setTimeout(() => document.addEventListener('mousedown', onMouseDown), 50);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('mousedown', onMouseDown);
+    };
+  }, [onClose]);
 
-            {/* Body */}
-            <div className="px-4 py-3 space-y-2">
-                {event.status && (
-                    <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-cu-text-muted w-16 shrink-0">Status</span>
-                        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[event.status] ?? 'bg-cu-bg-tertiary text-cu-text-secondary'}`}>
-                            {event.status.replace(/_/g, ' ')}
-                        </span>
-                    </div>
-                )}
-                {event.assignee && (
-                    <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-cu-text-muted w-16 shrink-0">Assignee</span>
-                        <span className="text-[11px] text-cu-text-primary">{event.assignee}</span>
-                    </div>
-                )}
-                {(event.startDate || event.dueDate) && (
-                    <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-cu-text-muted w-16 shrink-0">
-                            {event.kind === 'sprint' ? 'Start' : 'Due'}
-                        </span>
-                        <span className="text-[11px] text-cu-text-primary">{formatDate(event.startDate || event.dueDate)}</span>
-                    </div>
-                )}
-                {event.endDate && event.kind === 'sprint' && (
-                    <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-cu-text-muted w-16 shrink-0">End</span>
-                        <span className="text-[11px] text-cu-text-primary">{formatDate(event.endDate)}</span>
-                    </div>
-                )}
-                {event.description && (
-                    <p className="text-[12px] text-cu-text-secondary line-clamp-3 pt-2 border-t border-cu-border mt-1">
-                        {event.description}
-                    </p>
-                )}
-            </div>
+  return (
+    <div
+      ref={ref}
+      role="dialog"
+      aria-label={event.title}
+      style={{ position: 'fixed', left: coordinates.left, top: coordinates.top, width: 320, zIndex: 200 }}
+      className="overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl"
+    >
+      <div className="flex items-start gap-3 border-b border-cu-border bg-cu-bg-secondary px-4 py-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cu-border bg-cu-bg text-cu-primary">
+          {event.kind === 'sprint' ? <Flag size={16} /> : <CalendarDays size={16} />}
         </div>
-    );
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold text-cu-text-primary">{event.title}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span className="rounded-md bg-cu-bg-tertiary px-2 py-0.5 text-[10px] font-bold uppercase text-cu-text-secondary">
+              {event.kind === 'sprint' ? 'Sprint' : event.type || 'Task'}
+            </span>
+            {event.status && (
+              <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${statusTone(event.status)}`}>
+                {event.status.replace(/_/g, ' ')}
+              </span>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close event details"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-cu-text-muted transition-colors hover:bg-cu-hover hover:text-cu-text-primary"
+        >
+          <X size={15} />
+        </button>
+      </div>
+
+      <div className="space-y-3 px-4 py-3">
+        {dateLabel && (
+          <div className="flex items-center gap-2 text-xs text-cu-text-secondary">
+            <CalendarDays size={14} className="text-cu-text-muted" />
+            <span>{dateLabel}</span>
+          </div>
+        )}
+        {event.assignee && (
+          <div className="flex items-center gap-2 text-xs text-cu-text-secondary">
+            <UserRound size={14} className="text-cu-text-muted" />
+            <span className="truncate">{event.assignee}</span>
+          </div>
+        )}
+        {event.description && (
+          <p className="line-clamp-4 rounded-lg border border-cu-border bg-cu-bg-secondary px-3 py-2 text-xs leading-relaxed text-cu-text-secondary">
+            {event.description}
+          </p>
+        )}
+      </div>
+
+      {event.taskId && onOpenTask && (
+        <div className="border-t border-cu-border bg-cu-bg-secondary px-4 py-3">
+          <button
+            type="button"
+            onClick={() => onOpenTask(event.taskId!)}
+            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-cu-primary px-3 text-xs font-bold text-white transition-colors hover:bg-cu-primary-hover"
+          >
+            <ExternalLink size={13} />
+            Open task
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }

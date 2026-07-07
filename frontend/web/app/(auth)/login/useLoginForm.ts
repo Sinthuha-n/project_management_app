@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AUTH_TOKEN_CHANGED_EVENT, ensureValidToken, saveToken, saveRefreshToken, setRememberMe } from '@/lib/auth';
+import { buildVerifyEmailPath, isEmailVerificationRequired, rememberPendingVerificationEmail } from '@/lib/email-verification';
 import { authApi } from '@/services/api-contract';
 
 const PENDING_INVITE_TOKEN_KEY = 'pendingInviteToken';
@@ -128,6 +129,13 @@ export function useLoginForm() {
       let errorMessage = 'Login failed. Please try again.';
       const errorData = err.response?.data;
 
+      if (isEmailVerificationRequired(err)) {
+        const normalizedEmail = email.toLowerCase();
+        rememberPendingVerificationEmail(normalizedEmail);
+        router.push(buildVerifyEmailPath(normalizedEmail));
+        return;
+      }
+
       // Parse the Spring Boot payload formats
       if (typeof errorData === 'string') {
         errorMessage = errorData;
@@ -137,7 +145,7 @@ export function useLoginForm() {
 
       // Map strict HTTP Status Codes to contextual help.
       if (err.response?.status === 403) {
-        // 403 Forbidden is typically thrown by our JpaUserDetailedService if user.isVerified() is false.
+        // Other forbidden responses remain visible instead of being mistaken for auth expiry.
         setError(errorMessage || 'Email is not verified. Please check your email.');
       } else if (err.response?.status === 401) {
         // 401 Unauthorized is standard for bad credentials.

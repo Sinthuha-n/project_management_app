@@ -1,9 +1,28 @@
 'use client';
 
 import { DocumentItem } from '@/lib/dms';
-import { Download, Eye, FileClock, FileText, Info, Pencil, RotateCcw, Star, Trash2 } from 'lucide-react';
-import { formatBytes, timeAgo } from '@/app/folders/components/dmsUtils';
-import { ViewMode } from '@/app/folders/components/types';
+import {
+    ArrowDown,
+    ArrowUp,
+    Download,
+    Eye,
+    FileClock,
+    FileText,
+    Info,
+    Pencil,
+    RotateCcw,
+    Star,
+    Trash2,
+} from 'lucide-react';
+import {
+    DOCUMENT_SORT_LABELS,
+    formatBytes,
+    getDocumentTypeLabel,
+    getDocumentTypeTone,
+    timeAgo,
+    toDateLabel,
+} from '@/app/folders/components/dmsUtils';
+import { DocumentSortDirection, DocumentSortKey, ViewMode } from '@/app/folders/components/types';
 
 interface DmsDocumentsTableProps {
     filteredDocuments: DocumentItem[];
@@ -11,6 +30,11 @@ interface DmsDocumentsTableProps {
     isTrashMode: boolean;
     mode: ViewMode;
     loading?: boolean;
+    busy?: boolean;
+    sortKey: DocumentSortKey;
+    sortDirection: DocumentSortDirection;
+    getDocumentFolderName: (document: DocumentItem) => string;
+    onSortChange: (key: DocumentSortKey) => void;
     onToggleFavorite: (documentId: number) => void;
     onView: (documentId: number) => void;
     onDownload: (documentId: number) => void;
@@ -22,12 +46,115 @@ interface DmsDocumentsTableProps {
     onPermanentDelete: (documentId: number) => void;
 }
 
+const columns: Array<{ key: DocumentSortKey; label: string; className?: string }> = [
+    { key: 'name', label: DOCUMENT_SORT_LABELS.name, className: 'min-w-[280px]' },
+    { key: 'folderName', label: DOCUMENT_SORT_LABELS.folderName },
+    { key: 'uploadedByName', label: DOCUMENT_SORT_LABELS.uploadedByName },
+    { key: 'fileSize', label: DOCUMENT_SORT_LABELS.fileSize },
+    { key: 'updatedAt', label: DOCUMENT_SORT_LABELS.updatedAt },
+    { key: 'latestVersionNumber', label: DOCUMENT_SORT_LABELS.latestVersionNumber },
+];
+
+function SortIcon({ active, direction }: { active: boolean; direction: DocumentSortDirection }) {
+    if (!active) return <ArrowUp size={12} className="opacity-25" />;
+    return direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />;
+}
+
+function ActionButton({
+    label,
+    danger = false,
+    children,
+    onClick,
+    disabled,
+}: {
+    label: string;
+    danger?: boolean;
+    children: React.ReactNode;
+    onClick: () => void;
+    disabled?: boolean;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-cu-md border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                danger
+                    ? 'border-cu-danger/35 text-cu-danger hover:bg-cu-danger-light'
+                    : 'border-cu-border text-cu-text-secondary hover:bg-cu-hover hover:text-cu-text-primary'
+            }`}
+            title={label}
+            aria-label={label}
+        >
+            {children}
+        </button>
+    );
+}
+
+function DocumentActions({
+    doc,
+    isTrashMode,
+    busy,
+    onView,
+    onDownload,
+    onRename,
+    onSoftDelete,
+    onToggleVersions,
+    onOpenInfo,
+    onRestore,
+    onPermanentDelete,
+}: Pick<
+    DmsDocumentsTableProps,
+    'isTrashMode' | 'busy' | 'onView' | 'onDownload' | 'onRename' | 'onSoftDelete' | 'onToggleVersions' | 'onOpenInfo' | 'onRestore' | 'onPermanentDelete'
+> & { doc: DocumentItem }) {
+    if (isTrashMode) {
+        return (
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+                <ActionButton label="Restore" disabled={busy} onClick={() => onRestore(doc.id)}>
+                    <RotateCcw size={14} />
+                </ActionButton>
+                <ActionButton label="Delete forever" danger disabled={busy} onClick={() => onPermanentDelete(doc.id)}>
+                    <Trash2 size={14} />
+                </ActionButton>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex items-center gap-1.5 whitespace-nowrap">
+            <ActionButton label="View" disabled={busy} onClick={() => onView(doc.id)}>
+                <Eye size={14} />
+            </ActionButton>
+            <ActionButton label="Download" disabled={busy} onClick={() => onDownload(doc.id)}>
+                <Download size={14} />
+            </ActionButton>
+            <ActionButton label="Rename" disabled={busy} onClick={() => onRename(doc)}>
+                <Pencil size={14} />
+            </ActionButton>
+            <ActionButton label="Versions" disabled={busy} onClick={() => onToggleVersions(doc.id)}>
+                <FileClock size={14} />
+            </ActionButton>
+            <ActionButton label="Info" disabled={busy} onClick={() => onOpenInfo(doc)}>
+                <Info size={14} />
+            </ActionButton>
+            <ActionButton label="Delete" danger disabled={busy} onClick={() => onSoftDelete(doc.id)}>
+                <Trash2 size={14} />
+            </ActionButton>
+        </div>
+    );
+}
+
 export default function DmsDocumentsTable({
     filteredDocuments,
     favoriteIds,
     isTrashMode,
     mode,
     loading = false,
+    busy = false,
+    sortKey,
+    sortDirection,
+    getDocumentFolderName,
+    onSortChange,
     onToggleFavorite,
     onView,
     onDownload,
@@ -38,125 +165,200 @@ export default function DmsDocumentsTable({
     onRestore,
     onPermanentDelete,
 }: DmsDocumentsTableProps) {
+    if (loading && filteredDocuments.length === 0) {
+        return (
+            <div className="space-y-2 p-4">
+                {Array.from({ length: 5 }).map((_, index) => (
+                    <div key={index} className="h-16 animate-pulse rounded-cu-lg border border-cu-border bg-cu-bg-secondary" />
+                ))}
+            </div>
+        );
+    }
+
     return (
-        <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px]">
-                <thead>
-                    <tr className="text-left text-xs uppercase tracking-[0.08em] text-cu-text-secondary border-b border-cu-border bg-cu-bg-secondary">
-                        <th className="px-5 py-3 font-semibold">Name</th>
-                        {mode === 'recent' && <th className="px-5 py-3 font-semibold">Last Modified</th>}
-                        <th className="px-5 py-3 font-semibold">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {loading && filteredDocuments.length === 0 && (
-                        Array.from({ length: 3 }).map((_, i) => (
-                            <tr key={`skeleton-${i}`} className="border-b border-cu-border-light animate-pulse">
-                                <td className="px-5 py-4">
-                                    <div className="flex items-start gap-3">
-                                        <div className="mt-0.5 w-4 h-4 rounded bg-cu-bg-tertiary" />
-                                        <div className="space-y-2">
-                                            <div className="h-3.5 w-40 rounded bg-cu-bg-tertiary" />
-                                            <div className="h-2.5 w-24 rounded bg-cu-bg-tertiary" />
-                                        </div>
-                                    </div>
-                                </td>
-                                {mode === 'recent' && <td className="px-5 py-4"><div className="h-3 w-16 rounded bg-cu-bg-tertiary" /></td>}
-                                <td className="px-5 py-4"><div className="h-8 w-32 rounded bg-cu-bg-tertiary" /></td>
-                            </tr>
-                        ))
-                    )}
-
-                    {!loading && filteredDocuments.length === 0 && (
-                        <tr>
-                            <td className="px-5 py-12 text-center" colSpan={mode === 'recent' ? 3 : 2}>
-                                <FileText size={32} className="mx-auto text-cu-text-muted mb-3" />
-                                <p className="text-sm font-medium text-cu-text-primary">
-                                    {isTrashMode ? 'Trash is empty' : 'No documents yet'}
-                                </p>
-                                <p className="text-xs text-cu-text-tertiary mt-1">
-                                    {isTrashMode ? 'Deleted documents will appear here.' : 'Upload a file to get started.'}
-                                </p>
-                            </td>
+        <>
+            <div className="hidden overflow-x-auto md:block">
+                <table className="w-full min-w-[1040px]">
+                    <thead>
+                        <tr className="border-b border-cu-border bg-cu-bg-secondary text-left text-xs uppercase text-cu-text-secondary">
+                            {columns.map((column) => (
+                                <th
+                                    key={column.key}
+                                    className={`px-4 py-3 font-semibold ${column.className ?? ''}`}
+                                    aria-sort={sortKey === column.key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => onSortChange(column.key)}
+                                        className="inline-flex items-center gap-1.5 rounded-cu-sm text-left transition-colors hover:text-cu-text-primary focus:outline-none focus:ring-2 focus:ring-cu-primary/20"
+                                    >
+                                        {column.label}
+                                        <SortIcon active={sortKey === column.key} direction={sortDirection} />
+                                    </button>
+                                </th>
+                            ))}
+                            <th className="px-4 py-3 font-semibold">Type</th>
+                            <th className="px-4 py-3 font-semibold">Actions</th>
                         </tr>
-                    )}
+                    </thead>
+                    <tbody>
+                        {filteredDocuments.map((doc) => {
+                            const isFavorite = favoriteIds.includes(doc.id);
+                            const folderName = getDocumentFolderName(doc);
 
-                    {filteredDocuments.map((doc) => {
-                        const isFavorite = favoriteIds.includes(doc.id);
-
-                        return (
-                            <tr key={doc.id} className="border-b border-cu-border-light hover:bg-cu-hover align-top">
-                                <td className="px-5 py-4">
-                                    <div className="flex items-start gap-3">
-                                        <div className="mt-0.5 text-cu-text-secondary"><FileText size={16} /></div>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-sm font-medium text-cu-text-primary">{doc.name}</p>
-                                                <button
-                                                    onClick={() => onToggleFavorite(doc.id)}
-                                                    className="text-cu-text-tertiary hover:text-cu-warning"
-                                                    title="Toggle favorite"
-                                                >
-                                                    <Star
-                                                        size={14}
-                                                        fill={isFavorite ? 'var(--cu-warning)' : 'none'}
-                                                        color={isFavorite ? 'var(--cu-warning)' : 'currentColor'}
-                                                    />
-                                                </button>
+                            return (
+                                <tr key={doc.id} className="border-b border-cu-border-light align-middle transition-colors hover:bg-cu-hover">
+                                    <td className="px-4 py-4">
+                                        <div className="flex min-w-0 items-start gap-3">
+                                            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-cu-md border border-cu-border bg-cu-bg-secondary text-cu-text-secondary">
+                                                <FileText size={17} />
                                             </div>
-                                            <p className="text-xs text-cu-text-secondary mt-1">{doc.contentType} • {doc.humanReadableSize ?? formatBytes(doc.fileSize)} • v{doc.latestVersionNumber}</p>
+                                            <div className="min-w-0">
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <p className="truncate text-sm font-semibold text-cu-text-primary">{doc.name}</p>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onToggleFavorite(doc.id)}
+                                                        disabled={busy}
+                                                        className="shrink-0 text-cu-text-tertiary transition-colors hover:text-cu-warning disabled:opacity-50"
+                                                        title={isFavorite ? 'Remove favorite' : 'Add favorite'}
+                                                        aria-label={isFavorite ? 'Remove favorite' : 'Add favorite'}
+                                                    >
+                                                        <Star
+                                                            size={15}
+                                                            fill={isFavorite ? 'var(--cu-warning)' : 'none'}
+                                                            color={isFavorite ? 'var(--cu-warning)' : 'currentColor'}
+                                                        />
+                                                    </button>
+                                                </div>
+                                                <p className="mt-1 truncate text-xs text-cu-text-secondary">{doc.contentType}</p>
+                                            </div>
                                         </div>
-                                    </div>
-                                </td>
-                                {mode === 'recent' && (
-                                    <td className="px-5 py-4 text-xs text-cu-text-secondary whitespace-nowrap">
+                                    </td>
+                                    <td className="px-4 py-4 text-sm text-cu-text-secondary">{folderName}</td>
+                                    <td className="px-4 py-4 text-sm text-cu-text-secondary">{doc.uploadedByName}</td>
+                                    <td className="px-4 py-4 text-sm text-cu-text-secondary whitespace-nowrap">{doc.humanReadableSize ?? formatBytes(doc.fileSize)}</td>
+                                    <td className="px-4 py-4 text-sm text-cu-text-secondary whitespace-nowrap" title={toDateLabel(doc.updatedAt)}>
                                         {timeAgo(doc.updatedAt)}
                                     </td>
-                                )}
-                                <td className="px-5 py-4">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        {!isTrashMode && (
-                                            <>
-                                                <button onClick={() => onView(doc.id)} className="h-8 w-8 inline-flex items-center justify-center border border-cu-border rounded-md hover:bg-cu-hover text-cu-text-secondary" title="View">
-                                                    <Eye size={14} />
-                                                </button>
-                                                <button onClick={() => onDownload(doc.id)} className="h-8 w-8 inline-flex items-center justify-center border border-cu-border rounded-md hover:bg-cu-hover text-cu-text-secondary" title="Download">
-                                                    <Download size={14} />
-                                                </button>
-                                                <button onClick={() => onRename(doc)} className="h-8 w-8 inline-flex items-center justify-center border border-cu-border rounded-md hover:bg-cu-hover text-cu-text-secondary" title="Rename">
-                                                    <Pencil size={14} />
-                                                </button>
-                                                <button onClick={() => onSoftDelete(doc.id)} className="h-8 w-8 inline-flex items-center justify-center border border-cu-danger/30 text-cu-danger rounded-md hover:bg-cu-danger-light" title="Soft delete">
-                                                    <Trash2 size={14} />
-                                                </button>
-                                                <button onClick={() => onToggleVersions(doc.id)} className="h-8 w-8 inline-flex items-center justify-center border border-cu-border rounded-md hover:bg-cu-hover text-cu-text-secondary" title="Version history">
-                                                    <FileClock size={14} />
-                                                </button>
-                                                <button onClick={() => onOpenInfo(doc)} className="h-8 w-8 inline-flex items-center justify-center border border-cu-border rounded-md hover:bg-cu-hover text-cu-text-secondary" title="Info">
-                                                    <Info size={14} />
-                                                </button>
-                                            </>
-                                        )}
+                                    <td className="px-4 py-4">
+                                        <span className="inline-flex rounded-full border border-cu-border bg-cu-bg-secondary px-2 py-1 text-[11px] font-bold text-cu-text-secondary">
+                                            v{doc.latestVersionNumber}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                        <span
+                                            className={`inline-flex h-8 w-8 items-center justify-center rounded-cu-md border ${getDocumentTypeTone(doc.contentType)}`}
+                                            title={getDocumentTypeLabel(doc.contentType)}
+                                            aria-label={getDocumentTypeLabel(doc.contentType)}
+                                        >
+                                            <FileText size={15} />
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                        <DocumentActions
+                                            doc={doc}
+                                            isTrashMode={isTrashMode}
+                                            busy={busy}
+                                            onView={onView}
+                                            onDownload={onDownload}
+                                            onRename={onRename}
+                                            onSoftDelete={onSoftDelete}
+                                            onToggleVersions={onToggleVersions}
+                                            onOpenInfo={onOpenInfo}
+                                            onRestore={onRestore}
+                                            onPermanentDelete={onPermanentDelete}
+                                        />
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
 
-                                        {isTrashMode && (
-                                            <>
-                                                <button onClick={() => onRestore(doc.id)} className="px-2.5 py-1.5 text-xs border border-cu-border rounded-md hover:bg-cu-hover text-cu-text-secondary inline-flex items-center gap-1" title="Restore">
-                                                    <RotateCcw size={12} />
-                                                    Restore
-                                                </button>
-                                                <button onClick={() => onPermanentDelete(doc.id)} className="px-2.5 py-1.5 text-xs border border-cu-danger/50 text-cu-danger rounded-md hover:bg-cu-danger-light inline-flex items-center gap-1" title="Permanent delete">
-                                                    <Trash2 size={12} />
-                                                    Permanent delete
-                                                </button>
-                                            </>
-                                        )}
+            <div className="grid gap-3 p-4 md:hidden">
+                {filteredDocuments.map((doc) => {
+                    const isFavorite = favoriteIds.includes(doc.id);
+                    const folderName = getDocumentFolderName(doc);
+
+                    return (
+                        <article key={`${mode}-${doc.id}`} className="rounded-cu-lg border border-cu-border bg-cu-bg p-4 shadow-cu-sm">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex min-w-0 items-start gap-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-cu-md border border-cu-border bg-cu-bg-secondary text-cu-text-secondary">
+                                        <FileText size={18} />
                                     </div>
-                                </td>
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
-        </div>
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-bold text-cu-text-primary">{doc.name}</p>
+                                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                                            <span
+                                                className={`inline-flex h-8 w-8 items-center justify-center rounded-cu-md border ${getDocumentTypeTone(doc.contentType)}`}
+                                                title={getDocumentTypeLabel(doc.contentType)}
+                                                aria-label={getDocumentTypeLabel(doc.contentType)}
+                                            >
+                                                <FileText size={15} />
+                                            </span>
+                                            <span className="rounded-full border border-cu-border bg-cu-bg-secondary px-2 py-1 text-[11px] font-bold text-cu-text-secondary">
+                                                v{doc.latestVersionNumber}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => onToggleFavorite(doc.id)}
+                                    disabled={busy}
+                                    className="text-cu-text-tertiary transition-colors hover:text-cu-warning disabled:opacity-50"
+                                    title={isFavorite ? 'Remove favorite' : 'Add favorite'}
+                                    aria-label={isFavorite ? 'Remove favorite' : 'Add favorite'}
+                                >
+                                    <Star
+                                        size={17}
+                                        fill={isFavorite ? 'var(--cu-warning)' : 'none'}
+                                        color={isFavorite ? 'var(--cu-warning)' : 'currentColor'}
+                                    />
+                                </button>
+                            </div>
+
+                            <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                                <div>
+                                    <dt className="font-semibold uppercase text-cu-text-tertiary">Folder</dt>
+                                    <dd className="mt-0.5 truncate text-cu-text-primary">{folderName}</dd>
+                                </div>
+                                <div>
+                                    <dt className="font-semibold uppercase text-cu-text-tertiary">Owner</dt>
+                                    <dd className="mt-0.5 truncate text-cu-text-primary">{doc.uploadedByName}</dd>
+                                </div>
+                                <div>
+                                    <dt className="font-semibold uppercase text-cu-text-tertiary">Size</dt>
+                                    <dd className="mt-0.5 text-cu-text-primary">{doc.humanReadableSize ?? formatBytes(doc.fileSize)}</dd>
+                                </div>
+                                <div>
+                                    <dt className="font-semibold uppercase text-cu-text-tertiary">Updated</dt>
+                                    <dd className="mt-0.5 text-cu-text-primary">{timeAgo(doc.updatedAt)}</dd>
+                                </div>
+                            </dl>
+
+                            <div className="mt-4 border-t border-cu-border pt-3">
+                                <DocumentActions
+                                    doc={doc}
+                                    isTrashMode={isTrashMode}
+                                    busy={busy}
+                                    onView={onView}
+                                    onDownload={onDownload}
+                                    onRename={onRename}
+                                    onSoftDelete={onSoftDelete}
+                                    onToggleVersions={onToggleVersions}
+                                    onOpenInfo={onOpenInfo}
+                                    onRestore={onRestore}
+                                    onPermanentDelete={onPermanentDelete}
+                                />
+                            </div>
+                        </article>
+                    );
+                })}
+            </div>
+        </>
     );
 }

@@ -34,10 +34,10 @@ export function Modal({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-[10000] bg-black/40 backdrop-blur-sm data-[state=open]:animate-fade-in" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[var(--cu-z-modal)] bg-black/40 backdrop-blur-sm data-[state=open]:animate-fade-in" />
         <DialogPrimitive.Content
           className={[
-            'fixed left-1/2 top-1/2 z-[10000] w-full -translate-x-1/2 -translate-y-1/2',
+            'fixed left-1/2 top-1/2 z-[var(--cu-z-modal)] w-full -translate-x-1/2 -translate-y-1/2',
             'bg-cu-bg rounded-cu-xl shadow-cu-xl border border-cu-border',
             'data-[state=open]:animate-fade-in',
             'focus:outline-none',

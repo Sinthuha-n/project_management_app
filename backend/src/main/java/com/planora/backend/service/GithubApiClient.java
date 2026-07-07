@@ -9,9 +9,11 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +66,41 @@ public class GithubApiClient {
 
     public JsonNode fetchRepository(String repoFullName, String token) {
         return get(GITHUB_API_BASE + "/repos/" + repoFullName, token);
+    }
+
+    public JsonNode fetchPublicUser(String username, String token) {
+        return get(GITHUB_API_BASE + "/users/" + encodePathSegment(username), token);
+    }
+
+    public JsonNode getRepositoryPermission(String repoFullName, String username, String token) {
+        String url = GITHUB_API_BASE + "/repos/" + repoFullName
+            + "/collaborators/" + encodePathSegment(username) + "/permission";
+        return get(url, token);
+    }
+
+    public CollaboratorInviteResult addRepositoryCollaborator(
+            String repoFullName,
+            String username,
+            String permission,
+            String token) {
+        try {
+            String json = objectMapper.writeValueAsString(Map.of("permission", permission));
+            String url = GITHUB_API_BASE + "/repos/" + repoFullName
+                + "/collaborators/" + encodePathSegment(username);
+            HttpRequest request = buildRequest(url, token)
+                .PUT(HttpRequest.BodyPublishers.ofString(json))
+                .header("Content-Type", "application/json")
+                .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            validateResponse(url, response);
+            JsonNode body = response.body() == null || response.body().isBlank()
+                ? objectMapper.createObjectNode()
+                : objectMapper.readTree(response.body());
+            return new CollaboratorInviteResult(response.statusCode(), body);
+        } catch (IOException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new GithubApiException("GitHub collaborator invite failed for: " + repoFullName, e);
+        }
     }
 
     public List<JsonNode> fetchUserRepositories(String token, int page) {
@@ -135,33 +172,57 @@ public class GithubApiClient {
             .timeout(Duration.ofSeconds(30));
     }
 
+    private String encodePathSegment(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
     private void validateResponse(String url, HttpResponse<String> response) {
         int status = response.statusCode();
         if (status == 401) {
-            throw new GithubApiException("GitHub API unauthorized — check token for: " + url);
+            throw new GithubApiException(401, "GitHub API unauthorized — check token for: " + url);
         }
         if (status == 403) {
             String remaining = response.headers().firstValue("X-RateLimit-Remaining").orElse("?");
             if ("0".equals(remaining)) {
-                throw new GithubApiException("GitHub API rate limit exceeded for: " + url);
+                throw new GithubApiException(429, "GitHub API rate limit exceeded for: " + url);
             }
-            throw new GithubApiException("GitHub API forbidden for: " + url);
+            throw new GithubApiException(403, "GitHub API forbidden for: " + url);
         }
         if (status == 404) {
-            throw new GithubApiException("GitHub resource not found: " + url);
+            throw new GithubApiException(404, "GitHub resource not found: " + url);
+        }
+        if (status == 422) {
+            throw new GithubApiException(422, "GitHub validation failed for: " + url
+                + " — " + response.body());
         }
         if (status >= 400) {
-            throw new GithubApiException("GitHub API error " + status + " for: " + url
+            throw new GithubApiException(status, "GitHub API error " + status + " for: " + url
                 + " — " + response.body());
         }
     }
 
+    public record CollaboratorInviteResult(int statusCode, JsonNode body) {
+    }
+
     public static class GithubApiException extends RuntimeException {
+        private final int statusCode;
+
         public GithubApiException(String message) {
-            super(message);
+            this(0, message);
         }
+
+        public GithubApiException(int statusCode, String message) {
+            super(message);
+            this.statusCode = statusCode;
+        }
+
         public GithubApiException(String message, Throwable cause) {
             super(message, cause);
+            this.statusCode = 0;
+        }
+
+        public int getStatusCode() {
+            return statusCode;
         }
     }
 }

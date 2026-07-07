@@ -6,7 +6,7 @@ import ProductBacklogSection from './components/ProductBacklogSection';
 import FilterBar, { type BacklogFilters } from './components/FilterBar';
 import BulkActionBar from './components/BulkActionBar';
 import dynamic from 'next/dynamic';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Suspense, useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 const VelocityChart = dynamic(() => import('./components/VelocityChart'), { ssr: false });
 import type { SprintVelocityPoint } from './components/VelocityChart';
@@ -16,9 +16,11 @@ import { toast } from '@/components/ui';
 import { getProjectLabels, createLabel } from '@/services/labels-service';
 import type { TaskItem, SprintItem, Label } from '@/types';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 import { type CreateTaskData } from '@/components/shared/CreateTaskModal';
 import { useTaskStore } from '@/stores/task-store';
 import { buildSessionCacheKey, getSessionCache, setSessionCache, removeSessionCache } from '@/lib/session-cache';
+import { stripQueryParam } from '@/lib/url';
 import { motion, AnimatePresence } from 'framer-motion';
 import { projectsApi, sprintboardsApi, sprintsApi, tasksApi } from '@/services/api-contract';
 import { normalizeTaskPriority } from '@/services/tasks-contract';
@@ -56,7 +58,7 @@ interface ProjectMember {
   role: string;
 }
 
-export default function SprintBacklogPage() {
+function SprintBacklogPageContent() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId');
   const projectIdNum = projectId ? Number(projectId) : null;
@@ -767,9 +769,7 @@ export default function SprintBacklogPage() {
     } else if (action === 'add-task') {
       setShowCreateTaskModal(true);
     }
-    const url = new URL(window.location.href);
-    url.searchParams.delete('action');
-    window.history.replaceState({}, '', url.toString());
+    stripQueryParam('action');
   }, [searchParams, projectKey, sprints.length, createSprint]);
 
   useEffect(() => {
@@ -979,5 +979,13 @@ export default function SprintBacklogPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function SprintBacklogPage() {
+  return (
+    <Suspense fallback={<RouteLoadingState title="Loading sprint backlog" subtitle="Preparing sprint and backlog tasks." variant="table" />}>
+      <SprintBacklogPageContent />
+    </Suspense>
   );
 }

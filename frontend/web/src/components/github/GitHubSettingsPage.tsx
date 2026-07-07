@@ -3,8 +3,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Github, Lock, RefreshCw, Unlock } from 'lucide-react';
 
-import { fetchRepositories } from '../../../services/githubService';
-import type { GitHubRepository } from '../../../services/githubService';
+import { fetchRepositories } from '../../../services/github-service';
+import type { GitHubRepository } from '../../../services/github-service';
 
 const GitHubSettingsPage: React.FC = () => {
   const [repositories, setRepositories] = useState<GitHubRepository[]>([]);

@@ -2,9 +2,12 @@
 
 import { useEffect, useRef } from 'react';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
+import useSWR from 'swr';
 import FullLayout from '@/components/layout/FullLayout';
 import api from '@/lib/axios';
 import { AUTH_TOKEN_CHANGED_EVENT, ensureValidToken } from '@/lib/auth';
+
+const fetcher = (url: string) => api.get(url).then((res) => res.data);
 
 /**
  * Unified Project Layout
@@ -39,6 +42,12 @@ export default function ProjectLayout({
 
   // Guard: only run syncProjectContext once per projectId
   const syncedProjectIdRef = useRef<string | null>(null);
+  const recordedAccessProjectIdRef = useRef<string | null>(null);
+  const projectKey = projectId ? `/api/projects/${projectId}` : null;
+  const { data: projectData } = useSWR(projectKey, fetcher, {
+    revalidateIfStale: true,
+    dedupingInterval: 60_000,
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -63,28 +72,6 @@ export default function ProjectLayout({
       // Keep project context scoped to this tab while preserving global fallback.
       sessionStorage.setItem('currentProjectId', projectId);
       localStorage.setItem('currentProjectId', projectId);
-
-      try {
-        const projectRes = await api.get(`/api/projects/${projectId}`);
-        if (projectRes?.data?.name) {
-          sessionStorage.setItem('currentProjectName', projectRes.data.name);
-          localStorage.setItem('currentProjectName', projectRes.data.name);
-          // Update project type for TopBar logic
-          if (projectRes.data.type) {
-            sessionStorage.setItem('currentProjectType', projectRes.data.type);
-            localStorage.setItem('currentProjectType', projectRes.data.type);
-          }
-        }
-      } catch {
-        // ignore fetch failures
-      }
-
-      try {
-        await api.post(`/api/projects/${projectId}/access`);
-        window.dispatchEvent(new CustomEvent('planora:project-accessed'));
-      } catch {
-        // ignore access record failures
-      }
     };
 
     const handleAuthTokenChanged = () => {
@@ -99,6 +86,42 @@ export default function ProjectLayout({
       window.removeEventListener(AUTH_TOKEN_CHANGED_EVENT, handleAuthTokenChanged);
     };
   }, [projectId, router]);
+
+  useEffect(() => {
+    if (!projectId || !projectData) return;
+
+    sessionStorage.setItem('currentProjectId', projectId);
+    localStorage.setItem('currentProjectId', projectId);
+
+    if (projectData.name) {
+      sessionStorage.setItem('currentProjectName', projectData.name);
+      localStorage.setItem('currentProjectName', projectData.name);
+    }
+
+    if (projectData.type) {
+      sessionStorage.setItem('currentProjectType', projectData.type);
+      localStorage.setItem('currentProjectType', projectData.type);
+    }
+
+    window.dispatchEvent(new Event('storage'));
+  }, [projectData, projectId]);
+
+  useEffect(() => {
+    if (!projectId || recordedAccessProjectIdRef.current === projectId) return;
+    recordedAccessProjectIdRef.current = projectId;
+
+    const timeoutId = window.setTimeout(() => {
+      api.post(`/api/projects/${projectId}/access`)
+        .then(() => {
+          window.dispatchEvent(new CustomEvent('planora:project-accessed'));
+        })
+        .catch(() => {
+          recordedAccessProjectIdRef.current = null;
+        });
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [projectId]);
 
   return (
     <FullLayout>

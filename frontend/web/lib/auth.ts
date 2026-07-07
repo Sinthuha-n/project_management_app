@@ -48,6 +48,18 @@ interface AuthSyncMessage {
     issuedAt?: number;
 }
 
+function debugAuthSyncFailure(
+    operation: string,
+    error: unknown,
+    context: Record<string, unknown> = {},
+): void {
+    console.debug('[auth-sync] Best-effort sync operation failed', {
+        operation,
+        ...context,
+        error,
+    });
+}
+
 function emitAuthTokenChanged(): void {
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event(AUTH_TOKEN_CHANGED_EVENT));
@@ -112,7 +124,8 @@ function broadcastAuthSync(type: AuthSyncType, token?: string | null): void {
 
     try {
         getAuthBroadcastChannel()?.postMessage(message);
-    } catch {
+    } catch (error) {
+        debugAuthSyncFailure('broadcast-channel-post', error, { type });
         // BroadcastChannel sync is best-effort; storage sync remains as fallback.
     }
 
@@ -122,7 +135,8 @@ function broadcastAuthSync(type: AuthSyncType, token?: string | null): void {
             issuedAt: message.issuedAt,
             id: Math.random().toString(36).slice(2),
         }));
-    } catch {
+    } catch (error) {
+        debugAuthSyncFailure('storage-sync-write', error, { type });
         // Storage sync is best-effort; same-tab auth still works without it.
     }
 }
@@ -166,7 +180,8 @@ function tryAcquireRefreshLock(): boolean {
                 return false;
             }
         }
-    } catch {
+    } catch (error) {
+        debugAuthSyncFailure('refresh-lock-read', error);
         // A malformed lock should not block auth recovery.
     }
 
@@ -174,7 +189,8 @@ function tryAcquireRefreshLock(): boolean {
         localStorage.setItem(REFRESH_LOCK_KEY, JSON.stringify({ owner: authTabId, issuedAt: now }));
         const lock = JSON.parse(localStorage.getItem(REFRESH_LOCK_KEY) || '{}') as { owner?: string };
         return lock.owner === authTabId;
-    } catch {
+    } catch (error) {
+        debugAuthSyncFailure('refresh-lock-write', error);
         return true;
     }
 }
@@ -196,7 +212,8 @@ async function acquireRefreshLock(): Promise<() => void> {
             if (lock.owner === authTabId) {
                 localStorage.removeItem(REFRESH_LOCK_KEY);
             }
-        } catch {
+        } catch (error) {
+            debugAuthSyncFailure('refresh-lock-release', error);
             localStorage.removeItem(REFRESH_LOCK_KEY);
         }
     };
@@ -222,7 +239,8 @@ function handleCrossTabAuthEvent(event: StorageEvent): void {
             markAuthActive();
             window.setTimeout(emitAuthTokenChanged, 100);
         }
-    } catch {
+    } catch (error) {
+        debugAuthSyncFailure('storage-sync-parse', error, { key: event.key });
         // Ignore malformed messages from storage.
     }
 }

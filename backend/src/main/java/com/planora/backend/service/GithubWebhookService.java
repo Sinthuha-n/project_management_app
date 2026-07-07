@@ -6,13 +6,8 @@ import com.planora.backend.model.GithubIntegration;
 import com.planora.backend.repository.GithubIntegrationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,27 +21,6 @@ public class GithubWebhookService {
     private final GithubCommitService commitService;
     private final GithubIssueService issueService;
     private final ObjectMapper objectMapper;
-
-    @Value("${github.webhook.secret:}")
-    private String webhookSecret;
-
-    public boolean verifySignature(String payload, String signature) {
-        if (webhookSecret == null || webhookSecret.isBlank()) {
-            log.warn("GitHub webhook secret not configured — skipping signature validation");
-            return true;
-        }
-        if (signature == null || !signature.startsWith("sha256=")) return false;
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(webhookSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-            byte[] computed = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-            String expected = "sha256=" + HexFormat.of().formatHex(computed);
-            return expected.equals(signature);
-        } catch (Exception e) {
-            log.error("Webhook signature verification failed", e);
-            return false;
-        }
-    }
 
     public void handleEvent(String eventType, String payload) {
         try {

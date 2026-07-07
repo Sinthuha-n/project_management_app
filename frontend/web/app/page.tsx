@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PranoraIcon, PranoraLogo } from '@/components/brand/PranoraLogo';
+import { PlanoraIcon, PlanoraLogo } from '@/components/brand/PlanoraLogo';
 import { ensureValidToken } from '@/lib/auth';
 import styles from './page.module.css';
 
@@ -133,10 +133,10 @@ function LogoContainer() {
   return (
     <div className="flex items-center">
         <div className="hidden sm:block">
-          <PranoraLogo width={140} style={{ filter: 'drop-shadow(0 2px 8px rgba(21,93,252,0.15))' }} />
+          <PlanoraLogo width={140} style={{ filter: 'drop-shadow(0 2px 8px rgba(21,93,252,0.15))' }} />
         </div>
         <div className="block sm:hidden">
-          <PranoraIcon size={28} />
+          <PlanoraIcon size={28} />
         </div>
     </div>
   );

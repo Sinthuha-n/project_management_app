@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getUserFromToken, User } from '@/lib/auth';
 import { projectsApi } from '@/services/api-contract';
@@ -8,6 +8,7 @@ import RecentProjectCard from '../dashboard/components/recentspaces/RecentProjec
 
 import Link from 'next/link';
 import { LayoutGrid, List } from 'lucide-react';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 
 interface SpaceProject {
     id: number;
@@ -21,7 +22,7 @@ interface SpaceProject {
     memberCount?: number;
 }
 
-export default function SpacesPage() {
+function SpacesPageContent() {
     const [projects, setProjects] = useState<SpaceProject[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -383,5 +384,13 @@ export default function SpacesPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function SpacesPage() {
+    return (
+        <Suspense fallback={<RouteLoadingState title="Loading spaces" subtitle="Preparing your project spaces." variant="cards" />}>
+            <SpacesPageContent />
+        </Suspense>
     );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { archiveTask, fetchTasksByProject, getArchivedTasks, unarchiveTask } from '@/app/(project)/kanban/api';
 import { getMilestones, assignTaskToMilestone } from '@/services/milestone-service';
@@ -103,6 +103,12 @@ export function useListTasks() {
   const cacheKey = projectId ? `planora:tasks:${projectId}:${showArchived ? 'archived' : 'active'}` : null;
   const membersCacheKey = projectId ? `planora:membersMap:${projectId}` : null;
 
+  const hasLoadedRef = useRef(false);
+
+  useEffect(() => {
+    hasLoadedRef.current = false;
+  }, [projectId, showArchived]);
+
   // Fetch project members to get profile photo URLs (keyed by userId)
   const loadMembersMap = useCallback(async (): Promise<Record<number, string | null>> => {
     if (!projectId || !membersCacheKey) return {};
@@ -142,19 +148,22 @@ export function useListTasks() {
     }
   }, [projectId, membersCacheKey]);
 
-  const loadTasks = useCallback(async () => {
+  const loadTasks = useCallback(async (options?: { forceSpinner?: boolean }) => {
     if (!projectId || !cacheKey) return;
     setError(null);
-    // Serve stale data instantly
+    const isInitialLoad = !hasLoadedRef.current || options?.forceSpinner;
     const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      try {
-        setTasks((JSON.parse(cached) as Task[]).map(sanitizeTaskPhoto).map(normalizeAssignees));
-        setLoading(false);
-      } catch { /* ignore corrupt cache */ }
-    } else {
-      setTasks([]);
-      setLoading(true);
+    if (isInitialLoad) {
+      // Serve stale data instantly on initial load
+      if (cached) {
+        try {
+          setTasks((JSON.parse(cached) as Task[]).map(sanitizeTaskPhoto).map(normalizeAssignees));
+          setLoading(false);
+        } catch { /* ignore corrupt cache */ }
+      } else {
+        setTasks([]);
+        setLoading(true);
+      }
     }
     // Always revalidate in background; load tasks + member photos in parallel
     try {
@@ -169,12 +178,51 @@ export function useListTasks() {
       ).map(sanitizeTaskPhoto).map(normalizeAssignees);
       setTasks(enriched);
       localStorage.setItem(cacheKey, JSON.stringify(enriched));
+      hasLoadedRef.current = true;
     } catch {
-      if (!cached) setError('Failed to load tasks');
+      if (isInitialLoad && !cached) setError('Failed to load tasks');
     } finally {
       setLoading(false);
     }
   }, [projectId, cacheKey, loadMembersMap, showArchived]);
+
+  const loadSingleTask = useCallback(async (taskId: number) => {
+    if (!projectId || !cacheKey) return;
+    try {
+      const [res, membersMap] = await Promise.all([
+        tasksApi.get(taskId),
+        loadMembersMap(),
+      ]);
+      const rawTask = res as Task;
+      const isArchived = Boolean(rawTask.archived);
+      if (isArchived !== showArchived) {
+        // Remove task from list if archived status doesn't match
+        setTasks((prev) => {
+          const next = prev.filter((item) => item.id !== taskId);
+          if (cacheKey) localStorage.setItem(cacheKey, JSON.stringify(next));
+          return next;
+        });
+        return;
+      }
+      const t = rawTask.assigneeId && membersMap[rawTask.assigneeId]
+        ? { ...rawTask, assigneePhotoUrl: membersMap[rawTask.assigneeId] ?? undefined }
+        : rawTask;
+      const enriched = normalizeAssignees(sanitizeTaskPhoto(t));
+      setTasks((prev) => {
+        const exists = prev.some((item) => item.id === taskId);
+        let next;
+        if (exists) {
+          next = prev.map((item) => item.id === taskId ? enriched : item);
+        } else {
+          next = [...prev, enriched];
+        }
+        if (cacheKey) localStorage.setItem(cacheKey, JSON.stringify(next));
+        return next;
+      });
+    } catch {
+      void loadTasks();
+    }
+  }, [projectId, cacheKey, loadMembersMap, loadTasks, showArchived]);
 
   const loadRowEditDependencies = useCallback(async () => {
     if (!projectId) return;
@@ -216,10 +264,18 @@ export function useListTasks() {
   useEffect(() => { void loadRowEditDependencies(); }, [loadRowEditDependencies]);
 
   useEffect(() => {
-    const onTaskUpdated = () => void loadTasks();
+    const onTaskUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<{ taskId?: number }>;
+      const taskId = customEvent.detail?.taskId;
+      if (taskId) {
+        void loadSingleTask(taskId);
+      } else {
+        void loadTasks();
+      }
+    };
     window.addEventListener('planora:task-updated', onTaskUpdated);
     return () => window.removeEventListener('planora:task-updated', onTaskUpdated);
-  }, [loadTasks]);
+  }, [loadTasks, loadSingleTask]);
 
   useTaskWebSocket(projectIdStr, useCallback((event) => {
     if (event.type === 'TASK_DELETED' && event.taskId) {
@@ -461,6 +517,16 @@ export function useListTasks() {
     }
   }, [milestones, patchTaskOptimistic, tasks]);
 
+  const handlePriorityChange = useCallback(async (taskId: number, priority: string) => {
+    const previous = tasks.find((t) => t.id === taskId)?.priority;
+    patchTaskOptimistic(taskId, { priority });
+    try {
+      await tasksApi.updatePriority(taskId, priority as 'LOW' | 'NORMAL' | 'MEDIUM' | 'HIGH' | 'URGENT');
+    } catch {
+      patchTaskOptimistic(taskId, { priority: previous });
+    }
+  }, [patchTaskOptimistic, tasks]);
+
   const handleAddTask = useCallback(async (data: CreateTaskData) => {
     if (!projectId) return;
     try {
@@ -498,6 +564,7 @@ export function useListTasks() {
     labels,
     milestones,
     loadTasks,
+    loadSingleTask,
     showArchived,
     setShowArchived,
     canModifyTasks: currentUserRole !== 'VIEWER',
@@ -513,5 +580,6 @@ export function useListTasks() {
     handleAssigneesChange,
     handleToggleTaskLabel,
     handleMilestoneChange,
+    handlePriorityChange,
   };
 }

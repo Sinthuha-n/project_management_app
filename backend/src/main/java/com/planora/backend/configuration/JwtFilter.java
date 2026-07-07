@@ -69,23 +69,24 @@ public class JwtFilter extends OncePerRequestFilter {
 
             UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
-            // BUG-002 Fix: reject unverified accounts
-            if (!userDetails.isEnabled()) {
-                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                response.setContentType("application/json");
-                ApiErrorResponse errorResponse = new ApiErrorResponse(
-                    java.time.LocalDateTime.now().toString(),
-                    HttpServletResponse.SC_FORBIDDEN,
-                    "EMAIL_NOT_VERIFIED",
-                    "Email not verified",
-                    request.getRequestURI(),
-                    null
-                );
-                response.getWriter().write(new ObjectMapper().writeValueAsString(errorResponse));
-                return;
-            }
-
             if(jwtService.validateToken(token,userDetails)){
+                // Only a valid access token for this user may reveal that the account
+                // needs verification. A signed token of another type remains anonymous.
+                if (!userDetails.isEnabled()) {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json");
+                    ApiErrorResponse errorResponse = new ApiErrorResponse(
+                        java.time.LocalDateTime.now().toString(),
+                        HttpServletResponse.SC_FORBIDDEN,
+                        "EMAIL_NOT_VERIFIED",
+                        "Email not verified",
+                        request.getRequestURI(),
+                        null
+                    );
+                    response.getWriter().write(new ObjectMapper().writeValueAsString(errorResponse));
+                    return;
+                }
+
                 UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 
                 authenticationToken.setDetails(

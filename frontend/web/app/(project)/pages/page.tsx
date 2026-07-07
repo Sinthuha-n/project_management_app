@@ -110,7 +110,7 @@ export default function PagesPage() {
 
       {/* Error Toast */}
       {error && (
-        <div className="fixed bottom-4 right-4 z-[10000] max-w-sm rounded-xl border border-cu-danger/20 bg-cu-bg p-4 shadow-cu-xl">
+        <div className="fixed bottom-4 right-4 z-[var(--cu-z-toast)] max-w-sm rounded-xl border border-cu-danger/20 bg-cu-bg p-4 shadow-cu-xl">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cu-danger/10 text-cu-danger">
               <RefreshCw size={15} />

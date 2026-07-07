@@ -393,7 +393,7 @@ export default function ProductBacklogSection({
           {/* Touch drag ghost */}
           {ghost && draggingTask && typeof document !== 'undefined' && createPortal(
             <div
-              style={{ position: 'fixed', top: ghost.y, left: ghost.x, width: ghost.width, pointerEvents: 'none', zIndex: 9999 }}
+              style={{ position: 'fixed', top: ghost.y, left: ghost.x, width: ghost.width, pointerEvents: 'none', zIndex: 'var(--cu-z-modal-popover)' }}
               className="flex items-center gap-2 rounded-2xl border border-[#D0D5DD] bg-white px-3 py-2.5 shadow-2xl opacity-95"
             >
               <GripVertical size={14} className="flex-shrink-0 text-[#98A2B3]" />

@@ -4,7 +4,6 @@ import com.planora.backend.model.User;
 import com.planora.backend.model.UserPrincipal;
 import com.planora.backend.repository.UserRepository;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -44,16 +43,9 @@ public class JpaUserDetailedService implements UserDetailsService {
             throw new UsernameNotFoundException("User is not found");
         }
 
-        // Step 3. Enforce the email verification business rule at the core security layer.
-        // Throwing DisabledException tells Spring Security to reject the login attempt
-        // entirely, EVEN IF the user provided the perfectly correct password.
-        if(!user.isVerified()){
-            System.out.println("Email is not verified");
-            throw new DisabledException("Email is not verified");
-        }
-
-        // Step 4. Wrap our custom User entity inside a UserPrincipal (which implements UserDetails).
-        // This packages our database data into the exact format Spring Security requires to do its job.
+        // Step 3. Return the account state through UserDetails. DaoAuthenticationProvider
+        // enforces isEnabled() during login, while JwtFilter needs the disabled principal
+        // in order to return the actionable EMAIL_NOT_VERIFIED response for a valid token.
         return new UserPrincipal(user);
     }
 }

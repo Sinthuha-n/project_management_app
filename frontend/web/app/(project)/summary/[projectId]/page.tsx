@@ -54,6 +54,9 @@ export default function SummaryPage() {
                 sprints={summaryData.sprints}
                 metrics={summaryData.metrics}
                 projectDetails={summaryData.projectDetails}
+                pages={summaryData.pages}
+                milestones={summaryData.milestones}
+                members={summaryData.members}
                 isAgile={isAgileProject}
             />
         </div>

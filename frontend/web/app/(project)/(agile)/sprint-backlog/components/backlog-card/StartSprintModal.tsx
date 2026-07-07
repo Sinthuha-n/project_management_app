@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { CalendarDays, Clock, Rocket, X } from 'lucide-react';
+import { formatLocalDate } from '@/lib/date-format';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface StartSprintModalProps {
   open: boolean;
@@ -23,7 +25,7 @@ export default function StartSprintModal({ open, sprintName, loading, error, onS
   const [selectedDuration, setSelectedDuration] = useState<number>(14);
   const [customDuration, setCustomDuration] = useState<string>('');
   const [useCustomDuration, setUseCustomDuration] = useState(false);
-  const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState<string>(() => formatLocalDate(new Date()));
 
   if (!open) return null;
 
@@ -48,8 +50,9 @@ export default function StartSprintModal({ open, sprintName, loading, error, onS
   const duration = getEffectiveDuration();
 
   return (
-    <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center"
+    <OverlayPortal>
+      <div
+      className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center"
       style={{ backgroundColor: 'rgba(16, 24, 40, 0.55)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
@@ -213,6 +216,7 @@ export default function StartSprintModal({ open, sprintName, loading, error, onS
           to   { opacity: 1; transform: scale(1)   translateY(0); }
         }
       `}</style>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }

@@ -434,7 +434,7 @@ export default function ChatInterface() {
 
       <AnimatePresence>
         {activeThreadRoot && showMobileThread && (
-          <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="fixed inset-0 z-[var(--cu-z-overlay)] lg:hidden">
             <motion.button
               type="button"
               aria-label="Close thread panel overlay"

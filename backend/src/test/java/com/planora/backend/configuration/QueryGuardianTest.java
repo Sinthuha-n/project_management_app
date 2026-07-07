@@ -35,6 +35,22 @@ class QueryGuardianTest {
     }
 
     @Test
+    void validateThresholds_acceptsOrderedPositiveThresholds() {
+        ReflectionTestUtils.setField(queryGuardrailFilter, "warnThreshold", 60);
+        ReflectionTestUtils.setField(queryGuardrailFilter, "failThreshold", 180);
+
+        assertDoesNotThrow(queryGuardrailFilter::validateThresholds);
+    }
+
+    @Test
+    void validateThresholds_rejectsInvertedThresholds() {
+        ReflectionTestUtils.setField(queryGuardrailFilter, "warnThreshold", 180);
+        ReflectionTestUtils.setField(queryGuardrailFilter, "failThreshold", 60);
+
+        assertThrows(IllegalStateException.class, queryGuardrailFilter::validateThresholds);
+    }
+
+    @Test
     void doFilterInternal_throwsServletException_whenFailOnExceedAndThresholdBreached() throws Exception {
         ReflectionTestUtils.setField(queryGuardrailFilter, "warnThreshold", 0);
         ReflectionTestUtils.setField(queryGuardrailFilter, "failThreshold", 0);

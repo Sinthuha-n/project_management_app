@@ -61,7 +61,15 @@ const config: Config = {
         },
       },
       fontFamily: {
-        inter: ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
+        inter: [
+          'var(--font-inter)',
+          'Inter',
+          'system-ui',
+          'sans-serif',
+          'Apple Color Emoji',
+          'Segoe UI Emoji',
+          'Noto Color Emoji',
+        ],
       },
       fontSize: {
         '2xs': ['0.6875rem', { lineHeight: '1rem' }],       // 11px

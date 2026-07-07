@@ -1,9 +1,19 @@
-import { useState, useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useState, useEffect, useMemo, useSyncExternalStore, startTransition } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
+import useSWR from 'swr';
+import api from '@/lib/axios';
 import * as projectsApi from '@/services/projects-service';
 import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
 import { AUTH_TOKEN_CHANGED_EVENT } from '@/lib/auth';
 import { isAgileProjectType } from '@/components/shared/ProjectTypeIcon';
+
+type ProjectContextCache = {
+  isFavorite: boolean;
+  type: string;
+  name: string;
+};
+
+const fetchProject = (url: string) => api.get(url).then((response) => response.data);
 
 export const subscribeToBrowserStorage = (onStoreChange: () => void) => {
   if (typeof window === 'undefined') return () => { };
@@ -70,6 +80,31 @@ export function useProjectContext() {
 
   const effectiveProjectType = projectType || storedProjectType;
   const isAgile = useMemo(() => isAgileProjectType(effectiveProjectType), [effectiveProjectType]);
+  const projectCacheKey = useMemo(
+    () => (projectId ? buildSessionCacheKey('topbar-project', [projectId]) : null),
+    [projectId],
+  );
+  const cachedProject = useMemo(
+    () => (projectCacheKey
+      ? getSessionCache<ProjectContextCache>(projectCacheKey, { allowStale: true }).data
+      : null),
+    [projectCacheKey],
+  );
+  const { data: projectData } = useSWR(
+    projectId ? `/api/projects/${projectId}` : null,
+    fetchProject,
+    {
+      fallbackData: cachedProject
+        ? {
+          name: cachedProject.name,
+          type: cachedProject.type,
+          isFavorite: cachedProject.isFavorite,
+        }
+        : undefined,
+      dedupingInterval: 60_000,
+      revalidateIfStale: true,
+    },
+  );
 
   useEffect(() => {
     const storedId = getScopedProjectValue('currentProjectId');
@@ -79,42 +114,35 @@ export function useProjectContext() {
       // Do not call setProjectType synchronously here to avoid cascading renders.
     }
 
-    let cancelled = false;
-    const fetchProjectStatus = async () => {
-      if (!projectId) { setIsFavorite(false); return; }
+    if (!projectId) {
+      startTransition(() => { setIsFavorite(false); });
+    }
+  }, [projectId]);
 
-      const cacheKey = buildSessionCacheKey('topbar-project', [projectId]);
-      if (cacheKey) {
-        const cached = getSessionCache<{ isFavorite: boolean; type: string; name: string }>(cacheKey);
-        if (cached.data) {
-          setIsFavorite(cached.data.isFavorite);
-          setProjectType(cached.data.type);
-          return;
-        }
-      }
+  useEffect(() => {
+    if (!projectData) return;
 
-      try {
-        const projectData = await projectsApi.fetchProjectDetails(projectId);
-        if (cancelled) return;
-        const resolvedProjectType = projectData?.type || 'KANBAN';
-        const isFav = Boolean(projectData?.isFavorite);
-        setIsFavorite(isFav);
-        setProjectType(resolvedProjectType);
-        setScopedProjectValue('currentProjectType', resolvedProjectType);
+    const resolvedProjectType = projectData?.type || 'KANBAN';
+    const isFav = Boolean(projectData?.isFavorite);
+    startTransition(() => {
+      setIsFavorite(isFav);
+      setProjectType(resolvedProjectType);
+    });
+    setScopedProjectValue('currentProjectType', resolvedProjectType);
 
-        if (projectData?.name && getScopedProjectValue('currentProjectName') !== projectData.name) {
-          setScopedProjectValue('currentProjectName', projectData.name);
-          window.dispatchEvent(new Event('storage'));
-        }
+    if (projectData?.name && getScopedProjectValue('currentProjectName') !== projectData.name) {
+      setScopedProjectValue('currentProjectName', projectData.name);
+      window.dispatchEvent(new Event('storage'));
+    }
 
-        if (cacheKey && projectData?.name) {
-          setSessionCache(cacheKey, { isFavorite: isFav, type: resolvedProjectType, name: projectData.name }, 2 * 60_000);
-        }
-      } catch { setIsFavorite(false); }
-    };
-    void fetchProjectStatus();
-    return () => { cancelled = true; };
-  }, [projectId, storedProjectType]);
+    if (projectCacheKey && projectData?.name) {
+      setSessionCache(projectCacheKey, {
+        isFavorite: isFav,
+        type: resolvedProjectType,
+        name: projectData.name,
+      }, 10 * 60_000);
+    }
+  }, [projectData, projectCacheKey]);
 
   const toggleFavorite = async () => {
     if (!projectId) return;

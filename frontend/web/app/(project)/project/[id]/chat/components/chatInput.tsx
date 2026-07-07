@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { EmojiStyle, Theme } from 'emoji-picker-react';
 import { uploadChatDocument } from './uploadChatDocument';
 import { useParams } from 'next/navigation';
+import { toast } from '@/components/ui';
 
 interface ChatInputProps {
   onSendMessage: (msg: string) => void;
@@ -47,9 +48,11 @@ export const ChatInput = ({
     setUploading(true);
     try {
       const url = await uploadChatDocument(projectId, file);
+      // Uploaded S3 URLs are the chat attachment contract: isFileDocument renders
+      // them with attachment chrome in messages, threads, and conversation previews.
       onSendMessage(url);
     } catch {
-      alert('Failed to upload file.');
+      toast("Couldn't upload file. Please try again.", 'error');
     } finally {
       setUploading(false);
       e.target.value = '';

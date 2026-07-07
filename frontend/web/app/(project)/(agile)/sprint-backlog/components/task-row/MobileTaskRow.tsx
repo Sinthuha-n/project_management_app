@@ -233,7 +233,7 @@ export default function MobileTaskRow(props: TaskRowProps) {
         <div
           ref={statusPortalRef}
           style={{ position: 'fixed', top: `${statusPosition.top}px`, left: `${statusPosition.left}px`, width: '160px' }}
-          className="z-[9999] overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl animate-in fade-in zoom-in-95 duration-200"
+          className="z-[var(--cu-z-dropdown)] overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl animate-in fade-in zoom-in-95 duration-200"
         >
           <div className="px-3 py-2 text-[11px] font-bold text-cu-text-secondary border-b border-cu-border uppercase tracking-wider">Move To</div>
           <div className="p-1">
@@ -257,7 +257,7 @@ export default function MobileTaskRow(props: TaskRowProps) {
         <div
           ref={assignPortalRef}
           style={{ position: 'fixed', top: `${assignPosition.top}px`, left: `${assignPosition.left}px`, width: 'max-content', minWidth: '200px' }}
-          className="z-[9999] overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl animate-in fade-in zoom-in-95 duration-200"
+          className="z-[var(--cu-z-dropdown)] overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl animate-in fade-in zoom-in-95 duration-200"
         >
           <div className="px-4 py-2 text-[11px] font-bold text-cu-text-secondary border-b border-cu-border uppercase tracking-wider">Assign Member</div>
           <div className="max-h-[240px] overflow-y-auto p-1">

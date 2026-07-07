@@ -72,7 +72,7 @@ class TaskActivityControllerTest {
                 .description("Status changed to IN_PROGRESS")
                 .createdAt("2024-06-01T12:00:00")
                 .build();
-        when(activityService.getActivities(5L)).thenReturn(List.of(activity));
+        when(activityService.getActivities(5L, 1L)).thenReturn(List.of(activity));
 
         mockMvc.perform(get("/api/tasks/5/activities"))
                 .andExpect(status().isOk())
@@ -84,7 +84,7 @@ class TaskActivityControllerTest {
     @Test
     @WithMockUserPrincipal
     void getActivities_returnsEmptyListWhenNoActivity() throws Exception {
-        when(activityService.getActivities(99L)).thenReturn(List.of());
+        when(activityService.getActivities(99L, 1L)).thenReturn(List.of());
 
         mockMvc.perform(get("/api/tasks/99/activities"))
                 .andExpect(status().isOk())
