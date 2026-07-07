@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { AlertCircle, Archive, ListChecks, Plus, RefreshCw, Search } from 'lucide-react';
+import { AlertCircle, Archive, ChevronLeft, ChevronRight, ListChecks, Plus, RefreshCw, Search } from 'lucide-react';
 import TaskCardModal from '@/app/taskcard/TaskCardModal';
 import CreateTaskModal from '@/components/shared/CreateTaskModal';
 import EmptyState from '@/components/shared/EmptyState';
@@ -15,6 +15,7 @@ import ListBulkActionBar from './components/ListBulkActionBar';
 import { useProjectStatuses } from '@/hooks/useProjectStatuses';
 import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 import { stripQueryParam } from '@/lib/url';
+import { buildGroupedTasks, normalizeStatus, type ListGroupBy } from './lib/list-config';
 
 // ── Main Page ─────────────────────────────────────────────────────────────
 
@@ -28,7 +29,7 @@ function ListPageContent() {
     () => searchParams.get('action') === 'add-task',
   );
   const [currentPage, setCurrentPage] = useState(1);
-  const [groupBy, setGroupBy] = useState<'none' | 'status' | 'priority' | 'assignee'>('none');
+  const [groupBy, setGroupBy] = useState<ListGroupBy>('none');
   const [filters, setFilters] = useState<ListFilters>({
     search: '',
     statuses: [],
@@ -89,7 +90,7 @@ function ListPageContent() {
           (task.assignees ?? []).some((person) => person.name.toLowerCase().includes(q));
         if (!inTitle && !inAssignee) return false;
       }
-      if (filters.statuses.length > 0 && !filters.statuses.includes(task.status)) return false;
+      if (filters.statuses.length > 0 && !filters.statuses.includes(normalizeStatus(task.status))) return false;
       if (filters.priorities.length > 0 && !filters.priorities.includes((task.priority ?? '').toUpperCase())) return false;
       if (filters.assignee) {
         const hasAssignee =
@@ -101,22 +102,7 @@ function ListPageContent() {
     })
   ), [sortedTasks, filters]);
 
-  const groupedEntries = useMemo(() => {
-    if (groupBy === 'none') return [{ label: 'All Tasks', items: filteredTasks }];
-    const groups = new Map<string, typeof filteredTasks>();
-    filteredTasks.forEach((task) => {
-      const key =
-        groupBy === 'status'
-          ? (task.status || 'TODO').replace(/_/g, ' ')
-          : groupBy === 'priority'
-            ? (task.priority || 'LOW')
-            : ((task.assignees && task.assignees.length > 0 ? task.assignees.map((person) => person.name).join(', ') : task.assigneeName) || 'Unassigned');
-      const arr = groups.get(key) ?? [];
-      arr.push(task);
-      groups.set(key, arr);
-    });
-    return Array.from(groups.entries()).map(([label, items]) => ({ label, items }));
-  }, [filteredTasks, groupBy]);
+  const groupedEntries = useMemo(() => buildGroupedTasks(filteredTasks, groupBy), [filteredTasks, groupBy]);
 
   const flatGroupedTasks = useMemo(
     () => groupedEntries.flatMap((entry) => entry.items),
@@ -128,6 +114,23 @@ function ListPageContent() {
     const startIndex = (currentPage - 1) * TASKS_PER_PAGE;
     return flatGroupedTasks.slice(startIndex, startIndex + TASKS_PER_PAGE);
   }, [currentPage, flatGroupedTasks]);
+
+  const paginatedGroupedEntries = useMemo(() => {
+    const startIndex = (currentPage - 1) * TASKS_PER_PAGE;
+    const endIndex = startIndex + TASKS_PER_PAGE;
+    let cursor = 0;
+
+    return groupedEntries
+      .map((entry) => {
+        const visibleItems = entry.items.filter(() => {
+          const visible = cursor >= startIndex && cursor < endIndex;
+          cursor += 1;
+          return visible;
+        });
+        return { ...entry, items: visibleItems };
+      })
+      .filter((entry) => entry.items.length > 0);
+  }, [currentPage, groupedEntries]);
 
   // Clean ?action= query param from URL on mount — no setState here
   useEffect(() => {
@@ -191,29 +194,29 @@ function ListPageContent() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 h-full bg-cu-bg-secondary overflow-y-auto scrollbar-thin">
-      <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-[1400px] mx-auto w-full animate-fade-in">
+    <div className="flex min-h-full flex-1 flex-col bg-cu-bg-secondary">
+      <div className="mx-auto w-full max-w-[1400px] animate-fade-in px-3 py-4 sm:px-6 lg:px-8 lg:py-6">
 
-        {/* Header */}
-        <div className="sticky-section-header glass-panel border border-cu-border/50 rounded-2xl px-4 sm:px-6 py-4 mb-4 flex items-center gap-3 flex-wrap shadow-cu-md">
-          <div>
-            <h1 className="text-[20px] sm:text-2xl font-extrabold text-cu-text-primary tracking-tight">Task List</h1>
-            <p className="text-[12px] sm:text-[13px] text-cu-text-secondary mt-0.5 font-medium">
-              {filteredTasks.length} visible of {sortedTasks.length} {showArchived ? 'archived ' : ''}task{sortedTasks.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-          <div className="flex items-center gap-3.5 ml-auto">
-            <div className="inline-flex rounded-xl border border-cu-border/60 bg-cu-bg p-1 shadow-cu-sm">
+        <div className="mb-4 rounded-cu-lg border border-cu-border bg-cu-bg px-4 py-4 shadow-cu-sm sm:px-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <h1 className="truncate text-[20px] font-extrabold tracking-tight text-cu-text-primary sm:text-2xl">Task List</h1>
+              <p className="mt-0.5 text-[12px] font-medium text-cu-text-secondary sm:text-[13px]">
+                {filteredTasks.length} visible of {sortedTasks.length} {showArchived ? 'archived ' : ''}task{sortedTasks.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="inline-flex rounded-cu-md border border-cu-border bg-cu-bg-secondary p-1">
               <button
                 type="button"
                 onClick={() => {
                   setShowArchived(false);
                   setSelectedIds(new Set());
                 }}
-                className={`px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all duration-200 cursor-pointer ${
+                className={`min-h-9 rounded-cu-md px-3 text-[12px] font-bold transition-colors ${
                   !showArchived
-                    ? 'bg-cu-primary text-white shadow-sm'
-                    : 'text-cu-text-secondary hover:bg-cu-hover/60 hover:text-cu-text-primary'
+                    ? 'bg-cu-primary text-white shadow-cu-sm'
+                    : 'text-cu-text-secondary hover:bg-cu-hover hover:text-cu-text-primary'
                 }`}
               >
                 Active
@@ -224,13 +227,13 @@ function ListPageContent() {
                   setShowArchived(true);
                   setSelectedIds(new Set());
                 }}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all duration-200 cursor-pointer ${
+                className={`inline-flex min-h-9 items-center gap-1.5 rounded-cu-md px-3 text-[12px] font-bold transition-colors ${
                   showArchived
-                    ? 'bg-cu-primary text-white shadow-sm'
-                    : 'text-cu-text-secondary hover:bg-cu-hover/60 hover:text-cu-text-primary'
+                    ? 'bg-cu-primary text-white shadow-cu-sm'
+                    : 'text-cu-text-secondary hover:bg-cu-hover hover:text-cu-text-primary'
                 }`}
               >
-                <Archive size={12} />
+                <Archive size={13} />
                 Archived
               </button>
             </div>
@@ -238,11 +241,12 @@ function ListPageContent() {
               onClick={() => setShowCreateModal(true)}
               disabled={showArchived || !canModifyTasks}
               title={showArchived ? 'Switch to Active to create tasks' : !canModifyTasks ? 'Viewers cannot create tasks' : 'Create task'}
-              className="flex items-center gap-1.5 px-4 py-2 bg-cu-primary text-white text-[12px] font-bold rounded-xl hover:bg-cu-primary-hover shadow-md shadow-cu-primary/10 transition-all duration-200 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-cu-primary cursor-pointer active:scale-95"
+              className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-cu-md bg-cu-primary px-3 text-[12px] font-bold text-white shadow-cu-sm transition-colors hover:bg-cu-primary-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-cu-primary sm:px-4"
             >
               <Plus size={14} />
-              <span>Create Task</span>
+              <span className="hidden sm:inline">Create Task</span>
             </button>
+            </div>
           </div>
         </div>
 
@@ -275,15 +279,14 @@ function ListPageContent() {
           </div>
         )}
 
-        {/* Table */}
         {loading ? (
           <div className="flex flex-col gap-2">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="skeleton h-[42px] rounded-xl" />
+              <div key={i} className="skeleton h-[56px] rounded-cu-lg md:h-[48px]" />
             ))}
           </div>
         ) : (
-          <div className="bg-cu-bg rounded-2xl border border-cu-border/50 shadow-cu-sm overflow-hidden transition-all duration-300">
+          <div className="overflow-hidden rounded-cu-lg border border-cu-border bg-cu-bg shadow-cu-sm">
             <TaskTableHeader
               allVisibleSelected={allVisibleSelected}
               toggleSelectAllVisible={toggleSelectAllVisible}
@@ -307,43 +310,58 @@ function ListPageContent() {
                 }
               />
             ) : (
-              <div className="divide-y divide-cu-border/20">
-                {paginatedTasks.map((task) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    members={members}
-                    availableLabels={labels}
-                    milestones={milestones}
-                    onDueDateChange={handleDueDateChange}
-                    onAssigneesChange={handleAssigneesChange}
-                    onToggleLabel={handleToggleTaskLabel}
-                    onMilestoneChange={handleMilestoneChange}
-                    selected={selectedIds.has(task.id)}
-                    onToggleSelect={toggleSelect}
-                    onOpenModal={setSelectedTaskId}
-                    onStatusChange={handleStatusChange}
-                    onDelete={handleDelete}
-                    onArchive={handleArchive}
-                    onRestore={handleRestore}
-                    canModifyTasks={canModifyTasks}
-                    showArchived={showArchived}
-                    projectStatuses={projectStatuses}
-                    onPriorityChange={handlePriorityChange}
-                  />
+              <div>
+                {paginatedGroupedEntries.map((entry) => (
+                  <section key={entry.key} aria-label={entry.label}>
+                    {groupBy !== 'none' && (
+                      <div className="flex items-center justify-between border-y border-cu-border bg-cu-bg-secondary/80 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-cu-text-secondary first:border-t-0">
+                        <span className="truncate">{entry.label}</span>
+                        <span className="rounded-full bg-cu-bg px-2 py-0.5 text-[10px] text-cu-text-tertiary">
+                          {entry.items.length}
+                        </span>
+                      </div>
+                    )}
+                    <div className="space-y-2 bg-cu-bg-secondary p-2 md:space-y-0 md:bg-cu-bg md:p-0">
+                      {entry.items.map((task) => (
+                        <TaskRow
+                          key={task.id}
+                          task={task}
+                          members={members}
+                          availableLabels={labels}
+                          milestones={milestones}
+                          onDueDateChange={handleDueDateChange}
+                          onAssigneesChange={handleAssigneesChange}
+                          onToggleLabel={handleToggleTaskLabel}
+                          onMilestoneChange={handleMilestoneChange}
+                          selected={selectedIds.has(task.id)}
+                          onToggleSelect={toggleSelect}
+                          onOpenModal={setSelectedTaskId}
+                          onStatusChange={handleStatusChange}
+                          onDelete={handleDelete}
+                          onArchive={handleArchive}
+                          onRestore={handleRestore}
+                          canModifyTasks={canModifyTasks}
+                          showArchived={showArchived}
+                          projectStatuses={projectStatuses}
+                          onPriorityChange={handlePriorityChange}
+                        />
+                      ))}
+                    </div>
+                  </section>
                 ))}
               </div>
             )}
           </div>
         )}
 
-        {!loading && sortedTasks.length > TASKS_PER_PAGE && (
-          <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
+        {!loading && flatGroupedTasks.length > TASKS_PER_PAGE && (
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 pb-20 sm:pb-2">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1.5 rounded-lg border border-cu-border bg-cu-bg text-[13px] text-cu-text-primary disabled:opacity-50 disabled:cursor-not-allowed hover:bg-cu-hover transition-colors"
+              className="inline-flex min-h-9 items-center gap-1 rounded-cu-md border border-cu-border bg-cu-bg px-3 text-[13px] font-semibold text-cu-text-primary transition-colors hover:bg-cu-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
+              <ChevronLeft size={14} />
               Prev
             </button>
 
@@ -355,7 +373,7 @@ function ListPageContent() {
                 <button
                   key={pageNumber}
                   onClick={() => setCurrentPage(pageNumber)}
-                  className={`min-w-9 h-9 px-3 rounded-lg text-[13px] font-medium border transition-colors ${
+                  className={`h-9 min-w-9 rounded-cu-md border px-3 text-[13px] font-bold transition-colors ${
                     isActive
                       ? 'bg-cu-primary text-white border-cu-primary'
                       : 'bg-cu-bg text-cu-text-primary border-cu-border hover:bg-cu-hover'
@@ -369,9 +387,10 @@ function ListPageContent() {
             <button
               onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1.5 rounded-lg border border-cu-border bg-cu-bg text-[13px] text-cu-text-primary disabled:opacity-50 disabled:cursor-not-allowed hover:bg-cu-hover transition-colors"
+              className="inline-flex min-h-9 items-center gap-1 rounded-cu-md border border-cu-border bg-cu-bg px-3 text-[13px] font-semibold text-cu-text-primary transition-colors hover:bg-cu-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               Next
+              <ChevronRight size={14} />
             </button>
           </div>
         )}
@@ -388,6 +407,7 @@ function ListPageContent() {
           setSelectedIds(new Set());
         }}
         onClear={() => setSelectedIds(new Set())}
+        canModifyTasks={canModifyTasks}
       />
 
       {/* Modals */}

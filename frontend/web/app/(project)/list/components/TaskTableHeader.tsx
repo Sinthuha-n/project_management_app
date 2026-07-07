@@ -10,7 +10,7 @@ export default function TaskTableHeader({
   toggleSelectAllVisible,
 }: TaskTableHeaderProps) {
   return (
-    <div className={`hidden md:grid bg-cu-bg-secondary/50 backdrop-blur-sm border-b border-cu-border text-[10px] font-bold text-cu-text-tertiary uppercase tracking-wider sticky top-0 z-10 ${LIST_GRID_CLASS}`}>
+    <div className={`sticky top-0 z-10 hidden border-b border-cu-border bg-cu-bg-secondary/95 text-[10px] font-bold uppercase tracking-wider text-cu-text-tertiary md:${LIST_GRID_CLASS}`}>
       <span className="flex items-center justify-center">
         {toggleSelectAllVisible && (
           <input
@@ -22,17 +22,15 @@ export default function TaskTableHeader({
           />
         )}
       </span>
-      <span></span> {/* Priority bar space */}
-      <span className="hidden lg:block">Priority</span>
+      <span>Priority</span>
       <span>Title</span>
-      <span className="hidden lg:block">Labels</span>
+      <span>Labels</span>
       <span className="hidden xl:block">Milestone</span>
-      <span className="hidden md:block">Assignee</span>
+      <span>Assignee</span>
       <span>Status</span>
-      <span className="hidden sm:block">Due</span>
+      <span>Due</span>
       <span></span> {/* Actions space */}
     </div>
   );
 }
-
 

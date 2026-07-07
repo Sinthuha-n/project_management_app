@@ -11,7 +11,7 @@ import { MembersStatsCards } from "./components/MembersStatsCards";
 import { MembersTable } from "./components/MembersTable";
 import { RemoveMemberModal } from "./components/RemoveMemberModal";
 
-export default function MembersPageClient({ projectId }: { projectId: string }) {
+export default function MembersPageClient({ projectId, pageSize }: { projectId: string; pageSize?: number }) {
   const searchParams = useSearchParams();
   const hasAutoOpenedInvite = useRef(false);
 
@@ -103,6 +103,7 @@ export default function MembersPageClient({ projectId }: { projectId: string }) 
             setShowRemoveModal(true);
             setRemoveError("");
           }}
+          pageSize={pageSize}
         />
       </div>
 

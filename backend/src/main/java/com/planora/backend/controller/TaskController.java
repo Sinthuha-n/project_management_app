@@ -7,10 +7,12 @@ import com.planora.backend.dto.CommentRequestDTO;
 import com.planora.backend.dto.LinkedCommitResponseDTO;
 import com.planora.backend.dto.LinkedPrResponseDTO;
 import com.planora.backend.dto.PatchTaskDatesRequest;
+import com.planora.backend.dto.PageResponseDto;
 import com.planora.backend.dto.ReorderTasksRequest;
 import com.planora.backend.dto.TaskActivityResponseDTO;
 import com.planora.backend.dto.TaskBranchUpdateDTO;
 import com.planora.backend.dto.TaskGithubSummaryDTO;
+import com.planora.backend.dto.TaskPageResponseDto;
 import com.planora.backend.dto.TaskRequestDTO;
 import com.planora.backend.dto.TaskResponseDTO;
 import com.planora.backend.dto.TaskTemplateDTO;
@@ -39,7 +41,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -51,6 +52,9 @@ import java.time.LocalDateTime;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -325,6 +329,7 @@ public class TaskController {
      * Supports multiple optional filters via query parameters.
      */
     @GetMapping("/project/{projectId}")
+    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = TaskPageResponseDto.class)))
     public ResponseEntity<?> getTasksByProject(
             @PathVariable Long projectId,
             @RequestParam(defaultValue = "0") int page,
@@ -345,8 +350,8 @@ public class TaskController {
         Pageable pageable = PageRequest.of(page, size,
                 sortDir.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() :
                         Sort.by(sortBy).descending());
-        return ResponseEntity.ok(service.getTasksByProject(projectId,
-                currentUser.getUserId(), pageable, archived));
+        return ResponseEntity.ok(PageResponseDto.from(service.getTasksByProject(projectId,
+                currentUser.getUserId(), pageable, archived)));
     }
 
     private ResponseEntity<ApiErrorResponse> badTaskSortRequest(String message, HttpServletRequest request) {

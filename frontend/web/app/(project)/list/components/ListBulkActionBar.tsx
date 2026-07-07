@@ -8,6 +8,7 @@ interface ListBulkActionBarProps {
   onStatusChange: (status: string) => void;
   onDelete: () => void;
   onClear: () => void;
+  canModifyTasks?: boolean;
 }
 
 const STATUS_OPTIONS = [
@@ -22,6 +23,7 @@ export default function ListBulkActionBar({
   onStatusChange,
   onDelete,
   onClear,
+  canModifyTasks = true,
 }: ListBulkActionBarProps) {
   const [openStatus, setOpenStatus] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -37,8 +39,8 @@ export default function ListBulkActionBar({
   if (selectedCount === 0) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-200 hover:translate-y-[-2px] transition-transform duration-200">
-      <div ref={ref} className="flex items-center gap-3 rounded-2xl border border-cu-border/50 bg-cu-bg/90 backdrop-blur-md px-4 py-2 shadow-cu-xl">
+    <div className="fixed inset-x-3 bottom-3 z-50 animate-in slide-in-from-bottom-4 fade-in duration-200 sm:inset-x-auto sm:left-1/2 sm:bottom-6 sm:-translate-x-1/2">
+      <div ref={ref} className="mx-auto flex max-w-[520px] items-center gap-2 rounded-cu-lg border border-cu-border bg-cu-bg/95 px-3 py-2 shadow-cu-xl backdrop-blur-md sm:gap-3 sm:px-4">
 
         {/* Count */}
         <div className="flex items-center gap-2 pr-3 border-r border-cu-border/50">
@@ -52,7 +54,9 @@ export default function ListBulkActionBar({
         <div className="relative">
           <button
             onClick={() => setOpenStatus((v) => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-cu-text-secondary hover:text-cu-text-primary hover:bg-cu-hover/80 transition-colors cursor-pointer"
+            disabled={!canModifyTasks}
+            title={!canModifyTasks ? 'Viewers cannot update task status' : 'Change status'}
+            className="flex min-h-9 items-center gap-1.5 rounded-cu-md px-3 text-[11px] font-bold text-cu-text-secondary transition-colors hover:bg-cu-hover/80 hover:text-cu-text-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span>Status</span>
             <ChevronDown size={11} className="text-cu-text-muted" />
@@ -75,7 +79,9 @@ export default function ListBulkActionBar({
         {/* Delete */}
         <button
           onClick={onDelete}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-cu-danger hover:bg-cu-danger/10 transition-colors cursor-pointer"
+          disabled={!canModifyTasks}
+          title={!canModifyTasks ? 'Viewers cannot delete tasks' : 'Delete selected tasks'}
+          className="flex min-h-9 items-center gap-1.5 rounded-cu-md px-3 text-[11px] font-bold text-cu-danger transition-colors hover:bg-cu-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Trash2 size={13} />
           <span className="hidden sm:inline">Delete</span>
@@ -95,4 +101,3 @@ export default function ListBulkActionBar({
     </div>
   );
 }
-

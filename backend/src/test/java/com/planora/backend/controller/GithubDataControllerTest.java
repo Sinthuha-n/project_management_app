@@ -4,6 +4,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -15,14 +16,18 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.planora.backend.dto.GithubCommitDTO;
 import com.planora.backend.dto.GithubCreateIssueRequestDTO;
 import com.planora.backend.dto.GithubIssueDTO;
+import com.planora.backend.dto.GithubPrDTO;
 import com.planora.backend.model.GithubIntegration;
 import com.planora.backend.model.Project;
 import com.planora.backend.model.User;
@@ -88,6 +93,89 @@ class GithubDataControllerTest {
         userEntity.setGithubUsername("octocat");
         userEntity.setGithubAccessToken("github-token");
         principal = new UserPrincipal(userEntity);
+    }
+
+    @Test
+    void getPullRequests_returnsStablePageResponse() throws Exception {
+        GithubPrDTO pr = GithubPrDTO.builder()
+                .id(1L)
+                .githubPrNumber(17)
+                .title("Ship stable pages")
+                .build();
+        when(pullRequestService.getPullRequests(10L, "all", 1, 1))
+                .thenReturn(new PageImpl<>(List.of(pr), PageRequest.of(1, 1), 3));
+
+        mockMvc.perform(get("/api/github/project/10/pull-requests")
+                        .param("page", "1")
+                        .param("size", "1")
+                        .with(user(principal)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].title").value("Ship stable pages"))
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.totalPages").value(3))
+                .andExpect(jsonPath("$.size").value(1))
+                .andExpect(jsonPath("$.number").value(1))
+                .andExpect(jsonPath("$.first").value(false))
+                .andExpect(jsonPath("$.last").value(false))
+                .andExpect(jsonPath("$.empty").value(false))
+                .andExpect(jsonPath("$.numberOfElements").value(1))
+                .andExpect(jsonPath("$.pageable").doesNotExist())
+                .andExpect(jsonPath("$.sort").doesNotExist());
+    }
+
+    @Test
+    void getCommits_returnsStablePageResponse() throws Exception {
+        GithubCommitDTO commit = GithubCommitDTO.builder()
+                .id(2L)
+                .shortSha("abc1234")
+                .message("Fix serialization")
+                .build();
+        when(commitService.getCommits(10L, 0, 1))
+                .thenReturn(new PageImpl<>(List.of(commit), PageRequest.of(0, 1), 1));
+
+        mockMvc.perform(get("/api/github/project/10/commits")
+                        .param("size", "1")
+                        .with(user(principal)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].message").value("Fix serialization"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andExpect(jsonPath("$.size").value(1))
+                .andExpect(jsonPath("$.number").value(0))
+                .andExpect(jsonPath("$.first").value(true))
+                .andExpect(jsonPath("$.last").value(true))
+                .andExpect(jsonPath("$.empty").value(false))
+                .andExpect(jsonPath("$.numberOfElements").value(1))
+                .andExpect(jsonPath("$.pageable").doesNotExist())
+                .andExpect(jsonPath("$.sort").doesNotExist());
+    }
+
+    @Test
+    void getIssues_returnsStablePageResponse() throws Exception {
+        GithubIssueDTO issue = GithubIssueDTO.builder()
+                .id(3L)
+                .number(34)
+                .title("Fix login")
+                .state("open")
+                .build();
+        when(issueService.getIssues(10L, "open", 0, 1))
+                .thenReturn(new PageImpl<>(List.of(issue), PageRequest.of(0, 1), 1));
+
+        mockMvc.perform(get("/api/github/project/10/issues")
+                        .param("size", "1")
+                        .with(user(principal)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].title").value("Fix login"))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andExpect(jsonPath("$.size").value(1))
+                .andExpect(jsonPath("$.number").value(0))
+                .andExpect(jsonPath("$.first").value(true))
+                .andExpect(jsonPath("$.last").value(true))
+                .andExpect(jsonPath("$.empty").value(false))
+                .andExpect(jsonPath("$.numberOfElements").value(1))
+                .andExpect(jsonPath("$.pageable").doesNotExist())
+                .andExpect(jsonPath("$.sort").doesNotExist());
     }
 
     @Test

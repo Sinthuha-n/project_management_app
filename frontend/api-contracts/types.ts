@@ -4365,17 +4365,6 @@ export interface components {
         OwnerDTO: {
             login?: string;
         };
-        PageableObject: {
-            /** Format: int64 */
-            offset?: number;
-            paged?: boolean;
-            /** Format: int32 */
-            pageNumber?: number;
-            /** Format: int32 */
-            pageSize?: number;
-            sort?: components["schemas"]["SortObject"];
-            unpaged?: boolean;
-        };
         PageDetailResponseDto: {
             content?: string;
             cover?: string;
@@ -4400,7 +4389,11 @@ export interface components {
             updatedByUserId?: number;
             updatedByUsername?: string;
         };
-        PageGithubCommitDTO: {
+        PageRequestDto: {
+            content?: string;
+            title: string;
+        };
+        PageResponseDtoGithubCommitDTO: {
             content?: components["schemas"]["GithubCommitDTO"][];
             empty?: boolean;
             first?: boolean;
@@ -4409,16 +4402,14 @@ export interface components {
             number?: number;
             /** Format: int32 */
             numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
             /** Format: int32 */
             size?: number;
-            sort?: components["schemas"]["SortObject"];
             /** Format: int64 */
             totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
         };
-        PageGithubIssueDTO: {
+        PageResponseDtoGithubIssueDTO: {
             content?: components["schemas"]["GithubIssueDTO"][];
             empty?: boolean;
             first?: boolean;
@@ -4427,16 +4418,14 @@ export interface components {
             number?: number;
             /** Format: int32 */
             numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
             /** Format: int32 */
             size?: number;
-            sort?: components["schemas"]["SortObject"];
             /** Format: int64 */
             totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
         };
-        PageGithubPrDTO: {
+        PageResponseDtoGithubPrDTO: {
             content?: components["schemas"]["GithubPrDTO"][];
             empty?: boolean;
             first?: boolean;
@@ -4445,18 +4434,12 @@ export interface components {
             number?: number;
             /** Format: int32 */
             numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
             /** Format: int32 */
             size?: number;
-            sort?: components["schemas"]["SortObject"];
             /** Format: int64 */
             totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
-        };
-        PageRequestDto: {
-            content?: string;
-            title: string;
         };
         PageSummaryResponseDto: {
             cover?: string;
@@ -4811,11 +4794,6 @@ export interface components {
             /** Format: int64 */
             roomId?: number;
         };
-        SortObject: {
-            empty?: boolean;
-            sorted?: boolean;
-            unsorted?: boolean;
-        };
         SprintboardFullResponseDTO: {
             columns?: components["schemas"]["SprintcolumnFullDTO"][];
             /** Format: date-time */
@@ -5106,6 +5084,22 @@ export interface components {
             pullRequests?: components["schemas"]["PullRequestItem"][];
             /** Format: int64 */
             taskId?: number;
+        };
+        TaskPageResponseDto: {
+            content?: components["schemas"]["TaskResponseDTO"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
         };
         TaskRequestDTO: {
             archived?: boolean;
@@ -6174,7 +6168,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PageGithubCommitDTO"];
+                    "*/*": components["schemas"]["PageResponseDtoGithubCommitDTO"];
                 };
             };
         };
@@ -6200,7 +6194,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PageGithubIssueDTO"];
+                    "*/*": components["schemas"]["PageResponseDtoGithubIssueDTO"];
                 };
             };
         };
@@ -6252,7 +6246,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PageGithubPrDTO"];
+                    "*/*": components["schemas"]["PageResponseDtoGithubPrDTO"];
                 };
             };
         };
@@ -11097,7 +11091,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": Record<string, never>;
+                    "*/*": components["schemas"]["TaskPageResponseDto"];
                 };
             };
         };

@@ -2255,32 +2255,6 @@
         },
         "type": "object"
       },
-      "PageableObject": {
-        "properties": {
-          "offset": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "paged": {
-            "type": "boolean"
-          },
-          "pageNumber": {
-            "format": "int32",
-            "type": "integer"
-          },
-          "pageSize": {
-            "format": "int32",
-            "type": "integer"
-          },
-          "sort": {
-            "$ref": "#/components/schemas/SortObject"
-          },
-          "unpaged": {
-            "type": "boolean"
-          }
-        },
-        "type": "object"
-      },
       "PageDetailResponseDto": {
         "properties": {
           "content": {
@@ -2340,7 +2314,25 @@
         },
         "type": "object"
       },
-      "PageGithubCommitDTO": {
+      "PageRequestDto": {
+        "properties": {
+          "content": {
+            "maxLength": 2000000,
+            "minLength": 0,
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object"
+      },
+      "PageResponseDtoGithubCommitDTO": {
         "properties": {
           "content": {
             "items": {
@@ -2365,15 +2357,9 @@
             "format": "int32",
             "type": "integer"
           },
-          "pageable": {
-            "$ref": "#/components/schemas/PageableObject"
-          },
           "size": {
             "format": "int32",
             "type": "integer"
-          },
-          "sort": {
-            "$ref": "#/components/schemas/SortObject"
           },
           "totalElements": {
             "format": "int64",
@@ -2386,7 +2372,7 @@
         },
         "type": "object"
       },
-      "PageGithubIssueDTO": {
+      "PageResponseDtoGithubIssueDTO": {
         "properties": {
           "content": {
             "items": {
@@ -2411,15 +2397,9 @@
             "format": "int32",
             "type": "integer"
           },
-          "pageable": {
-            "$ref": "#/components/schemas/PageableObject"
-          },
           "size": {
             "format": "int32",
             "type": "integer"
-          },
-          "sort": {
-            "$ref": "#/components/schemas/SortObject"
           },
           "totalElements": {
             "format": "int64",
@@ -2432,7 +2412,7 @@
         },
         "type": "object"
       },
-      "PageGithubPrDTO": {
+      "PageResponseDtoGithubPrDTO": {
         "properties": {
           "content": {
             "items": {
@@ -2457,15 +2437,9 @@
             "format": "int32",
             "type": "integer"
           },
-          "pageable": {
-            "$ref": "#/components/schemas/PageableObject"
-          },
           "size": {
             "format": "int32",
             "type": "integer"
-          },
-          "sort": {
-            "$ref": "#/components/schemas/SortObject"
           },
           "totalElements": {
             "format": "int64",
@@ -2476,24 +2450,6 @@
             "type": "integer"
           }
         },
-        "type": "object"
-      },
-      "PageRequestDto": {
-        "properties": {
-          "content": {
-            "maxLength": 2000000,
-            "minLength": 0,
-            "type": "string"
-          },
-          "title": {
-            "maxLength": 200,
-            "minLength": 0,
-            "type": "string"
-          }
-        },
-        "required": [
-          "title"
-        ],
         "type": "object"
       },
       "PageSummaryResponseDto": {
@@ -3486,20 +3442,6 @@
         },
         "type": "object"
       },
-      "SortObject": {
-        "properties": {
-          "empty": {
-            "type": "boolean"
-          },
-          "sorted": {
-            "type": "boolean"
-          },
-          "unsorted": {
-            "type": "boolean"
-          }
-        },
-        "type": "object"
-      },
       "SprintboardFullResponseDTO": {
         "properties": {
           "columns": {
@@ -4287,6 +4229,46 @@
           },
           "taskId": {
             "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "TaskPageResponseDto": {
+        "properties": {
+          "content": {
+            "items": {
+              "$ref": "#/components/schemas/TaskResponseDTO"
+            },
+            "type": "array"
+          },
+          "empty": {
+            "type": "boolean"
+          },
+          "first": {
+            "type": "boolean"
+          },
+          "last": {
+            "type": "boolean"
+          },
+          "number": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "numberOfElements": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "size": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalElements": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "totalPages": {
+            "format": "int32",
             "type": "integer"
           }
         },
@@ -6268,7 +6250,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageGithubCommitDTO"
+                  "$ref": "#/components/schemas/PageResponseDtoGithubCommitDTO"
                 }
               }
             },
@@ -6328,7 +6310,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageGithubIssueDTO"
+                  "$ref": "#/components/schemas/PageResponseDtoGithubIssueDTO"
                 }
               }
             },
@@ -6427,7 +6409,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageGithubPrDTO"
+                  "$ref": "#/components/schemas/PageResponseDtoGithubPrDTO"
                 }
               }
             },
@@ -13857,7 +13839,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/TaskPageResponseDto"
                 }
               }
             },

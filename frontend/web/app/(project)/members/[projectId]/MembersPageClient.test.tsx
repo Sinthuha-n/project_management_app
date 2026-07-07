@@ -355,4 +355,70 @@ describe('MembersPageClient', () => {
       });
     });
   });
+
+  it('supports table pagination', async () => {
+    // Render with page size = 2. Alice Admin, Bob Member, Carol Viewer, and Pending member invitee@example.com make 4 total.
+    render(<MembersPageClient projectId="7" pageSize={2} />);
+
+    // Wait for the members to load and Alice Admin (page 1) to be in document
+    await screen.findByText('Alice Admin');
+    expect(screen.getByText('Bob Member')).toBeInTheDocument();
+    
+    // Carol Viewer and invitee@example.com should be on the next page, hence not visible initially
+    expect(screen.queryByText('Carol Viewer')).not.toBeInTheDocument();
+    expect(screen.queryByText('invitee@example.com')).not.toBeInTheDocument();
+
+    // Verify page indicators using custom matcher for text split across multiple tags
+    expect(screen.getByText((content, element) => {
+      const hasText = (node: Element) => node.textContent === 'Showing 1 to 2 of 4 members';
+      const nodeHasText = hasText(element as Element);
+      const childrenDontHaveText = Array.from(element?.children || []).every(child => !hasText(child));
+      return nodeHasText && childrenDontHaveText;
+    })).toBeInTheDocument();
+
+    // Click next page button
+    const nextButton = screen.getByRole('button', { name: 'Next Page' });
+    fireEvent.click(nextButton);
+
+    // Now page 2 elements should be visible
+    expect(screen.getByText('Carol Viewer')).toBeInTheDocument();
+    expect(screen.getAllByText('invitee@example.com')[0]).toBeInTheDocument();
+    expect(screen.queryByText('Alice Admin')).not.toBeInTheDocument();
+    expect(screen.queryByText('Bob Member')).not.toBeInTheDocument();
+
+    expect(screen.getByText((content, element) => {
+      const hasText = (node: Element) => node.textContent === 'Showing 3 to 4 of 4 members';
+      const nodeHasText = hasText(element as Element);
+      const childrenDontHaveText = Array.from(element?.children || []).every(child => !hasText(child));
+      return nodeHasText && childrenDontHaveText;
+    })).toBeInTheDocument();
+
+    // Click previous page button
+    const prevButton = screen.getByRole('button', { name: 'Previous Page' });
+    fireEvent.click(prevButton);
+
+    // Page 1 elements should be back
+    expect(screen.getByText('Alice Admin')).toBeInTheDocument();
+    expect(screen.getByText('Bob Member')).toBeInTheDocument();
+    expect(screen.queryByText('Carol Viewer')).not.toBeInTheDocument();
+  });
+
+  it('resets pagination when filters reduce the result set', async () => {
+    render(<MembersPageClient projectId="7" pageSize={2} />);
+
+    await screen.findByText('Alice Admin');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next Page' }));
+
+    expect(screen.getByText('Carol Viewer')).toBeInTheDocument();
+    expect(screen.queryByText('Alice Admin')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Search members by name or email...'), {
+      target: { value: 'alice' },
+    });
+
+    expect(screen.getByText('Alice Admin')).toBeInTheDocument();
+    expect(screen.queryByText('Carol Viewer')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Next Page' })).not.toBeInTheDocument();
+  });
 });
