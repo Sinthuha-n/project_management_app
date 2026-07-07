@@ -159,12 +159,15 @@ const nextConfig = {
       "'self'",
       'data:',
       'blob:',
+      'https:',
       ...awsS3Sources,
       githubAvatarImageSource,
       diceBearImageSource,
       ...backendSources,
       ...allowedImageOrigins,
     ]);
+    // Allow any https origin for connects as well to reduce CSP image/connect blocking in dev
+    const connectSourcesWithHttps = uniqueSources(['https:', ...connectSources]);
     const frameSources = uniqueSources([
       "'self'",
       ...awsS3Sources,
@@ -177,7 +180,7 @@ const nextConfig = {
       script-src 'self' 'unsafe-eval' 'unsafe-inline';
       style-src 'self' 'unsafe-inline';
       img-src ${imageSources.join(' ')};
-      connect-src ${connectSources.join(' ')};
+      connect-src ${connectSourcesWithHttps.join(' ')};
       font-src 'self' data:;
       object-src 'none';
       base-uri 'self';
