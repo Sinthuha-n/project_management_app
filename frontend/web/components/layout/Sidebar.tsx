@@ -478,14 +478,15 @@ export default function Sidebar() {
         }}
       >
         <div
-          className={`bg-cu-sidebar transition-all duration-300 ease-in-out ${isMobile ? 'relative h-full' : 'fixed left-0 top-0 h-screen z-[var(--cu-z-sidebar)]'} pointer-events-auto`}
+          className={`glass-panel glass-panel-sidebar transition-all duration-300 ease-in-out ${isMobile ? 'relative h-full' : 'fixed left-0 top-0 h-screen z-[var(--cu-z-sidebar)]'} pointer-events-auto`}
           style={{
             width: isMobile ? '260px' : (collapsed ? '64px' : '240px'),
             transform: isMobile && collapsed ? 'translateX(-100%)' : 'translateX(0)',
             opacity: isMobile && collapsed ? 0.5 : 1,
+            borderRadius: '0px',
           }}
         >
-          <div className="relative h-full bg-cu-sidebar border-r border-cu-sidebar-border flex flex-col w-[260px] md:w-[inherit] shadow-[10px_0_30px_rgba(15,23,42,0.06)]">
+          <div className="relative h-full bg-transparent flex flex-col w-[260px] md:w-[inherit]">
             <SidebarHeader collapsed={collapsed} onToggle={toggleCollapsed} />
             <CollapseButton collapsed={collapsed} onToggle={toggleCollapsed} />
 

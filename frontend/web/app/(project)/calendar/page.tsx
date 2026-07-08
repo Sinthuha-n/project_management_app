@@ -210,7 +210,7 @@ function CalendarPageContent() {
 
   if (!projectId) {
     return (
-      <div className="min-h-full bg-cu-bg-secondary">
+      <div className="min-h-full bg-transparent">
         <EmptyState
           icon={<CalendarDays size={24} />}
           title="Select a project to view its calendar"
@@ -230,9 +230,9 @@ function CalendarPageContent() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-cu-bg-secondary">
+    <div className="flex-1 overflow-y-auto bg-transparent">
       <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
-        <div className="sticky-section-header glass-panel flex flex-col gap-4 rounded-2xl border border-cu-border px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="sticky-section-header glass-panel flex flex-col gap-4 rounded-2xl px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-cu-primary text-white shadow-cu-sm">
@@ -256,7 +256,7 @@ function CalendarPageContent() {
             ].map((item) => {
               const Icon = item.icon;
               return (
-                <div key={item.label} className="rounded-xl border border-cu-border bg-cu-bg px-3 py-2 shadow-cu-sm">
+                <div key={item.label} className="rounded-xl glass-panel px-3 py-2">
                   <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-cu-text-secondary">
                     <Icon size={11} className={item.tone} />
                     {item.label}
@@ -288,7 +288,7 @@ function CalendarPageContent() {
         />
 
         {loading && events.length === 0 && (
-          <div className="space-y-3 rounded-xl border border-cu-border bg-cu-bg p-4 shadow-cu-sm">
+          <div className="space-y-3 rounded-xl glass-panel p-4">
             <div className="skeleton h-10 w-48 rounded-lg" />
             <div className="grid grid-cols-7 gap-2">
               {Array.from({ length: 28 }).map((_, index) => (
@@ -313,7 +313,7 @@ function CalendarPageContent() {
                 Retry
               </button>
             }
-            className="rounded-xl border border-cu-border bg-cu-bg shadow-cu-sm"
+            className="rounded-xl glass-panel"
           />
         )}
 
@@ -339,7 +339,7 @@ function CalendarPageContent() {
                 Clear filters
               </button>
             )}
-            className="rounded-xl border border-cu-border bg-cu-bg shadow-cu-sm"
+            className="rounded-xl glass-panel"
           />
         )}
 
