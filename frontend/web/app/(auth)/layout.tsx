@@ -13,15 +13,15 @@ export default function AuthLayout({
       {/* pointer-events-none ensures these decorative blobs never accidentally intercept clicks on forms below them */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
-          className="absolute -top-32 -left-32 w-[520px] h-[520px] rounded-full opacity-30"
+          className="absolute -top-32 -left-32 w-[520px] h-[520px] rounded-full opacity-30 animate-float-slow"
           style={{ background: 'radial-gradient(circle, hsl(221,83%,60%) 0%, transparent 70%)' }}
         />
         <div
-          className="absolute top-[-80px] right-[-80px] w-[400px] h-[400px] rounded-full opacity-20"
+          className="absolute top-[-80px] right-[-80px] w-[400px] h-[400px] rounded-full opacity-20 animate-float-delayed"
           style={{ background: 'radial-gradient(circle, hsl(260,80%,70%) 0%, transparent 70%)' }}
         />
         <div
-          className="absolute bottom-[-60px] left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full opacity-15"
+          className="absolute bottom-[-60px] left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full opacity-15 animate-float-medium"
           style={{ background: 'radial-gradient(circle, hsl(221,83%,55%) 0%, transparent 60%)' }}
         />
       </div>

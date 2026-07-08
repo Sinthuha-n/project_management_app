@@ -1961,6 +1961,35 @@
         },
         "type": "object"
       },
+      "KanbanMoveTaskRequest": {
+        "properties": {
+          "orderedTaskIds": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "projectId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "taskId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "orderedTaskIds",
+          "projectId",
+          "status",
+          "taskId"
+        ],
+        "type": "object"
+      },
       "KanbanRequestDTO": {
         "properties": {
           "name": {
@@ -13420,6 +13449,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDTO"
+                }
+              }
+            },
             "description": "OK"
           }
         },
@@ -13987,6 +14023,36 @@
         },
         "responses": {
           "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "task-controller"
+        ]
+      }
+    },
+    "/api/tasks/kanban/move": {
+      "patch": {
+        "operationId": "moveKanbanTask",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanMoveTaskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDTO"
+                }
+              }
+            },
             "description": "OK"
           }
         },

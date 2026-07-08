@@ -15,12 +15,17 @@ import type {
   Label,
 } from '@/types';
 
-type WithNullableTaskFields<T> = Omit<T, 'startDate' | 'dueDate' | 'sprintId' | 'milestoneId' | 'assigneeId'> & {
+type WithNullableTaskFields<T> = Omit<T, 'startDate' | 'dueDate' | 'sprintId' | 'milestoneId' | 'assigneeId' | 'reporterId' | 'recurrenceRule' | 'recurrenceEnd' | 'customInterval' | 'recurrenceLimit'> & {
   startDate?: string | null;
   dueDate?: string | null;
   sprintId?: number | null;
   milestoneId?: number | null;
   assigneeId?: number | null;
+  reporterId?: number | null;
+  recurrenceRule?: string | null;
+  recurrenceEnd?: string | null;
+  customInterval?: number | null;
+  recurrenceLimit?: number | null;
 };
 
 type RequireKeys<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
@@ -160,6 +165,21 @@ export interface SprintVelocityPoint {
   completedPoints: number;
 }
 
+/**
+ * Request body for PATCH /api/tasks/kanban/move.
+ * Combines a status change with a full column reorder in one atomic call.
+ */
+export interface KanbanMoveTaskRequest {
+  /** Project that owns the task. */
+  projectId: number;
+  /** Task being dragged. */
+  taskId: number;
+  /** Destination column status (may equal source status for same-column reorder). */
+  status: string;
+  /** Ordered task IDs of the entire destination column after the drag. */
+  orderedTaskIds: number[];
+}
+
 export const tasksApi = {
   listByProject: async (projectId: number | string, params?: TaskListQueryParams): Promise<PageResponse<Task>> => {
     const { data } = await api.get(`/api/tasks/project/${projectId}`, { params });
@@ -206,8 +226,9 @@ export const tasksApi = {
     const { data } = await api.patch(`/api/tasks/${taskId}/priority`, payload);
     return data;
   },
-  updateDates: async (taskId: number | string, payload: PatchTaskDatesRequest): Promise<void> => {
-    await updateTaskDatesBuilder(api, taskId, payload);
+  updateDates: async (taskId: number | string, payload: PatchTaskDatesRequest): Promise<Task> => {
+    const { data } = await updateTaskDatesBuilder(api, taskId, payload);
+    return data;
   },
   saveAsTemplate: async (taskId: number | string, payload: { templateName: string }): Promise<void> => {
     await api.post(`/api/tasks/${taskId}/save-as-template`, payload);
@@ -290,6 +311,16 @@ export const tasksApi = {
   },
   removeLabel: async (taskId: number | string, labelId: number | string): Promise<void> => {
     await api.delete(`/api/tasks/${taskId}/label/${labelId}`);
+  },
+  /**
+   * Atomically moves a task to a new kanban column status and rewrites the
+   * backlogPosition for all tasks in the destination column.
+   * Used by kanban drag-and-drop — a single call persists both the status
+   * change and the new visual order.
+   */
+  moveKanbanTask: async (payload: KanbanMoveTaskRequest): Promise<Task> => {
+    const { data } = await api.patch('/api/tasks/kanban/move', payload);
+    return data;
   },
 };
 

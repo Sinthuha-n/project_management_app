@@ -12,6 +12,9 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import KeyboardShortcutsProvider from "@/components/providers/KeyboardShortcutsProvider";
 import AuthBootstrapProvider from "@/components/providers/AuthBootstrapProvider";
 import SWRProvider from "@/components/providers/SWRProvider";
+import IOSInstallPrompt from "@/components/pwa/IOSInstallPrompt";
+import PWARegistration from "@/components/pwa/PWARegistration";
+import PWAUpdateToast from "@/components/pwa/PWAUpdateToast";
 import NextTopLoader from 'nextjs-toploader';
 import Script from 'next/script';
 
@@ -36,12 +39,24 @@ const arimo = Arimo({
 
 
 export const metadata: Metadata = {
+  applicationName: 'Planora',
   title: 'Planora — Plan · Track · Ship',
   description: 'Planora is a project management platform for modern teams.',
+  manifest: '/manifest.webmanifest',
   icons: {
     icon: '/favicon.ico',
     shortcut: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'Planora',
+    statusBarStyle: 'default',
+  },
+  formatDetection: {
+    telephone: false,
   },
   openGraph: {
     title: 'Planora',
@@ -54,6 +69,10 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#155DFC' },
+    { media: '(prefers-color-scheme: dark)', color: '#0F172A' },
+  ],
 };
 
 export default function RootLayout({
@@ -84,6 +103,9 @@ export default function RootLayout({
               <ThemeProvider>
                 <ToastProvider>
                   <GlobalNotificationProvider>
+                    <PWARegistration />
+                    <PWAUpdateToast />
+                    <IOSInstallPrompt />
                     <KeyboardShortcutsProvider />
                     <Suspense fallback={null}>
                       {children}

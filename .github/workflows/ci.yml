@@ -193,6 +193,9 @@ jobs:
     - name: Build Next.js App
       run: npm run build
 
+    - name: Validate PWA Assets
+      run: npm run pwa:check
+
   api-contracts:
     name: Validate API Contracts
     needs: [changes, backend-build, frontend-build, mobile-build]

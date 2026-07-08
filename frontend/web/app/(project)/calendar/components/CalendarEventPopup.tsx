@@ -67,10 +67,10 @@ export default function CalendarEventPopup({ event, position, onClose, onOpenTas
       role="dialog"
       aria-label={event.title}
       style={{ position: 'fixed', left: coordinates.left, top: coordinates.top, width: 320, zIndex: 200 }}
-      className="overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl"
+      className="overflow-hidden rounded-xl glass-panel shadow-cu-xl"
     >
-      <div className="flex items-start gap-3 border-b border-cu-border bg-cu-bg-secondary px-4 py-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cu-border bg-cu-bg text-cu-primary">
+      <div className="flex items-start gap-3 border-b border-[rgba(232,232,237,0.3)] dark:border-[rgba(39,52,73,0.3)] bg-[rgba(247,248,250,0.3)] dark:bg-[rgba(17,24,39,0.3)] px-4 py-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[rgba(232,232,237,0.5)] dark:border-[rgba(39,52,73,0.5)] bg-[rgba(255,255,255,0.4)] dark:bg-[rgba(11,17,32,0.4)] text-cu-primary backdrop-blur-sm">
           {event.kind === 'sprint' ? <Flag size={16} /> : <CalendarDays size={16} />}
         </div>
         <div className="min-w-0 flex-1">
@@ -90,7 +90,7 @@ export default function CalendarEventPopup({ event, position, onClose, onOpenTas
           type="button"
           onClick={onClose}
           aria-label="Close event details"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-cu-text-muted transition-colors hover:bg-cu-hover hover:text-cu-text-primary"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-cu-text-muted transition-colors hover:bg-cu-hover/40 hover:text-cu-text-primary"
         >
           <X size={15} />
         </button>
@@ -110,18 +110,18 @@ export default function CalendarEventPopup({ event, position, onClose, onOpenTas
           </div>
         )}
         {event.description && (
-          <p className="line-clamp-4 rounded-lg border border-cu-border bg-cu-bg-secondary px-3 py-2 text-xs leading-relaxed text-cu-text-secondary">
+          <p className="line-clamp-4 rounded-lg border border-[rgba(232,232,237,0.5)] dark:border-[rgba(39,52,73,0.5)] bg-[rgba(247,248,250,0.2)] dark:bg-[rgba(17,24,39,0.2)] px-3 py-2 text-xs leading-relaxed text-cu-text-secondary">
             {event.description}
           </p>
         )}
       </div>
 
       {event.taskId && onOpenTask && (
-        <div className="border-t border-cu-border bg-cu-bg-secondary px-4 py-3">
+        <div className="border-t border-[rgba(232,232,237,0.3)] dark:border-[rgba(39,52,73,0.3)] bg-[rgba(247,248,250,0.3)] dark:bg-[rgba(17,24,39,0.3)] px-4 py-3">
           <button
             type="button"
             onClick={() => onOpenTask(event.taskId!)}
-            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-cu-primary px-3 text-xs font-bold text-white transition-colors hover:bg-cu-primary-hover"
+            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg liquid-glass-btn px-3 text-xs font-bold text-white transition-colors"
           >
             <ExternalLink size={13} />
             Open task

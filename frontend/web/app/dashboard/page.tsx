@@ -5,6 +5,7 @@ import { useDashboardProfile } from './hooks/useDashboardProfile';
 import DashboardHeader from './components/DashboardHeader';
 import RecentSpacesSection from './components/recentspaces';
 import TabsSection from './components/table/TabsSection';
+import PersonalHub from './components/PersonalHub';
 
 export default function DashboardPage() {
   const { user, projects, loading } = useDashboardProjects();
@@ -18,9 +19,17 @@ export default function DashboardPage() {
       {/* ── Recent Spaces: search, filter, carousel ── */}
       <RecentSpacesSection projects={projects} loading={loading} />
 
-      {/* ── Table: tabs (desktop) + mobile sections ── */}
-      <TabsSection />
+      {/* ── Content Grid: Main Table + Personal Hub Sidebar ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 sm:gap-8 items-start mt-2">
+        <div className="lg:col-span-7 w-full min-w-0">
+          <TabsSection />
+        </div>
+        <div className="lg:col-span-3 w-full shrink-0">
+          <PersonalHub userId={user?.userId?.toString()} />
+        </div>
+      </div>
     </div>
   );
 }
+
 

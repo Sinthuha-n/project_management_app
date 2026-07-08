@@ -135,12 +135,12 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
   const isToday = task.dueDate && new Date(task.dueDate).toDateString() === new Date().toDateString();
 
   // Card background: overdue tasks get subtle reddish tint
-  const cardBg = isOverdue ? 'bg-red-500/5' : 'bg-cu-bg';
+  const cardBg = isOverdue ? 'bg-red-500/[0.06] dark:bg-red-500/[0.08]' : '';
 
   // ── INLINE EDIT MODE ──────────────────────────────────────
   if (isEditing) {
     return (
-      <div ref={setNodeRef} style={style} className="rounded-lg bg-cu-bg border-2 border-cu-primary shadow-lg p-3">
+      <div ref={setNodeRef} style={style} className="rounded-lg glass-panel border-2 border-cu-primary p-3">
         <input ref={titleInputRef} type="text" maxLength={255} value={editTitle} onChange={e => setEditTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') void handleSaveInline(); if (e.key === 'Escape') handleCancelEdit(); }}
           className="w-full text-[13px] font-medium text-cu-text-primary border-0 border-b border-cu-border pb-1.5 mb-2 focus:outline-none focus:border-cu-primary bg-transparent" placeholder="Task title..." />
@@ -181,10 +181,9 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
         if (!isDragging && onOpenTask) onOpenTask(task.id);
       }}
       className={`
-        group relative rounded-lg ${cardBg} border border-cu-border border-l-[3px] ${priorityBorder}
-        shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]
+        group relative rounded-lg glass-panel liquid-glass-interactive border-l-[3px] ${priorityBorder} ${cardBg}
         transition-all duration-200 cursor-grab active:cursor-grabbing
-        ${isDragging ? 'ring-2 ring-cu-primary/50 scale-[1.02] rotate-[1deg]' : 'hover:border-cu-border'}
+        ${isDragging ? 'ring-2 ring-cu-primary/50 scale-[1.02] rotate-[1deg]' : ''}
         ${isOverdue ? 'border-red-500/30' : ''}
       `}
     >

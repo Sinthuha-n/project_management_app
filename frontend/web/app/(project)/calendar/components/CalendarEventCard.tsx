@@ -12,10 +12,10 @@ interface CalendarEventCardProps {
 
 const statusTone = (status?: string) => {
   const normalized = (status || '').toUpperCase().replace(/\s+/g, '_');
-  if (normalized === 'DONE' || normalized === 'COMPLETED') return 'border-cu-success/25 bg-cu-success-light text-cu-success';
-  if (normalized === 'IN_PROGRESS' || normalized === 'ACTIVE') return 'border-cu-primary/25 bg-cu-primary-light text-cu-primary';
-  if (normalized === 'IN_REVIEW') return 'border-amber-400/30 bg-amber-400/15 text-amber-600';
-  return 'border-cu-border bg-cu-bg-secondary text-cu-text-secondary';
+  if (normalized === 'DONE' || normalized === 'COMPLETED') return 'border-[rgba(107,201,80,0.3)] bg-[rgba(107,201,80,0.12)] text-cu-success backdrop-blur-md';
+  if (normalized === 'IN_PROGRESS' || normalized === 'ACTIVE') return 'border-[rgba(21,93,252,0.3)] bg-[rgba(21,93,252,0.12)] text-cu-primary backdrop-blur-md';
+  if (normalized === 'IN_REVIEW') return 'border-[rgba(255,159,67,0.3)] bg-[rgba(255,159,67,0.12)] text-amber-600 dark:text-amber-400 backdrop-blur-md';
+  return 'border-[rgba(232,232,237,0.5)] dark:border-[rgba(39,52,73,0.5)] bg-[rgba(247,248,250,0.4)] dark:bg-[rgba(17,24,39,0.4)] text-cu-text-secondary backdrop-blur-md';
 };
 
 const formatShortDate = (date: Date | null) =>
@@ -36,7 +36,7 @@ export default function CalendarEventCard({
     ? `${formatShortDate(start)} - ${formatShortDate(end)}`
     : formatShortDate(start || end);
   const tone = sprint
-    ? 'border-cu-primary/30 bg-cu-primary-light text-cu-primary'
+    ? 'border-[rgba(21,93,252,0.3)] bg-[rgba(21,93,252,0.12)] text-cu-primary backdrop-blur-md'
     : statusTone(event.status);
   const Icon = sprint ? Flag : CircleDot;
 
@@ -47,7 +47,7 @@ export default function CalendarEventCard({
       onDragStart={draggable && onDragStart ? (e) => { e.stopPropagation(); onDragStart(event.id); } : undefined}
       onClick={onClick ? (e) => { e.stopPropagation(); onClick(event, e.clientX, e.clientY); } : undefined}
       className={[
-        'group flex min-h-7 w-full min-w-0 items-center gap-1.5 rounded-md border px-2 py-1 text-left text-[11px] font-semibold shadow-cu-sm transition-all',
+        'group relative flex min-h-7 w-full min-w-0 items-center gap-1.5 rounded-md border px-2 py-1 text-left text-[11px] font-semibold shadow-cu-sm transition-all liquid-glass-interactive',
         tone,
         onClick ? 'cursor-pointer hover:-translate-y-px hover:shadow-cu-md' : '',
         draggable ? 'cursor-grab active:cursor-grabbing' : '',

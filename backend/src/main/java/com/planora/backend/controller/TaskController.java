@@ -4,6 +4,7 @@ import com.planora.backend.dto.BulkDeleteTasksRequest;
 import com.planora.backend.dto.BulkUpdateStatusRequest;
 import com.planora.backend.dto.ApiErrorResponse;
 import com.planora.backend.dto.CommentRequestDTO;
+import com.planora.backend.dto.KanbanMoveTaskRequest;
 import com.planora.backend.dto.LinkedCommitResponseDTO;
 import com.planora.backend.dto.LinkedPrResponseDTO;
 import com.planora.backend.dto.PatchTaskDatesRequest;
@@ -623,17 +624,40 @@ public class TaskController {
      * Accepts { startDate: "YYYY-MM-DD", dueDate: "YYYY-MM-DD" }.
      */
     @PatchMapping("/{taskId}/dates")
-    public ResponseEntity<Void> patchTaskDates(
+    public ResponseEntity<TaskResponseDTO> patchTaskDates(
             @PathVariable Long taskId,
             @Valid @RequestBody PatchTaskDatesRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        service.patchTaskDates(
+        TaskResponseDTO task = service.patchTaskDates(
                 taskId,
                 request.getStartDate(), request.isStartDateProvided(),
                 request.getDueDate(), request.isDueDateProvided(),
                 currentUser.getUserId());
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        messagingTemplate.convertAndSend(
+                "/topic/project/" + task.getProjectId() + "/tasks",
+                Map.of("type", "TASK_UPDATED", "task", task));
+        return new ResponseEntity<>(task, HttpStatus.OK);
+    }
+
+    @PatchMapping("/kanban/move")
+    public ResponseEntity<TaskResponseDTO> moveKanbanTask(
+            @Valid @RequestBody KanbanMoveTaskRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        TaskResponseDTO task = service.moveKanbanTask(
+                request.getProjectId(),
+                request.getTaskId(),
+                request.getStatus(),
+                request.getOrderedTaskIds(),
+                currentUser.getUserId());
+
+        // REAL-TIME PUSH: broadcast the full updated task so every connected client
+        // can surgically patch its local state without reloading the board.
+        messagingTemplate.convertAndSend(
+                "/topic/project/" + task.getProjectId() + "/tasks",
+                Map.of("type", "TASK_UPDATED", "task", task));
+
+        return ResponseEntity.ok(task);
     }
 
     @PatchMapping("/reorder")

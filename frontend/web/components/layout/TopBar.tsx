@@ -145,7 +145,7 @@ function TopBarContent() {
 
   /* ── Project page TopBar ── */
   return (
-    <div className="w-full h-[120px] sticky top-0 flex flex-col shrink-0 bg-cu-bg border-b border-cu-border z-[var(--cu-z-topbar)]">
+    <div className="w-full h-[120px] sticky top-0 flex flex-col shrink-0 glass-panel glass-panel-topbar z-[var(--cu-z-topbar)]" style={{ borderRadius: '0px' }}>
       {/* Top Header Section */}
       <div className="flex-1 px-4 sm:px-8 flex items-center justify-between pt-2">
         <div className="flex items-center gap-4">

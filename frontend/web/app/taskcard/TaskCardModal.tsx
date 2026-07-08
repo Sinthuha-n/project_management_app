@@ -309,12 +309,19 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
     setTaskData((prev) => prev ? { ...prev, ...updates } : prev);
     setIsSyncing(true);
     try {
-      await api.put(`/api/tasks/${taskId}`, updates);
+      const updatedTask = await tasksApi.update(taskId, updates);
+      const nextTaskData = toTaskData(updatedTask as Task & {
+        projectName?: string;
+        reporterName?: string;
+        assigneeName?: string;
+        sprintName?: string;
+        githubIssueNumber?: number | null;
+        githubRepoFullName?: string | null;
+      });
+      setTaskData(nextTaskData);
       wasModified.current = true;
-      // Notify sibling components (e.g. sprint board) that this task changed without requiring a full re-fetch
-      window.dispatchEvent(new CustomEvent('planora:task-updated', { detail: { taskId } }));
-      // Bust the taskcard page cache so standalone page shows fresh data on next visit
-      localStorage.removeItem(`planora:task:${taskId}`);
+      window.dispatchEvent(new CustomEvent('planora:task-updated', { detail: { taskId, task: updatedTask, updates } }));
+      localStorage.setItem(`planora:task:${taskId}`, JSON.stringify({ ...updatedTask, timestamp: Date.now() }));
     } catch (err: unknown) {
       // Revert the optimistic update by re-fetching the server's authoritative state
       await fetchTaskData();

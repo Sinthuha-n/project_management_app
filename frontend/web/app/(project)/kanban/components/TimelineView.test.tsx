@@ -46,7 +46,9 @@ const tasks: Task[] = [
 describe('TimelineView', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedUpdateTaskDates.mockResolvedValue(undefined);
+    mockedUpdateTaskDates.mockImplementation((taskId: number, startDate?: string | null, dueDate?: string | null) => (
+      Promise.resolve({ id: taskId, startDate, dueDate })
+    ));
   });
 
   it('renders scheduled work and lets unscheduled tasks be scheduled from the tray', async () => {

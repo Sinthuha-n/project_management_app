@@ -1276,7 +1276,7 @@ function runSelfTests() {
           }
 
           @PatchMapping(path = "/{taskId}/dates")
-          public ResponseEntity<Void> patchTaskDates(
+          public ResponseEntity<TaskResponseDTO> patchTaskDates(
               @PathVariable Long taskId,
               @Valid @RequestBody PatchTaskDatesRequest request) {
             return null;

@@ -5,13 +5,14 @@ import { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { Task, KanbanColumnConfig } from '../types';
 import {
-  updateTaskStatus,
+  moveKanbanTask,
   deleteTask,
   createTask,
   updateTask,
   reorderKanbanColumns,
 } from '../api';
 import { toast } from '@/components/ui';
+import { buildSessionCacheKey, setSessionCache } from '@/lib/session-cache';
 
 // Helper exported for unit testing: performs optimistic update and reverts on failure
 export async function optimisticUpdateTaskStatusHelper(
@@ -32,7 +33,6 @@ export async function optimisticUpdateTaskStatusHelper(
     throw err;
   }
 }
-import { buildSessionCacheKey, removeSessionCache } from '@/lib/session-cache';
 
 export function useKanbanActions(
   projectId: string | null,
@@ -40,7 +40,11 @@ export function useKanbanActions(
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>,
   columnConfigs: KanbanColumnConfig[],
   setColumnConfigs: React.Dispatch<React.SetStateAction<KanbanColumnConfig[]>>,
-  forceRefresh: () => void
+  forceRefresh: () => void,
+  upsertTask: (t: Task) => void,
+  patchTask: (id: number, patch: Partial<Task>) => void,
+  removeTask: (id: number) => void,
+  syncCache: (tasks: Task[]) => void,
 ) {
   const [updatingTaskId, setUpdatingTaskId] = useState<number | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -49,10 +53,11 @@ export function useKanbanActions(
   const [selectedTaskIdForModal, setSelectedTaskIdForModal] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Task drag-and-drop
+  // ── Task drag-and-drop ────────────────────────────────────────────────────
+
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over) return;
+    if (!over || !projectId) return;
 
     const taskId = Number(active.id);
     const overId = String(over.id);
@@ -62,59 +67,113 @@ export function useKanbanActions(
 
     const validStatuses = columnConfigs.map(c => c.status);
 
-    // over.id could be a column status string or another card's numeric ID
+    // Determine target status: over.id can be a column status string or a card id
     let newStatus: string;
     if (validStatuses.includes(overId)) {
       newStatus = overId;
     } else {
-      // dropped onto another card — move to that card's column
       const overTask = tasks.find(t => t.id === Number(overId));
       if (!overTask) return;
       newStatus = overTask.status;
     }
 
-    if (task.status === newStatus) return;
+    // Build the new ordered task list for the destination column.
+    // We insert the dragged task at the position determined by the drop target.
+    const destinationTasks = tasks
+      .filter(t => t.status === newStatus && t.id !== taskId)
+      .map(t => t);
 
-    // Optimistic update + retryable toast
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    let insertIndex = destinationTasks.length;
+    if (validStatuses.includes(overId)) {
+      // Dropped onto the column itself — append at the end
+      insertIndex = destinationTasks.length;
+    } else {
+      // Dropped onto another card — insert before that card
+      const overIdx = destinationTasks.findIndex(t => t.id === Number(overId));
+      if (overIdx >= 0) insertIndex = overIdx;
+    }
+
+    const reorderedColumn = [...destinationTasks];
+    reorderedColumn.splice(insertIndex, 0, { ...task, status: newStatus });
+    const orderedTaskIds = reorderedColumn.map(t => t.id);
+
+    // For same-column reorder: check if order actually changed
+    const previousColumnTasks = tasks.filter(t => t.status === newStatus);
+    const previousIds = previousColumnTasks.map(t => t.id);
+    const isStatusChange = task.status !== newStatus;
+    const isReorder = orderedTaskIds.join(',') !== previousIds.join(',');
+    if (!isStatusChange && !isReorder) return; // Nothing changed
+
+    // Snapshot for rollback
+    const previousTasks = tasks;
+
+    // Optimistic local update
+    setTasks(prev => {
+      const withoutDragged = prev.filter(t => t.id !== taskId);
+      const destCol = withoutDragged.filter(t => t.status === newStatus);
+      const otherCols = withoutDragged.filter(t => t.status !== newStatus);
+
+      const newDest = [...destCol];
+      const dropIdx = validStatuses.includes(overId)
+        ? newDest.length
+        : Math.max(0, newDest.findIndex(t => t.id === Number(overId)));
+
+      newDest.splice(dropIdx >= 0 ? dropIdx : newDest.length, 0, { ...task, status: newStatus });
+      return [...otherCols, ...newDest];
+    });
+
     setUpdatingTaskId(taskId);
 
     const attempt = async () => {
       try {
-        await updateTaskStatus(taskId, newStatus, task.title);
-        const key = buildSessionCacheKey('kanban-board', [projectId]);
-        if (key) removeSessionCache(key);
-        forceRefresh();
+        const updatedTask = await moveKanbanTask({
+          projectId: Number(projectId),
+          taskId,
+          status: newStatus,
+          orderedTaskIds,
+        });
+        // Merge server-enriched fields (e.g. completedAt) into local state
+        upsertTask(updatedTask);
+        // Persist the updated order to the session cache
+        setTasks(current => {
+          syncCache(current);
+          return current;
+        });
       } catch (err) {
-        // Revert immediately to avoid false UI state
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: task.status } : t));
-        // Show toast with retry option
-        toast('Failed to move task. Retry?', 'error', 8000, 'Retry', async () => {
-          // Show syncing indicator again
+        // Rollback to the pre-drag snapshot
+        setTasks(previousTasks);
+
+        const retryFn = async () => {
           setUpdatingTaskId(taskId);
           try {
-            await updateTaskStatus(taskId, newStatus, task.title);
-            const key = buildSessionCacheKey('kanban-board', [projectId]);
-            if (key) removeSessionCache(key);
-            forceRefresh();
+            const updatedTask = await moveKanbanTask({
+              projectId: Number(projectId),
+              taskId,
+              status: newStatus,
+              orderedTaskIds,
+            });
+            upsertTask(updatedTask);
+            setTasks(current => { syncCache(current); return current; });
           } catch (e) {
-            // Final failure — leave UI reverted
             console.error('Retry failed:', e);
             toast('Retry failed. Please try again later.', 'error');
           } finally {
             setUpdatingTaskId(null);
           }
-        });
-        console.error('Error updating task status:', err);
+        };
+
+        toast('Failed to move task. Retry?', 'error', 8000, 'Retry', retryFn);
+        console.error('Error moving task:', err);
       } finally {
         setUpdatingTaskId(null);
       }
     };
 
     void attempt();
-  }, [tasks, columnConfigs, setTasks, projectId, forceRefresh]);
+  }, [tasks, columnConfigs, setTasks, projectId, upsertTask, syncCache]);
 
-  // Column reorder
+  // ── Column reorder ────────────────────────────────────────────────────────
+
   const handleColumnDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -134,13 +193,15 @@ export function useKanbanActions(
     }
   }, [columnConfigs, setColumnConfigs]);
 
-  // Open create modal (used by mobile FAB)
+  // ── Open create modal (used by mobile FAB) ────────────────────────────────
+
   const handleOpenCreateModal = useCallback((status: string) => {
     setSelectedColumnStatus(status);
     setIsCreateModalOpen(true);
   }, []);
 
-  // Create task via the board-local modal.
+  // ── Create task via the board-local modal ─────────────────────────────────
+
   const handleCreateTask = useCallback(async (data: Partial<Task>) => {
     const title = data.title?.trim();
     if (!projectId || !title) return;
@@ -152,17 +213,19 @@ export function useKanbanActions(
         priority: data.priority,
       } as Partial<Task> & { projectId: number; title: string; status: string });
       // Deduplicate: WebSocket may have already added this task
-      setTasks(prev => prev.some(t => t.id === newTask.id) ? prev : [...prev, newTask]);
-      const key = buildSessionCacheKey('kanban-board', [projectId]);
-      if (key) removeSessionCache(key);
+      setTasks(prev => {
+        const next = prev.some(t => t.id === newTask.id) ? prev : [...prev, newTask];
+        syncCache(next);
+        return next;
+      });
       setIsCreateModalOpen(false);
-      forceRefresh();
     } catch (err) {
       console.error('Error creating task:', err);
     }
-  }, [projectId, selectedColumnStatus, setTasks, forceRefresh]);
+  }, [projectId, selectedColumnStatus, setTasks, syncCache]);
 
-  // Task CRUD
+  // ── Inline create from column header ─────────────────────────────────────
+
   const handleAddTask = useCallback(async (title: string, status: string) => {
     if (!projectId || !title.trim()) return;
     try {
@@ -171,40 +234,40 @@ export function useKanbanActions(
         title: title.trim(),
         status,
       } as Partial<Task> & { projectId: number; title: string; status: string });
-      // Deduplicate: WebSocket may have already added this task
-      setTasks(prev => prev.some(t => t.id === newTask.id) ? prev : [...prev, newTask]);
-      const key = buildSessionCacheKey('kanban-board', [projectId]);
-      if (key) removeSessionCache(key);
-      forceRefresh();
+      setTasks(prev => {
+        const next = prev.some(t => t.id === newTask.id) ? prev : [...prev, newTask];
+        syncCache(next);
+        return next;
+      });
     } catch (err) {
       console.error('Error creating task:', err);
     }
-  }, [projectId, setTasks, forceRefresh]);
+  }, [projectId, setTasks, syncCache]);
 
-  // Inline update — used by KanbanCard's inline edit mode (no modal)
+  // ── Inline update — used by KanbanCard's inline edit mode ────────────────
+
   const handleInlineUpdate = useCallback(async (taskId: number, updates: Partial<Task>) => {
     // Optimistic update
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+    patchTask(taskId, updates);
     try {
       await updateTask(taskId, updates);
-      const key = buildSessionCacheKey('kanban-board', [projectId]);
-      if (key) removeSessionCache(key);
-      forceRefresh();
+      setTasks(current => { syncCache(current); return current; });
     } catch (err) {
       console.error('Error inline updating task:', err);
-      // revert on error — reload from server would be better but this is faster
+      // Revert the optimistic patch by forcing a refresh on error
+      forceRefresh();
     }
-  }, [setTasks, projectId, forceRefresh]);
+  }, [patchTask, setTasks, syncCache, forceRefresh]);
+
+  // ── Delete task ───────────────────────────────────────────────────────────
 
   const handleDeleteTask = useCallback(async (taskId: number) => {
     // Optimistic removal
     const previousTasks = tasks;
-    setTasks(prev => prev.filter(t => t.id !== taskId));
+    removeTask(taskId);
     try {
       await deleteTask(taskId);
-      const key = buildSessionCacheKey('kanban-board', [projectId]);
-      if (key) removeSessionCache(key);
-      forceRefresh();
+      setTasks(current => { syncCache(current); return current; });
     } catch (err: unknown) {
       console.error('Error deleting task:', err);
       // Revert on failure
@@ -217,9 +280,10 @@ export function useKanbanActions(
       }
       setTimeout(() => setToastMessage(null), 4000);
     }
-  }, [tasks, setTasks, projectId, forceRefresh]);
+  }, [tasks, removeTask, setTasks, syncCache]);
 
-  // Archive board
+  // ── Complete all tasks ────────────────────────────────────────────────────
+
   const handleCompleteBoard = useCallback(async () => {
     const nonDone = tasks.filter(t => t.status !== 'DONE');
     if (nonDone.length === 0) {
@@ -230,11 +294,23 @@ export function useKanbanActions(
 
     setCompleteSuccess(false);
     try {
-      await Promise.all(nonDone.map(t => updateTaskStatus(t.id, 'DONE', t.title)));
-      setTasks(prev => prev.map(t => ({ ...t, status: 'DONE' })));
-      const key = buildSessionCacheKey('kanban-board', [projectId]);
-      if (key) removeSessionCache(key);
-      forceRefresh();
+      // Optimistically flip all tasks to DONE
+      setTasks(prev => {
+        const next = prev.map(t => ({ ...t, status: 'DONE' }));
+        syncCache(next);
+        return next;
+      });
+      // Fire all status updates in parallel
+      await Promise.all(nonDone.map(t => {
+        // Use moveKanbanTask for consistency; orderedTaskIds is empty for bulk ops
+        // to avoid rewriting order (we just update status)
+        return moveKanbanTask({
+          projectId: Number(projectId),
+          taskId: t.id,
+          status: 'DONE',
+          orderedTaskIds: [],
+        });
+      }));
       setCompleteSuccess(true);
       setToastMessage(`Archived ${nonDone.length} task${nonDone.length !== 1 ? 's' : ''} to Done.`);
       setTimeout(() => {
@@ -242,13 +318,16 @@ export function useKanbanActions(
         setToastMessage(null);
       }, 4000);
     } catch (err) {
-      console.error('Error archiving board:', err);
-      setToastMessage('Failed to archive board. Please try again.');
+      console.error('Error completing board:', err);
+      setToastMessage('Failed to complete board. Please try again.');
       setTimeout(() => setToastMessage(null), 3000);
+      // Revert optimistic update on failure
+      forceRefresh();
     }
-  }, [tasks, setTasks, projectId, forceRefresh]);
+  }, [tasks, setTasks, projectId, syncCache, forceRefresh]);
 
-  // Column management
+  // ── Column management ─────────────────────────────────────────────────────
+
   const handleColumnRenamed = useCallback((columnId: number, newName: string) => {
     setColumnConfigs(prev => prev.map(c => c.id === columnId ? { ...c, title: newName } : c));
   }, [setColumnConfigs]);

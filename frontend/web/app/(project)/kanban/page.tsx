@@ -79,7 +79,7 @@ function KanbanPageContent() {
   const progressPercent = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(21,93,252,0.16),transparent_30%),radial-gradient(circle_at_top_right,rgba(34,197,94,0.12),transparent_28%),linear-gradient(180deg,var(--cu-bg-secondary),var(--cu-bg-secondary))]">
+    <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(21,93,252,0.16),transparent_30%),radial-gradient(circle_at_top_right,rgba(34,197,94,0.12),transparent_28%)]">
       {/* Premium Header */}
       <div className="border-b border-cu-border bg-[linear-gradient(135deg,rgba(21,93,252,0.12),rgba(99,102,241,0.08)_45%,rgba(34,197,94,0.1))] px-4 md:px-6 py-3 flex-shrink-0">
         <div className="flex items-center justify-between gap-4">
@@ -367,11 +367,11 @@ function KanbanPageContent() {
       {selectedTaskIdForModal !== null && (
         <TaskCardModal
           taskId={selectedTaskIdForModal}
-          onClose={(wasModified) => {
+          onClose={() => {
             setSelectedTaskIdForModal(null);
-            if (wasModified) {
-              void forceRefresh();
-            }
+            // Board updates from modal edits arrive via the planora:task-updated
+            // custom event dispatched by TaskCardModal and handled in useKanbanData.
+            // No full board refresh needed here.
           }}
         />
       )}

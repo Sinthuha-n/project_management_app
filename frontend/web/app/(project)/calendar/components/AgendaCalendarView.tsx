@@ -43,7 +43,7 @@ export default function AgendaCalendarView({ currentDate, events, onOpenTask }: 
 
   if (groups.length === 0) {
     return (
-      <section className="rounded-xl border border-dashed border-cu-border bg-cu-bg px-6 py-16 text-center shadow-cu-sm">
+      <section className="rounded-xl border border-dashed border-[rgba(232,232,237,0.5)] dark:border-[rgba(39,52,73,0.5)] glass-panel px-6 py-16 text-center shadow-cu-sm">
         <CalendarDays className="mx-auto mb-3 text-cu-text-muted" size={28} />
         <p className="text-sm font-bold text-cu-text-primary">No scheduled work</p>
         <p className="mx-auto mt-1 max-w-sm text-xs text-cu-text-secondary">
@@ -59,24 +59,24 @@ export default function AgendaCalendarView({ currentDate, events, onOpenTask }: 
         const Icon = groupIcon(group.key);
 
         return (
-          <div key={group.key} className="overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-sm">
-            <div className="flex items-center justify-between gap-3 border-b border-cu-border bg-cu-bg-secondary px-4 py-3">
+          <div key={group.key} className="overflow-hidden rounded-xl glass-panel shadow-cu-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-[rgba(232,232,237,0.3)] dark:border-[rgba(39,52,73,0.3)] bg-[rgba(247,248,250,0.3)] dark:bg-[rgba(17,24,39,0.3)] px-4 py-3">
               <div className="flex min-w-0 items-center gap-2">
                 <Icon size={16} className={group.key === 'overdue' ? 'text-cu-danger' : 'text-cu-primary'} />
                 <h2 className="text-sm font-bold text-cu-text-primary">{group.label}</h2>
               </div>
-              <span className="rounded-md bg-cu-bg px-2 py-1 text-[11px] font-bold text-cu-text-secondary">
+              <span className="rounded-md bg-[rgba(255,255,255,0.4)] dark:bg-[rgba(11,17,32,0.4)] border border-[rgba(232,232,237,0.3)] dark:border-[rgba(39,52,73,0.3)] px-2 py-1 text-[11px] font-bold text-cu-text-secondary">
                 {group.events.length}
               </span>
             </div>
 
-            <div className="divide-y divide-cu-border">
+            <div className="divide-y divide-[rgba(232,232,237,0.3)] dark:divide-[rgba(39,52,73,0.3)]">
               {group.events.map((event) => (
                 <button
                   type="button"
                   key={`${group.key}-${event.id}`}
                   onClick={(clickEvent) => setPopup({ event, x: clickEvent.clientX, y: clickEvent.clientY })}
-                  className="grid w-full grid-cols-1 gap-3 px-4 py-3 text-left transition-colors hover:bg-cu-hover sm:grid-cols-[minmax(0,1fr)_auto]"
+                  className="grid w-full grid-cols-1 gap-3 px-4 py-3 text-left transition-colors hover:bg-cu-hover/40 sm:grid-cols-[minmax(0,1fr)_auto]"
                 >
                   <div className="min-w-0">
                     <div className="flex min-w-0 items-center gap-2">

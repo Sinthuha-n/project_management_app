@@ -3244,6 +3244,22 @@ export interface paths {
         patch: operations["bulkUpdateStatus"];
         trace?: never;
     };
+    "/api/tasks/kanban/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["moveKanbanTask"];
+        trace?: never;
+    };
     "/api/tasks/project/{projectId}": {
         parameters: {
             query?: never;
@@ -4275,6 +4291,14 @@ export interface components {
             color?: string;
             /** Format: int32 */
             wipLimit?: number;
+        };
+        KanbanMoveTaskRequest: {
+            orderedTaskIds: number[];
+            /** Format: int64 */
+            projectId: number;
+            status: string;
+            /** Format: int64 */
+            taskId: number;
         };
         KanbanRequestDTO: {
             name?: string;
@@ -10799,7 +10823,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "*/*": components["schemas"]["TaskResponseDTO"];
+                };
             };
         };
     };
@@ -11178,6 +11204,30 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    moveKanbanTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KanbanMoveTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TaskResponseDTO"];
+                };
             };
         };
     };
