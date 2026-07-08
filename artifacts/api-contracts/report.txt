@@ -1,6 +1,6 @@
 Planora API Contract Check
-Frontend call sites scanned: 407
-Backend routes scanned: 272
+Frontend call sites scanned: 408
+Backend routes scanned: 273
 
 Backend endpoints with no frontend/mobile usage: 40
 - backend/src/main/java/com/planora/backend/controller/ChatRestController.java:392 GET /api/projects/:projectId/chat/search
@@ -27,9 +27,9 @@ Backend endpoints with no frontend/mobile usage: 40
 - backend/src/main/java/com/planora/backend/controller/ProjectGithubWebhookController.java:23 POST /api/github/webhook
 - backend/src/main/java/com/planora/backend/controller/SprintboardController.java:64 GET /api/sprintboards/:sprintboardId
 - backend/src/main/java/com/planora/backend/controller/SprintboardController.java:126 DELETE /api/sprintboards/:sprintboardId
-- backend/src/main/java/com/planora/backend/controller/TaskController.java:165 GET /api/tasks/:taskId/pull-requests
-- backend/src/main/java/com/planora/backend/controller/TaskController.java:195 GET /api/tasks/:taskId/commits
-- backend/src/main/java/com/planora/backend/controller/TaskController.java:418 POST /api/tasks/:taskId/access
+- backend/src/main/java/com/planora/backend/controller/TaskController.java:166 GET /api/tasks/:taskId/pull-requests
+- backend/src/main/java/com/planora/backend/controller/TaskController.java:196 GET /api/tasks/:taskId/commits
+- backend/src/main/java/com/planora/backend/controller/TaskController.java:419 POST /api/tasks/:taskId/access
 - backend/src/main/java/com/planora/backend/controller/TaskTemplateController.java:51 DELETE /api/projects/:projectId/templates/:templateId
 - backend/src/main/java/com/planora/backend/controller/TeamController.java:36 POST /api/teams
 - backend/src/main/java/com/planora/backend/controller/TeamController.java:53 GET /api/teams
