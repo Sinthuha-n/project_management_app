@@ -1536,6 +1536,80 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Atomically moves a Kanban task to a new status column and rewrites
+     * {@code backlogPosition} for every task in the destination column.
+     * Used by the drag-and-drop Kanban board so that a single HTTP call
+     * commits both the status change and the new display order.
+     *
+     * @param projectId       project that owns the task (used for locking + auth)
+     * @param taskId          ID of the task being moved
+     * @param newStatus       target column status (e.g. IN_PROGRESS, DONE)
+     * @param orderedTaskIds  ordered IDs of the entire destination column after the drag
+     * @param currentUserId   the authenticated user performing the operation
+     * @return the updated TaskResponseDTO for the moved task
+     */
+    @Transactional
+    public TaskResponseDTO moveKanbanTask(Long projectId, Long taskId, String newStatus,
+                                          List<Long> orderedTaskIds, Long currentUserId) {
+        // 1. Lock the project row to prevent concurrent order corruption.
+        Project project = projectRepository.findByIdWithLock(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+
+        // 2. Authorisation — must be at least MEMBER.
+        requireMinimumRole(project.getTeam().getId(), currentUserId, TeamRole.MEMBER);
+
+        // 3. Load the task and verify it belongs to the requested project.
+        Task task = findTaskWithProjectTeam(taskId);
+        if (!Objects.equals(task.getProject().getId(), projectId)) {
+            throw new ForbiddenException("Task does not belong to project " + projectId);
+        }
+
+        // 4. Update status (reuse updateStatus logic inline to avoid double-save).
+        String oldStatus = task.getStatus();
+        task.setStatus(newStatus);
+        if ("DONE".equalsIgnoreCase(newStatus) && !"DONE".equalsIgnoreCase(oldStatus)) {
+            task.setCompletedAt(LocalDateTime.now());
+        } else if (!"DONE".equalsIgnoreCase(newStatus)) {
+            task.setCompletedAt(null);
+        }
+
+        User actor = userRepository.findById(currentUserId).orElseThrow();
+        task.setLastModifiedBy(actor);
+        taskRepository.save(task);
+
+        // Log the status change activity when the status actually changed.
+        if (!newStatus.equals(oldStatus)) {
+            taskActivityService.logActivity(task.getId(), TaskActivityType.STATUS_CHANGED,
+                    actor.getUsername(), "Status changed from " + oldStatus + " to " + newStatus);
+            String fromStatus = oldStatus != null ? oldStatus : "NONE";
+            String message = actor.getUsername() + " moved \"" + task.getTitle()
+                    + "\" from " + fromStatus + " to " + newStatus;
+            notifyTaskStakeholders(task, currentUserId, message, "/taskcard?taskId=" + task.getId());
+        }
+
+        // 5. Rewrite backlogPosition for all tasks in the destination column order.
+        if (orderedTaskIds != null && !orderedTaskIds.isEmpty()) {
+            List<Task> columnTasks = taskRepository.findByIdInWithScalars(orderedTaskIds).stream()
+                    .filter(t -> t.getProject() != null && Objects.equals(t.getProject().getId(), projectId))
+                    .toList();
+            java.util.Map<Long, Task> taskById = columnTasks.stream()
+                    .collect(Collectors.toMap(Task::getId, t -> t, (t1, t2) -> t1));
+
+            for (int index = 0; index < orderedTaskIds.size(); index++) {
+                Long tid = orderedTaskIds.get(index);
+                Task t = taskById.get(tid);
+                if (t == null) continue;
+                t.setBacklogPosition(index);
+                t.setLastModifiedBy(actor);
+            }
+            taskRepository.saveAll(columnTasks);
+        }
+
+        // 6. Return the enriched DTO for the moved task.
+        return getTaskByIdInternal(taskId);
+    }
+
     // Handles the complex math of rearranging rows when a user drags and drops a task in the UI.
     @Transactional
     public void reorderTasks(Long projectId, Long sprintId, List<Long> orderedTaskIds, Long currentUserId) {

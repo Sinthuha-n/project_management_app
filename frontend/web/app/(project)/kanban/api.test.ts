@@ -6,6 +6,7 @@ import {
   fetchAllTasksByProject,
   getArchivedTasks,
   fetchTeamMembers,
+  moveKanbanTask,
   unarchiveTask,
   updateTask,
   updateTaskStatus,
@@ -40,21 +41,23 @@ describe('kanban api', () => {
     consoleWarnSpy.mockRestore();
   });
 
-  it('fetchTasksByProject returns task list', async () => {
-    mockedAxios.get.mockResolvedValueOnce({ data: { content: [{ id: 1, title: 'Task 1' }] } });
+  it('fetchTasksByProject uses the /all endpoint ordered by backlogPosition', async () => {
+    mockedAxios.get.mockResolvedValueOnce({ data: [{ id: 1, title: 'Task 1' }] });
 
     const result = await fetchTasksByProject(12);
 
-    expect(mockedAxios.get).toHaveBeenCalledWith('/api/tasks/project/12', { params: { page: 0, size: 500 } });
+    // Must call /all so the server returns tasks ordered by backlogPosition,
+    // not the paginated createdAt-desc endpoint.
+    expect(mockedAxios.get).toHaveBeenCalledWith('/api/tasks/project/12/all', { params: {} });
     expect(result).toEqual([{ id: 1, title: 'Task 1' }]);
   });
 
-  it('fetchTasksByProject requests active tasks by default when asked', async () => {
-    mockedAxios.get.mockResolvedValueOnce({ data: { content: [{ id: 1, title: 'Active task', archived: false }] } });
+  it('fetchTasksByProject passes archived filter to the /all endpoint', async () => {
+    mockedAxios.get.mockResolvedValueOnce({ data: [{ id: 1, title: 'Active task', archived: false }] });
 
     const result = await fetchTasksByProject(12, { archived: false });
 
-    expect(mockedAxios.get).toHaveBeenCalledWith('/api/tasks/project/12', { params: { page: 0, size: 500, archived: false } });
+    expect(mockedAxios.get).toHaveBeenCalledWith('/api/tasks/project/12/all', { params: { archived: false } });
     expect(result).toEqual([{ id: 1, title: 'Active task', archived: false }]);
   });
 
@@ -144,5 +147,37 @@ describe('kanban api', () => {
 
     expect(mockedAxios.get).toHaveBeenCalledWith('/api/teams/10/members');
     expect(result).toEqual([{ id: 8, userId: 12, name: 'alice', photoUrl: 'http://localhost:8080/api/auth/users/12/photo' }]);
+  });
+
+  it('moveKanbanTask sends correct payload to /api/tasks/kanban/move', async () => {
+    const updatedTask = { id: 5, title: 'Moved', status: 'IN_PROGRESS' };
+    mockedAxios.patch.mockResolvedValueOnce({ data: updatedTask });
+
+    const payload = {
+      projectId: 1,
+      taskId: 5,
+      status: 'IN_PROGRESS',
+      orderedTaskIds: [5, 3, 7],
+    };
+    const result = await moveKanbanTask(payload);
+
+    expect(mockedAxios.patch).toHaveBeenCalledWith('/api/tasks/kanban/move', payload);
+    expect(result).toEqual(updatedTask);
+  });
+
+  it('moveKanbanTask supports same-column reorder (orderedTaskIds only)', async () => {
+    const updatedTask = { id: 5, title: 'Reordered', status: 'TODO' };
+    mockedAxios.patch.mockResolvedValueOnce({ data: updatedTask });
+
+    const payload = {
+      projectId: 1,
+      taskId: 5,
+      status: 'TODO',
+      orderedTaskIds: [3, 5, 7],
+    };
+    const result = await moveKanbanTask(payload);
+
+    expect(mockedAxios.patch).toHaveBeenCalledWith('/api/tasks/kanban/move', payload);
+    expect(result).toEqual(updatedTask);
   });
 });

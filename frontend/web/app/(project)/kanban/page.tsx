@@ -367,11 +367,11 @@ function KanbanPageContent() {
       {selectedTaskIdForModal !== null && (
         <TaskCardModal
           taskId={selectedTaskIdForModal}
-          onClose={(wasModified) => {
+          onClose={() => {
             setSelectedTaskIdForModal(null);
-            if (wasModified) {
-              void forceRefresh();
-            }
+            // Board updates from modal edits arrive via the planora:task-updated
+            // custom event dispatched by TaskCardModal and handled in useKanbanData.
+            // No full board refresh needed here.
           }}
         />
       )}
