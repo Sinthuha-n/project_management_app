@@ -119,6 +119,13 @@
   --cu-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
   --cu-shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.16);
 
+  /* ── Liquid Glass ── */
+  --cu-glass-bg: rgba(255, 255, 255, 0.6);
+  --cu-glass-bg-hover: rgba(255, 255, 255, 0.72);
+  --cu-glass-border: rgba(255, 255, 255, 0.45);
+  --cu-glass-border-light: rgba(255, 255, 255, 0.25);
+  --cu-glass-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.08);
+
   /* ── Transitions ── */
   --cu-transition-fast: 100ms ease;
   --cu-transition-normal: 200ms ease-out;
@@ -174,6 +181,13 @@ html.dark {
   --cu-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
   --cu-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
   --cu-shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.7);
+
+  /* ── Liquid Glass - Dark Mode ── */
+  --cu-glass-bg: rgba(11, 17, 32, 0.6);
+  --cu-glass-bg-hover: rgba(11, 17, 32, 0.75);
+  --cu-glass-border: rgba(255, 255, 255, 0.08);
+  --cu-glass-border-light: rgba(255, 255, 255, 0.04);
+  --cu-glass-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.4);
 }
 
 /* ── Mobile: enforce minimum touch targets ── */

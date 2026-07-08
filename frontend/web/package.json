@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "pwa:check": "node scripts/validate-pwa.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
     "security-audit": "npm audit --audit-level=critical"
@@ -58,7 +59,7 @@
     "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.574.0",
     "marked": "^17.0.5",
-    "next": "^16.2.4",
+    "next": "^16.2.10",
     "nextjs-toploader": "^3.9.17",
     "react": "19.2.3",
     "react-datepicker": "^9.1.0",

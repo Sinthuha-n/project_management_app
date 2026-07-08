@@ -11,15 +11,14 @@ import CalendarToolbar from './components/CalendarToolbar';
 import MonthCalendarView from './components/MonthCalendarView';
 import WeekCalendarView from './components/WeekCalendarView';
 import AgendaCalendarView from './components/AgendaCalendarView';
-import { fetchCalendarEvents } from './api';
 import type { CalendarEventItem, CalendarFilters, CalendarView } from './types';
 import { addDays, addMonths, formatMonthLabel, formatWeekLabel, getCalendarSummary, toDateKey } from './utils/date';
 import CreateTaskModal, { type CreateTaskData } from '@/components/shared/CreateTaskModal';
-import { patchTaskDates } from './api';
 import { tasksApi } from '@/services/api-contract';
 import { normalizeTaskPriority } from '@/services/tasks-contract';
 import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 import TaskCardModal from '@/app/taskcard/TaskCardModal';
+import { useCalendarEvents } from './hooks/useCalendarEvents';
 
 const DEFAULT_FILTERS: CalendarFilters = {
   search: '',
@@ -91,9 +90,16 @@ function CalendarPageContent() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId') || (typeof window !== 'undefined' ? localStorage.getItem('currentProjectId') : null);
 
-  const [events, setEvents] = useState<CalendarEventItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    events,
+    loading,
+    error,
+    revalidate,
+    appendEvent,
+    patchEventDate,
+    refreshOneTask,
+    patchingTaskIdsRef,
+  } = useCalendarEvents(projectId);
 
   const [view, setView] = useState<CalendarView>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -102,27 +108,6 @@ function CalendarPageContent() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [prefilledDate, setPrefilledDate] = useState<string | undefined>(undefined);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
-  const patchingTaskIdsRef = useRef(new Set<number>());
-
-  const loadEvents = async () => {
-    if (!projectId) return;
-    try {
-      setLoading(true);
-      setError(null);
-      const result = await fetchCalendarEvents(projectId);
-      setEvents(result);
-    } catch {
-      setError('Failed to load calendar events.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!projectId) return;
-    void loadEvents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
 
   const assigneeOptions = useMemo(() => {
     const uniqueAssignees = Array.from(
@@ -207,7 +192,7 @@ function CalendarPageContent() {
 
   const handleCreateTask = async (data: CreateTaskData) => {
     if (!projectId) return;
-    await tasksApi.create({
+    const task = await tasksApi.create({
       projectId: parseInt(projectId, 10),
       title: data.title,
       priority: normalizeTaskPriority(data.priority),
@@ -216,40 +201,16 @@ function CalendarPageContent() {
       labelIds: data.labelIds,
       dueDate: data.dueDate,
     });
-    void loadEvents();
+    appendEvent(task);
   };
 
   const handleEventDrop = async (eventId: string, newDate: Date) => {
-    const dateStr = toDateKey(newDate);
-
-    const event = events.find((e) => e.id === eventId);
-    if (!event?.taskId) return;
-
-    if (patchingTaskIdsRef.current.has(event.taskId)) return;
-    patchingTaskIdsRef.current.add(event.taskId);
-
-    // Optimistic update
-    setEvents((prev) =>
-      prev.map((e) =>
-        e.id === eventId
-          ? { ...e, startDate: dateStr, dueDate: dateStr, endDate: dateStr }
-          : e
-      )
-    );
-
-    try {
-      await patchTaskDates(event.taskId, dateStr, dateStr);
-    } catch {
-      // Revert on failure
-      void loadEvents();
-    } finally {
-      patchingTaskIdsRef.current.delete(event.taskId);
-    }
+    await patchEventDate(eventId, newDate);
   };
 
   if (!projectId) {
     return (
-      <div className="min-h-full bg-cu-bg-secondary">
+      <div className="min-h-full bg-transparent">
         <EmptyState
           icon={<CalendarDays size={24} />}
           title="Select a project to view its calendar"
@@ -269,9 +230,9 @@ function CalendarPageContent() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-cu-bg-secondary">
+    <div className="flex-1 overflow-y-auto bg-transparent">
       <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
-        <div className="sticky-section-header glass-panel flex flex-col gap-4 rounded-2xl border border-cu-border px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="sticky-section-header glass-panel flex flex-col gap-4 rounded-2xl px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-cu-primary text-white shadow-cu-sm">
@@ -295,7 +256,7 @@ function CalendarPageContent() {
             ].map((item) => {
               const Icon = item.icon;
               return (
-                <div key={item.label} className="rounded-xl border border-cu-border bg-cu-bg px-3 py-2 shadow-cu-sm">
+                <div key={item.label} className="rounded-xl glass-panel px-3 py-2">
                   <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-cu-text-secondary">
                     <Icon size={11} className={item.tone} />
                     {item.label}
@@ -326,8 +287,8 @@ function CalendarPageContent() {
           onMoreFiltersChange={(values) => setFilters((prev) => ({ ...prev, moreFilters: values }))}
         />
 
-        {loading && (
-          <div className="space-y-3 rounded-xl border border-cu-border bg-cu-bg p-4 shadow-cu-sm">
+        {loading && events.length === 0 && (
+          <div className="space-y-3 rounded-xl glass-panel p-4">
             <div className="skeleton h-10 w-48 rounded-lg" />
             <div className="grid grid-cols-7 gap-2">
               {Array.from({ length: 28 }).map((_, index) => (
@@ -337,7 +298,7 @@ function CalendarPageContent() {
           </div>
         )}
 
-        {!loading && error && (
+        {!loading && error && events.length === 0 && (
           <EmptyState
             icon={<AlertCircle size={24} />}
             title="Unable to load calendar"
@@ -345,18 +306,18 @@ function CalendarPageContent() {
             action={
               <button
                 type="button"
-                onClick={() => void loadEvents()}
+                onClick={() => revalidate()}
                 className="inline-flex items-center gap-2 rounded-xl bg-cu-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cu-primary-hover"
               >
                 <RefreshCw size={14} />
                 Retry
               </button>
             }
-            className="rounded-xl border border-cu-border bg-cu-bg shadow-cu-sm"
+            className="rounded-xl glass-panel"
           />
         )}
 
-        {!loading && !error && filteredEvents.length === 0 && (
+        {((!loading && !error) || events.length > 0) && filteredEvents.length === 0 && (
           <EmptyState
             icon={<CalendarDays size={24} />}
             title={events.length === 0 ? 'No scheduled work yet' : 'No calendar items match your filters'}
@@ -378,11 +339,11 @@ function CalendarPageContent() {
                 Clear filters
               </button>
             )}
-            className="rounded-xl border border-cu-border bg-cu-bg shadow-cu-sm"
+            className="rounded-xl glass-panel"
           />
         )}
 
-        {!loading && !error && filteredEvents.length > 0 && (
+        {((!loading && !error) || events.length > 0) && filteredEvents.length > 0 && (
           <motion.div onPanEnd={handlePanEnd} className="touch-pan-y">
             {view === 'month' && (
               <MonthCalendarView
@@ -426,8 +387,9 @@ function CalendarPageContent() {
           <TaskCardModal
             taskId={selectedTaskId}
             onClose={(wasModified) => {
+              const tid = selectedTaskId;
               setSelectedTaskId(null);
-              if (wasModified) void loadEvents();
+              if (wasModified) void refreshOneTask(tid);
             }}
           />
         )}

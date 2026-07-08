@@ -23,7 +23,7 @@ export default function WeekCalendarView({ currentDate, events, onDayClick, onEv
   const [popup, setPopup] = useState<{ event: CalendarEventItem; x: number; y: number } | null>(null);
 
   return (
-    <section className="overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-sm" data-testid="week-view">
+    <section className="overflow-hidden rounded-xl glass-panel shadow-cu-sm" data-testid="week-view">
       <div className="custom-scrollbar overflow-x-auto">
         <div className="grid min-w-[860px] grid-cols-7">
           {weekDays.map((day, index) => {
@@ -36,9 +36,9 @@ export default function WeekCalendarView({ currentDate, events, onDayClick, onEv
               <div
                 key={key}
                 className={[
-                  'min-h-[520px] border-r border-cu-border last:border-r-0',
-                  day.getDay() === 0 || day.getDay() === 6 ? 'bg-cu-bg-secondary/60' : 'bg-cu-bg',
-                  target ? 'bg-cu-primary-light' : '',
+                  'min-h-[520px] border-r border-[rgba(232,232,237,0.3)] dark:border-[rgba(39,52,73,0.3)] last:border-r-0',
+                  day.getDay() === 0 || day.getDay() === 6 ? 'bg-[rgba(247,248,250,0.15)] dark:bg-[rgba(17,24,39,0.15)]' : 'bg-transparent',
+                  target ? 'bg-[rgba(235,242,255,0.5)] dark:bg-[rgba(26,47,92,0.5)]' : '',
                 ].join(' ')}
                 onDragOver={(event) => {
                   if (!draggedId) return;
@@ -57,7 +57,7 @@ export default function WeekCalendarView({ currentDate, events, onDayClick, onEv
                   type="button"
                   onClick={() => onDayClick?.(day)}
                   className={[
-                    'sticky top-0 z-10 flex min-h-[72px] w-full items-center justify-between gap-3 border-b border-cu-border bg-cu-bg/95 px-3 py-3 text-left backdrop-blur',
+                    'sticky top-0 z-10 flex min-h-[72px] w-full items-center justify-between gap-3 border-b border-[rgba(232,232,237,0.3)] dark:border-[rgba(39,52,73,0.3)] bg-[rgba(255,255,255,0.4)] dark:bg-[rgba(11,17,32,0.4)] px-3 py-3 text-left backdrop-blur-md',
                     today ? 'text-cu-primary' : 'text-cu-text-primary',
                   ].join(' ')}
                 >
@@ -65,7 +65,7 @@ export default function WeekCalendarView({ currentDate, events, onDayClick, onEv
                     <span className="block text-[11px] font-bold uppercase text-cu-text-muted">{DAY_NAMES[index]}</span>
                     <span className="mt-1 block text-lg font-bold tabular-nums">{day.getDate()}</span>
                   </span>
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-cu-border bg-cu-bg-secondary text-cu-text-muted transition-colors group-hover:text-cu-primary">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(232,232,237,0.5)] dark:border-[rgba(39,52,73,0.5)] bg-[rgba(247,248,250,0.4)] dark:bg-[rgba(17,24,39,0.4)] text-cu-text-muted transition-colors group-hover:text-cu-primary">
                     <Plus size={14} />
                   </span>
                 </button>
@@ -85,7 +85,7 @@ export default function WeekCalendarView({ currentDate, events, onDayClick, onEv
                     <button
                       type="button"
                       onClick={() => onDayClick?.(day)}
-                      className="flex min-h-[88px] w-full items-center justify-center rounded-lg border border-dashed border-cu-border bg-cu-bg-secondary/70 px-3 text-center text-xs font-semibold text-cu-text-muted transition-colors hover:border-cu-primary/30 hover:bg-cu-primary-light hover:text-cu-primary"
+                      className="flex min-h-[88px] w-full items-center justify-center rounded-lg border border-dashed border-[rgba(232,232,237,0.5)] dark:border-[rgba(39,52,73,0.5)] bg-[rgba(247,248,250,0.2)] dark:bg-[rgba(17,24,39,0.2)] px-3 text-center text-xs font-semibold text-cu-text-muted transition-all duration-200 hover:border-cu-primary/30 hover:bg-cu-primary-light/50 hover:text-cu-primary"
                     >
                       Add scheduled work
                     </button>

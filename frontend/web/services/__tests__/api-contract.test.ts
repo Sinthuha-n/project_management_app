@@ -218,13 +218,15 @@ describe('API Contract & Utilities', () => {
       expect(res).toEqual([{ id: 1, title: 'Assigned' }]);
     });
 
-    it('updateDates serializes local date strings', async () => {
-      mockedApi.patch.mockResolvedValueOnce({});
-      await apiContract.tasks.updateDates(9, { startDate: '2023-10-27', dueDate: '2023-10-28' });
+    it('updateDates serializes local date strings and returns response body', async () => {
+      const mockTask = { id: 9, title: 'Test Task' };
+      mockedApi.patch.mockResolvedValueOnce({ data: mockTask });
+      const result = await apiContract.tasks.updateDates(9, { startDate: '2023-10-27', dueDate: '2023-10-28' });
       expect(mockedApi.patch).toHaveBeenCalledWith('/api/tasks/9/dates', {
         startDate: '2023-10-27',
         dueDate: '2023-10-28',
       });
+      expect(result).toEqual(mockTask);
     });
   });
 

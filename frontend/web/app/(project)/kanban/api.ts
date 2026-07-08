@@ -1,6 +1,6 @@
 import { tasksApi, kanbanApi, projectsApi, labelsApi } from '@/services/api-contract';
 import { normalizeTaskPriority } from '@/services/tasks-contract';
-import type { TaskListQueryParams, TaskListAllQueryParams } from '@/services/tasks-contract';
+import type { TaskListAllQueryParams, KanbanMoveTaskRequest } from '@/services/tasks-contract';
 import { Task, Label, KanbanColumnConfig } from './types';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 
@@ -21,7 +21,9 @@ export interface TeamMemberOption {
 }
 
 /**
- * Fetch all tasks for a specific project (paginated, returning page 0 with size 500 for compatibility)
+ * Fetch all tasks for a specific project (unpaginated, ordered by backlogPosition).
+ * Uses the /all endpoint so the returned order matches the persisted board order
+ * instead of the paginated createdAt-desc default.
  * @param projectId - The project ID to fetch tasks for
  * @returns Promise with array of tasks
  */
@@ -30,15 +32,11 @@ export async function fetchTasksByProject(
   filters?: { milestoneId?: number | null; archived?: boolean }
 ): Promise<Task[]> {
   try {
-    const params: TaskListQueryParams = {
-      page: 0,
-      size: 500,
-    };
+    const params: TaskListAllQueryParams = {};
     if (filters?.archived !== undefined) {
       params.archived = filters.archived;
     }
-    const response = await tasksApi.listByProject(projectId, params);
-    return response.content || [];
+    return await tasksApi.listAllByProject(projectId, params);
   } catch (error) {
     console.error('Error fetching tasks:', error);
     throw error;
@@ -161,13 +159,13 @@ export async function updateTaskDates(
   taskId: number,
   startDate?: string | null,
   dueDate?: string | null
-): Promise<void> {
+): Promise<Task> {
   try {
     const data: Record<string, string | null> = {};
     if (startDate !== undefined) data.startDate = startDate;
     if (dueDate !== undefined) data.dueDate = dueDate;
 
-    await tasksApi.updateDates(taskId, data);
+    return await tasksApi.updateDates(taskId, data);
   } catch (error) {
     console.error(`Error updating task ${taskId} dates:`, error);
     throw error;
@@ -289,6 +287,19 @@ export async function reorderKanbanColumns(reorderRequest: Array<{ id: number; p
     await kanbanApi.reorderColumns(reorderRequest);
   } catch (error) {
     console.error('Error reordering kanban columns:', error);
+    throw error;
+  }
+}
+
+/**
+ * Atomically move a kanban task to a new column and persist the new column order.
+ * Combines status update + backlogPosition rewrite in a single backend transaction.
+ */
+export async function moveKanbanTask(payload: KanbanMoveTaskRequest): Promise<Task> {
+  try {
+    return await tasksApi.moveKanbanTask(payload);
+  } catch (error) {
+    console.error('Error moving kanban task:', error);
     throw error;
   }
 }

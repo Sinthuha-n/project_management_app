@@ -575,13 +575,24 @@ class TaskControllerTest {
 
     @Test
     @WithMockUserPrincipal
-    void patchTaskDates_emptyBody_succeeds() throws Exception {
+    void patchTaskDates_emptyBody_returnsUpdatedTaskAndBroadcasts() throws Exception {
         // Empty body is valid — no fields are required; service handles absent dates gracefully.
+        when(service.patchTaskDates(eq(1L), isNull(), eq(false), isNull(), eq(false), anyLong()))
+                .thenReturn(sampleTask);
+
         mockMvc.perform(patch("/api/tasks/1/dates")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.projectId").value(10));
+
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/project/10/tasks"),
+                org.mockito.ArgumentMatchers.<Object>argThat(payload -> payload instanceof Map<?, ?> map
+                        && "TASK_UPDATED".equals(map.get("type"))
+                        && sampleTask.equals(map.get("task"))));
     }
 
     @Test

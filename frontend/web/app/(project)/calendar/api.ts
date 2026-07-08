@@ -8,7 +8,7 @@ export const patchTaskDates = (taskId: number, startDate: string, dueDate: strin
   tasksApi.updateDates(taskId, { startDate, dueDate });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mapTask = (task: any): CalendarEventItem => ({
+export const mapTaskToCalendarEvent = (task: any): CalendarEventItem => ({
   id: `task-${task.id}`,
   taskId: task.id as number,
   title: task.title || 'Untitled Task',
@@ -71,7 +71,7 @@ export const fetchCalendarEvents = async (projectId: string | number): Promise<C
 
     const tasks =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      tasksRes.status === 'fulfilled' ? asArray<any>(tasksRes.value).map(mapTask) : [];
+      tasksRes.status === 'fulfilled' ? asArray<any>(tasksRes.value).map(mapTaskToCalendarEvent) : [];
     const sprints =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sprintsRes.status === 'fulfilled' ? asArray<any>(sprintsRes.value).map(mapSprint) : [];
