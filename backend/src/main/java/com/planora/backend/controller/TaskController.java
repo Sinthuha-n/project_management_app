@@ -623,17 +623,20 @@ public class TaskController {
      * Accepts { startDate: "YYYY-MM-DD", dueDate: "YYYY-MM-DD" }.
      */
     @PatchMapping("/{taskId}/dates")
-    public ResponseEntity<Void> patchTaskDates(
+    public ResponseEntity<TaskResponseDTO> patchTaskDates(
             @PathVariable Long taskId,
             @Valid @RequestBody PatchTaskDatesRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        service.patchTaskDates(
+        TaskResponseDTO task = service.patchTaskDates(
                 taskId,
                 request.getStartDate(), request.isStartDateProvided(),
                 request.getDueDate(), request.isDueDateProvided(),
                 currentUser.getUserId());
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        messagingTemplate.convertAndSend(
+                "/topic/project/" + task.getProjectId() + "/tasks",
+                Map.of("type", "TASK_UPDATED", "task", task));
+        return new ResponseEntity<>(task, HttpStatus.OK);
     }
 
     @PatchMapping("/reorder")

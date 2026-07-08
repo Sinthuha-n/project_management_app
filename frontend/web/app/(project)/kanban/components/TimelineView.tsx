@@ -366,10 +366,13 @@ export default function TimelineView({
     setLocalTasks((prev) => prev.map((item) => item.id === task.id ? { ...item, ...updates } : item));
     onTaskUpdated?.(task.id, updates);
     try {
-      await updateTaskDates(task.id, updates.startDate, updates.dueDate);
+      const updatedTask = await updateTaskDates(task.id, updates.startDate, updates.dueDate);
+      setLocalTasks((prev) => prev.map((item) => item.id === task.id ? { ...item, ...updatedTask } : item));
+      onTaskUpdated?.(task.id, updatedTask);
       toast('Task scheduled on the timeline.', 'success');
     } catch {
       setLocalTasks((prev) => prev.map((item) => item.id === task.id ? { ...item, ...previous } : item));
+      onTaskUpdated?.(task.id, previous);
       toast('Could not schedule task. Reverted the timeline update.', 'error');
     }
   };

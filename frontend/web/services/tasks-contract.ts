@@ -15,12 +15,17 @@ import type {
   Label,
 } from '@/types';
 
-type WithNullableTaskFields<T> = Omit<T, 'startDate' | 'dueDate' | 'sprintId' | 'milestoneId' | 'assigneeId'> & {
+type WithNullableTaskFields<T> = Omit<T, 'startDate' | 'dueDate' | 'sprintId' | 'milestoneId' | 'assigneeId' | 'reporterId' | 'recurrenceRule' | 'recurrenceEnd' | 'customInterval' | 'recurrenceLimit'> & {
   startDate?: string | null;
   dueDate?: string | null;
   sprintId?: number | null;
   milestoneId?: number | null;
   assigneeId?: number | null;
+  reporterId?: number | null;
+  recurrenceRule?: string | null;
+  recurrenceEnd?: string | null;
+  customInterval?: number | null;
+  recurrenceLimit?: number | null;
 };
 
 type RequireKeys<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
@@ -206,8 +211,9 @@ export const tasksApi = {
     const { data } = await api.patch(`/api/tasks/${taskId}/priority`, payload);
     return data;
   },
-  updateDates: async (taskId: number | string, payload: PatchTaskDatesRequest): Promise<void> => {
-    await updateTaskDatesBuilder(api, taskId, payload);
+  updateDates: async (taskId: number | string, payload: PatchTaskDatesRequest): Promise<Task> => {
+    const { data } = await updateTaskDatesBuilder(api, taskId, payload);
+    return data;
   },
   saveAsTemplate: async (taskId: number | string, payload: { templateName: string }): Promise<void> => {
     await api.post(`/api/tasks/${taskId}/save-as-template`, payload);

@@ -13420,6 +13420,13 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDTO"
+                }
+              }
+            },
             "description": "OK"
           }
         },

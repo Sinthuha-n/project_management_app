@@ -472,7 +472,7 @@ public class TaskService {
      * where sending a full TaskRequestDTO is overkill.
      */
     @Transactional
-    public void patchTaskDates(
+    public TaskResponseDTO patchTaskDates(
             Long taskId,
             LocalDate startDate,
             boolean startDateProvided,
@@ -485,7 +485,8 @@ public class TaskService {
         if (startDateProvided) task.setStartDate(startDate);
         if (dueDateProvided) task.setDueDate(dueDate);
         task.setLastModifiedBy(userRepository.findById(currentUserId).orElseThrow());
-        taskRepository.save(task);
+        Task saved = taskRepository.save(task);
+        return getTaskByIdInternal(saved.getId());
     }
 
     // ── 4. DELETE TASK ──────────────────────────────────────────────────────────

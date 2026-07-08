@@ -161,13 +161,13 @@ export async function updateTaskDates(
   taskId: number,
   startDate?: string | null,
   dueDate?: string | null
-): Promise<void> {
+): Promise<Task> {
   try {
     const data: Record<string, string | null> = {};
     if (startDate !== undefined) data.startDate = startDate;
     if (dueDate !== undefined) data.dueDate = dueDate;
 
-    await tasksApi.updateDates(taskId, data);
+    return await tasksApi.updateDates(taskId, data);
   } catch (error) {
     console.error(`Error updating task ${taskId} dates:`, error);
     throw error;

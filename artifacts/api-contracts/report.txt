@@ -1,5 +1,5 @@
 Planora API Contract Check
-Frontend call sites scanned: 408
+Frontend call sites scanned: 407
 Backend routes scanned: 272
 
 Backend endpoints with no frontend/mobile usage: 40
