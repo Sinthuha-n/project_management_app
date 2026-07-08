@@ -17,15 +17,8 @@ export default function TabsSection() {
     <>
       {/* ── Desktop View ─────────────────────────────────────────────────────── */}
       <div className="hidden md:flex flex-col gap-4 md:gap-6 mt-2 md:mt-0">
-        {/* Tab bar */}
-        <div className="flex flex-col md:flex-row md:justify-between items-start md:items-end border-b border-cu-border pb-0 gap-4 md:gap-0">
-          <Link
-            href="/createProject"
-            className="order-last w-auto bg-transparent text-cu-primary font-arimo text-[14px] font-semibold hover:underline mb-2 shrink-0 flex items-center justify-center p-0 rounded-none shadow-none transition-all"
-          >
-            + Create new project
-          </Link>
-
+        {/* Tab and Control Bar */}
+        <div className="flex flex-col xl:flex-row xl:justify-between xl:items-center border-b border-cu-border/60 pb-1.5 gap-4">
           <div className="flex flex-nowrap items-center gap-1 w-auto overflow-x-auto no-scrollbar pb-0 h-[44px]">
             {['Worked on', 'Viewed', 'Assigned to me', 'Favorites', 'Boards'].map((tab) => {
               const tabId = tab.toLowerCase().replaceAll(' ', '-');
@@ -81,23 +74,34 @@ export default function TabsSection() {
               );
             })}
           </div>
-        </div>
 
-        {/* Search */}
-        <div className="relative w-[320px] shrink-0">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--cu-text-muted)" strokeWidth="1.5">
-              <circle cx="7" cy="7" r="5" />
-              <path d="M11 11L14 14" />
-            </svg>
+          {/* Search + Actions */}
+          <div className="flex items-center gap-3 shrink-0 self-end xl:self-center pb-1.5 xl:pb-0">
+            {/* Search */}
+            <div className="relative w-[240px] lg:w-[280px]">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--cu-text-muted)" strokeWidth="1.5">
+                  <circle cx="7" cy="7" r="5" />
+                  <path d="M11 11L14 14" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search items..."
+                value={dashboardSearch}
+                onChange={(e) => setDashboardSearch(e.target.value)}
+                className="block w-full pl-9 pr-3 py-1.5 h-[34px] border border-cu-border/80 rounded-lg bg-cu-bg dark:bg-cu-bg-secondary/40 placeholder-cu-text-muted text-cu-text-primary focus:outline-none focus:ring-2 focus:ring-cu-primary/20 focus:border-cu-primary/60 text-xs font-arimo shadow-cu-sm transition-all"
+              />
+            </div>
+
+            {/* Create Project Button */}
+            <Link
+              href="/createProject"
+              className="h-[34px] px-4 bg-cu-primary hover:bg-cu-primary-hover text-white font-outfit text-xs font-bold rounded-lg shadow-cu-sm flex items-center justify-center gap-1 transition-all active:scale-95 whitespace-nowrap"
+            >
+              <span>+ Create project</span>
+            </Link>
           </div>
-          <input
-            type="text"
-            placeholder="Search items..."
-            value={dashboardSearch}
-            onChange={(e) => setDashboardSearch(e.target.value)}
-            className="block w-full pl-10 pr-3 py-2 h-[38px] border border-cu-border rounded-[6px] leading-5 bg-cu-bg placeholder-cu-text-muted text-cu-text-primary focus:outline-none focus:ring-1 focus:ring-cu-primary/30 focus:border-cu-primary sm:text-sm font-arimo shadow-cu-sm"
-          />
         </div>
 
         <DashboardTable
