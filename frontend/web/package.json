@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "pwa:check": "node scripts/validate-pwa.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
     "security-audit": "npm audit --audit-level=critical"
