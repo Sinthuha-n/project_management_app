@@ -451,13 +451,13 @@ export function getValidToken(): string | null {
  * access token (and refresh token if rotated), and returns the new access token.
  * On failure it clears all tokens and throws.
  */
-async function requestRefreshAccessToken(options: RefreshAccessTokenOptions = {}): Promise<string> {
+async function requestRefreshAccessToken(_options: RefreshAccessTokenOptions = {}): Promise<string> {
     if (authLogoutInProgress) {
         throw new Error('Token refresh cancelled during logout');
     }
 
     const rt = getRefreshToken();
-    if (!rt && !options.allowCookieRefresh) {
+    if (!rt) {
         clearTokens();
         throw new Error('No refresh token available');
     }
@@ -510,7 +510,7 @@ export async function ensureValidToken(options: EnsureValidTokenOptions = {}): P
 
     if (authLogoutInProgress) return null;
 
-    if (!getRefreshToken() && !options.allowCookieRefresh) return null;
+    if (!getRefreshToken()) return null;
 
     try {
         return await refreshAccessToken(options);

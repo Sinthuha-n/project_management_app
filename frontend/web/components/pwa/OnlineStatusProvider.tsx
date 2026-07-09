@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { WifiOff } from 'lucide-react';
 import { toast } from '@/components/ui/Toast';
 
@@ -12,27 +12,33 @@ type OnlineStatusContextValue = {
 const OnlineStatusContext = createContext<OnlineStatusContextValue | undefined>(undefined);
 
 function getInitialOnlineStatus(): boolean {
+  return true;
+}
+
+function getBrowserOnlineStatus(): boolean {
   if (typeof navigator === 'undefined') return true;
   return navigator.onLine;
 }
 
+function subscribeToOnlineStatus(callback: () => void): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+
+  window.addEventListener('online', callback);
+  window.addEventListener('offline', callback);
+
+  return () => {
+    window.removeEventListener('online', callback);
+    window.removeEventListener('offline', callback);
+  };
+}
+
 export function OnlineStatusProvider({ children }: { children: React.ReactNode }) {
-  const [isOnline, setIsOnline] = useState(getInitialOnlineStatus);
+  const isOnline = useSyncExternalStore(
+    subscribeToOnlineStatus,
+    getBrowserOnlineStatus,
+    getInitialOnlineStatus,
+  );
   const previousOnlineRef = useRef<boolean | null>(null);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    setIsOnline(getInitialOnlineStatus());
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
 
   useEffect(() => {
     if (previousOnlineRef.current === null) {

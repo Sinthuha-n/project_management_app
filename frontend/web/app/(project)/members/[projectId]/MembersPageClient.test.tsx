@@ -217,7 +217,6 @@ describe('MembersPageClient', () => {
     await waitFor(() => {
       expect(mockedAxios.patch).toHaveBeenCalledWith('/api/projects/7/members/202/role', {
         role: 'VIEWER',
-        userId: 202,
       });
       expect(screen.getByText('Role updated successfully!')).toBeInTheDocument();
     });
