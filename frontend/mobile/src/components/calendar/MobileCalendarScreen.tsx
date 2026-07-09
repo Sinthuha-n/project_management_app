@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { STATUS_MAP, StatusKey, T } from '../../constants/tokens';
 import { BoardTask, useProjectBoard } from '../../hooks/useProjectBoard';
+import MobileTaskDetailSheet from '../task-detail/MobileTaskDetailSheet';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const MONTHS = [
@@ -42,6 +43,7 @@ export default function MobileCalendarScreen({
   topOffset?: number;
 }) {
   const { tasks, loading, refreshing, error, refresh } = useProjectBoard(projectId);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
 
   const today = useMemo(() => new Date(), []);
   const [viewDate, setViewDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
@@ -202,7 +204,7 @@ export default function MobileCalendarScreen({
         selectedTasks.map((task) => {
           const status = statusMeta(task.status);
           return (
-            <View key={task.id} style={styles.taskCard}>
+            <TouchableOpacity key={task.id} activeOpacity={0.78} onPress={() => setSelectedTaskId(task.id)} style={styles.taskCard}>
               <View style={[styles.taskDot, { backgroundColor: status.dot }]} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.taskTitle} numberOfLines={2}>{task.title}</Text>
@@ -212,7 +214,7 @@ export default function MobileCalendarScreen({
                   </Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         })
       ) : (
@@ -221,6 +223,13 @@ export default function MobileCalendarScreen({
           <Text style={styles.emptyText}>No tasks due on this day.</Text>
         </View>
       )}
+      <MobileTaskDetailSheet
+        visible={selectedTaskId !== null}
+        taskId={selectedTaskId}
+        projectId={projectId}
+        onClose={() => setSelectedTaskId(null)}
+        onChanged={refresh}
+      />
     </ScrollView>
   );
 }

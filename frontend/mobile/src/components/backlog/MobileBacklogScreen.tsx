@@ -28,6 +28,7 @@ import {
   MobileTask,
   useMobileBacklog,
 } from '../../hooks/useMobileBacklog';
+import MobileTaskDetailSheet from '../task-detail/MobileTaskDetailSheet';
 
 const hapticLight = () => {
   void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -430,6 +431,7 @@ function TaskCard({
   isDraggingGlobal,
   onAssign,
   onDateChange,
+  onOpen,
   projectMembers = [],
 }: {
   task: MobileTask;
@@ -448,6 +450,7 @@ function TaskCard({
   isDraggingGlobal?: boolean;
   onAssign?: (userId: number | null) => void;
   onDateChange?: (date: string | null) => void;
+  onOpen?: () => void;
   projectMembers?: any[];
 }) {
   const status = statusStyle(task.status);
@@ -639,7 +642,7 @@ function TaskCard({
         {selected && <Icon name="check" color="#FFFFFF" size={11} />}
       </TouchableOpacity>
 
-      <View style={styles.taskMain}>
+      <TouchableOpacity activeOpacity={0.82} onPress={onOpen} style={styles.taskMain}>
         <View style={styles.taskTop}>
           <Text style={styles.taskCode}>TSK-{task.projectTaskNumber ?? task.id}</Text>
           <View style={[styles.priorityPill, { backgroundColor: `${priorityColor(task.priority)}12`, borderColor: `${priorityColor(task.priority)}30` }]}>
@@ -701,7 +704,7 @@ function TaskCard({
             })}
           </View>
         )}
-      </View>
+      </TouchableOpacity>
 
       {agile && (
         <TouchableOpacity
@@ -1343,6 +1346,7 @@ export default function MobileBacklogScreen({
   };
 
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
 
   const stats = useMemo(() => {
     const visibleTasks = isAgile
@@ -1468,6 +1472,7 @@ export default function MobileBacklogScreen({
                                   isDraggingGlobal={draggingTaskId !== null}
                                   onAssign={(userId) => backlog.assignTask(task.id, userId)}
                                   onDateChange={(date) => backlog.updateTaskDueDate(task.id, date)}
+                                  onOpen={() => setSelectedTaskId(task.id)}
                                   projectMembers={backlog.members}
                                 />
                               </View>
@@ -1542,6 +1547,7 @@ export default function MobileBacklogScreen({
                             isDraggingGlobal={draggingTaskId !== null}
                             onAssign={(userId) => backlog.assignTask(task.id, userId)}
                             onDateChange={(date) => backlog.updateTaskDueDate(task.id, date)}
+                            onOpen={() => setSelectedTaskId(task.id)}
                             projectMembers={backlog.members}
                           />
                         </View>
@@ -1581,6 +1587,7 @@ export default function MobileBacklogScreen({
                     onDelete={() => backlog.deleteTask(task.id)}
                     onAssign={(userId) => backlog.assignTask(task.id, userId)}
                     onDateChange={(date) => backlog.updateTaskDueDate(task.id, date)}
+                    onOpen={() => setSelectedTaskId(task.id)}
                     projectMembers={backlog.members}
                   />
                 ))}
@@ -1639,6 +1646,14 @@ export default function MobileBacklogScreen({
           setBulkDeleteConfirmOpen(false);
           backlog.bulkDelete();
         }}
+      />
+
+      <MobileTaskDetailSheet
+        visible={selectedTaskId !== null}
+        taskId={selectedTaskId}
+        projectId={projectId}
+        onClose={() => setSelectedTaskId(null)}
+        onChanged={backlog.refresh}
       />
     </View>
   );

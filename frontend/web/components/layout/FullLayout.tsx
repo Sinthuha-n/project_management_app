@@ -19,7 +19,7 @@ export default function FullLayout({ children, showTopBar = true }: FullLayoutPr
     const isChatRoute = pathname?.includes('/chat');
     const isSprintBacklogRoute = pathname?.includes('/sprint-backlog');
     const contentInteractionClass = isSidebarOpen
-        ? 'max-md:blur-[3px] pointer-events-none md:pointer-events-auto'
+        ? 'pointer-events-none md:pointer-events-auto'
         : 'pointer-events-auto';
     
     const scrollRef = useRef<HTMLDivElement>(null);

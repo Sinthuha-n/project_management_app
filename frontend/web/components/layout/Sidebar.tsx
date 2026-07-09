@@ -451,10 +451,11 @@ export default function Sidebar() {
   /* -- render -- */
   return (
     <>
-      {/* Mobile Backdrop Overlay - Full screen blur to cover everything */}
+      {/* Mobile backdrop sits below the sidebar so the nav stays sharp. */}
       <div
-        className={`md:hidden fixed inset-0 z-[var(--cu-z-overlay)] bg-slate-950/55 backdrop-blur-xl transition-all duration-300 ease-in-out ${isMobile && !collapsed ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        className={`md:hidden fixed inset-0 bg-slate-950/55 backdrop-blur-xl transition-all duration-300 ease-in-out ${isMobile && !collapsed ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
+        style={{ zIndex: 'calc(var(--cu-z-sidebar) - 1)' }}
         onClick={() => {
           setCollapsed(true);
           localStorage.setItem('planora:sidebar:collapsed', 'true');

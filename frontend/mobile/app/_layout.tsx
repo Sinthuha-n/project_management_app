@@ -9,61 +9,10 @@ import Constants from 'expo-constants';
 import SplashAnimation from '@/src/components/SplashAnimation';
 import { getValidToken } from '@/src/auth/storage';
 import { offlineSyncManager } from '@/src/services/offlineSyncManager';
+import { resolveMobileRoute, resolveNotificationRoute, routes } from '@/src/navigation/routes';
 
 // Prevent the native splash from auto-hiding — we control it
 SplashScreen.preventAutoHideAsync();
-
-const SUPPORTED_NOTIFICATION_PREFIXES = [
-  '/summary/',
-  '/board/',
-  '/project/',
-  '/github/',
-  '/create-project/',
-  '/portfolios/',
-  '/dashboard/notifications',
-  '/(tabs)',
-  '/modal',
-];
-
-function normalizeRouteLink(link: string): string {
-  const trimmed = link.trim();
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) {
-    try {
-      const url = new URL(trimmed);
-      return `${url.pathname}${url.search}${url.hash}` || '/';
-    } catch {
-      return trimmed;
-    }
-  }
-
-  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-}
-
-function resolveNotificationRoute(data: Record<string, unknown> | undefined): string | null {
-  const rawLink = typeof data?.link === 'string' ? data.link : null;
-  if (rawLink) {
-    const route = normalizeRouteLink(rawLink);
-    if (SUPPORTED_NOTIFICATION_PREFIXES.some((prefix) => route.startsWith(prefix))) {
-      return route;
-    }
-  }
-
-  const projectIdValue = data?.projectId;
-  const projectId = typeof projectIdValue === 'string' || typeof projectIdValue === 'number'
-    ? String(projectIdValue)
-    : null;
-
-  if (!projectId) {
-    return null;
-  }
-
-  const eventType = typeof data?.eventType === 'string' ? data.eventType : '';
-  if (eventType === 'TASK_ACTIVITY' || eventType === 'CHAT_ACTIVITY') {
-    return `/board/${projectId}`;
-  }
-
-  return `/summary/${projectId}`;
-}
 
 function NativeNotificationBridge({
   onNotificationResponse,
@@ -144,10 +93,10 @@ export default function RootLayout() {
 
   const destination = useMemo(() => {
     if (!isAuthed) {
-      return '/' as Parameters<typeof router.replace>[0];
+      return (pendingRoute ?? routes.landing) as Parameters<typeof router.replace>[0];
     }
 
-    return (pendingRoute ?? '/(tabs)') as Parameters<typeof router.replace>[0];
+    return (pendingRoute ?? routes.tabs) as Parameters<typeof router.replace>[0];
   }, [isAuthed, pendingRoute, router]);
 
   const handleNotificationResponse = useCallback((response: NotificationResponseLike | null) => {
@@ -164,7 +113,7 @@ export default function RootLayout() {
     const data = response.notification.request.content.data as Record<string, unknown> | undefined;
     const route = resolveNotificationRoute(data);
     if (route) {
-      setPendingRoute(route);
+      setPendingRoute(String(route));
     }
   }, []);
 
@@ -175,6 +124,13 @@ export default function RootLayout() {
 
     (async () => {
       await offlineSyncManager.init();
+      const initialUrl = await import('expo-linking')
+        .then((Linking) => Linking.getInitialURL())
+        .catch(() => null);
+      if (initialUrl) {
+        const route = resolveMobileRoute(initialUrl);
+        if (route) setPendingRoute(String(route));
+      }
       const token = await getValidToken();
       setIsAuthed(!!token);
       setAuthChecked(true);
@@ -217,6 +173,7 @@ export default function RootLayout() {
           <Stack.Screen name="create-project/setup"   options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="create-project/invite"  options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="dashboard/notifications" options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="accept-invite"                    options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="portfolios/index"                options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="portfolios/[id]"                 options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="project/[projectId]/settings"    options={{ headerShown: false, animation: 'slide_from_right' }} />

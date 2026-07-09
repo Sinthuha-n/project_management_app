@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 
 export const PWA_UPDATE_AVAILABLE_EVENT = 'planora:pwa-update-available';
+export const PWA_UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 export type PWAUpdateAvailableDetail = {
   registration: ServiceWorkerRegistration;
@@ -67,9 +68,39 @@ function watchForUpdates(registration: ServiceWorkerRegistration): void {
   });
 }
 
+function checkForServiceWorkerUpdate(registration: ServiceWorkerRegistration): void {
+  if (typeof registration.update !== 'function') return;
+  registration.update().catch(() => undefined);
+}
+
+function attachUpdateChecks(registration: ServiceWorkerRegistration): () => void {
+  checkForServiceWorkerUpdate(registration);
+
+  const handleFocus = () => checkForServiceWorkerUpdate(registration);
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      checkForServiceWorkerUpdate(registration);
+    }
+  };
+  const intervalId = window.setInterval(
+    () => checkForServiceWorkerUpdate(registration),
+    PWA_UPDATE_CHECK_INTERVAL_MS,
+  );
+
+  window.addEventListener('focus', handleFocus);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
+  return () => {
+    window.clearInterval(intervalId);
+    window.removeEventListener('focus', handleFocus);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
+}
+
 export default function PWARegistration() {
   useEffect(() => {
     applyStandaloneMarker(isStandaloneMode());
+    let detachUpdateChecks: (() => void) | null = null;
 
     if (!shouldRegisterServiceWorker({
       hasServiceWorker: 'serviceWorker' in navigator,
@@ -88,19 +119,21 @@ export default function PWARegistration() {
         .then((registration) => {
           debugPwa('Service worker registered', registration.scope);
           watchForUpdates(registration);
+          detachUpdateChecks?.();
+          detachUpdateChecks = attachUpdateChecks(registration);
         })
         .catch(() => undefined);
     };
 
     if (document.readyState === 'complete') {
       register();
-      return;
+    } else {
+      window.addEventListener('load', register, { once: true });
     }
-
-    window.addEventListener('load', register, { once: true });
 
     return () => {
       window.removeEventListener('load', register);
+      detachUpdateChecks?.();
     };
   }, []);
 

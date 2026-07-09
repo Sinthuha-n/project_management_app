@@ -39,7 +39,7 @@ interface TaskData {
   sprintName: string;
   milestoneId?: number | null;
   milestoneName?: string | null;
-  labels: Array<{ id: number; name: string }>;
+  labels: Array<{ id: number; name: string; color?: string | null }>;
   createdAt: string;
   updatedAt: string;
   dueDate: string | null;
@@ -69,6 +69,7 @@ interface ProjectMemberOption {
 interface LabelOption {
   id: number;
   name: string;
+  color?: string | null;
 }
 
 interface SprintOption {
@@ -208,8 +209,8 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
             photoUrl: resolveProfilePhotoUrl(member.user!.profilePicUrl, member.user!.userId),
           })),
       );
-      const labelsRaw = (labelsRes || []) as Array<{ id: number; name: string }>;
-      setProjectLabels(labelsRaw.map((label) => ({ id: label.id, name: label.name })));
+      const labelsRaw = (labelsRes || []) as Array<{ id: number; name: string; color?: string | null }>;
+      setProjectLabels(labelsRaw.map((label) => ({ id: label.id, name: label.name, color: label.color })));
       const sprintsRaw = (sprintsRes || []) as Array<{ id: number; name: string; status?: string }>;
       setProjectSprints(
         sprintsRaw
@@ -433,6 +434,10 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
               taskId={`TASK-${taskData.id}`}
               numericTaskId={taskData.id}
               archived={taskData.archived}
+              status={taskData.status}
+              priority={taskData.priority}
+              dueDate={taskData.dueDate}
+              readOnly={!canEdit}
               onClose={(wasModifiedFlag) => onClose(wasModifiedFlag || wasModified.current)}
             />
             <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-y-auto md:overflow-hidden">
@@ -444,6 +449,21 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
                   dependencies={taskData.dependencies || []}
                   taskId={taskData.id}
                   projectId={taskData.projectId}
+                  overview={{
+                    status: taskData.status,
+                    priority: taskData.priority,
+                    dueDate: taskData.dueDate,
+                    storyPoint: taskData.storyPoint,
+                    labels: taskData.labels ?? [],
+                    assignees: taskData.assignees?.length
+                      ? taskData.assignees.map((assignee) => ({ name: assignee.name, photoUrl: assignee.photoUrl }))
+                      : taskData.assigneeName
+                        ? [{ name: taskData.assigneeName, photoUrl: taskData.assigneePhotoUrl }]
+                        : [],
+                    githubIssueNumber: taskData.githubIssueNumber,
+                    githubRepoFullName: taskData.githubRepoFullName,
+                    archived: taskData.archived,
+                  }}
                   onUpdateTitle={(title) => updateTask({ title })}
                   onUpdateDescription={(description) => canEdit && updateTask({ description })}
                   onSubtaskAdded={(newSubtask) => setTaskData(prev => prev ? { ...prev, subtasks: [...prev.subtasks, newSubtask] } : prev)}

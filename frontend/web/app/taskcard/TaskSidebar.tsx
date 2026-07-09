@@ -17,6 +17,7 @@ import GitHubIssueBadge from '@/components/github/GitHubIssueBadge';
 import GitHubMark from '@/components/github/GitHubMark';
 import { projectsApi } from '@/services/projects-contract';
 import type { ProjectGitHubConnection } from '@/services/github-service';
+import { labelChipStyle } from './components/taskUi';
 
 interface MultiAssignee {
   memberId: number;
@@ -79,7 +80,7 @@ interface TaskSidebarProps {
   canEdit?: boolean;
   canChangeReporter?: boolean;
   members?: Array<{ memberId: number; userId: number; name: string; photoUrl?: string | null }>;
-  allLabels?: Array<{ id: number; name: string }>;
+  allLabels?: Array<{ id: number; name: string; color?: string | null }>;
   sprints?: Array<{ id: number; name: string }>;
   onCreateGitHubIssue?: () => void;
 }
@@ -164,8 +165,8 @@ const TaskSidebar: React.FC<TaskSidebarProps> = ({
     : null;
 
   return (
-    <div className="w-full md:w-80 bg-cu-bg-secondary border-t md:border-t-0 md:border-l border-cu-border flex-shrink-0 overflow-visible md:overflow-y-auto scrollbar-thin min-h-0">
-      <div className="p-4 space-y-4">
+    <div className="w-full md:w-[340px] bg-cu-bg-secondary border-t md:border-t-0 md:border-l border-cu-border flex-shrink-0 overflow-visible md:overflow-y-auto scrollbar-thin min-h-0">
+      <div className="p-3.5 sm:p-4 space-y-4">
       {!canEdit && (
         <div className="rounded-lg border border-cu-warning/20 bg-cu-warning/10 px-3 py-2 text-xs text-cu-warning">
           You have view-only access for this task.
@@ -176,8 +177,8 @@ const TaskSidebar: React.FC<TaskSidebarProps> = ({
         <PrioritySection priority={priority} onUpdatePriority={canEdit ? onUpdatePriority : undefined} />
       </div>
       <div className="border border-cu-border rounded-xl bg-cu-bg shadow-cu-sm overflow-hidden">
-        <button onClick={() => toggleSection('details')} className="w-full px-4 py-2.5 border-b border-cu-border text-[10px] font-bold text-cu-text-muted uppercase tracking-wider flex items-center justify-between">
-          Details <ChevronDown size={14} className={`transition-transform ${sections.details ? '' : '-rotate-90'}`} />
+        <button onClick={() => toggleSection('details')} className="w-full px-4 py-2.5 border-b border-cu-border text-[10px] font-bold text-cu-text-muted uppercase tracking-wider flex items-center justify-between bg-cu-bg/90">
+          Properties <ChevronDown size={14} className={`transition-transform ${sections.details ? '' : '-rotate-90'}`} />
         </button>
         {sections.details && <div className="p-4 space-y-4">
           {(!assignees || assignees.length === 0) && (
@@ -210,7 +211,11 @@ const TaskSidebar: React.FC<TaskSidebarProps> = ({
               <div className="flex flex-wrap gap-1.5 min-h-[24px]">
                 {selectedLabels.length > 0 ? (
                   selectedLabels.map((label) => (
-                    <span key={label.id} className="inline-flex items-center gap-1 rounded-full border border-cu-border bg-cu-bg-secondary px-2 py-0.5 text-[11px] font-semibold text-cu-text-secondary">
+                    <span
+                      key={label.id}
+                      style={labelChipStyle(label.color)}
+                      className="inline-flex items-center gap-1 rounded-full border border-cu-border bg-cu-bg-secondary px-2 py-0.5 text-[11px] font-semibold text-cu-text-secondary"
+                    >
                       {label.name}
                     </span>
                   ))
@@ -308,8 +313,8 @@ const TaskSidebar: React.FC<TaskSidebarProps> = ({
         </div>}
       </div>
       <div className="border border-cu-border rounded-xl bg-cu-bg shadow-cu-sm overflow-hidden">
-        <button onClick={() => toggleSection('dates')} className="w-full px-4 py-2.5 border-b border-cu-border text-[10px] font-bold text-cu-text-muted uppercase tracking-wider flex items-center justify-between">
-          Dates <ChevronDown size={14} className={`transition-transform ${sections.dates ? '' : '-rotate-90'}`} />
+        <button onClick={() => toggleSection('dates')} className="w-full px-4 py-2.5 border-b border-cu-border text-[10px] font-bold text-cu-text-muted uppercase tracking-wider flex items-center justify-between bg-cu-bg/90">
+          Schedule <ChevronDown size={14} className={`transition-transform ${sections.dates ? '' : '-rotate-90'}`} />
         </button>
         {sections.dates && <DateSection dates={dates} onUpdateDueDate={canEdit ? onUpdateDueDate : undefined} onUpdateStartDate={canEdit ? onUpdateStartDate : undefined} />}
       </div>
@@ -323,7 +328,7 @@ const TaskSidebar: React.FC<TaskSidebarProps> = ({
         />
       )}
       <div className="border border-cu-border rounded-xl bg-cu-bg shadow-cu-sm overflow-hidden">
-        <button onClick={() => toggleSection('github')} className="w-full px-4 py-2.5 border-b border-cu-border text-[10px] font-bold text-cu-text-muted uppercase tracking-wider flex items-center justify-between">
+        <button onClick={() => toggleSection('github')} className="w-full px-4 py-2.5 border-b border-cu-border text-[10px] font-bold text-cu-text-muted uppercase tracking-wider flex items-center justify-between bg-cu-bg/90">
           GitHub <ChevronDown size={14} className={`transition-transform ${sections.github ? '' : '-rotate-90'}`} />
         </button>
         {sections.github && (

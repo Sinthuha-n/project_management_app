@@ -1,50 +1,78 @@
-# Welcome to your Expo app 👋
+# Planora Mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo Router mobile app for Planora project management. The app targets iOS and Android with a mobile-first core workflow: auth, dashboard, spaces, project shell, board/backlog, task detail, chat, docs/pages, reports, members, GitHub, notifications, and profile/settings.
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Setup
 
 ```bash
-npm run reset-project
+npm install
+cp .env.example .env
+npm run start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Set `EXPO_PUBLIC_API_BASE_URL` in `.env` to the backend API:
 
-## Learn more
+- Local simulator: `http://localhost:8080`
+- Android emulator: the app rewrites localhost to `10.0.2.2:8080`
+- Physical device: the app rewrites localhost to the Expo LAN host when possible
+- Preview/production: use a stable HTTPS API domain, for example `https://api.planora.app`
 
-To learn more about developing your project with Expo, look at the following resources:
+Do not ship builds with an IP/sslip backend URL. Configure preview/production values through EAS environment variables or secrets.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Scripts
 
-## Join the community
+```bash
+npm test -- --runInBand
+npx tsc --noEmit
+npm run lint
+npm run security-audit
+```
 
-Join our community of developers creating universal apps.
+## Navigation And Links
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+The shared route registry is in `src/navigation/routes.ts`.
+
+- Main tabs: `/(tabs)`, `/(tabs)/spaces`, `/(tabs)/inbox`, `/(tabs)/profile`
+- Project shell: `/summary/[projectId]?tab=board|backlog|chat`
+- More project views: `/summary/[projectId]?more=calendar|timeline|list|members|docs|pages|report|milestone|burndown`
+- Invite acceptance: `/accept-invite?token=...`
+- GitHub callback: `planora://github-callback`
+
+The app registers both `planora` and legacy `mobile` schemes so existing OAuth callbacks continue to work while new links use the branded scheme.
+
+## Release Configuration
+
+`app.json` contains the production app identity:
+
+- iOS bundle identifier: `com.planora.mobile`
+- Android package: `com.planora.mobile`
+- Universal/app link host: `planora.app`
+- Push notification metadata and required plugins
+
+Before release, confirm:
+
+- DNS for `planora.app` and the API domain is live.
+- iOS associated domains and Android asset links are configured server-side.
+- GitHub OAuth redirect URI matches the app scheme configured by the backend.
+- EAS production env has `EXPO_PUBLIC_API_BASE_URL` set to the stable HTTPS API.
+- Push credentials and Expo project ID are configured in EAS.
+
+## Production QA Checklist
+
+- Cold start unauthenticated and authenticated users.
+- Deep link to invite acceptance, project board, project chat, docs/pages, report, GitHub, and notifications.
+- Notification tap routing from killed, backgrounded, and foregrounded states.
+- Login token refresh and logout-all behavior.
+- Offline launch with cached dashboard/board data.
+- Offline task create/status/assignee/due-date queue, reconnect, conflict display, and sync refresh.
+- Create project, invite teammate, accept invite, change member role, remove member.
+- Open task detail from board, backlog, list, timeline, and calendar; edit core fields and add comments.
+- Upload/download documents, create/save pages, chat send/retry, GitHub connect/link/sync, report download/schedule.
+
+## Troubleshooting
+
+- If API requests go to the wrong host, check `.env`, restart Expo, and clear Metro cache.
+- If GitHub OAuth returns to the browser instead of the app, confirm the backend `redirectUri` uses `planora://github-callback` or the legacy `mobile://github-callback`.
+- If notifications do not register, test on a physical development build; Expo Go intentionally skips native push registration.
+- If Android links do not open the app, verify `https://planora.app/.well-known/assetlinks.json`.
+- If iOS links do not open the app, verify Associated Domains and the apple-app-site-association file.

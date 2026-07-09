@@ -140,7 +140,7 @@ export const projectsApi = {
     return data;
   },
   changeMemberRole: async (projectId: number | string, userId: number, role: string): Promise<void> => {
-    await api.patch(`/api/projects/${projectId}/members/${userId}/role`, { role, userId });
+    await api.patch(`/api/projects/${projectId}/members/${userId}/role`, { role });
   },
   removeMember: async (projectId: number | string, userId: number): Promise<void> => {
     await api.delete(`/api/projects/${projectId}/members/${userId}`);

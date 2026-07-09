@@ -275,7 +275,8 @@ function findDuplicateEndpointPayloads(usages) {
       signatures.get(entry.payloadSignature).push(entry);
     }
 
-    if (signatures.size <= 1) {
+    const concreteSignatures = [...signatures.keys()].filter((signature) => isConcreteObjectPayloadSignature(signature));
+    if (concreteSignatures.length <= 1 || concreteSignatures.length !== signatures.size) {
       continue;
     }
 
@@ -288,6 +289,10 @@ function findDuplicateEndpointPayloads(usages) {
   }
 
   return reports;
+}
+
+function isConcreteObjectPayloadSignature(signature) {
+  return typeof signature === 'string' && /^object:[A-Za-z0-9_$,]*$/.test(signature) && signature !== 'object:';
 }
 
 function buildRouteIndex(routes) {

@@ -30,9 +30,10 @@ interface SubtaskListProps {
   taskId?: number;
   onSubtaskAdded?: (subtask: Subtask) => void;
   addTrigger?: number;
+  readOnly?: boolean;
 }
 
-const SubtaskList: React.FC<SubtaskListProps> = ({ subtasks: initialSubtasks, taskId, onSubtaskAdded, addTrigger }) => {
+const SubtaskList: React.FC<SubtaskListProps> = ({ subtasks: initialSubtasks, taskId, onSubtaskAdded, addTrigger, readOnly = false }) => {
   const [subtasks, setSubtasks] = useState<Subtask[]>(initialSubtasks);
   const [newTitle, setNewTitle] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -47,11 +48,11 @@ const SubtaskList: React.FC<SubtaskListProps> = ({ subtasks: initialSubtasks, ta
 
   // Respond to addTrigger from parent (ActionButton click)
   useEffect(() => {
-    if (addTrigger && addTrigger > 0) {
+    if (!readOnly && addTrigger && addTrigger > 0) {
       setIsAdding(true);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [addTrigger]);
+  }, [addTrigger, readOnly]);
 
   const completedCount = subtasks.filter(t => t.status?.toUpperCase() === 'DONE').length;
   const progress = subtasks.length > 0 ? (completedCount / subtasks.length) * 100 : 0;
@@ -73,6 +74,7 @@ const SubtaskList: React.FC<SubtaskListProps> = ({ subtasks: initialSubtasks, ta
   };
 
   const handleToggle = async (st: Subtask) => {
+    if (readOnly) return;
     const isDone = st.status?.toUpperCase() === 'DONE';
     const newStatus = isDone ? 'TODO' : 'DONE';
     setToggleLoading(st.id);
@@ -115,7 +117,7 @@ const SubtaskList: React.FC<SubtaskListProps> = ({ subtasks: initialSubtasks, ta
               </div>
             </>
           )}
-          {taskId && (
+          {taskId && !readOnly && (
             <button
               onClick={() => { setIsAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
               className="flex items-center gap-1 text-xs font-semibold text-cu-primary hover:text-cu-primary-hover transition-colors"
@@ -132,7 +134,7 @@ const SubtaskList: React.FC<SubtaskListProps> = ({ subtasks: initialSubtasks, ta
           return (
             <div
               key={st.id}
-              className="flex items-center gap-3 p-2.5 hover:bg-cu-hover rounded-xl group cursor-pointer border border-cu-border hover:border-cu-primary/30 transition-colors"
+              className={`flex items-center gap-3 p-2.5 rounded-xl group border border-cu-border transition-colors ${readOnly ? 'cursor-default bg-cu-bg' : 'cursor-pointer hover:bg-cu-hover hover:border-cu-primary/30'}`}
               onClick={() => handleToggle(st)}
             >
               {toggleLoading === st.id ? (
@@ -170,7 +172,7 @@ const SubtaskList: React.FC<SubtaskListProps> = ({ subtasks: initialSubtasks, ta
           <p className="text-sm text-cu-text-muted pl-1">No subtasks yet</p>
         )}
 
-        {isAdding && (
+        {isAdding && !readOnly && (
           <div className="flex items-center gap-2 p-2.5 border border-cu-primary/20 rounded-xl bg-cu-primary/5">
             <Square size={16} className="text-cu-text-muted flex-shrink-0" />
             <input
@@ -203,7 +205,7 @@ const SubtaskList: React.FC<SubtaskListProps> = ({ subtasks: initialSubtasks, ta
           </div>
         )}
 
-        {!isAdding && taskId && subtasks.length > 0 && (
+        {!isAdding && taskId && subtasks.length > 0 && !readOnly && (
           <button
             onClick={() => { setIsAdding(true); setTimeout(() => inputRef.current?.focus(), 50); }}
             className="mt-1 text-sm text-cu-primary hover:text-cu-primary-hover pl-2 flex items-center gap-1 transition-colors font-medium"
