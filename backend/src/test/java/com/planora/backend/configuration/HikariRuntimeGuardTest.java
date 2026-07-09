@@ -69,12 +69,61 @@ class HikariRuntimeGuardTest {
         hikari.setMaximumPoolSize(10);
         hikari.setJdbcUrl("jdbc:h2:mem:testdb3");
 
-        when(environment.acceptsProfiles(any(Profiles.class))).thenReturn(true);
+        when(environment.acceptsProfiles(any(Profiles.class))).thenReturn(true, false);
 
         HikariRuntimeGuard guard = new HikariRuntimeGuard(hikari, environment);
 
         assertDoesNotThrow(guard::logRuntimePoolConfiguration);
 
         hikari.close();
+    }
+
+    @Test
+    void logRuntimePoolConfiguration_acceptsProductionPoolWithinBudget() {
+        HikariDataSource hikari = productionDataSource(12);
+        when(environment.acceptsProfiles(any(Profiles.class))).thenReturn(false, true);
+        when(environment.getProperty("app.database.pool.instance-count", Integer.class, 1)).thenReturn(1);
+        when(environment.getProperty("app.database.pool.connection-budget", Integer.class, 15)).thenReturn(15);
+
+        HikariRuntimeGuard guard = new HikariRuntimeGuard(hikari, environment);
+
+        assertDoesNotThrow(guard::logRuntimePoolConfiguration);
+        hikari.close();
+    }
+
+    @Test
+    void logRuntimePoolConfiguration_rejectsProductionPoolAboveTotalBudget() {
+        HikariDataSource hikari = productionDataSource(12);
+        when(environment.acceptsProfiles(any(Profiles.class))).thenReturn(false, true);
+        when(environment.getProperty("app.database.pool.instance-count", Integer.class, 1)).thenReturn(2);
+        when(environment.getProperty("app.database.pool.connection-budget", Integer.class, 15)).thenReturn(15);
+
+        HikariRuntimeGuard guard = new HikariRuntimeGuard(hikari, environment);
+
+        assertThrows(IllegalStateException.class, guard::logRuntimePoolConfiguration);
+        hikari.close();
+    }
+
+    @Test
+    void logRuntimePoolConfiguration_rejectsDisabledProductionLeakDetection() {
+        HikariDataSource hikari = productionDataSource(12);
+        hikari.setLeakDetectionThreshold(0);
+        when(environment.acceptsProfiles(any(Profiles.class))).thenReturn(false, true);
+        when(environment.getProperty("app.database.pool.instance-count", Integer.class, 1)).thenReturn(1);
+        when(environment.getProperty("app.database.pool.connection-budget", Integer.class, 15)).thenReturn(15);
+
+        HikariRuntimeGuard guard = new HikariRuntimeGuard(hikari, environment);
+
+        assertThrows(IllegalStateException.class, guard::logRuntimePoolConfiguration);
+        hikari.close();
+    }
+
+    private HikariDataSource productionDataSource(int maximumPoolSize) {
+        HikariDataSource hikari = new HikariDataSource();
+        hikari.setMaximumPoolSize(maximumPoolSize);
+        hikari.setMinimumIdle(2);
+        hikari.setLeakDetectionThreshold(60_000);
+        hikari.setJdbcUrl("jdbc:h2:mem:prod-guard-" + maximumPoolSize);
+        return hikari;
     }
 }

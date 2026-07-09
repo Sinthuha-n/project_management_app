@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { portfolioService, type Portfolio } from '@/services/portfolioService';
 import { fetchAllProjects, type ProjectSummary } from '@/services/projects-service';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 const COLORS = ['#155DFC','#0C4DDA','#4299E1','#6BC950','#FF9F43','#FF5C5C','#8B5CF6','#EC4899'];
 const EMOJIS = ['📁','🚀','💼','⚡','🎯','💡','🌟','🔥','🏆','📊'];
@@ -65,8 +66,9 @@ export default function CreatePortfolioModal({ onClose, onCreated }: Props) {
   };
 
   return (
-    <AnimatePresence>
-      <motion.div className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+    <OverlayPortal>
+      <AnimatePresence>
+      <motion.div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center p-4"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
 
         <motion.div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose}
@@ -216,6 +218,7 @@ export default function CreatePortfolioModal({ onClose, onCreated }: Props) {
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+      </AnimatePresence>
+    </OverlayPortal>
   );
 }

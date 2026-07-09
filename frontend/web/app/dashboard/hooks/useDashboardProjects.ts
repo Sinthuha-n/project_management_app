@@ -8,6 +8,7 @@ import {
   getSessionCache,
   setSessionCache,
 } from '@/lib/session-cache';
+import { useOnlineStatus } from '@/components/pwa/OnlineStatusProvider';
 import { projectsApi } from '@/services/api-contract';
 import { fetchRecentProjects, fetchFavoriteProjects } from '@/services/dashboard-service';
 import type { ProjectSummary as ApiProjectSummary } from '@/services/projects-contract';
@@ -26,16 +27,20 @@ interface UseDashboardProjectsReturn {
   user: User | null;
   projects: { recent: ProjectSummary[]; favorites: ProjectSummary[] };
   loading: boolean;
+  isOfflineReadOnly: boolean;
+  isOfflineUnavailable: boolean;
 }
 
 export function useDashboardProjects(): UseDashboardProjectsReturn {
   const router = useRouter();
+  const { isOnline } = useOnlineStatus();
   const [user, setUser] = useState<User | null>(null); // State to store logged-in user info
   const [projects, setProjects] = useState<{
     recent: ProjectSummary[];
     favorites: ProjectSummary[];
   }>({ recent: [], favorites: [] }); // State to store recent and favorite projects
   const [loading, setLoading] = useState(true); // Loading indicator state
+  const [usingCachedData, setUsingCachedData] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -52,10 +57,16 @@ export function useDashboardProjects(): UseDashboardProjectsReturn {
         if (cached.data) {
           if (!isMounted) return;
           setProjects(cached.data);
+          setUsingCachedData(true);
           setLoading(false);
           // If it's not stale (expired), we can stop here
           if (!cached.isStale) return;
         }
+      }
+
+      if (!isOnline) {
+        if (isMounted) setLoading(false);
+        return;
       }
 
       try {
@@ -94,6 +105,7 @@ export function useDashboardProjects(): UseDashboardProjectsReturn {
         };
         if (!isMounted) return;
         setProjects(fresh);
+        setUsingCachedData(false);
 
         // Save fresh data to cache for next time
         if (cacheKey) {
@@ -138,7 +150,15 @@ export function useDashboardProjects(): UseDashboardProjectsReturn {
       window.removeEventListener('planora:favorite-toggled', handleFavToggled);
       window.removeEventListener('planora:project-accessed', handleProjectAccessed);
     };
-  }, [router]);
+  }, [isOnline, router]);
 
-  return { user, projects, loading }; // Return the processed data and state
+  const hasProjects = projects.recent.length > 0 || projects.favorites.length > 0;
+
+  return {
+    user,
+    projects,
+    loading,
+    isOfflineReadOnly: !isOnline && usingCachedData,
+    isOfflineUnavailable: !isOnline && !usingCachedData && !loading && !hasProjects,
+  }; // Return the processed data and state
 }

@@ -25,6 +25,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { T, STATUS_MAP, StatusKey } from '../../constants/tokens';
 import { Colors } from '../../constants/colors';
 import OfflineStaleBanner from '../ui/OfflineStaleBanner';
+import MobileTaskDetailSheet from '../task-detail/MobileTaskDetailSheet';
 import { offlineSyncManager } from '../../services/offlineSyncManager';
 import {
   BoardMember,
@@ -38,7 +39,6 @@ const PRIORITY_STYLES: Record<string, { dot: string; text: string; bg: string }>
   URGENT: { dot: '#EF4444', text: '#B91C1C', bg: '#FEF2F2' },
   HIGH: { dot: '#F97316', text: '#C2410C', bg: '#FFF7ED' },
   MEDIUM: { dot: '#F59E0B', text: '#B45309', bg: '#FFFBEB' },
-  NORMAL: { dot: '#3B82F6', text: '#1D4ED8', bg: '#EFF6FF' },
   LOW: { dot: '#94A3B8', text: '#64748B', bg: '#F8FAFC' },
 };
 
@@ -765,6 +765,7 @@ export default function ProjectBoardScreen({
   const [newColumnName, setNewColumnName] = useState('');
   const [editingTask, setEditingTask] = useState<BoardTask | null>(null);
   const [editTaskTitle, setEditTaskTitle] = useState('');
+  const [selectedDetailTaskId, setSelectedDetailTaskId] = useState<number | null>(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showColumnModal, setShowColumnModal] = useState(false);
   const [showCreateDatePicker, setShowCreateDatePicker] = useState(false);
@@ -917,8 +918,7 @@ export default function ProjectBoardScreen({
   };
 
   const openEditTask = (task: BoardTask) => {
-    setEditingTask(task);
-    setEditTaskTitle(task.title);
+    setSelectedDetailTaskId(task.id);
   };
 
   const openDatePicker = (task: BoardTask) => {
@@ -1443,6 +1443,14 @@ export default function ProjectBoardScreen({
           </View>
         </SafeAreaView>
       </Modal>
+
+      <MobileTaskDetailSheet
+        visible={selectedDetailTaskId !== null}
+        taskId={selectedDetailTaskId}
+        projectId={projectId}
+        onClose={() => setSelectedDetailTaskId(null)}
+        onChanged={refresh}
+      />
     </SafeAreaView>
   );
 }

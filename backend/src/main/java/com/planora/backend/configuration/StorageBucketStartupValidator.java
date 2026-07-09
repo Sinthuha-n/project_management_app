@@ -10,6 +10,9 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Component
 public class StorageBucketStartupValidator implements ApplicationRunner {
 
@@ -27,12 +30,23 @@ public class StorageBucketStartupValidator implements ApplicationRunner {
     @Value("${aws.s3.task-bucket:}")
     private String taskStorageBucket;
 
+    @Value("${aws.region:}")
+    private String awsRegion;
+
     public StorageBucketStartupValidator(Environment environment) {
         this.environment = environment;
     }
 
     @Override
     public void run(ApplicationArguments args) {
+        log.info(
+                "[Startup] AWS S3 config: region={}, profileBucket={}, dmsBucket={}, chatBucket={}, taskBucket={}",
+                awsRegion,
+                maskIfBlank(profilePhotosBucket),
+                maskIfBlank(dmsBucket),
+                maskIfBlank(chatBucket),
+                maskIfBlank(taskStorageBucket));
+
         if (!isProductionProfile()) {
             return;
         }
@@ -60,5 +74,12 @@ public class StorageBucketStartupValidator implements ApplicationRunner {
         if (value == null || value.isBlank() || value.startsWith("your-")) {
             missing.add(envName);
         }
+    }
+
+    private String maskIfBlank(String value) {
+        if (value == null || value.isBlank()) {
+            return "<missing>";
+        }
+        return value;
     }
 }

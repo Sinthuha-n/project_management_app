@@ -1,13 +1,16 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useMembersSync, type MemberPayload } from "./useMembersSync";
 import * as membersApi from "@/services/members-service";
+import { fetchProjectDetails } from "@/services/projects-service";
 import { getUserFromToken } from "@/lib/auth";
 import { getOrFetchUserMap, upsertUserMapEntry } from "@/app/taskcard/sidebar/userMapCache";
 import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
 import type { Member, MemberCombined, MembersCachePayload, PendingInvite } from "./types";
 import {
+  applyProjectOwnerRole,
   buildCombinedMembers,
   canManageMember,
+  resolveProjectOwnerId,
   resolveProfilePicUrl as resolveProfilePicUrlValue,
   timeAgo,
 } from "./utils";
@@ -18,6 +21,7 @@ export function useMembersData(projectId: string) {
   const membersCacheKey = buildSessionCacheKey('members', [projectId]);
   const [members, setMembers] = useState<Member[]>([]);
   const [pending, setPending] = useState<PendingInvite[]>([]);
+  const [projectOwnerId, setProjectOwnerId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [brokenProfileImages, setBrokenProfileImages] = useState<Record<string, boolean>>({});
   const [userProfilePics, setUserProfilePics] = useState<Record<string, string | null>>({});
@@ -60,6 +64,7 @@ export function useMembersData(projectId: string) {
     let hasHydratedFromCache = false;
     let cachedMembers: Member[] = [];
     let cachedPending: PendingInvite[] = [];
+    let cachedProjectOwnerId: number | null = null;
 
     if (membersCacheKey) {
       const cached = getSessionCache<MembersCachePayload>(membersCacheKey, { allowStale: true });
@@ -74,6 +79,10 @@ export function useMembersData(projectId: string) {
           setPending(cached.data.pending);
           hasHydratedFromCache = true;
         }
+        if (typeof cached.data.projectOwnerId === "number" || cached.data.projectOwnerId === null) {
+          cachedProjectOwnerId = cached.data.projectOwnerId;
+          setProjectOwnerId(cached.data.projectOwnerId);
+        }
         if (hasHydratedFromCache) {
           setLoading(false);
         }
@@ -86,16 +95,31 @@ export function useMembersData(projectId: string) {
       }
 
       try {
-        const [membersRes, pendingRes, usersMapRes] = await Promise.allSettled([
+        const [membersRes, pendingRes, usersMapRes, projectRes] = await Promise.allSettled([
           membersApi.fetchMembers(projectId).then(data => ({ data: data as unknown as Member[] })),
           membersApi.fetchPendingInvites(projectId).then(data => ({ data: data as unknown as PendingInvite[] })),
           getOrFetchUserMap(),
+          fetchProjectDetails(projectId),
         ]);
 
         if (cancelled) return;
 
         let nextMembers = cachedMembers;
         let nextPending = cachedPending;
+        let nextProjectOwnerId = cachedProjectOwnerId;
+
+        if (projectRes.status === "fulfilled") {
+          nextProjectOwnerId = resolveProjectOwnerId(projectRes.value);
+          setProjectOwnerId(nextProjectOwnerId);
+        } else {
+          console.error("Failed to fetch project details:", projectRes.reason);
+        }
+
+        if (usersMapRes.status === "fulfilled") {
+          setUserProfilePics(usersMapRes.value);
+        } else {
+          console.warn("Profile picture lookup unavailable:", usersMapRes.reason);
+        }
 
         if (membersRes.status === "fulfilled") {
           nextMembers = Array.isArray(membersRes.value.data) ? membersRes.value.data : [];
@@ -111,16 +135,11 @@ export function useMembersData(projectId: string) {
           console.error("Failed to fetch pending invites:", pendingRes.reason);
         }
 
-        if (usersMapRes.status === "fulfilled") {
-          setUserProfilePics(usersMapRes.value);
-        } else {
-          console.warn("Profile picture lookup unavailable:", usersMapRes.reason);
-        }
-
         if (membersCacheKey) {
           const payload: MembersCachePayload = {
             members: nextMembers,
             pending: nextPending,
+            projectOwnerId: nextProjectOwnerId,
             timestamp: Date.now(),
           };
           setSessionCache(membersCacheKey, payload, 120_000);
@@ -149,10 +168,11 @@ export function useMembersData(projectId: string) {
     const payload: MembersCachePayload = {
       members,
       pending,
+      projectOwnerId,
       timestamp: Date.now(),
     };
     setSessionCache(membersCacheKey, payload, 120_000);
-  }, [projectId, members, pending, loading, membersCacheKey]);
+  }, [projectId, members, pending, projectOwnerId, loading, membersCacheKey]);
 
   // Real-time sync via STOMP
   const handleRoleChangedLive = useCallback((userId: number, newRole: string) => {
@@ -220,9 +240,14 @@ export function useMembersData(projectId: string) {
     onMemberJoined: handleMemberJoinedLive,
   });
 
+  const normalizedMembers = useMemo(
+    () => applyProjectOwnerRole(members, projectOwnerId),
+    [members, projectOwnerId],
+  );
+
   const allMembers = useMemo<MemberCombined[]>(
-    () => buildCombinedMembers(members, pending),
-    [members, pending],
+    () => buildCombinedMembers(normalizedMembers, pending),
+    [normalizedMembers, pending],
   );
 
   const filteredMembers = useMemo(() => {
@@ -245,13 +270,13 @@ export function useMembersData(projectId: string) {
     let found = null;
     const tokenUser = getUserFromToken() as { userId?: number; email?: string } | null;
     if (tokenUser?.userId) {
-      found = members.find(m => String(m.user.userId) === String(tokenUser.userId));
+      found = normalizedMembers.find(m => String(m.user.userId) === String(tokenUser.userId));
     }
     if (!found && currentUserEmail) {
-      found = members.find(m => m.user.email?.toLowerCase() === currentUserEmail);
+      found = normalizedMembers.find(m => m.user.email?.toLowerCase() === currentUserEmail);
     }
     return found?.role || null;
-  }, [members, currentUserEmail]);
+  }, [normalizedMembers, currentUserEmail]);
 
   const canChangeRole = useCallback((targetMember: MemberCombined) => {
     return canManageMember(currentUserRole, currentUserEmail, targetMember);

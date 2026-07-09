@@ -26,5 +26,6 @@ export type MemberCombined = Member & { invitedAt?: string };
 export interface MembersCachePayload {
   members: Member[];
   pending: PendingInvite[];
+  projectOwnerId?: number | null;
   timestamp: number;
 }

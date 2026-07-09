@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import com.planora.backend.service.GithubApiClient.GithubApiException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -94,17 +95,37 @@ public class GithubSyncService {
         try {
             pullRequestService.syncPullRequests(integration);
         } catch (Exception e) {
+            if (handleSyncError(integration, e)) return;
             log.error("PR sync failed for integration {}: {}", integration.getId(), e.getMessage());
         }
         try {
             commitService.syncCommits(integration);
         } catch (Exception e) {
+            if (handleSyncError(integration, e)) return;
             log.error("Commit sync failed for integration {}: {}", integration.getId(), e.getMessage());
         }
         try {
             issueService.syncIssues(integration);
         } catch (Exception e) {
+            if (handleSyncError(integration, e)) return;
             log.error("Issue sync failed for integration {}: {}", integration.getId(), e.getMessage());
         }
+    }
+
+    private boolean handleSyncError(GithubIntegration integration, Exception e) {
+        Throwable cause = e;
+        while (cause != null) {
+            if (cause instanceof GithubApiException apiException) {
+                if (apiException.getStatusCode() == 401) {
+                    log.warn("Unauthorized (401) response from GitHub API. Deactivating integration {} ({})",
+                            integration.getId(), integration.getRepositoryFullName());
+                    integration.setActive(false);
+                    integrationRepository.save(integration);
+                    return true;
+                }
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 }

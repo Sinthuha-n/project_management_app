@@ -37,7 +37,6 @@ import com.planora.backend.model.Priority;
 import com.planora.backend.model.Project;
 import com.planora.backend.model.Sprint;
 import com.planora.backend.model.Task;
-import com.planora.backend.model.TaskAccess;
 import com.planora.backend.model.TaskActivityType;
 import com.planora.backend.model.TeamMember;
 import com.planora.backend.model.TeamRole;
@@ -223,7 +222,7 @@ public class TaskService {
             notificationService.createNotification(task.getAssignee().getUser(), message, link);
         }
 
-        return getTaskById(savedTask.getId());
+        return getTaskByIdInternal(savedTask.getId());
 
     }
 
@@ -273,7 +272,15 @@ public class TaskService {
     // ── 2. GET TASK BY ID ───────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public TaskResponseDTO getTaskById(Long taskId) {
+    public TaskResponseDTO getTaskById(Long taskId, Long currentUserId) {
+        Task task = findTaskWithProjectTeam(taskId);
+        Long teamId = task.getProject().getTeam().getId();
+        // Task read policy: any team member, including viewers, may read task data.
+        requireMinimumRole(teamId, currentUserId, null);
+        return getTaskByIdInternal(taskId);
+    }
+
+    private TaskResponseDTO getTaskByIdInternal(Long taskId) {
         // Uses a custom @Query to eagerly fetch details and prevent N+1 query performance issues.
         Task task = taskRepository.findByIdFullyFetched(taskId)
                 .orElseThrow(()-> new ResourceNotFoundException("Task not found"));
@@ -287,13 +294,18 @@ public class TaskService {
      *
      * @param repoFullName "owner/repo" of the connected GitHub repository
      * @param githubToken  per-user GitHub OAuth or PAT token from the request header
-     */
+    */
     @Transactional
-    public TaskResponseDTO getTaskById(Long taskId, String repoFullName, String githubToken) {
+    public TaskResponseDTO getTaskById(Long taskId, String repoFullName, String githubToken,
+                                       Long currentUserId) {
+        Task membershipTask = findTaskWithProjectTeam(taskId);
+        Long teamId = membershipTask.getProject().getTeam().getId();
+        // Task read policy: any team member, including viewers, may read task data.
+        requireMinimumRole(teamId, currentUserId, null);
         Task task = taskRepository.findByIdFullyFetched(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
         TaskGithubSummaryDTO githubSummary = taskGithubService.syncAndGetSummary(
-                taskId, repoFullName, githubToken);
+                taskId, repoFullName, githubToken, currentUserId);
         return mapToDTO(task, buildDependencyMap(List.of(taskId)), githubSummary);
     }
 
@@ -452,7 +464,7 @@ public class TaskService {
             notifyTaskStakeholders(saved, currentUserId, message, taskLink);
             }
         }
-        return getTaskById(saved.getId());
+        return getTaskByIdInternal(saved.getId());
     }
 
     /** * Lightweight date-only update.
@@ -460,7 +472,7 @@ public class TaskService {
      * where sending a full TaskRequestDTO is overkill.
      */
     @Transactional
-    public void patchTaskDates(
+    public TaskResponseDTO patchTaskDates(
             Long taskId,
             LocalDate startDate,
             boolean startDateProvided,
@@ -473,7 +485,8 @@ public class TaskService {
         if (startDateProvided) task.setStartDate(startDate);
         if (dueDateProvided) task.setDueDate(dueDate);
         task.setLastModifiedBy(userRepository.findById(currentUserId).orElseThrow());
-        taskRepository.save(task);
+        Task saved = taskRepository.save(task);
+        return getTaskByIdInternal(saved.getId());
     }
 
     // ── 4. DELETE TASK ──────────────────────────────────────────────────────────
@@ -631,7 +644,7 @@ public class TaskService {
         Task task = findTaskWithProjectTeam(taskId);
         requireMinimumRole(task.getProject().getTeam().getId(), currentUserId, TeamRole.MEMBER);
         if (task.isArchived()) {
-            return getTaskById(taskId);
+            return getTaskByIdInternal(taskId);
         }
 
         User actor = userRepository.findById(currentUserId).orElseThrow();
@@ -645,7 +658,7 @@ public class TaskService {
                 TaskActivityType.UPDATED,
                 actor.getUsername(),
                 "Task archived");
-        return getTaskById(taskId);
+        return getTaskByIdInternal(taskId);
     }
 
     @Transactional
@@ -664,7 +677,7 @@ public class TaskService {
                 TaskActivityType.UPDATED,
                 actor.getUsername(),
                 "Task unarchived");
-        return getTaskById(taskId);
+        return getTaskByIdInternal(taskId);
     }
 
     @Transactional(readOnly = true)
@@ -673,7 +686,7 @@ public class TaskService {
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
         requireMinimumRole(project.getTeam().getId(), currentUserId, TeamRole.MEMBER);
         return taskRepository.findArchivedByProjectId(projectId).stream()
-                .map(task -> getTaskById(task.getId()))
+                .map(task -> getTaskByIdInternal(task.getId()))
                 .collect(Collectors.toList());
     }
 
@@ -701,7 +714,7 @@ public class TaskService {
         taskActivityService.logActivity(parentId, TaskActivityType.SUBTASK_ADDED,
                 actorName, actorName + " added subtask: " + savedChild.getTitle());
 
-        return getTaskById(savedChild.getId());
+        return getTaskByIdInternal(savedChild.getId());
     }
 
     // ── 7 & 8. DEPENDENCIES ─────────────────────────────────────────────────────
@@ -860,7 +873,9 @@ public class TaskService {
     @Transactional(readOnly = true)
     public List<com.planora.backend.dto.CommentResponseDTO> getComments(Long taskId, Long currentUserId) {
         Task task = findTaskWithProjectTeam(taskId);
-        requireMinimumRole(task.getProject().getTeam().getId(), currentUserId, null);
+        Long teamId = task.getProject().getTeam().getId();
+        // Task read policy: any team member, including viewers, may read task data.
+        requireMinimumRole(teamId, currentUserId, null);
         
         return commentRepository.findByTaskOrderByCreatedAtAsc(task).stream()
                 .map(c -> com.planora.backend.dto.CommentResponseDTO.builder()
@@ -959,22 +974,19 @@ public class TaskService {
                 .forEach(recipient -> notificationService.createNotification(recipient, message, link));
         }
 
-        return getTaskById(saved.getId());
+        return getTaskByIdInternal(saved.getId());
     }
 
     // ── 13-16. DASHBOARD FEEDS & METRICS ────────────────────────────────────────
 
     @Transactional
     public void recordTaskAccess(Long taskId, Long currentUserId) {
-        Task task = taskRepository.findById(taskId)
+        taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
-        User user = userRepository.findById(currentUserId)
+        userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        TaskAccess access = taskAccessRepository.findByTaskAndUser(task, user)
-                .orElse(new TaskAccess(null, task, user, null));
-        
-        taskAccessRepository.save(access);
+        taskAccessRepository.upsertTaskAccess(taskId, currentUserId);
     }
 
     //14. GET RECENT TASKS
@@ -1020,7 +1032,7 @@ public class TaskService {
                     + "\" from " + oldPriority + " to " + priority;
             notifyTaskStakeholders(saved, currentUserId, message, "/taskcard?taskId=" + saved.getId());
         }
-        return getTaskById(saved.getId());
+        return getTaskByIdInternal(saved.getId());
     }
 
     //17b. UPDATE STATUS (lightweight — used by kanban drag-and-drop)
@@ -1057,7 +1069,7 @@ public class TaskService {
         // BUG-006 Fix: check if all siblings are done when a subtask is updated
         checkAndAutoCompleteParent(saved, currentUserId);
 
-        return getTaskById(saved.getId());
+        return getTaskByIdInternal(saved.getId());
     }
 
     @Transactional
@@ -1522,6 +1534,80 @@ public class TaskService {
                 })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Atomically moves a Kanban task to a new status column and rewrites
+     * {@code backlogPosition} for every task in the destination column.
+     * Used by the drag-and-drop Kanban board so that a single HTTP call
+     * commits both the status change and the new display order.
+     *
+     * @param projectId       project that owns the task (used for locking + auth)
+     * @param taskId          ID of the task being moved
+     * @param newStatus       target column status (e.g. IN_PROGRESS, DONE)
+     * @param orderedTaskIds  ordered IDs of the entire destination column after the drag
+     * @param currentUserId   the authenticated user performing the operation
+     * @return the updated TaskResponseDTO for the moved task
+     */
+    @Transactional
+    public TaskResponseDTO moveKanbanTask(Long projectId, Long taskId, String newStatus,
+                                          List<Long> orderedTaskIds, Long currentUserId) {
+        // 1. Lock the project row to prevent concurrent order corruption.
+        Project project = projectRepository.findByIdWithLock(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+
+        // 2. Authorisation — must be at least MEMBER.
+        requireMinimumRole(project.getTeam().getId(), currentUserId, TeamRole.MEMBER);
+
+        // 3. Load the task and verify it belongs to the requested project.
+        Task task = findTaskWithProjectTeam(taskId);
+        if (!Objects.equals(task.getProject().getId(), projectId)) {
+            throw new ForbiddenException("Task does not belong to project " + projectId);
+        }
+
+        // 4. Update status (reuse updateStatus logic inline to avoid double-save).
+        String oldStatus = task.getStatus();
+        task.setStatus(newStatus);
+        if ("DONE".equalsIgnoreCase(newStatus) && !"DONE".equalsIgnoreCase(oldStatus)) {
+            task.setCompletedAt(LocalDateTime.now());
+        } else if (!"DONE".equalsIgnoreCase(newStatus)) {
+            task.setCompletedAt(null);
+        }
+
+        User actor = userRepository.findById(currentUserId).orElseThrow();
+        task.setLastModifiedBy(actor);
+        taskRepository.save(task);
+
+        // Log the status change activity when the status actually changed.
+        if (!newStatus.equals(oldStatus)) {
+            taskActivityService.logActivity(task.getId(), TaskActivityType.STATUS_CHANGED,
+                    actor.getUsername(), "Status changed from " + oldStatus + " to " + newStatus);
+            String fromStatus = oldStatus != null ? oldStatus : "NONE";
+            String message = actor.getUsername() + " moved \"" + task.getTitle()
+                    + "\" from " + fromStatus + " to " + newStatus;
+            notifyTaskStakeholders(task, currentUserId, message, "/taskcard?taskId=" + task.getId());
+        }
+
+        // 5. Rewrite backlogPosition for all tasks in the destination column order.
+        if (orderedTaskIds != null && !orderedTaskIds.isEmpty()) {
+            List<Task> columnTasks = taskRepository.findByIdInWithScalars(orderedTaskIds).stream()
+                    .filter(t -> t.getProject() != null && Objects.equals(t.getProject().getId(), projectId))
+                    .toList();
+            java.util.Map<Long, Task> taskById = columnTasks.stream()
+                    .collect(Collectors.toMap(Task::getId, t -> t, (t1, t2) -> t1));
+
+            for (int index = 0; index < orderedTaskIds.size(); index++) {
+                Long tid = orderedTaskIds.get(index);
+                Task t = taskById.get(tid);
+                if (t == null) continue;
+                t.setBacklogPosition(index);
+                t.setLastModifiedBy(actor);
+            }
+            taskRepository.saveAll(columnTasks);
+        }
+
+        // 6. Return the enriched DTO for the moved task.
+        return getTaskByIdInternal(taskId);
     }
 
     // Handles the complex math of rearranging rows when a user drags and drops a task in the UI.

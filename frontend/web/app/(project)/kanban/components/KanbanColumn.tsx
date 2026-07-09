@@ -40,7 +40,6 @@ interface KanbanColumnProps {
   wipLimit?: number;
   onDeleteTask?: (taskId: number) => void;
   onCreateTask?: (title: string, status: string) => Promise<void>;
-  onEditTask?: (task: Task) => void;
   onOpenTask?: (taskId: number) => void;
   onInlineUpdate?: (taskId: number, updates: Partial<Task>) => Promise<void>;
   usersMap?: Record<string, string | null>;
@@ -61,7 +60,6 @@ export default function KanbanColumn({
   wipLimit = 0,
   onDeleteTask,
   onCreateTask,
-  onEditTask,
   onOpenTask,
   onInlineUpdate,
   usersMap,
@@ -164,7 +162,7 @@ export default function KanbanColumn({
 
   return (
     <div
-      className={`flex flex-col rounded-xl bg-cu-bg-secondary border border-cu-border transition-all duration-200 ${
+      className={`flex flex-col rounded-xl glass-panel transition-all duration-200 ${
         isOver ? 'ring-2 ring-cu-primary/40 bg-cu-primary/5' : ''
       }`}
       style={{ minWidth: '280px' }}
@@ -325,7 +323,6 @@ export default function KanbanColumn({
                 key={task.id}
                 task={task}
                 onDelete={onDeleteTask}
-                onEdit={onEditTask}
                 onOpenTask={onOpenTask}
                 onInlineUpdate={onInlineUpdate}
                 usersMap={usersMap}

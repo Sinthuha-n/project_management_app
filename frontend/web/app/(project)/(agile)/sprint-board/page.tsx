@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useState, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import axios from '@/lib/axios';
@@ -16,6 +16,7 @@ import CompleteSprintModal from './components/CompleteSprintModal';
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
 import BulkSelectionBar from './components/BulkSelectionBar';
 import InlineColumnCreator from './components/InlineColumnCreator';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 import UndoMoveToast from './components/UndoMoveToast';
 import {
   fetchSprintboardBySprintId,
@@ -30,42 +31,113 @@ import { useSprintBoardActions } from './hooks/useSprintBoardActions';
 type SprintSummary = { id: number; status: string; sprintName?: string };
 type SprintBoardCache = { activeList: SprintSummary[]; boards: SprintboardFullResponse[] };
 
-export default function SprintBoardPage() {
+function SprintBoardPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const projectIdStr = searchParams.get('projectId');
+
+  // Synchronously determine initial selected index and dense mode from URL search params
+  const [selectedIdx, setSelectedIdx] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    const tab = new URLSearchParams(window.location.search).get('sprintTab');
+    return tab ? parseInt(tab, 10) || 0 : 0;
+  });
+  const [denseMode, setDenseMode] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const dense = new URLSearchParams(window.location.search).get('dense');
+    return dense !== '0';
+  });
+
+  // Load initial project info synchronously from session cache to prevent loading flicker
+  const cachedProjectInfo = useMemo(() => {
+    if (typeof window === 'undefined' || !projectIdStr) return null;
+    const cKey = buildSessionCacheKey('sprint-board-project-info', [projectIdStr]);
+    if (!cKey) return null;
+    return getSessionCache<{ isAgile: boolean; teamId: number | null; projectKey: string }>(cKey).data;
+  }, [projectIdStr]);
+
+  const [isAgile, setIsAgile] = useState<boolean | null>(() => cachedProjectInfo?.isAgile ?? null);
+  const [projectKey, setProjectKey] = useState<string>(() => cachedProjectInfo?.projectKey ?? '');
+  const [teamId, setTeamId] = useState<number | null>(() => cachedProjectInfo?.teamId ?? null);
+
+  // Synchronously compute initial filters matching searchParams
+  const initialFilters = useMemo(() => {
+    if (typeof window === 'undefined') return {};
+    const params = new URLSearchParams(window.location.search);
+    const rawSwimlane = params.get('swimlane');
+    const swimlane: 'none' | 'assignee' | 'priority' = (rawSwimlane === 'assignee' || rawSwimlane === 'priority') ? rawSwimlane : 'none';
+    return {
+      search: params.get('q') ?? '',
+      swimlane,
+    };
+  }, []);
+
+  const { board, hydrate, filters, updateFilters, filteredColumns, swimlanes, collapsedColumns, toggleColumnCollapsed, selectedTaskIds, toggleTaskSelected, clearSelection, applyOptimisticMove, rollbackMove, lastMove, metrics } = useSprintBoardStore(initialFilters);
+
   const [allBoards, setAllBoards] = useState<SprintboardFullResponse[]>([]);
   const [allActiveSprints, setAllActiveSprints] = useState<SprintSummary[]>([]);
-  const [selectedIdx, setSelectedIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isAgile, setIsAgile] = useState<boolean | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
-  const [denseMode, setDenseMode] = useState(true);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [teamMembers, setTeamMembers] = useState<import('./api').SprintTeamMemberOption[]>([]);
-  const [projectKey, setProjectKey] = useState<string>('');
-  const [teamId, setTeamId] = useState<number | null>(null);
+  
+  // Synchronously initialize team members from session cache if available
+  const [teamMembers, setTeamMembers] = useState<import('./api').SprintTeamMemberOption[]>(() => {
+    if (typeof window === 'undefined' || !teamId) return [];
+    const cKey = buildSessionCacheKey('sprint-board-team-members', [teamId]);
+    if (cKey) {
+      const cached = getSessionCache<import('./api').SprintTeamMemberOption[]>(cKey);
+      if (cached.data) return cached.data;
+    }
+    return [];
+  });
 
-  const { board, hydrate, filters, updateFilters, filteredColumns, swimlanes, collapsedColumns, toggleColumnCollapsed, selectedTaskIds, toggleTaskSelected, clearSelection, applyOptimisticMove, rollbackMove, lastMove, metrics } = useSprintBoardStore();
   const sprintboard = allBoards[selectedIdx] ?? null;
   const activeSprint = allActiveSprints[selectedIdx] ?? null;
 
   // ── Fetch project info ─────────────────────────────────────────────────────
   const fetchProjectInfo = useCallback(async () => {
     if (!projectIdStr) return;
+    const cKey = buildSessionCacheKey('sprint-board-project-info', [projectIdStr]);
     try {
       const res = await axios.get(`/api/projects/${projectIdStr}`);
-      setIsAgile(res.data.type === 'AGILE' || res.data.type === 'Agile Scrum' || res.data.type === 'SCRUM');
-      setTeamId(Number(res.data.teamId ?? res.data.team?.id ?? 0) || null);
-      setProjectKey(res.data.projectKey ?? '');
-    } catch { setIsAgile(false); }
+      const agile = res.data.type === 'AGILE' || res.data.type === 'Agile Scrum' || res.data.type === 'SCRUM';
+      const tId = Number(res.data.teamId ?? res.data.team?.id ?? 0) || null;
+      const pKey = res.data.projectKey ?? '';
+      
+      setIsAgile(agile);
+      setTeamId(tId);
+      setProjectKey(pKey);
+      
+      if (cKey) {
+        setSessionCache(cKey, { isAgile: agile, teamId: tId, projectKey: pKey }, 30 * 60_000);
+      }
+    } catch { 
+      setIsAgile(false); 
+    }
   }, [projectIdStr]);
 
+  // Synchronously cache and load team members list by teamId
   useEffect(() => {
     if (!teamId) return;
-    void fetchTeamMembers(teamId).then(setTeamMembers).catch(() => setTeamMembers([]));
+    const cKey = buildSessionCacheKey('sprint-board-team-members', [teamId]);
+    let hasCache = false;
+    if (cKey) {
+      const cached = getSessionCache<import('./api').SprintTeamMemberOption[]>(cKey);
+      if (cached.data) {
+        setTeamMembers(cached.data);
+        hasCache = true;
+      }
+    }
+    void fetchTeamMembers(teamId).then((members) => {
+      setTeamMembers(members);
+      if (cKey) {
+        setSessionCache(cKey, members, 15 * 60_000);
+      }
+    }).catch(() => {
+      if (!hasCache) setTeamMembers([]);
+    });
   }, [teamId]);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
@@ -74,21 +146,35 @@ export default function SprintBoardPage() {
     const { showSpinner = true, forceNetwork = false } = options;
     const pid = parseInt(projectIdStr, 10);
     const cKey = buildSessionCacheKey('sprint-board-v2', [projectIdStr]);
+    
+    let hasCache = false;
     if (cKey && !forceNetwork) {
       const cached = getSessionCache<SprintBoardCache>(cKey, { allowStale: true });
       if (cached.data) {
-        setAllActiveSprints(cached.data.activeList); setAllBoards(cached.data.boards);
+        setAllActiveSprints(cached.data.activeList); 
+        setAllBoards(cached.data.boards);
         hydrate(cached.data.boards[selectedIdx] ?? cached.data.boards[0] ?? null);
         setLoading(false);
+        hasCache = true;
         if (!cached.isStale) return;
       }
     }
-    if (showSpinner) setLoading(true);
+    
+    if (!hasCache && showSpinner) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const sprints = await fetchSprintsByProject(pid) as Array<SprintSummary & { name?: string }>;
       const activeList = sprints.filter((s) => s.status === 'ACTIVE').map((s) => ({ ...s, sprintName: s.sprintName || s.name || `Sprint #${s.id}` }));
-      if (activeList.length === 0) { setAllActiveSprints([]); setAllBoards([]); hydrate(null); setLoading(false); return; }
+      if (activeList.length === 0) { 
+        setAllActiveSprints([]); 
+        setAllBoards([]); 
+        hydrate(null); 
+        setLoading(false); 
+        if (cKey) setSessionCache(cKey, { activeList: [], boards: [] }, 30 * 60_000);
+        return; 
+      }
       const boards = await Promise.all(
         activeList.map(async (sprint) => {
           try { return await fetchSprintboardBySprintIdFull(sprint.id); }
@@ -98,19 +184,63 @@ export default function SprintBoardPage() {
           }
         }),
       );
-      setAllActiveSprints(activeList); setAllBoards(boards);
+      setAllActiveSprints(activeList); 
+      setAllBoards(boards);
       const safeIdx = selectedIdx >= activeList.length ? 0 : selectedIdx;
       if (safeIdx !== selectedIdx) setSelectedIdx(safeIdx);
       hydrate(boards[safeIdx] ?? boards[0] ?? null);
       if (cKey) setSessionCache(cKey, { activeList, boards }, 30 * 60_000);
-    } catch { setError('Failed to load sprint board.'); }
-    finally { setLoading(false); }
+    } catch { 
+      if (!hasCache) setError('Failed to load sprint board.'); 
+    } finally { 
+      setLoading(false); 
+    }
   }, [projectIdStr, selectedIdx, hydrate]);
 
   const forceRefresh = useCallback(() => void fetchData({ showSpinner: false, forceNetwork: true }), [fetchData]);
 
-  useEffect(() => { if (!projectIdStr) return; void fetchProjectInfo(); void fetchData({ showSpinner: true }); const sync = setInterval(() => void fetchData({ showSpinner: false }), 30_000); return () => clearInterval(sync); }, [projectIdStr, fetchProjectInfo, fetchData]);
-  useEffect(() => { const onTaskUpdated = () => void fetchData({ showSpinner: false, forceNetwork: true }); window.addEventListener('planora:task-updated', onTaskUpdated); return () => window.removeEventListener('planora:task-updated', onTaskUpdated); }, [fetchData]);
+  // Synchronize state values from query parameters on outer parameter changes (e.g. forward/back navigation)
+  useEffect(() => {
+    if (!projectIdStr) return;
+    
+    // Sync project info if cached
+    const cKey = buildSessionCacheKey('sprint-board-project-info', [projectIdStr]);
+    if (cKey) {
+      const cached = getSessionCache<{ isAgile: boolean; teamId: number | null; projectKey: string }>(cKey);
+      if (cached.data) {
+        setIsAgile(cached.data.isAgile);
+        setTeamId(cached.data.teamId);
+        setProjectKey(cached.data.projectKey);
+      }
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('q') ?? '';
+    const rawSwimlane = params.get('swimlane');
+    const swimlane: 'none' | 'assignee' | 'priority' = (rawSwimlane === 'assignee' || rawSwimlane === 'priority') ? rawSwimlane : 'none';
+    updateFilters({ search: q, swimlane });
+
+    const tab = params.get('sprintTab');
+    setSelectedIdx(tab ? parseInt(tab, 10) || 0 : 0);
+
+    const dense = params.get('dense');
+    setDenseMode(dense !== '0');
+  }, [projectIdStr, searchParams, updateFilters]);
+
+  useEffect(() => { 
+    if (!projectIdStr) return; 
+    void fetchProjectInfo(); 
+    void fetchData({ showSpinner: true }); 
+    const sync = setInterval(() => void fetchData({ showSpinner: false }), 30_000); 
+    return () => clearInterval(sync); 
+  }, [projectIdStr, fetchProjectInfo, fetchData]);
+
+  useEffect(() => { 
+    const onTaskUpdated = () => void fetchData({ showSpinner: false, forceNetwork: true }); 
+    window.addEventListener('planora:task-updated', onTaskUpdated); 
+    return () => window.removeEventListener('planora:task-updated', onTaskUpdated); 
+  }, [fetchData]);
+
   useTaskWebSocket(projectIdStr, () => { void fetchData({ showSpinner: false, forceNetwork: true }); });
   useEffect(() => { hydrate(sprintboard ?? null); }, [sprintboard, hydrate]);
 
@@ -225,5 +355,13 @@ export default function SprintBoardPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function SprintBoardPage() {
+  return (
+    <Suspense fallback={<RouteLoadingState title="Loading sprint board" subtitle="Preparing sprint columns and tasks." variant="board" />}>
+      <SprintBoardPageContent />
+    </Suspense>
   );
 }

@@ -72,6 +72,41 @@ export interface BurndownPoint {
   date: string;
   remainingPoints: number;
   idealPoints: number;
+  completedPoints?: number;
+  dailyBurn?: number;
+  variancePoints?: number;
+  isToday?: boolean;
+}
+
+export type BurndownHealthStatus = 'COMPLETE' | 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK' | 'NO_SCOPE';
+
+export interface BurndownSummary {
+  totalStoryPoints: number;
+  completedStoryPoints: number;
+  remainingStoryPoints: number;
+  totalTasks: number;
+  completedTasks: number;
+  remainingTasks: number;
+  progressPercent: number;
+  daysElapsed: number;
+  daysRemaining: number;
+  idealRemainingPoints: number;
+  variancePoints: number;
+  actualBurnRate: number;
+  requiredBurnRate: number;
+  projectedCompletionDate?: string | null;
+  healthStatus: BurndownHealthStatus;
+}
+
+export interface BurndownBreakdownItem {
+  name: string;
+  taskCount: number;
+  storyPoints: number;
+}
+
+export interface BurndownBreakdown {
+  byStatus: BurndownBreakdownItem[];
+  byPriority: BurndownBreakdownItem[];
 }
 
 export interface BurndownResponse {
@@ -81,6 +116,9 @@ export interface BurndownResponse {
   endDate: string;
   totalStoryPoints: number;
   dataPoints: BurndownPoint[];
+  summary?: BurndownSummary;
+  breakdown?: BurndownBreakdown;
+  insights?: string[];
 }
 
 // ── Milestones ─────────────────────────────────────

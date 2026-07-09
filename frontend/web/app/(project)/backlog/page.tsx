@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
     AlertCircle, Plus, ChevronDown, ChevronUp,
@@ -16,8 +16,10 @@ import BacklogTaskRow from './components/BacklogTaskRow';
 import BacklogFilterBar from './components/BacklogFilterBar';
 import BacklogTaskDetail from './components/BacklogTaskDetail';
 import { useBacklogData } from './hooks/useBacklogData';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
+import { stripQueryParam } from '@/lib/url';
 import { fetchProject } from '../kanban/api';
-export default function BacklogPage() {
+function BacklogPageContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const projectId = searchParams.get('projectId');
@@ -78,9 +80,7 @@ export default function BacklogPage() {
         const action = searchParams.get('action');
         if (action === 'add-task') setShowCreateModal(true);
         if (action) {
-            const url = new URL(window.location.href);
-            url.searchParams.delete('action');
-            window.history.replaceState({}, '', url.toString());
+            stripQueryParam('action');
         }
     }, [searchParams, setShowCreateModal]);
 
@@ -351,7 +351,7 @@ export default function BacklogPage() {
 
             {/* ── Bulk action floating bar ── */}
             {selectedIds.size > 0 && (
-                <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-4 py-2.5 bg-cu-bg text-cu-text-primary border border-cu-border rounded-2xl shadow-2xl">
+                <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-[var(--cu-z-toast)] flex items-center gap-2 px-4 py-2.5 bg-cu-bg text-cu-text-primary border border-cu-border rounded-2xl shadow-2xl">
                     <span className="text-[13px] font-medium">{selectedIds.size} selected</span>
                     <button onClick={handleBulkDone} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-[12px] font-medium hover:bg-emerald-700 transition-colors">
                         <Check size={13} /> Mark Done
@@ -412,5 +412,13 @@ export default function BacklogPage() {
             )}
             </div>
         </div>
+    );
+}
+
+export default function BacklogPage() {
+    return (
+        <Suspense fallback={<RouteLoadingState title="Loading backlog" subtitle="Preparing backlog tasks and filters." variant="table" />}>
+            <BacklogPageContent />
+        </Suspense>
     );
 }

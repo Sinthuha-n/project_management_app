@@ -8,6 +8,7 @@ import { EditMessageModal, ConfirmDeleteModal } from './chatModals';
 import { useVirtualizer, Virtualizer } from '@tanstack/react-virtual';
 import api from '@/lib/axios';
 import { avatarColor } from '@/hooks/chat/chat-utils';
+import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 
 interface ChatMessagesProps {
   projectId: string;
@@ -108,6 +109,8 @@ function messageIsMentioned(content: string | undefined | null, aliasSet: Set<st
 }
 
 function TypingIndicator({ user, userProfilePics = {} }: { user: string; userProfilePics?: Record<string, string> }) {
+  const profilePicUrl = resolveProfilePhotoUrl(userProfilePics?.[user]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -115,9 +118,9 @@ function TypingIndicator({ user, userProfilePics = {} }: { user: string; userPro
       exit={{ opacity: 0, y: 8 }}
       className="flex items-end gap-2.5 px-4 py-1"
     >
-      {userProfilePics?.[user] ? (
+      {profilePicUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={userProfilePics[user]} alt={user} className="w-7 h-7 rounded-full object-cover shadow-cu-sm flex-shrink-0" />
+        <img src={profilePicUrl} alt={user} className="w-7 h-7 rounded-full object-cover shadow-cu-sm flex-shrink-0" />
       ) : (
         <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${avatarColor(user)} flex items-center justify-center text-white text-xs font-semibold flex-shrink-0`}>
           {user.charAt(0).toUpperCase()}
@@ -177,7 +180,7 @@ export const ChatMessages = ({
     ...currentUserAliases.map((a) => a.toLowerCase()),
   ]);
 
-  const visibleMessages = messages.filter((msg) => msg.type !== 'JOIN');
+  const visibleMessages = messages.filter((msg) => msg.type !== 'JOIN' && !msg.parentMessageId);
 
   const rowVirtualizer = useVirtualizer({
     count: visibleMessages.length,
@@ -308,6 +311,7 @@ export const ChatMessages = ({
             const isLoadingFile = loadingFileId === msg.id;
             const isMentioned = !isMe && !msg.deleted && !fileDoc && messageIsMentioned(msg.content, aliasSet);
             const isActiveMessage = !!msg.id && activeMessageId === msg.id;
+            const profilePicUrl = resolveProfilePhotoUrl(userProfilePics?.[msg.sender]);
 
             return (
               <div
@@ -339,9 +343,9 @@ export const ChatMessages = ({
                 {/* Avatar */}
                 {hasAvatar && (
                   <div className={`relative flex-shrink-0 ${grouped ? 'opacity-0' : 'opacity-100'}`}>
-                    {userProfilePics?.[msg.sender] ? (
+                    {profilePicUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={userProfilePics[msg.sender]} alt={msg.sender} className="w-7 h-7 rounded-full object-cover shadow-cu-sm" />
+                      <img src={profilePicUrl} alt={msg.sender} className="w-7 h-7 rounded-full object-cover shadow-cu-sm" />
                     ) : (
                       <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${avatarColor(msg.sender || '')} flex items-center justify-center text-white text-xs font-bold`}>
                         {(msg.sender || '?').charAt(0).toUpperCase()}
@@ -372,11 +376,17 @@ export const ChatMessages = ({
                         setActiveMessageId(msg.id);
                       }
                     }}
-                    className="relative cursor-pointer"
+                    className="group/message relative cursor-pointer"
                   >
                     {/* Hover action bar */}
-                    {!!msg.id && isActiveMessage && (
-                      <div className={`absolute bottom-full mb-1 ${isMe ? 'right-0' : 'left-0'} z-10 flex items-center gap-1 bg-cu-bg border border-cu-border shadow-cu-lg rounded-xl px-2 py-2`}>
+                    {!!msg.id && !msg.deleted && (
+                      <div
+                        className={`absolute bottom-full mb-1 ${isMe ? 'right-0' : 'left-0'} z-10 flex items-center gap-1 rounded-xl border border-cu-border bg-cu-bg px-2 py-2 shadow-cu-lg transition-opacity ${
+                          isActiveMessage
+                            ? 'opacity-100'
+                            : 'pointer-events-none opacity-0 group-hover/message:pointer-events-auto group-hover/message:opacity-100 group-focus-within/message:pointer-events-auto group-focus-within/message:opacity-100'
+                        }`}
+                      >
                         {/* Quick reactions */}
                         {QUICK_REACTIONS.map((emoji) => (
                           <button
@@ -484,7 +494,7 @@ export const ChatMessages = ({
                   </div>
 
                   {/* Reactions row */}
-                  {!!msg.id && isActiveMessage && !msg.deleted && msgReactions.length > 0 && (
+                  {!!msg.id && !msg.deleted && msgReactions.length > 0 && (
                     <div
                       onClick={(event) => event.stopPropagation()}
                       className="flex flex-wrap gap-1 mt-1.5"

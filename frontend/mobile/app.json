@@ -5,11 +5,22 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": [
+      "planora",
+      "mobile"
+    ],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.planora.mobile",
+      "associatedDomains": [
+        "applinks:planora.app"
+      ],
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Planora uses your photo library so you can update your profile photo.",
+        "NSUserNotificationsUsageDescription": "Planora sends project, task, chat, and invite notifications."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +32,23 @@
       "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.mobile"
+      "package": "com.planora.mobile",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "planora.app"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "output": "static",
@@ -42,11 +69,24 @@
         }
       ],
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "expo-notifications"
     ],
+    "notification": {
+      "icon": "./assets/images/android-icon-monochrome.png",
+      "color": "#155DFC",
+      "androidMode": "default",
+      "androidCollapsedTitle": "Planora"
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9089f91b-e94a-40c7-b517-7f5b627e52aa"
+      }
     }
   }
 }

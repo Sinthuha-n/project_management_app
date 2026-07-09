@@ -4,13 +4,16 @@ import com.planora.backend.dto.BulkDeleteTasksRequest;
 import com.planora.backend.dto.BulkUpdateStatusRequest;
 import com.planora.backend.dto.ApiErrorResponse;
 import com.planora.backend.dto.CommentRequestDTO;
+import com.planora.backend.dto.KanbanMoveTaskRequest;
 import com.planora.backend.dto.LinkedCommitResponseDTO;
 import com.planora.backend.dto.LinkedPrResponseDTO;
 import com.planora.backend.dto.PatchTaskDatesRequest;
+import com.planora.backend.dto.PageResponseDto;
 import com.planora.backend.dto.ReorderTasksRequest;
 import com.planora.backend.dto.TaskActivityResponseDTO;
 import com.planora.backend.dto.TaskBranchUpdateDTO;
 import com.planora.backend.dto.TaskGithubSummaryDTO;
+import com.planora.backend.dto.TaskPageResponseDto;
 import com.planora.backend.dto.TaskRequestDTO;
 import com.planora.backend.dto.TaskResponseDTO;
 import com.planora.backend.dto.TaskTemplateDTO;
@@ -39,7 +42,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -50,10 +52,15 @@ import java.util.Map;
 import java.time.LocalDateTime;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 
 @RestController
 @RequestMapping("/api/tasks")
 @RequiredArgsConstructor
+@Slf4j
 public class TaskController {
 
     private final TaskService service;
@@ -105,13 +112,22 @@ public class TaskController {
             @PathVariable Long taskId,
             @RequestParam(required = false) String repoFullName,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        if (currentUser != null) {
-            service.recordTaskAccess(taskId, currentUser.getUserId());
+        Long currentUserId = currentUser.getUserId();
+        String githubToken = null;
+        try {
+            githubToken = githubTokenService.getToken(currentUserId);
+        } catch (Exception e) {
+            log.warn("Failed to retrieve GitHub token for user {}: {}", currentUserId, e.getMessage());
         }
-        String githubToken = (currentUser != null) ? githubTokenService.getToken(currentUser.getUserId()) : null;
         TaskResponseDTO dto = (githubToken != null && repoFullName != null)
-                ? service.getTaskById(taskId, repoFullName, githubToken)
-                : service.getTaskById(taskId);
+                ? service.getTaskById(taskId, repoFullName, githubToken, currentUserId)
+                : service.getTaskById(taskId, currentUserId);
+        try {
+            service.recordTaskAccess(taskId, currentUserId);
+        } catch (RuntimeException exception) {
+            // Recently-viewed tracking is best-effort and must not break a task read.
+            log.warn("Unable to record access to task {} for user {}", taskId, currentUserId, exception);
+        }
         return new ResponseEntity<>(dto, HttpStatus.OK);
     }
 
@@ -129,10 +145,11 @@ public class TaskController {
             @RequestParam(required = false) String repoFullName,
             @AuthenticationPrincipal UserPrincipal currentUser) {
 
-        String githubToken = (currentUser != null) ? githubTokenService.getToken(currentUser.getUserId()) : null;
+        Long currentUserId = currentUser.getUserId();
+        String githubToken = githubTokenService.getToken(currentUserId);
         TaskGithubSummaryDTO summary = (githubToken != null && repoFullName != null)
-                ? taskGithubService.syncAndGetSummary(taskId, repoFullName, githubToken)
-                : taskGithubService.getTaskGithubSummary(taskId);
+                ? taskGithubService.syncAndGetSummary(taskId, repoFullName, githubToken, currentUserId)
+                : taskGithubService.getTaskGithubSummary(taskId, currentUserId);
 
         return ResponseEntity.ok(summary);
     }
@@ -152,10 +169,11 @@ public class TaskController {
             @RequestParam(required = false) String repoFullName,
             @AuthenticationPrincipal UserPrincipal currentUser) {
 
-        String githubToken = (currentUser != null) ? githubTokenService.getToken(currentUser.getUserId()) : null;
+        Long currentUserId = currentUser.getUserId();
+        String githubToken = githubTokenService.getToken(currentUserId);
         List<LinkedPrResponseDTO> prs = (githubToken != null && repoFullName != null)
-                ? taskGithubService.syncAndGetLinkedPrs(taskId, repoFullName, githubToken)
-                : taskGithubService.getLinkedPrs(taskId);
+                ? taskGithubService.syncAndGetLinkedPrs(taskId, repoFullName, githubToken, currentUserId)
+                : taskGithubService.getLinkedPrs(taskId, currentUserId);
 
         return ResponseEntity.ok(prs);
     }
@@ -182,10 +200,11 @@ public class TaskController {
             @RequestParam(defaultValue = "20") int limit,
             @AuthenticationPrincipal UserPrincipal currentUser) {
 
-        String githubToken = (currentUser != null) ? githubTokenService.getToken(currentUser.getUserId()) : null;
+        Long currentUserId = currentUser.getUserId();
+        String githubToken = githubTokenService.getToken(currentUserId);
         List<LinkedCommitResponseDTO> commits = (githubToken != null && repoFullName != null)
-                ? taskGithubService.syncAndGetLinkedCommits(taskId, repoFullName, githubToken, limit)
-                : taskGithubService.getLinkedCommits(taskId, limit);
+                ? taskGithubService.syncAndGetLinkedCommits(taskId, repoFullName, githubToken, limit, currentUserId)
+                : taskGithubService.getLinkedCommits(taskId, limit, currentUserId);
 
         return ResponseEntity.ok(commits);
     }
@@ -311,6 +330,7 @@ public class TaskController {
      * Supports multiple optional filters via query parameters.
      */
     @GetMapping("/project/{projectId}")
+    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = TaskPageResponseDto.class)))
     public ResponseEntity<?> getTasksByProject(
             @PathVariable Long projectId,
             @RequestParam(defaultValue = "0") int page,
@@ -331,8 +351,8 @@ public class TaskController {
         Pageable pageable = PageRequest.of(page, size,
                 sortDir.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() :
                         Sort.by(sortBy).descending());
-        return ResponseEntity.ok(service.getTasksByProject(projectId,
-                currentUser.getUserId(), pageable, archived));
+        return ResponseEntity.ok(PageResponseDto.from(service.getTasksByProject(projectId,
+                currentUser.getUserId(), pageable, archived)));
     }
 
     private ResponseEntity<ApiErrorResponse> badTaskSortRequest(String message, HttpServletRequest request) {
@@ -604,17 +624,40 @@ public class TaskController {
      * Accepts { startDate: "YYYY-MM-DD", dueDate: "YYYY-MM-DD" }.
      */
     @PatchMapping("/{taskId}/dates")
-    public ResponseEntity<Void> patchTaskDates(
+    public ResponseEntity<TaskResponseDTO> patchTaskDates(
             @PathVariable Long taskId,
             @Valid @RequestBody PatchTaskDatesRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
-        service.patchTaskDates(
+        TaskResponseDTO task = service.patchTaskDates(
                 taskId,
                 request.getStartDate(), request.isStartDateProvided(),
                 request.getDueDate(), request.isDueDateProvided(),
                 currentUser.getUserId());
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        messagingTemplate.convertAndSend(
+                "/topic/project/" + task.getProjectId() + "/tasks",
+                Map.of("type", "TASK_UPDATED", "task", task));
+        return new ResponseEntity<>(task, HttpStatus.OK);
+    }
+
+    @PatchMapping("/kanban/move")
+    public ResponseEntity<TaskResponseDTO> moveKanbanTask(
+            @Valid @RequestBody KanbanMoveTaskRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        TaskResponseDTO task = service.moveKanbanTask(
+                request.getProjectId(),
+                request.getTaskId(),
+                request.getStatus(),
+                request.getOrderedTaskIds(),
+                currentUser.getUserId());
+
+        // REAL-TIME PUSH: broadcast the full updated task so every connected client
+        // can surgically patch its local state without reloading the board.
+        messagingTemplate.convertAndSend(
+                "/topic/project/" + task.getProjectId() + "/tasks",
+                Map.of("type", "TASK_UPDATED", "task", task));
+
+        return ResponseEntity.ok(task);
     }
 
     @PatchMapping("/reorder")
@@ -635,7 +678,7 @@ public class TaskController {
             @PathVariable Long taskId,
             @AuthenticationPrincipal UserPrincipal currentUser
     ){
-        return new ResponseEntity<>(activityService.getActivities(taskId), HttpStatus.OK);
+        return new ResponseEntity<>(activityService.getActivities(taskId, currentUser.getUserId()), HttpStatus.OK);
     }
 
     /** Save the task as a reusable template for the project. */

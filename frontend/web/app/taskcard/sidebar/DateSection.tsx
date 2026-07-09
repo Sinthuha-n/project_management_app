@@ -68,7 +68,7 @@ const DateSection: React.FC<DateSectionProps> = ({ dates, onUpdateDueDate, onUpd
                     </Popover.Trigger>
                     <Popover.Portal>
                       {/* Popover.Portal renders outside the sidebar so overflow:hidden on the modal panel can't clip the calendar */}
-                      <Popover.Content className="z-[10000] p-3 bg-cu-bg rounded-xl shadow-cu-xl border border-cu-border" sideOffset={5} align="end">
+                      <Popover.Content className="z-[var(--cu-z-modal-popover)] p-3 bg-cu-bg rounded-xl shadow-cu-xl border border-cu-border" sideOffset={5} align="end">
                         <DayPicker
                           mode="single"
                           selected={parsedDueDate}
@@ -114,7 +114,7 @@ const DateSection: React.FC<DateSectionProps> = ({ dates, onUpdateDueDate, onUpd
                     </button>
                   </Popover.Trigger>
                   <Popover.Portal>
-                    <Popover.Content className="z-[10000] p-3 bg-cu-bg rounded-xl shadow-cu-xl border border-cu-border" sideOffset={5} align="end">
+                    <Popover.Content className="z-[var(--cu-z-modal-popover)] p-3 bg-cu-bg rounded-xl shadow-cu-xl border border-cu-border" sideOffset={5} align="end">
                       <DayPicker mode="single" selected={parsedStartDate} onSelect={handleStartSelect} showOutsideDays />
                     </Popover.Content>
                   </Popover.Portal>

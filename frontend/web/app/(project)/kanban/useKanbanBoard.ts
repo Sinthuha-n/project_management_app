@@ -17,7 +17,13 @@ export function useKanbanBoard(projectId: string | null) {
     data.setTasks,
     data.columnConfigs,
     data.setColumnConfigs,
-    data.forceRefresh
+    data.forceRefresh,
+    // Local task mutation helpers — passed so actions can update state
+    // surgically without triggering a full board reload.
+    data.upsertTask,
+    data.patchTask,
+    data.removeTask,
+    data.syncCache,
   );
 
   // Add a new column (= new status) to the kanban board
@@ -93,8 +99,6 @@ export function useKanbanBoard(projectId: string | null) {
     handleAddTask: actions.handleAddTask,
     handleCreateTask: actions.handleCreateTask,
     handleOpenCreateModal: actions.handleOpenCreateModal,
-    handleEditTask: actions.handleEditTask,
-    handleUpdateTask: actions.handleUpdateTask,
     handleInlineUpdate: actions.handleInlineUpdate,
     handleDeleteTask: actions.handleDeleteTask,
     handleCompleteBoard: actions.handleCompleteBoard,

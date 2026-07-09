@@ -2,6 +2,11 @@ import { getApiBaseUrl } from './api-base-url';
 
 const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1'])
 
+export interface WebSocketBaseUrlResolution {
+  url: string;
+  source: 'NEXT_PUBLIC_WS_BASE_URL' | 'NEXT_PUBLIC_API_BASE_URL' | 'NEXT_PUBLIC_BACKEND_URL' | 'backendUrl' | 'apiBaseUrl';
+}
+
 function isLocalHostname(hostname: string): boolean {
   return LOCAL_HOSTNAMES.has(hostname) || hostname.endsWith('.localhost')
 }
@@ -17,18 +22,41 @@ function isLocalHostname(hostname: string): boolean {
  * it falls back to the backend URL passed in, then the shared API base URL,
  * converting it to a local 'ws://' endpoint when appropriate.
  */
-export function resolveWebSocketBaseUrl(backendUrl: string): string {
+export function resolveWebSocketBaseUrlDetails(backendUrl: string): WebSocketBaseUrlResolution {
   let wsUrl = process.env.NEXT_PUBLIC_WS_BASE_URL;
+  let source: WebSocketBaseUrlResolution['source'] = 'NEXT_PUBLIC_WS_BASE_URL';
+
+  if (!wsUrl) {
+    wsUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+    source = 'NEXT_PUBLIC_BACKEND_URL';
+  }
+
+  if (!wsUrl) {
+    wsUrl = backendUrl;
+    source = 'backendUrl';
+  }
+
+  if (!wsUrl) {
+    wsUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+    source = 'NEXT_PUBLIC_API_BASE_URL';
+  }
 
   if (!wsUrl) {
     const isProdRuntime = process.env.NODE_ENV === 'production';
     const isNextProductionBuild = process.env.NEXT_PHASE === 'phase-production-build';
+    const fallbackUrl = getApiBaseUrl();
 
-    if (isProdRuntime && !isNextProductionBuild) {
-      throw new Error('NEXT_PUBLIC_WS_BASE_URL environment variable is missing.');
+    if (fallbackUrl) {
+      wsUrl = fallbackUrl;
+      source = 'apiBaseUrl';
+    } else if (isProdRuntime && !isNextProductionBuild) {
+      throw new Error(
+        'WebSocket backend URL is missing. Set NEXT_PUBLIC_WS_BASE_URL to the deployed backend origin.',
+      );
+    } else {
+      wsUrl = fallbackUrl;
+      source = 'apiBaseUrl';
     }
-    
-    wsUrl = backendUrl || getApiBaseUrl();
   }
 
   const rawUrl = wsUrl.trim();
@@ -42,7 +70,7 @@ export function resolveWebSocketBaseUrl(backendUrl: string): string {
 
     if (isLocalHostname(url.hostname)) {
       url.protocol = 'ws:';
-      return url.toString().replace(/\/$/, '');
+      return { url: url.toString().replace(/\/$/, ''), source };
     }
 
     if (url.protocol === 'https:') {
@@ -51,11 +79,18 @@ export function resolveWebSocketBaseUrl(backendUrl: string): string {
       url.protocol = 'ws:';
     }
 
-    return url.toString().replace(/\/$/, '');
+    return { url: url.toString().replace(/\/$/, ''), source };
   } catch {
-    return rawUrl
-      .replace(/^https:/i, 'wss:')
-      .replace(/^http:/i, 'ws:')
-      .replace(/\/$/, '');
+    return {
+      url: rawUrl
+        .replace(/^https:/i, 'wss:')
+        .replace(/^http:/i, 'ws:')
+        .replace(/\/$/, ''),
+      source,
+    };
   }
+}
+
+export function resolveWebSocketBaseUrl(backendUrl: string): string {
+  return resolveWebSocketBaseUrlDetails(backendUrl).url;
 }

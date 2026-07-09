@@ -51,6 +51,8 @@ class UserProfileControllerTest {
         sampleDTO.setEmail("alice@example.com");
         sampleDTO.setUsername("alice");
         sampleDTO.setFullName("Alice Smith");
+        sampleDTO.setGithubUsername("octoalice");
+        sampleDTO.setGithubEmail("alice@users.noreply.github.com");
     }
 
     @Test
@@ -61,7 +63,9 @@ class UserProfileControllerTest {
         mockMvc.perform(get("/api/user/profile"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("alice@example.com"))
-                .andExpect(jsonPath("$.fullName").value("Alice Smith"));
+                .andExpect(jsonPath("$.fullName").value("Alice Smith"))
+                .andExpect(jsonPath("$.githubUsername").value("octoalice"))
+                .andExpect(jsonPath("$.githubEmail").value("alice@users.noreply.github.com"));
     }
 
     @Test

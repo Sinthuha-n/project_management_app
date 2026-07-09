@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { Suspense, useCallback, useState } from 'react';
 import { DragEndEvent } from '@dnd-kit/core';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import DragDropProvider from './components/DragDropProvider';
 import KanbanColumn from './components/KanbanColumn';
@@ -11,9 +12,12 @@ import CreateTaskModal from './components/CreateTaskModal';
 import { AlertCircle, Loader, CheckCircle2, Plus, LayoutGrid, X } from 'lucide-react';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import TaskCardModal from '@/app/taskcard/TaskCardModal';
+import EmptyState from '@/components/shared/EmptyState';
 import { useKanbanBoard } from './useKanbanBoard';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
-export default function KanbanPage() {
+function KanbanPageContent() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId');
 
@@ -32,7 +36,7 @@ export default function KanbanPage() {
     updatingTaskId, usersMap, activeMobileColumn,
     handleDragEnd, handleColumnDragEnd, handleDeleteTask,
     handleAddTask, handleCreateTask, handleOpenCreateModal,
-    handleEditTask, handleInlineUpdate, handleCompleteBoard,
+    handleInlineUpdate, handleCompleteBoard,
     handleColumnRenamed, handleColumnSettingsChanged, handleDeleteColumn,
     handleAddColumn, handleCreateLabel, forceRefresh,
   } = useKanbanBoard(projectId);
@@ -51,14 +55,21 @@ export default function KanbanPage() {
 
   if (!projectId) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-cu-bg">
-        <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-cu-danger mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-cu-text-primary mb-2">Missing Project ID</h1>
-          <p className="text-cu-text-secondary">
-            Please provide a project ID in the URL: <code className="bg-cu-bg-tertiary px-2 py-1 rounded">/kanban?projectId=1</code>
-          </p>
-        </div>
+      <div className="min-h-screen bg-cu-bg">
+        <EmptyState
+          icon={<LayoutGrid size={24} />}
+          title="Select a project to view its board"
+          subtitle="Choose a project from your dashboard to get back to planning and tracking work."
+          action={(
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-xl bg-cu-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cu-primary-hover"
+            >
+              Go to Dashboard
+            </Link>
+          )}
+          className="min-h-[60vh]"
+        />
       </div>
     );
   }
@@ -68,7 +79,7 @@ export default function KanbanPage() {
   const progressPercent = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(21,93,252,0.16),transparent_30%),radial-gradient(circle_at_top_right,rgba(34,197,94,0.12),transparent_28%),linear-gradient(180deg,var(--cu-bg-secondary),var(--cu-bg-secondary))]">
+    <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(21,93,252,0.16),transparent_30%),radial-gradient(circle_at_top_right,rgba(34,197,94,0.12),transparent_28%)]">
       {/* Premium Header */}
       <div className="border-b border-cu-border bg-[linear-gradient(135deg,rgba(21,93,252,0.12),rgba(99,102,241,0.08)_45%,rgba(34,197,94,0.1))] px-4 md:px-6 py-3 flex-shrink-0">
         <div className="flex items-center justify-between gap-4">
@@ -214,7 +225,6 @@ export default function KanbanPage() {
                         updatingTaskId={updatingTaskId}
                         onDeleteTask={handleDeleteTask}
                         onCreateTask={handleAddTask}
-                        onEditTask={handleEditTask}
                         onOpenTask={setSelectedTaskIdForModal}
                         onInlineUpdate={handleInlineUpdate}
                         usersMap={usersMap}
@@ -293,40 +303,42 @@ export default function KanbanPage() {
 
       {/* Complete All Tasks Confirmation Dialog */}
       {showCompleteConfirm && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-cu-bg rounded-2xl shadow-cu-xl border border-cu-border p-6 max-w-sm w-full mx-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                <CheckCircle2 size={20} className="text-emerald-600" />
+        <OverlayPortal>
+          <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="bg-cu-bg rounded-2xl shadow-cu-xl border border-cu-border p-6 max-w-sm w-full mx-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 size={20} className="text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="text-[16px] font-bold text-cu-text-primary">Complete All Tasks</h3>
+                  <p className="text-[13px] text-cu-text-secondary">Mark every task as Done?</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-[16px] font-bold text-cu-text-primary">Complete All Tasks</h3>
-                <p className="text-[13px] text-cu-text-secondary">Archive entire board to Done?</p>
+              <p className="text-[14px] text-cu-text-secondary mb-5 leading-relaxed">
+                This will mark all remaining tasks as <span className="font-bold text-emerald-600">Done</span>. This action is definitive but allows you to clear your board quickly.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCompleteConfirm(false)}
+                  className="flex-1 px-4 py-2.5 border border-cu-border rounded-xl text-[14px] font-semibold text-cu-text-secondary hover:bg-cu-hover transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setShowCompleteConfirm(false);
+                    await handleCompleteBoard();
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[14px] font-bold transition-colors shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={16} />
+                  Confirm
+                </button>
               </div>
-            </div>
-            <p className="text-[14px] text-cu-text-secondary mb-5 leading-relaxed">
-              This will mark all remaining tasks as <span className="font-bold text-emerald-600">Done</span>. This action is definitive but allows you to clear your board quickly.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCompleteConfirm(false)}
-                className="flex-1 px-4 py-2.5 border border-cu-border rounded-xl text-[14px] font-semibold text-cu-text-secondary hover:bg-cu-hover transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  setShowCompleteConfirm(false);
-                  await handleCompleteBoard();
-                }}
-                className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[14px] font-bold transition-colors shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
-              >
-                <CheckCircle2 size={16} />
-                Confirm
-              </button>
             </div>
           </div>
-        </div>
+        </OverlayPortal>
       )}
 
       {/* Floating Action Button: Quick Create (mobile) */}
@@ -343,14 +355,7 @@ export default function KanbanPage() {
         <CreateTaskModal
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
-          onCreateTask={async (taskData) => {
-            await handleCreateTask({
-              title: taskData.title ?? '',
-              priority: taskData.priority ?? 'MEDIUM',
-              labelIds: taskData.labelId ? [taskData.labelId] : [],
-              storyPoint: typeof taskData.storyPoint === 'number' ? taskData.storyPoint : 0,
-            });
-          }}
+          onCreateTask={handleCreateTask}
           columnStatus={selectedColumnStatus}
           projectId={parseInt(projectId as string)}
           loading={false}
@@ -362,14 +367,22 @@ export default function KanbanPage() {
       {selectedTaskIdForModal !== null && (
         <TaskCardModal
           taskId={selectedTaskIdForModal}
-          onClose={(wasModified) => {
+          onClose={() => {
             setSelectedTaskIdForModal(null);
-            if (wasModified) {
-              void forceRefresh();
-            }
+            // Board updates from modal edits arrive via the planora:task-updated
+            // custom event dispatched by TaskCardModal and handled in useKanbanData.
+            // No full board refresh needed here.
           }}
         />
       )}
     </div>
+  );
+}
+
+export default function KanbanPage() {
+  return (
+    <Suspense fallback={<RouteLoadingState title="Loading board" subtitle="Preparing kanban columns and tasks." variant="board" />}>
+      <KanbanPageContent />
+    </Suspense>
   );
 }

@@ -297,7 +297,7 @@ export function NotificationBell() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="absolute right-0 mt-3 w-80 bg-cu-bg border border-cu-border shadow-cu-xl rounded-2xl overflow-hidden z-50 origin-top-right transition-all"
+            className="absolute right-0 mt-3 w-80 bg-cu-bg border border-cu-border shadow-cu-xl rounded-2xl overflow-hidden z-[var(--cu-z-dropdown)] origin-top-right transition-all"
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-cu-border bg-cu-bg/80">
               <span className="font-bold text-cu-text-primary text-[14px] font-outfit">Notifications</span>

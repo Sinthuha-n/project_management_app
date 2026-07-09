@@ -28,7 +28,7 @@ import {
   type GithubAutomationAction,
   type GithubAutomationRule,
   type GithubAutomationTrigger,
-} from '@/services/githubService';
+} from '@/services/github-service';
 
 interface AutomationRuleBuilderProps {
   projectId: string;

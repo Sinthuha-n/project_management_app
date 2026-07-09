@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Circle, MessageSquare, User } from 'lucide-react';
-import { type GitHubIssue } from '@/services/githubService';
+import { type GitHubIssue } from '@/services/github-service';
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();

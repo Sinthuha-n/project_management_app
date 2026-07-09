@@ -408,7 +408,7 @@ export default function ChatInterface() {
       </div>
 
       {/* Thread panel */}
-      <div className="hidden lg:flex">
+      <div className="hidden h-full min-h-0 lg:flex lg:flex-shrink-0">
         <AnimatePresence>
           {activeThreadRoot && (
             <motion.div
@@ -416,7 +416,7 @@ export default function ChatInterface() {
               animate={{ width: 340, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.25, ease: 'easeInOut' }}
-              className="overflow-hidden flex-shrink-0"
+              className="h-full min-h-0 flex-shrink-0 overflow-hidden"
             >
               <ThreadPanel
                 rootMessage={activeThreadRoot}
@@ -434,7 +434,7 @@ export default function ChatInterface() {
 
       <AnimatePresence>
         {activeThreadRoot && showMobileThread && (
-          <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="fixed inset-0 z-[var(--cu-z-overlay)] lg:hidden">
             <motion.button
               type="button"
               aria-label="Close thread panel overlay"
@@ -455,19 +455,7 @@ export default function ChatInterface() {
               transition={{ duration: 0.25, ease: 'easeInOut' }}
               className="absolute right-0 top-0 h-full w-full max-w-xl bg-cu-bg shadow-cu-xl"
             >
-              <div className="flex items-center justify-end border-b border-cu-border px-4 py-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    closeThread();
-                  }}
-                  className="rounded-md border border-cu-border px-3 py-1.5 text-sm font-medium text-cu-text-secondary transition-colors hover:bg-cu-hover hover:text-cu-text-primary"
-                >
-                  Close
-                </button>
-              </div>
-
-              <div className="h-[calc(100%-57px)]">
+              <div className="h-full min-h-0">
                 <ThreadPanel
                   rootMessage={activeThreadRoot}
                   threadMessages={threadMessages}

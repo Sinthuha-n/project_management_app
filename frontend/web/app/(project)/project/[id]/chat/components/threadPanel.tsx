@@ -4,6 +4,7 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send } from 'lucide-react';
 import { ChatMessage, ChatReactionSummary } from './chat';
 import { isFileDocument } from './chatMessage';
+import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 
 interface ThreadPanelProps {
   rootMessage: ChatMessage | null;
@@ -91,7 +92,7 @@ export const ThreadPanel = ({
   };
 
   return (
-    <aside className="w-full h-full bg-cu-bg border-l border-cu-border flex flex-col shadow-cu-sm">
+    <aside className="flex h-full min-h-0 w-full min-w-0 flex-col border-l border-cu-border bg-cu-bg shadow-cu-sm">
       {/* Header */}
       <div className="h-16 px-4 flex items-center justify-between border-b border-cu-border flex-shrink-0 bg-cu-bg-secondary">
         <div>
@@ -113,11 +114,12 @@ export const ThreadPanel = ({
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-5 space-y-5 scrollbar-thin">
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-5 scrollbar-thin">
         {orderedMessages.map((message, index) => {
           const isRoot = index === 0;
           const messageReactions = message.id ? (reactionsByMessageId[message.id] || []) : [];
           const isFile = !message.deleted && isFileDocument(message.content);
+          const profilePicUrl = resolveProfilePhotoUrl(userProfilePics?.[message.sender]);
 
           return (
             <div key={`${message.id || 'tmp'}-${index}`}>
@@ -132,10 +134,10 @@ export const ThreadPanel = ({
                 </div>
               )}
 
-              <div className={`flex gap-3 group ${isRoot ? 'mb-2' : ''}`}>
-                {userProfilePics?.[message.sender] ? (
+              <div className={`group flex gap-3 rounded-xl ${isRoot ? 'mb-2 bg-cu-bg-secondary/80 p-3 ring-1 ring-cu-border' : ''}`}>
+                {profilePicUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={userProfilePics[message.sender]} alt={message.sender} className="w-8 h-8 rounded-full object-cover shadow-cu-sm flex-shrink-0" />
+                  <img src={profilePicUrl} alt={message.sender} className="w-8 h-8 rounded-full object-cover shadow-cu-sm flex-shrink-0" />
                 ) : (
                   <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${avatarColor(message.sender || '')} flex items-center justify-center text-white text-[13px] font-bold flex-shrink-0`}>
                     {(message.sender || '?').charAt(0).toUpperCase()}
@@ -206,7 +208,7 @@ export const ThreadPanel = ({
       </div>
 
       {/* Reply input */}
-      <div className="p-3 bg-cu-bg border-t border-cu-border">
+      <div className="flex-shrink-0 border-t border-cu-border bg-cu-bg p-3">
         <div className="flex items-center gap-2 bg-cu-bg-secondary border border-cu-border rounded-xl px-2 py-1.5 focus-within:bg-cu-bg-tertiary focus-within:border-cu-primary/40 focus-within:ring-2 focus-within:ring-cu-primary/10 transition-all">
           <input
             type="text"

@@ -18,13 +18,13 @@ import {
   RefreshCw,
   XCircle,
 } from 'lucide-react';
-import { hasConnectedGitHubAccount, getProjectGitHubRepo } from '@/services/githubService';
+import { hasConnectedGitHubAccount, getProjectGitHubRepo } from '@/services/github-service';
 import api from '@/lib/axios';
 import { normalizeApiError } from '@/lib/api-error';
 import { CIStatusBadge } from '@/components/ui';
 import SidebarField from './SidebarField';
 import CreateIssueFromTaskModal from '@/components/github/CreateIssueFromTaskModal';
-import type { GitHubIssue } from '@/services/githubService';
+import type { GitHubIssue } from '@/services/github-service';
 
 // ── Backend DTO shapes ────────────────────────────────────────────────────────
 

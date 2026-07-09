@@ -7,15 +7,16 @@ import {
   StyleSheet,
   Text,
   View,
+  TouchableOpacity,
 } from 'react-native';
 import { T, STATUS_MAP, StatusKey } from '../../constants/tokens';
 import { BoardTask, useProjectBoard } from '../../hooks/useProjectBoard';
+import MobileTaskDetailSheet from '../task-detail/MobileTaskDetailSheet';
 
 const PRIORITY_TONES: Record<string, string> = {
   URGENT: '#DC2626',
   HIGH: '#EA580C',
   MEDIUM: '#D97706',
-  NORMAL: '#2563EB',
   LOW: '#64748B',
 };
 
@@ -54,7 +55,7 @@ function isOverdue(task: BoardTask) {
   return due < today;
 }
 
-function TaskTimelineItem({ task, isLast }: { task: BoardTask; isLast: boolean }) {
+function TaskTimelineItem({ task, isLast, onPress }: { task: BoardTask; isLast: boolean; onPress: () => void }) {
   const status = statusMeta(task.status);
   const priorityTone = task.priority ? PRIORITY_TONES[task.priority.toUpperCase()] ?? T.textSecondary : T.textMuted;
   const overdue = isOverdue(task);
@@ -66,7 +67,7 @@ function TaskTimelineItem({ task, isLast }: { task: BoardTask; isLast: boolean }
         {!isLast ? <View style={styles.markerLine} /> : null}
       </View>
 
-      <View style={styles.taskCard}>
+      <TouchableOpacity activeOpacity={0.78} onPress={onPress} style={styles.taskCard}>
         <View style={styles.cardHeader}>
           <View style={styles.dateBlock}>
             <Text style={styles.dateLabel}>Start</Text>
@@ -114,7 +115,7 @@ function TaskTimelineItem({ task, isLast }: { task: BoardTask; isLast: boolean }
             </View>
           ) : null}
         </View>
-      </View>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -129,6 +130,7 @@ export default function MobileTimelineScreen({
   topOffset?: number;
 }) {
   const { tasks, loading, refreshing, error, refresh } = useProjectBoard(projectId);
+  const [selectedTaskId, setSelectedTaskId] = React.useState<number | null>(null);
 
   const timelineTasks = useMemo(
     () => [...tasks].sort((a, b) => timelineTime(a) - timelineTime(b)),
@@ -197,6 +199,7 @@ export default function MobileTimelineScreen({
               key={task.id}
               task={task}
               isLast={index === timelineTasks.length - 1}
+              onPress={() => setSelectedTaskId(task.id)}
             />
           ))}
         </View>
@@ -207,6 +210,13 @@ export default function MobileTimelineScreen({
           <Text style={styles.emptyText}>Tasks with start or due dates will appear here.</Text>
         </View>
       )}
+      <MobileTaskDetailSheet
+        visible={selectedTaskId !== null}
+        taskId={selectedTaskId}
+        projectId={projectId}
+        onClose={() => setSelectedTaskId(null)}
+        onChanged={refresh}
+      />
     </ScrollView>
   );
 }

@@ -2,6 +2,7 @@
 
 import { ArrowLeft, Search, Users, X } from 'lucide-react';
 import { avatarColor } from '@/hooks/chat/chat-utils';
+import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 
 interface ChatHeaderProps {
   selectedRoom: { name?: string | null; topic?: string | null } | null;
@@ -28,15 +29,19 @@ export function ChatHeader({
   onToggleSearch,
   onShowSidebar,
 }: ChatHeaderProps) {
+  const selectedUserProfilePicUrl = selectedUser
+    ? resolveProfilePhotoUrl(userProfilePics[selectedUser])
+    : null;
+
   const headerIcon = selectedRoom
     ? (
       <div className={`w-8 h-8 rounded-full flex-shrink-0 bg-gradient-to-br ${avatarColor(selectedRoom?.name || 'G')} flex items-center justify-center text-white text-[13px] font-bold shadow-cu-sm ring-2 ring-cu-bg`}>
         {(selectedRoom?.name || 'G').charAt(0).toUpperCase()}
       </div>
     )
-    : selectedUser && userProfilePics[selectedUser]
+    : selectedUser && selectedUserProfilePicUrl
       // eslint-disable-next-line @next/next/no-img-element
-      ? <img src={userProfilePics[selectedUser]} alt={selectedUser} className="w-8 h-8 rounded-full flex-shrink-0 object-cover shadow-cu-sm ring-2 ring-cu-bg" />
+      ? <img src={selectedUserProfilePicUrl} alt={selectedUser} className="w-8 h-8 rounded-full flex-shrink-0 object-cover shadow-cu-sm ring-2 ring-cu-bg" />
       : selectedUser
         ? (
           <div className={`w-8 h-8 rounded-full flex-shrink-0 bg-gradient-to-br ${avatarColor(selectedUser)} flex items-center justify-center text-white text-[13px] font-bold shadow-cu-sm ring-2 ring-cu-bg`}>

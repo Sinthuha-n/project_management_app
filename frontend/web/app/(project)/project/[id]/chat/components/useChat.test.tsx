@@ -43,6 +43,11 @@ jest.mock('@/services/chat-service', () => ({
     if (!res.ok) throw new Error('Failed to fetch feature flags');
     return (res.json() as Promise<unknown>);
   },
+  fetchAllUserProfiles: async () => {
+    const res = await fetch('/api/auth/users');
+    if (!res.ok) return [];
+    return res.json();
+  },
   searchChatMessages: async (projectId: string, query: string) => {
     const res = await fetch(
       `/api/search?q=${encodeURIComponent(query)}&projectId=${encodeURIComponent(projectId)}`,
@@ -294,6 +299,12 @@ describe('useChat hook', () => {
       formatType: 'PLAIN',
     });
     expect(JSON.parse(roomBody).timestamp).toBeTruthy();
+  });
+
+  it('resolves member profile picture URLs before storing them for chat avatars', async () => {
+    const { result } = await renderInitializedHook();
+
+    expect(result.current.userProfilePics.bob).toBe('http://localhost:8080/avatars/bob.png');
   });
 
   it('rejects blank messages and persists over HTTP when socket is unavailable', async () => {

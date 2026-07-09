@@ -1,5 +1,6 @@
 import axios from "axios";
-import { clearTokens, getValidToken, getUserFromToken, refreshAccessToken } from "@/lib/auth";
+import { clearTokens, getRefreshToken, getValidToken, getUserFromToken, refreshAccessToken } from "@/lib/auth";
+import { buildVerifyEmailPath, isEmailVerificationRequired, rememberPendingVerificationEmail } from "@/lib/email-verification";
 import { getApiBaseUrl } from "@/lib/api-base-url";
 
 const api = axios.create({
@@ -44,6 +45,9 @@ api.interceptors.request.use(async (config) => {
     if (!isAuthEndpoint && typeof window !== 'undefined') {
         try {
             if (!getValidToken()) {
+                if (!getRefreshToken()) {
+                    return config;
+                }
                 const newToken = await refreshAccessToken({ allowCookieRefresh: true });
                 config.headers['Authorization'] = `Bearer ${newToken}`;
                 return config;
@@ -51,6 +55,9 @@ api.interceptors.request.use(async (config) => {
 
             const user = getUserFromToken();
             if (user?.exp && (user.exp - Date.now() / 1000) < 60) {
+                if (!getRefreshToken()) {
+                    return config;
+                }
                 const newToken = await refreshAccessToken({ allowCookieRefresh: true });
                 config.headers['Authorization'] = `Bearer ${newToken}`;
                 return config;
@@ -81,11 +88,25 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
+        if (isEmailVerificationRequired(error, ['EMAIL_NOT_VERIFIED'])) {
+            if (typeof window !== 'undefined') {
+                const email = getUserFromToken()?.email;
+                rememberPendingVerificationEmail(email);
+                window.location.assign(buildVerifyEmailPath(email));
+            }
+            return Promise.reject(error);
+        }
+
         // Don't attempt refresh on auth endpoints
         const authEndpoints = ['/api/auth/login', '/api/auth/forgot', '/api/auth/reset', '/api/auth/register', '/api/auth/reg/verify', '/api/auth/refresh'];
         const isAuthEndpoint = authEndpoints.some(endpoint => originalRequest?.url?.includes(endpoint));
 
         if (error.response?.status === 401 && !isAuthEndpoint && !originalRequest._retry) {
+            if (typeof window !== 'undefined' && !getRefreshToken()) {
+                clearTokens();
+                return Promise.reject(error);
+            }
+
             if (isRefreshing) {
                 // Wait for the in-progress refresh to complete, then retry
                 return new Promise((resolve, reject) => {

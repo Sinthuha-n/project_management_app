@@ -451,10 +451,11 @@ export default function Sidebar() {
   /* -- render -- */
   return (
     <>
-      {/* Mobile Backdrop Overlay - Full screen blur to cover everything */}
+      {/* Mobile backdrop sits below the sidebar so the nav stays sharp. */}
       <div
-        className={`md:hidden fixed inset-0 z-[9998] bg-slate-950/55 backdrop-blur-xl transition-all duration-300 ease-in-out ${isMobile && !collapsed ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        className={`md:hidden fixed inset-0 bg-slate-950/55 backdrop-blur-xl transition-all duration-300 ease-in-out ${isMobile && !collapsed ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
+        style={{ zIndex: 'calc(var(--cu-z-sidebar) - 1)' }}
         onClick={() => {
           setCollapsed(true);
           localStorage.setItem('planora:sidebar:collapsed', 'true');
@@ -472,20 +473,21 @@ export default function Sidebar() {
 
       <div
         ref={sidebarRef}
-        className={`h-screen flex-shrink-0 ${isMobile ? 'fixed left-0 top-0 z-[9999]' : 'relative'} ${isMobile && collapsed ? 'pointer-events-none' : ''}`}
+        className={`h-screen flex-shrink-0 ${isMobile ? 'fixed left-0 top-0 z-[var(--cu-z-sidebar)]' : 'relative'} ${isMobile && collapsed ? 'pointer-events-none' : ''}`}
         style={{
           width: isMobile ? '260px' : (collapsed ? '64px' : '240px'),
         }}
       >
         <div
-          className={`bg-cu-sidebar transition-all duration-300 ease-in-out ${isMobile ? 'relative h-full' : 'fixed left-0 top-0 h-screen z-[9999]'} pointer-events-auto`}
+          className={`glass-panel glass-panel-sidebar transition-all duration-300 ease-in-out ${isMobile ? 'relative h-full' : 'fixed left-0 top-0 h-screen z-[var(--cu-z-sidebar)]'} pointer-events-auto`}
           style={{
             width: isMobile ? '260px' : (collapsed ? '64px' : '240px'),
             transform: isMobile && collapsed ? 'translateX(-100%)' : 'translateX(0)',
             opacity: isMobile && collapsed ? 0.5 : 1,
+            borderRadius: '0px',
           }}
         >
-          <div className="relative h-full bg-cu-sidebar border-r border-cu-sidebar-border flex flex-col w-[260px] md:w-[inherit] shadow-[10px_0_30px_rgba(15,23,42,0.06)]">
+          <div className="relative h-full bg-transparent flex flex-col w-[260px] md:w-[inherit]">
             <SidebarHeader collapsed={collapsed} onToggle={toggleCollapsed} />
             <CollapseButton collapsed={collapsed} onToggle={toggleCollapsed} />
 

@@ -31,7 +31,7 @@ export function Popover({
           align={align}
           sideOffset={4}
           className={[
-            'z-50 bg-cu-bg rounded-cu-lg shadow-cu-lg border border-cu-border',
+            'z-[var(--cu-z-dropdown)] bg-cu-bg rounded-cu-lg shadow-cu-lg border border-cu-border',
             'animate-fade-in p-2',
             'focus:outline-none',
             className,

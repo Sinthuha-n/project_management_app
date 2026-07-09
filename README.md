@@ -137,6 +137,12 @@ Copy the example file and fill in your values:
 cp .env.example .env
 ```
 
+For EC2 production Docker deployments, use the production template instead:
+
+```bash
+cp .env.production.example .env.production
+```
+
 | Variable | Description | Example |
 |---|---|---|
 | `SPRING_DATASOURCE_URL` | PostgreSQL JDBC URL. Use `db:5432` only inside Docker Compose. | `jdbc:postgresql://db:5432/planora_db` |
@@ -157,6 +163,7 @@ cp .env.example .env
 | `MAIL_PORT` | SMTP port | `587` |
 | `MAIL_USERNAME` | Sender email address | `you@example.com` |
 | `MAIL_PASSWORD` | SMTP app password | `your-app-password` |
+| `APP_FRONTEND_BASE_URL` | Public frontend origin used in invitation emails. Required for `prod`/`production` startup. | `https://planora-pma.netlify.app` |
 | `AWS_ACCESS_KEY` | AWS IAM access key | `your_aws_access_key` |
 | `AWS_SECRET_KEY` | AWS IAM secret key | `your_aws_secret_key` |
 | `AWS_REGION` | S3 bucket region | `eu-north-1` |
@@ -193,7 +200,7 @@ For staging and production, set all required variables in the hosting platform:
 |---|---|
 | Local Docker | `SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/planora_db`, matching `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `JWT_SECRET`, mail settings, AWS credentials, and the four storage bucket names if uploads are used. |
 | Staging | External PostgreSQL JDBC URL with SSL if required by the provider, staging database credentials, staging JWT secret, staging SMTP credentials, staging AWS credentials, staging-only S3 buckets, and staging `CORS_ALLOWED_ORIGINS`. Do not use `db:5432` outside Docker Compose. |
-| Production | Managed PostgreSQL JDBC URL with SSL, production database credentials, production Redis host (`REDIS_HOST`) pointing at a real instance for Spring Cache/auth counters/rate limiting, `APP_CACHE_REDIS_FAIL_OPEN=true` unless you intentionally want cache outages to fail requests, strong production JWT secret, production SMTP credentials, production AWS credentials, production-only S3 buckets, production `CORS_ALLOWED_ORIGINS`, and any provider-specific Flyway settings. Missing production bucket variables fail startup. Do not reuse local or staging bucket names. |
+| Production | Managed PostgreSQL JDBC URL with SSL, production database credentials, production Redis host (`REDIS_HOST`) pointing at a real instance for Spring Cache/auth counters/rate limiting, `APP_CACHE_REDIS_FAIL_OPEN=true` unless you intentionally want cache outages to fail requests, strong production JWT secret, production SMTP credentials, `APP_FRONTEND_BASE_URL` set to the public frontend origin, production AWS credentials, production-only S3 buckets, production `CORS_ALLOWED_ORIGINS`, `WEBSOCKET_ALLOWED_ORIGINS` if realtime clients differ from CORS origins, and any provider-specific Flyway settings. Missing production bucket variables fail startup. Do not reuse local or staging bucket names. |
 
 ### 3. Run with Docker Compose
 
@@ -328,14 +335,108 @@ A strict `Content-Security-Policy` header is configured in `next.config.mjs` to 
 
 ### Backend (AWS)
 
-The backend is containerised using a multi-stage Docker build targeting Alpine JRE 21. It is deployable to any container runtime (ECS, App Runner, EC2, etc.).
+The backend is containerised using a multi-stage Docker build targeting Alpine JRE 21. The runtime image runs as a non-root user, supports `JAVA_OPTS`, and exposes a Docker health check at `/actuator/health/readiness`.
 
 ```bash
 docker build -t planora-backend ./backend
 docker run -p 8080:8080 --env-file .env planora-backend
 ```
 
-Production uses **Supabase** as the managed PostgreSQL provider. Flyway handles all schema migrations automatically on startup.
+Production uses a managed PostgreSQL provider such as Supabase or RDS. Flyway handles schema migrations automatically on startup.
+
+#### EC2 production Docker
+
+On the EC2 host, create a production env file and fill every placeholder with real values:
+
+```bash
+cp .env.production.example .env.production
+```
+
+Before starting or redeploying production, verify the required frontend origin values:
+
+```bash
+bash scripts/validate-production-env.sh .env.production
+```
+
+To repair those values automatically on the EC2 host, run:
+
+```bash
+bash scripts/repair-production-backend-env.sh .env.production
+bash scripts/validate-production-env.sh .env.production
+```
+
+For the current production Netlify site, `.env.production` must include:
+
+```env
+SPRING_PROFILES_ACTIVE=prod
+APP_FRONTEND_BASE_URL=https://planora-pma.netlify.app
+CORS_ALLOWED_ORIGINS=https://planora-pma.netlify.app
+WEBSOCKET_ALLOWED_ORIGINS=https://planora-pma.netlify.app
+```
+
+Start the backend and private Redis container:
+
+```bash
+docker compose -f docker-compose.ec2.yml --env-file .env.production up -d --build
+```
+
+For CI/CD image deploys, set `BACKEND_IMAGE` at runtime or in `.env.production` to the pushed image tag, for example:
+
+```bash
+BACKEND_IMAGE=ghcr.io/<github-owner>/planora-backend:<git-sha> \
+  docker compose -f docker-compose.ec2.yml --env-file .env.production up -d --no-build backend redis
+```
+
+Check container health:
+
+```bash
+docker compose -f docker-compose.ec2.yml --env-file .env.production ps
+curl -fsS http://127.0.0.1:8080/actuator/health
+curl -fsS http://127.0.0.1:8080/actuator/health/readiness
+```
+
+If Netlify returns `502` for `/api/*` after a backend deploy, inspect backend startup logs first:
+
+```bash
+docker compose -f docker-compose.ec2.yml --env-file .env.production logs --tail=200 backend
+```
+
+If the logs mention `APP_FRONTEND_BASE_URL` or `FrontendBaseUrlStartupValidator`, fix `.env.production`, rerun `bash scripts/validate-production-env.sh .env.production`, and restart only the backend/Redis services:
+
+```bash
+bash scripts/repair-production-backend-env.sh .env.production
+bash scripts/validate-production-env.sh .env.production
+docker compose -f docker-compose.ec2.yml --env-file .env.production up -d --no-build backend redis
+```
+
+The EC2 compose file binds the backend to `127.0.0.1:${BACKEND_PORT:-8080}:8080` and does not publish Redis. Put Nginx or Caddy on the EC2 host in front of the container and proxy HTTPS traffic to `127.0.0.1:8080`.
+
+Reverse proxy requirements:
+
+- Preserve `Host`, `X-Forwarded-For`, `X-Forwarded-Proto`, and `X-Real-IP`.
+- Support WebSocket upgrades for `/ws`, `/ws-native`, and `/yjs/*`.
+- Terminate TLS at the proxy and forward plain HTTP to the local backend port.
+
+Minimal Nginx location example:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+}
+```
+
+EC2 security group:
+
+- Allow public inbound `80` and `443`.
+- Do not allow public inbound `8080` or `6379`.
+- Allow outbound access to managed PostgreSQL, AWS S3, SMTP, GitHub, and package registries used during builds.
 
 ### Frontend (Netlify)
 
@@ -343,11 +444,25 @@ The frontend is deployed to Netlify via the `netlify.toml` configuration. Set th
 
 - `BACKEND_URL` — the backend's public URL (e.g., `https://api.yourapp.com`)
 - `NEXT_PUBLIC_BACKEND_HOST` — the backend hostname for Next.js image patterns
-- `NEXT_PUBLIC_WS_BASE_URL` — the backend's direct WebSocket absolute URL (e.g., `https://api.yourapp.com`)
+- `NEXT_PUBLIC_WS_BASE_URL` — the backend's direct WebSocket absolute URL (e.g., `wss://api.yourapp.com`)
+
+### Backend CI/CD
+
+The `Backend Deploy` GitHub Actions workflow builds `./backend`, pushes the Docker image to GitHub Container Registry, then SSHes into EC2 and restarts the backend using `docker-compose.ec2.yml`.
+
+Required GitHub repository secrets:
+
+- `EC2_HOST` — EC2 public hostname or IP.
+- `EC2_USER` — SSH user, for example `ubuntu` or `ec2-user`.
+- `EC2_SSH_PRIVATE_KEY` — private key allowed to SSH into the EC2 host.
+- `EC2_APP_DIR` — absolute path to this repository on EC2.
+- `GHCR_READ_TOKEN` — GitHub token with permission to read the GHCR package from EC2.
+
+The EC2 host must already have Docker, Docker Compose, this repository, and a real `.env.production` file. Netlify deploys the frontend separately from `frontend/web/netlify.toml`.
 
 ### CI/CD
 
-GitHub Actions runs on every push and pull request to `main`, `master`, `test`, and `responsive-pages*` branches:
+GitHub Actions CI runs on every push and pull request to `main`, `master`, `test`, and `responsive-pages*` branches:
 
 1. **Backend job:** `./mvnw verify` (build + test + coverage)
 2. **Frontend job:** lint → test → build

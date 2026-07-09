@@ -1,0 +1,94 @@
+name: Backend Deploy
+
+on:
+  push:
+    branches: ["main", "master"]
+    paths:
+      - "backend/**"
+      - "docker-compose.ec2.yml"
+      - ".github/workflows/backend-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: backend-deploy-production
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    name: Build and Push Backend Image
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Image Metadata
+        id: meta
+        run: |
+          OWNER="$(printf '%s' "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          IMAGE_NAME="ghcr.io/${OWNER}/planora-backend"
+          IMAGE="${IMAGE_NAME}:${GITHUB_SHA}"
+          echo "image_name=${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "IMAGE=${IMAGE}" >> "$GITHUB_ENV"
+
+      - name: Build and Push Backend Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}
+            ${{ steps.meta.outputs.image_name }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-ec2:
+    name: Deploy to EC2
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/ec2_deploy_key
+          chmod 600 ~/.ssh/ec2_deploy_key
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy Backend Container
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_APP_DIR: ${{ secrets.EC2_APP_DIR }}
+          DEPLOY_BRANCH: ${{ github.ref_name }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+          BACKEND_IMAGE: ${{ needs.build-and-push.outputs.image }}
+        run: |
+          ssh -i ~/.ssh/ec2_deploy_key "${EC2_USER}@${EC2_HOST}" \
+            "cd '${EC2_APP_DIR}' \
+            && git fetch origin '${DEPLOY_BRANCH}' \
+            && git pull --ff-only origin '${DEPLOY_BRANCH}' \
+            && bash scripts/repair-production-backend-env.sh .env.production \
+            && bash scripts/validate-production-env.sh .env.production \
+            && printf '%s' '${GHCR_TOKEN}' | docker login ghcr.io -u '${GHCR_USERNAME}' --password-stdin \
+            && BACKEND_IMAGE='${BACKEND_IMAGE}' docker compose -f docker-compose.ec2.yml --env-file .env.production pull backend \
+            && BACKEND_IMAGE='${BACKEND_IMAGE}' docker compose -f docker-compose.ec2.yml --env-file .env.production up -d --no-build backend redis \
+            && docker image prune -f"

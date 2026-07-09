@@ -2,6 +2,7 @@ package com.planora.backend.service;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
@@ -12,17 +13,20 @@ import org.springframework.util.StreamUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-
-import java.nio.charset.StandardCharsets;
+import java.net.URLEncoder;
 import java.time.Year;
 
 @Service
 public class EmailService {
 
     private final JavaMailSenderImpl mailSender;
+    private final String frontendBaseUrl;
 
-    public EmailService(JavaMailSenderImpl mailSender) {
+    public EmailService(
+            JavaMailSenderImpl mailSender,
+            @Value("${app.frontend.base-url:http://localhost:3000}") String frontendBaseUrl) {
         this.mailSender = mailSender;
+        this.frontendBaseUrl = normalizeBaseUrl(frontendBaseUrl);
     }
 
     private String getOtpEmailTemplate(String otp) {
@@ -114,9 +118,9 @@ public class EmailService {
                     .replace("{{AVATAR_URL}}", avatarUrl)
                     .replace("{{PERSONAL_MESSAGE}}", personalMessage)
                     .replace("{{CTA_TEXT}}", "Accept Invitation")
-                    .replace("{{CTA_URL}}", "http://localhost:3000/accept-invite?token=" + token) // Updated actual URL
-                    .replace("{{PRIVACY_URL}}", "https://yourfrontend.com/privacy")
-                    .replace("{{CONTACT_URL}}", "https://yourfrontend.com/contact");
+                    .replace("{{CTA_URL}}", buildFrontendUrl("/accept-invite?token=" + encode(token)))
+                    .replace("{{PRIVACY_URL}}", buildFrontendUrl("/privacy"))
+                    .replace("{{CONTACT_URL}}", buildFrontendUrl("/contact"));
 
             sendHtml(toEmail, "Planora - Project Invitation", html);
 
@@ -144,5 +148,28 @@ public class EmailService {
 
     private String safe(String s) {
         return (s == null) ? "" : s;
+    }
+
+    private String buildFrontendUrl(String pathAndQuery) {
+        if (pathAndQuery == null || pathAndQuery.isBlank()) {
+            return frontendBaseUrl;
+        }
+        String normalizedPath = pathAndQuery.startsWith("/") ? pathAndQuery : "/" + pathAndQuery;
+        return frontendBaseUrl + normalizedPath;
+    }
+
+    private String normalizeBaseUrl(String rawBaseUrl) {
+        String value = safe(rawBaseUrl).trim();
+        if (value.isEmpty()) {
+            value = "http://localhost:3000";
+        }
+        while (value.endsWith("/")) {
+            value = value.substring(0, value.length() - 1);
+        }
+        return value;
+    }
+
+    private String encode(String value) {
+        return URLEncoder.encode(safe(value), StandardCharsets.UTF_8);
     }
 }

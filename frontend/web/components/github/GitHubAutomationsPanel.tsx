@@ -18,7 +18,7 @@ import {
   Tags,
 } from 'lucide-react';
 import GitHubMark from '@/components/github/GitHubMark';
-import { type GithubAutomationLog, type GithubAutomationRule, type GithubAutomationTrigger } from '@/services/githubService';
+import { type GithubAutomationLog, type GithubAutomationRule, type GithubAutomationTrigger } from '@/services/github-service';
 
 interface GitHubAutomationsPanelProps {
   rules: GithubAutomationRule[];

@@ -7,7 +7,7 @@ import * as notificationsApi from '@/services/notifications-service';
 import { Notification } from '@/services/notifications-service';
 import { toast } from '@/components/ui/Toast';
 import { AUTH_TOKEN_CHANGED_EVENT, getValidToken } from '@/lib/auth';
-import { resolveWebSocketBaseUrl } from '@/lib/realtime-url';
+import { resolveWebSocketBaseUrlDetails } from '@/lib/realtime-url';
 import { getApiBaseUrl } from '@/lib/api-base-url';
 import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
 
@@ -104,6 +104,7 @@ export function GlobalNotificationProvider({ children }: { children: React.React
   const seenNotificationIdsRef = useRef<Set<number>>(new Set());
   const notificationsCacheKeyRef = useRef<string | null>(null);
   const stompClientRef = useRef<Client | null>(null);
+  const intentionallyClosingClientRef = useRef<Client | null>(null);
   const activeTokenRef = useRef<string | null>(null);
   const isConnectingRef = useRef(false);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -172,8 +173,10 @@ export function GlobalNotificationProvider({ children }: { children: React.React
     setRealtimeConnected(false);
     setRealtimeReconnecting(false);
 
-    if (stompClientRef.current) {
-      stompClientRef.current.deactivate();
+    const client = stompClientRef.current;
+    if (client) {
+      intentionallyClosingClientRef.current = client;
+      client.deactivate();
       stompClientRef.current = null;
     }
 
@@ -181,28 +184,37 @@ export function GlobalNotificationProvider({ children }: { children: React.React
   }, [clearReconnectTimer]);
 
   const handleConnectionLost = useCallback((client: Client, token: string) => {
-    if (stompClientRef.current === client) {
-      stompClientRef.current = null;
-      setClientState(null);
+    if (stompClientRef.current !== client || activeTokenRef.current !== token) {
+      return;
     }
 
+    stompClientRef.current = null;
+    setClientState(null);
     isConnectingRef.current = false;
     setRealtimeConnected(false);
     setRealtimeReconnecting(true);
-
-    if (activeTokenRef.current === token) {
-      reconnectAttemptHandlerRef.current(token);
-    }
+    reconnectAttemptHandlerRef.current(token);
   }, []);
 
   const connectRealtime = useCallback((token: string) => {
-    if (!backendUrl) return;
-
     clearReconnectTimer();
     isConnectingRef.current = true;
     activeTokenRef.current = token;
+    intentionallyClosingClientRef.current = null;
 
-    const wsUrl = resolveWebSocketBaseUrl(backendUrl);
+    let wsUrl: string;
+    try {
+      const resolution = resolveWebSocketBaseUrlDetails(backendUrl);
+      wsUrl = resolution.url;
+      console.info(`[realtime-ws] Connecting to ${wsUrl}/ws-native via ${resolution.source}.`);
+    } catch (error) {
+      isConnectingRef.current = false;
+      setRealtimeConnected(false);
+      setRealtimeReconnecting(false);
+      console.error('[realtime-ws] Cannot resolve WebSocket URL:', error instanceof Error ? error.message : error);
+      return;
+    }
+
     const client = new Client({
       brokerURL: `${wsUrl}/ws-native`,
       connectHeaders: { Authorization: `Bearer ${token}` },
@@ -261,13 +273,21 @@ export function GlobalNotificationProvider({ children }: { children: React.React
           }
         });
       },
-      onStompError: () => {
+      onStompError: (frame) => {
+        console.warn('[realtime-ws] STOMP error:', frame.headers?.message || frame.body || 'Unknown STOMP error');
         handleConnectionLost(client, token);
       },
-      onWebSocketClose: () => {
-        handleConnectionLost(client, token);
-      },
-      onDisconnect: () => {
+      onWebSocketClose: (event) => {
+        if (intentionallyClosingClientRef.current === client) {
+          intentionallyClosingClientRef.current = null;
+          return;
+        }
+
+        console.warn('[realtime-ws] WebSocket closed:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+        });
         handleConnectionLost(client, token);
       },
     });

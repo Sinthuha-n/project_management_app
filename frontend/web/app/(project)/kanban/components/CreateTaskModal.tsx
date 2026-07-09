@@ -6,6 +6,8 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { X, Calendar, User, Plus, Tag, ChevronDown, Flag } from 'lucide-react';
 import { Task, Label } from '../types';
 import { fetchProject, fetchTeamMembers, fetchProjectLabels } from '../api';
+import { formatLocalDate } from '@/lib/date-format';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface CreateTaskModalProps {
   isOpen: boolean;
@@ -69,8 +71,8 @@ export default function CreateTaskModal({
       description: description.trim() || undefined,
       status: columnStatus,
       projectId,
-      startDate: startDate ? startDate.toISOString().split('T')[0] : undefined,
-      dueDate: dueDate ? dueDate.toISOString().split('T')[0] : undefined,
+      startDate: startDate ? formatLocalDate(startDate) : undefined,
+      dueDate: dueDate ? formatLocalDate(dueDate) : undefined,
       assigneeId: assignee || undefined,
       priority,
       labelId: selectedLabelId ?? undefined,
@@ -132,7 +134,8 @@ export default function CreateTaskModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+    <OverlayPortal>
+      <div className="fixed inset-0 bg-black/50 z-[var(--cu-z-modal)] flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-cu-bg rounded-2xl shadow-cu-xl border border-cu-border max-w-md w-full overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4">
@@ -476,6 +479,7 @@ export default function CreateTaskModal({
           </div>
         </form>
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }

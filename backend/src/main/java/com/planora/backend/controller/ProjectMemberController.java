@@ -136,6 +136,8 @@ public class ProjectMemberController {
                                                                 .username(member.getUser().getUsername())
                                                                 .fullName(member.getUser().getFullName())
                                                                 .email(member.getUser().getEmail())
+                                                                .githubUsername(member.getUser().getGithubUsername())
+                                                                .githubEmail(member.getUser().getGithubEmail())
                                                                 .profilePicUrl(userService.generatePresignedUrl(
                                                                                 member.getUser().getProfilePicUrl()))
                                                                 .build())

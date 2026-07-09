@@ -38,6 +38,7 @@ public class PublicEndpoints {
             "/api/auth/forgot",
             "/api/auth/reset",
             "/api/auth/refresh",
+            "/api/auth/users/*/photo",
 
             // ── GitHub integration ────────────────────────────────────────────
             "/api/github/webhook",    // GitHub webhook deliveries carry no JWT

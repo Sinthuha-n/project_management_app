@@ -16,7 +16,6 @@ import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -24,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planora.backend.service.CiStatusResolver;
 import com.planora.backend.service.GithubNotificationService;
 import com.planora.backend.service.TaskGithubService;
+import com.planora.backend.util.GithubWebhookSignatureVerifier;
 
 class GitHubWebhookControllerTest {
 
@@ -146,9 +146,9 @@ class GitHubWebhookControllerTest {
                 ciStatusResolver,
                 taskGithubService,
                 githubNotificationService,
-                objectMapper
+                objectMapper,
+                new GithubWebhookSignatureVerifier(SECRET)
         );
-        ReflectionTestUtils.setField(controller, "webhookSecret", SECRET);
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -337,9 +337,9 @@ class GitHubWebhookControllerTest {
                 mock(CiStatusResolver.class),
                 mock(TaskGithubService.class),
                 githubNotificationService,
-                new ObjectMapper()
+                new ObjectMapper(),
+                new GithubWebhookSignatureVerifier("")
         );
-        ReflectionTestUtils.setField(controller, "webhookSecret", "");
         MockMvc unconfiguredMockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         unconfiguredMockMvc.perform(post("/api/github/webhook")

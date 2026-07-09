@@ -20,6 +20,7 @@ import org.springframework.security.access.AccessDeniedException;
 import com.planora.backend.model.TeamMember;
 import com.planora.backend.model.TeamRole;
 import com.planora.backend.model.User;
+import com.planora.backend.model.Team;
 import com.planora.backend.repository.TeamMemberRepository;
 import com.planora.backend.repository.TeamRepository;
 import com.planora.backend.repository.UserRepository;
@@ -59,6 +60,28 @@ class TeamMemberServiceTest {
 
         assertEquals(TeamRole.OWNER, creatorMember.getRole());
         assertEquals(TeamRole.ADMIN, legacyOwnerMember.getRole());
+        verify(teamMemberRepository).saveAll(anyList());
+    }
+
+    @Test
+    void enforceCreatorOnlyOwnerRole_createsOwnerMembershipWhenCreatorIsMissing() {
+        Team team = new Team();
+        team.setId(50L);
+        User creator = new User();
+        creator.setUserId(1L);
+        creator.setEmail("owner@example.com");
+
+        when(teamMemberRepository.findByTeamId(50L)).thenReturn(List.of(legacyOwnerMember));
+        when(teamRepository.findById(50L)).thenReturn(Optional.of(team));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(creator));
+
+        teamMemberService.enforceCreatorOnlyOwnerRole(50L, 1L);
+
+        assertEquals(TeamRole.ADMIN, legacyOwnerMember.getRole());
+        verify(teamMemberRepository).save(org.mockito.ArgumentMatchers.argThat(member ->
+                member.getTeam() == team
+                        && member.getUser() == creator
+                        && member.getRole() == TeamRole.OWNER));
         verify(teamMemberRepository).saveAll(anyList());
     }
 

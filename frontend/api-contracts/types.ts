@@ -533,6 +533,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/github/project/{projectId}/collaborators": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["inviteCollaborator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/github/project/{projectId}/commits": {
         parameters: {
             query?: never;
@@ -3228,6 +3244,22 @@ export interface paths {
         patch: operations["bulkUpdateStatus"];
         trace?: never;
     };
+    "/api/tasks/kanban/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["moveKanbanTask"];
+        trace?: never;
+    };
     "/api/tasks/project/{projectId}": {
         parameters: {
             query?: never;
@@ -3576,22 +3608,73 @@ export interface components {
             status: string;
             taskIds: number[];
         };
+        BurndownBreakdownDTO: {
+            byPriority?: components["schemas"]["BurndownBreakdownItemDTO"][];
+            byStatus?: components["schemas"]["BurndownBreakdownItemDTO"][];
+        };
+        BurndownBreakdownItemDTO: {
+            name?: string;
+            /** Format: int32 */
+            storyPoints?: number;
+            /** Format: int32 */
+            taskCount?: number;
+        };
         BurndownDataPointDTO: {
+            /** Format: int32 */
+            completedPoints?: number;
+            /** Format: int32 */
+            dailyBurn?: number;
             date?: string;
             /** Format: int32 */
             idealPoints?: number;
+            isToday?: boolean;
             /** Format: int32 */
             remainingPoints?: number;
+            /** Format: int32 */
+            variancePoints?: number;
         };
         BurndownResponseDTO: {
+            breakdown?: components["schemas"]["BurndownBreakdownDTO"];
             dataPoints?: components["schemas"]["BurndownDataPointDTO"][];
             endDate?: string;
+            insights?: string[];
             /** Format: int64 */
             sprintId?: number;
             sprintName?: string;
             startDate?: string;
+            summary?: components["schemas"]["BurndownSummaryDTO"];
             /** Format: int32 */
             totalStoryPoints?: number;
+        };
+        BurndownSummaryDTO: {
+            /** Format: double */
+            actualBurnRate?: number;
+            /** Format: int32 */
+            completedStoryPoints?: number;
+            /** Format: int32 */
+            completedTasks?: number;
+            /** Format: int64 */
+            daysElapsed?: number;
+            /** Format: int64 */
+            daysRemaining?: number;
+            healthStatus?: string;
+            /** Format: int32 */
+            idealRemainingPoints?: number;
+            /** Format: int32 */
+            progressPercent?: number;
+            projectedCompletionDate?: string;
+            /** Format: int32 */
+            remainingStoryPoints?: number;
+            /** Format: int32 */
+            remainingTasks?: number;
+            /** Format: double */
+            requiredBurnRate?: number;
+            /** Format: int32 */
+            totalStoryPoints?: number;
+            /** Format: int32 */
+            totalTasks?: number;
+            /** Format: int32 */
+            variancePoints?: number;
         };
         CalendarEventDTO: {
             assignee?: string;
@@ -3978,6 +4061,23 @@ export interface components {
             /** @enum {string} */
             trigger?: "PR_MERGED" | "PR_OPENED" | "CI_FAILED" | "ISSUE_OPENED" | "ISSUE_LABELED" | "RELEASE_PUBLISHED";
         };
+        GithubCollaboratorInviteRequestDTO: {
+            identifier: string;
+            permission?: string;
+        };
+        GithubCollaboratorInviteResponseDTO: {
+            /** Format: int32 */
+            githubStatus?: number;
+            githubUsername?: string;
+            /** Format: int64 */
+            integrationId?: number;
+            message?: string;
+            permission?: string;
+            /** Format: int64 */
+            projectId?: number;
+            repositoryFullName?: string;
+            status?: string;
+        };
         GithubCommentDTO: {
             body?: string;
             /** Format: date-time */
@@ -4192,6 +4292,14 @@ export interface components {
             /** Format: int32 */
             wipLimit?: number;
         };
+        KanbanMoveTaskRequest: {
+            orderedTaskIds: number[];
+            /** Format: int64 */
+            projectId: number;
+            status: string;
+            /** Format: int64 */
+            taskId: number;
+        };
         KanbanRequestDTO: {
             name?: string;
             /** Format: int64 */
@@ -4365,17 +4473,6 @@ export interface components {
         OwnerDTO: {
             login?: string;
         };
-        PageableObject: {
-            /** Format: int64 */
-            offset?: number;
-            paged?: boolean;
-            /** Format: int32 */
-            pageNumber?: number;
-            /** Format: int32 */
-            pageSize?: number;
-            sort?: components["schemas"]["SortObject"];
-            unpaged?: boolean;
-        };
         PageDetailResponseDto: {
             content?: string;
             cover?: string;
@@ -4400,7 +4497,11 @@ export interface components {
             updatedByUserId?: number;
             updatedByUsername?: string;
         };
-        PageGithubCommitDTO: {
+        PageRequestDto: {
+            content?: string;
+            title: string;
+        };
+        PageResponseDtoGithubCommitDTO: {
             content?: components["schemas"]["GithubCommitDTO"][];
             empty?: boolean;
             first?: boolean;
@@ -4409,16 +4510,14 @@ export interface components {
             number?: number;
             /** Format: int32 */
             numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
             /** Format: int32 */
             size?: number;
-            sort?: components["schemas"]["SortObject"];
             /** Format: int64 */
             totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
         };
-        PageGithubIssueDTO: {
+        PageResponseDtoGithubIssueDTO: {
             content?: components["schemas"]["GithubIssueDTO"][];
             empty?: boolean;
             first?: boolean;
@@ -4427,16 +4526,14 @@ export interface components {
             number?: number;
             /** Format: int32 */
             numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
             /** Format: int32 */
             size?: number;
-            sort?: components["schemas"]["SortObject"];
             /** Format: int64 */
             totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
         };
-        PageGithubPrDTO: {
+        PageResponseDtoGithubPrDTO: {
             content?: components["schemas"]["GithubPrDTO"][];
             empty?: boolean;
             first?: boolean;
@@ -4445,18 +4542,12 @@ export interface components {
             number?: number;
             /** Format: int32 */
             numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
             /** Format: int32 */
             size?: number;
-            sort?: components["schemas"]["SortObject"];
             /** Format: int64 */
             totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
-        };
-        PageRequestDto: {
-            content?: string;
-            title: string;
         };
         PageSummaryResponseDto: {
             cover?: string;
@@ -4811,11 +4902,6 @@ export interface components {
             /** Format: int64 */
             roomId?: number;
         };
-        SortObject: {
-            empty?: boolean;
-            sorted?: boolean;
-            unsorted?: boolean;
-        };
         SprintboardFullResponseDTO: {
             columns?: components["schemas"]["SprintcolumnFullDTO"][];
             /** Format: date-time */
@@ -5107,6 +5193,22 @@ export interface components {
             /** Format: int64 */
             taskId?: number;
         };
+        TaskPageResponseDto: {
+            content?: components["schemas"]["TaskResponseDTO"][];
+            empty?: boolean;
+            first?: boolean;
+            last?: boolean;
+            /** Format: int32 */
+            number?: number;
+            /** Format: int32 */
+            numberOfElements?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
         TaskRequestDTO: {
             archived?: boolean;
             /** Format: int64 */
@@ -5372,6 +5474,7 @@ export interface components {
             firstName?: string;
             fullName?: string;
             githubAccessToken?: string;
+            githubEmail?: string;
             githubUsername?: string;
             jobTitle?: string;
             /** Format: date-time */
@@ -5391,6 +5494,8 @@ export interface components {
         UserInfo: {
             email?: string;
             fullName?: string;
+            githubEmail?: string;
+            githubUsername?: string;
             profilePicUrl?: string;
             /** Format: int64 */
             userId?: number;
@@ -6154,6 +6259,32 @@ export interface operations {
             };
         };
     };
+    inviteCollaborator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GithubCollaboratorInviteRequestDTO"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GithubCollaboratorInviteResponseDTO"];
+                };
+            };
+        };
+    };
     getCommits: {
         parameters: {
             query?: {
@@ -6174,7 +6305,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PageGithubCommitDTO"];
+                    "*/*": components["schemas"]["PageResponseDtoGithubCommitDTO"];
                 };
             };
         };
@@ -6200,7 +6331,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PageGithubIssueDTO"];
+                    "*/*": components["schemas"]["PageResponseDtoGithubIssueDTO"];
                 };
             };
         };
@@ -6252,7 +6383,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PageGithubPrDTO"];
+                    "*/*": components["schemas"]["PageResponseDtoGithubPrDTO"];
                 };
             };
         };
@@ -10692,7 +10823,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "*/*": components["schemas"]["TaskResponseDTO"];
+                };
             };
         };
     };
@@ -11074,6 +11207,30 @@ export interface operations {
             };
         };
     };
+    moveKanbanTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KanbanMoveTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TaskResponseDTO"];
+                };
+            };
+        };
+    };
     getTasksByProject: {
         parameters: {
             query?: {
@@ -11097,7 +11254,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": Record<string, never>;
+                    "*/*": components["schemas"]["TaskPageResponseDto"];
                 };
             };
         };

@@ -394,6 +394,19 @@ public class TeamMemberService {
                         toUpdate.add(creatorMember);
                 }
 
+                if (creatorMember == null) {
+                        Team team = teamRepository.findById(teamId)
+                                        .orElseThrow(() -> new RuntimeException("Team not found"));
+                        User creator = userRepository.findById(projectOwnerUserId)
+                                        .orElseThrow(() -> new RuntimeException("Project owner not found"));
+
+                        TeamMember ownerMember = new TeamMember();
+                        ownerMember.setTeam(team);
+                        ownerMember.setUser(creator);
+                        ownerMember.setRole(TeamRole.OWNER);
+                        teamMemberRepository.save(ownerMember);
+                }
+
                 if (!toUpdate.isEmpty()) {
                         teamMemberRepository.saveAll(toUpdate);
                 }

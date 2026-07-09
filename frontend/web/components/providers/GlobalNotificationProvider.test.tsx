@@ -23,6 +23,7 @@ let notificationHandler: ((payload: SubscriptionPayload) => void) | null = null;
 let badgeHandler: ((payload: SubscriptionPayload) => void) | null = null;
 
 let stompClientOnConnect: (() => void) | null = null;
+let stompClientOnWebSocketClose: ((event: CloseEvent) => void) | null = null;
 const stompClient = {
   connected: true,
   debug: jest.fn(),
@@ -42,8 +43,12 @@ const stompClient = {
   deactivate: jest.fn(),
 };
 
-const ClientMock = function (options: { onConnect?: () => void }) {
+const ClientMock = function (options: {
+  onConnect?: () => void;
+  onWebSocketClose?: (event: CloseEvent) => void;
+}) {
   stompClientOnConnect = options.onConnect ?? null;
+  stompClientOnWebSocketClose = options.onWebSocketClose ?? null;
   return stompClient;
 };
 
@@ -132,6 +137,8 @@ describe('GlobalNotificationProvider', () => {
     jest.clearAllMocks();
     notificationHandler = null;
     badgeHandler = null;
+    stompClientOnConnect = null;
+    stompClientOnWebSocketClose = null;
     setRoute('/dashboard', '');
     window.localStorage.clear();
     window.localStorage.setItem('token', buildMockJwt());
@@ -187,6 +194,38 @@ describe('GlobalNotificationProvider', () => {
     await waitFor(() => {
       expect(stompClient.activate).toHaveBeenCalled();
     });
+  });
+
+  it('does not warn or reconnect when cleanup closes the realtime socket normally', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const { unmount } = render(
+      <GlobalNotificationProvider>
+        <TestConsumer />
+      </GlobalNotificationProvider>
+    );
+
+    await waitFor(() => {
+      expect(stompClient.activate).toHaveBeenCalledTimes(1);
+      expect(stompClientOnWebSocketClose).not.toBeNull();
+    });
+
+    unmount();
+
+    act(() => {
+      stompClientOnWebSocketClose?.(
+        new CloseEvent('close', {
+          code: 1000,
+          reason: '',
+          wasClean: true,
+        })
+      );
+    });
+
+    expect(stompClient.deactivate).toHaveBeenCalledTimes(1);
+    expect(warnSpy).not.toHaveBeenCalledWith('[realtime-ws] WebSocket closed:', expect.any(Object));
+
+    warnSpy.mockRestore();
   });
 
   it('adds incoming notification, increments unread, and shows toast when user is on another page', async () => {

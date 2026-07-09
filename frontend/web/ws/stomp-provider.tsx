@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { CompatClient, Stomp, IMessage } from '@stomp/stompjs';
 import { AUTH_TOKEN_CHANGED_EVENT, ensureValidToken, refreshAccessToken } from '@/lib/auth';
-import { resolveWebSocketBaseUrl } from '@/lib/realtime-url';
+import { resolveWebSocketBaseUrlDetails } from '@/lib/realtime-url';
 import { getApiBaseUrl } from '@/lib/api-base-url';
 
 // ── Types ──
@@ -50,7 +50,15 @@ export function StompProvider({ token, children }: StompProviderProps) {
   useEffect(() => {
     let disposed = false;
     const backendUrl = getApiBaseUrl();
-    const wsUrl = resolveWebSocketBaseUrl(backendUrl);
+    let wsUrl = '';
+
+    try {
+      const resolution = resolveWebSocketBaseUrlDetails(backendUrl);
+      wsUrl = resolution.url;
+      console.info(`[stomp-ws] Connecting to ${wsUrl}/ws-native via ${resolution.source}.`);
+    } catch (error) {
+      console.error('[stomp-ws] Cannot resolve WebSocket URL:', error instanceof Error ? error.message : error);
+    }
 
     const clearReconnectTimer = () => {
       if (reconnectTimerRef.current) {
@@ -89,7 +97,7 @@ export function StompProvider({ token, children }: StompProviderProps) {
     };
 
     const connectClient = async () => {
-      if (disposed || connectingRef.current) return;
+      if (disposed || connectingRef.current || !wsUrl) return;
       connectingRef.current = true;
 
       try {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Pencil, X, AlertCircle } from 'lucide-react';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface EditSprintModalProps {
   open: boolean;
@@ -24,8 +25,9 @@ export default function EditSprintModal({ open, sprintName, loading, error, onCo
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[10000] flex items-center justify-center"
+    <OverlayPortal>
+      <div
+      className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center"
       style={{ backgroundColor: 'rgba(16, 24, 40, 0.6)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
@@ -95,6 +97,7 @@ export default function EditSprintModal({ open, sprintName, loading, error, onCo
           }
         `}</style>
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }

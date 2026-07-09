@@ -6,6 +6,8 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { X, Calendar, User, Plus } from 'lucide-react';
 import { useProjectAssigneeOptions } from '@/hooks/projects/useProjectAssigneeOptions';
 import { normalizeApiError } from '@/lib/api-error';
+import { formatLocalDate } from '@/lib/date-format';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface CreateTaskModalProps {
   isOpen: boolean;
@@ -50,15 +52,15 @@ export default function CreateTaskModal({
       return;
     }
 
-    const todayIso = new Date().toISOString().split('T')[0];
+    const today = formatLocalDate(new Date());
 
     const taskData = {
       title: title.trim(),
       status: columnStatus,
       projectId,
       sprintId,
-      startDate: todayIso,
-      dueDate: dueDate ? dueDate.toISOString().split('T')[0] : todayIso,
+      startDate: today,
+      dueDate: dueDate ? formatLocalDate(dueDate) : today,
       assigneeId: assignee || undefined,
       description: '',
       priority: 'MEDIUM',
@@ -82,7 +84,8 @@ export default function CreateTaskModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <OverlayPortal>
+      <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md animate-in overflow-hidden rounded-2xl border border-cu-border bg-cu-bg shadow-cu-xl duration-200 fade-in zoom-in-95">
         <div className="bg-cu-primary px-6 py-4">
           <div className="flex items-center justify-between">
@@ -195,6 +198,7 @@ export default function CreateTaskModal({
           </div>
         </form>
       </div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }

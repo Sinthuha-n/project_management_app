@@ -25,9 +25,23 @@ import {
     FolderPermissionRequest,
     DmsError,
 } from '@/lib/dms';
-import { ViewMode } from '@/app/folders/components/types';
+import { filterDocuments, getFolderLabel, sortDocuments } from '@/app/folders/components/dmsUtils';
+import {
+    DocumentFilters,
+    DocumentSortDirection,
+    DocumentSortKey,
+    ViewMode,
+} from '@/app/folders/components/types';
 
 const FAVORITES_KEY = 'dmsFavoriteDocumentIds';
+const DEFAULT_FILTERS: DocumentFilters = {
+    search: '',
+    type: 'all',
+    folderId: 'all',
+    uploader: '',
+    favoriteOnly: false,
+    dateRange: 'all',
+};
 
 function getDmsErrorMessage(error: unknown, fallback: string): string {
     const status = (error as { response?: { status?: number } })?.response?.status;
@@ -76,7 +90,9 @@ export function useDmsWorkspace(mode: ViewMode) {
     const [selectedInfoDoc, setSelectedInfoDoc] = useState<DocumentItem | null>(null);
     const [versions, setVersions] = useState<Record<number, DocumentVersionItem[]>>({});
     const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [documentFilters, setDocumentFilters] = useState<DocumentFilters>(DEFAULT_FILTERS);
+    const [sortKey, setSortKey] = useState<DocumentSortKey>('updatedAt');
+    const [sortDirection, setSortDirection] = useState<DocumentSortDirection>('desc');
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
     const [isDragOver, setIsDragOver] = useState(false);
@@ -125,27 +141,67 @@ export function useDmsWorkspace(mode: ViewMode) {
         void load();
     }, [projectId, isTrashMode]);
 
-    const filteredDocuments = useMemo(() => {
-        let result = documents.filter((doc) => {
+    const folderNameMap = useMemo(() => {
+        return folders.reduce<Record<number, string>>((acc, folder) => {
+            acc[folder.id] = folder.name;
+            return acc;
+        }, {});
+    }, [folders]);
+
+    const uploaderOptions = useMemo(() => {
+        return Array.from(new Set(documents.map((doc) => doc.uploadedByName).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    }, [documents]);
+
+    const setSelectedFolder = (folderId: number | undefined) => {
+        setSelectedFolderId(folderId);
+        setDocumentFilters((prev) => ({ ...prev, folderId: folderId ?? 'all' }));
+    };
+
+    const setSearchQuery = (search: string) => {
+        setDocumentFilters((prev) => ({ ...prev, search }));
+    };
+
+    const updateDocumentFilters = (next: Partial<DocumentFilters>) => {
+        if ('folderId' in next) {
+            setSelectedFolderId(typeof next.folderId === 'number' ? next.folderId : undefined);
+        }
+        setDocumentFilters((prev) => ({ ...prev, ...next }));
+    };
+
+    const clearDocumentFilters = () => {
+        setSelectedFolderId(undefined);
+        setDocumentFilters(DEFAULT_FILTERS);
+    };
+
+    const baseDocuments = useMemo(() => {
+        return documents.filter((doc) => {
             if (isTrashMode && doc.status !== 'SOFT_DELETED') return false;
             if (!isTrashMode && doc.status !== 'ACTIVE') return false;
-            if (selectedFolderId && doc.folderId !== selectedFolderId) return false;
             if (mode === 'favorites' && !favoriteIds.includes(doc.id)) return false;
-            if (searchQuery.trim()) {
-                const n = searchQuery.toLowerCase();
-                if (!doc.name.toLowerCase().includes(n) &&
-                    !doc.uploadedByName.toLowerCase().includes(n) &&
-                    !doc.contentType.toLowerCase().includes(n)) return false;
-            }
             return true;
         });
+    }, [documents, favoriteIds, isTrashMode, mode]);
+
+    const filteredDocuments = useMemo(() => {
+        let result = filterDocuments(baseDocuments, documentFilters, favoriteIds, folderNameMap);
         if (mode === 'recent') {
-            result = [...result]
-                .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-                .slice(0, 20);
+            result = sortDocuments(result, 'updatedAt', 'desc', folderNameMap).slice(0, 20);
         }
-        return result;
-    }, [documents, favoriteIds, isTrashMode, mode, selectedFolderId, searchQuery]);
+        return sortDocuments(result, sortKey, sortDirection, folderNameMap);
+    }, [baseDocuments, documentFilters, favoriteIds, folderNameMap, mode, sortDirection, sortKey]);
+
+    const activeFilterCount = useMemo(() => {
+        return Number(documentFilters.search.trim().length > 0)
+            + Number(documentFilters.type !== 'all')
+            + Number(documentFilters.folderId !== 'all')
+            + Number(Boolean(documentFilters.uploader))
+            + Number(documentFilters.favoriteOnly)
+            + Number(documentFilters.dateRange !== 'all');
+    }, [documentFilters]);
+
+    const hasActiveFilters = activeFilterCount > 0;
+    const totalDocumentCount = baseDocuments.length;
+    const getDocumentFolderName = (doc: DocumentItem) => getFolderLabel(doc, folderNameMap);
 
     const title = useMemo(() => {
         const map: Record<string, string> = { recent: 'Recent', favorites: 'Favorites', trash: 'Trash' };
@@ -203,7 +259,7 @@ export function useDmsWorkspace(mode: ViewMode) {
             setBusy(true);
             await deleteFolder(projectId, folder.id);
             setFolders((prev) => prev.filter((f) => f.id !== folder.id));
-            if (selectedFolderId === folder.id) setSelectedFolderId(undefined);
+            if (selectedFolderId === folder.id) setSelectedFolder(undefined);
             await refresh();
         } catch (err) { setError(getDmsErrorMessage(err, 'Failed to delete folder. You may need Owner/Admin permission.')); }
         finally { setBusy(false); }
@@ -362,13 +418,17 @@ export function useDmsWorkspace(mode: ViewMode) {
 
     return {
         projectId, currentProjectName, folders, documents, loading, busy, error, isTrashMode,
-        selectedFolderId, setSelectedFolderId,
+        selectedFolderId, setSelectedFolderId: setSelectedFolder,
         newFolderName, setNewFolderName,
         selectedVersionsDocId, setSelectedVersionsDocId, selectedVersionsDoc,
         selectedInfoDoc, setSelectedInfoDoc,
         renameDoc, renameName, setRenameName,
-        versions, favoriteIds, searchQuery, setSearchQuery,
-        filteredDocuments, title,
+        versions, favoriteIds,
+        searchQuery: documentFilters.search, setSearchQuery,
+        documentFilters, updateDocumentFilters, clearDocumentFilters,
+        sortKey, setSortKey, sortDirection, setSortDirection,
+        filteredDocuments, baseDocuments, totalDocumentCount, activeFilterCount, hasActiveFilters,
+        uploaderOptions, getDocumentFolderName, title,
         folderCount: folders.length,
         withProjectId, getFolderName,
         onCreateFolder, onDeleteFolder, onUpload, onDrop,

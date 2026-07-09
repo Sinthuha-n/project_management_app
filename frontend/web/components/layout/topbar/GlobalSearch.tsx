@@ -285,7 +285,7 @@ export default function GlobalSearch({ projectId }: GlobalSearchProps = {}) {
   };
 
   return (
-    <div className="relative flex-1 max-w-[480px] z-[200]" ref={searchRef}>
+    <div className="relative flex-1 max-w-[480px] z-[var(--cu-z-dropdown)]" ref={searchRef}>
       <div className="relative w-full group">
         <svg
           className="absolute left-3 top-1/2 -translate-y-1/2 text-cu-text-muted z-10 group-focus-within:text-cu-primary transition-colors"
@@ -330,7 +330,7 @@ export default function GlobalSearch({ projectId }: GlobalSearchProps = {}) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
-            className="absolute left-0 right-0 top-full mt-2 bg-cu-bg border border-cu-border rounded-xl shadow-cu-xl z-[1050] overflow-hidden"
+            className="absolute left-0 right-0 top-full mt-2 bg-cu-bg border border-cu-border rounded-xl shadow-cu-xl z-[var(--cu-z-dropdown)] overflow-hidden"
           >
             {projectId && (
               <div className="bg-cu-bg-secondary/80 border-b border-cu-border px-4 py-2.5 flex items-center gap-6">

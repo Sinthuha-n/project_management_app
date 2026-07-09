@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { downloadProjectReport } from '@/services/report-download-service';
 import { useTheme } from '@/components/providers/ThemeProvider';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 type DlState = 'idle' | 'loading' | 'done' | 'error';
 type Format  = 'pdf' | 'excel' | 'both';
@@ -85,14 +86,15 @@ export default function DownloadNowModal({ open, onClose, projectId, projectName
   };
 
   return (
-    <AnimatePresence>
+    <OverlayPortal>
+      <AnimatePresence>
       {open && (
         <>
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={handleClose}
-            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[3px]"
+            className="fixed inset-0 z-[var(--cu-z-modal)] bg-black/30 backdrop-blur-[3px]"
           />
 
           <motion.div
@@ -100,7 +102,7 @@ export default function DownloadNowModal({ open, onClose, projectId, projectName
             animate={{ opacity: 1, y: 0,  scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
             transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+            className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center p-4 pointer-events-none"
           >
             <div
               className="pointer-events-auto w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl"
@@ -226,6 +228,7 @@ export default function DownloadNowModal({ open, onClose, projectId, projectName
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+      </AnimatePresence>
+    </OverlayPortal>
   );
 }

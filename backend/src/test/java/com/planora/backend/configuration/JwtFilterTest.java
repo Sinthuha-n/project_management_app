@@ -82,6 +82,55 @@ class JwtFilterTest {
     }
 
     @Test
+    void doFilterInternal_returnsEmailNotVerified_onlyAfterAccessTokenValidation() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/tasks");
+        request.addHeader("Authorization", "Bearer valid-unverified-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        UserDetails userDetails = User.withUsername("alice@example.com")
+                .password("ValidPassword123!")
+                .disabled(true)
+                .authorities(Collections.emptyList())
+                .build();
+
+        when(jwtService.extractEmail("valid-unverified-token")).thenReturn("alice@example.com");
+        when(userDetailsService.loadUserByUsername("alice@example.com")).thenReturn(userDetails);
+        when(jwtService.validateToken("valid-unverified-token", userDetails)).thenReturn(true);
+
+        jwtFilter.doFilterInternal(request, response, chain);
+
+        assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatus());
+        assertTrue(response.getContentAsString().contains("\"errorCode\":\"EMAIL_NOT_VERIFIED\""));
+        verify(jwtService).validateToken("valid-unverified-token", userDetails);
+        verify(chain, never()).doFilter(any(), any());
+    }
+
+    @Test
+    void doFilterInternal_doesNotRevealVerificationState_forInvalidAccessToken() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/tasks");
+        request.addHeader("Authorization", "Bearer wrong-token-type");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        UserDetails userDetails = User.withUsername("alice@example.com")
+                .password("ValidPassword123!")
+                .disabled(true)
+                .authorities(Collections.emptyList())
+                .build();
+
+        when(jwtService.extractEmail("wrong-token-type")).thenReturn("alice@example.com");
+        when(userDetailsService.loadUserByUsername("alice@example.com")).thenReturn(userDetails);
+        when(jwtService.validateToken("wrong-token-type", userDetails)).thenReturn(false);
+
+        jwtFilter.doFilterInternal(request, response, chain);
+
+        assertFalse(response.getContentAsString().contains("EMAIL_NOT_VERIFIED"));
+        verify(chain).doFilter(request, response);
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+    @Test
     void doFilterInternal_returns401_whenTokenExpired() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/tasks");
         request.addHeader("Authorization", "Bearer expired-token");

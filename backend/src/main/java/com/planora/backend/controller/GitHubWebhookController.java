@@ -6,19 +6,12 @@ import com.planora.backend.model.CiStatus;
 import com.planora.backend.service.CiStatusResolver;
 import com.planora.backend.service.GithubNotificationService;
 import com.planora.backend.service.TaskGithubService;
+import com.planora.backend.util.GithubWebhookSignatureVerifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -48,9 +41,6 @@ public class GitHubWebhookController {
 
     private static final Logger log = LoggerFactory.getLogger(GitHubWebhookController.class);
 
-    @Value("${github.webhook.secret:}")
-    private String webhookSecret;
-
     private final CiStatusResolver ciStatusResolver;
 
     private final TaskGithubService taskGithubService;
@@ -58,6 +48,8 @@ public class GitHubWebhookController {
     private final GithubNotificationService githubNotificationService;
 
     private final ObjectMapper objectMapper;
+
+    private final GithubWebhookSignatureVerifier signatureVerifier;
 
     /**
      * Main webhook receiver. Reads the body as a raw string so the exact bytes
@@ -73,11 +65,11 @@ public class GitHubWebhookController {
             @RequestHeader(value = "X-Hub-Signature-256", defaultValue = "") String signature,
             @RequestBody String rawBody) {
 
-        if (webhookSecret.isBlank()) {
+        if (!signatureVerifier.isConfigured()) {
             log.error("GitHub webhook rejected because GITHUB_WEBHOOK_SECRET is not configured");
             return ResponseEntity.status(503).body("Webhook secret is not configured");
         }
-        if (!isValidSignature(rawBody, signature)) {
+        if (!signatureVerifier.isValid(rawBody, signature)) {
             log.warn("GitHub webhook rejected: invalid signature for event '{}'", eventType);
             return ResponseEntity.status(401).body("Invalid signature");
         }
@@ -289,37 +281,4 @@ public class GitHubWebhookController {
         return labels;
     }
 
-    // ── HMAC validation ───────────────────────────────────────────────────────────
-
-    /**
-     * Validates the {@code X-Hub-Signature-256} header against the raw request body
-     * using HMAC-SHA256 and the configured webhook secret.
-     *
-     * Comparison uses {@link MessageDigest#isEqual} (constant-time) to prevent timing attacks.
-     */
-    private boolean isValidSignature(String rawBody, String signature) {
-        if (signature == null || !signature.startsWith("sha256=")) return false;
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(webhookSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-            byte[] expected = mac.doFinal(rawBody.getBytes(StandardCharsets.UTF_8));
-            byte[] received = hexStringToBytes(signature.substring("sha256=".length()));
-            return MessageDigest.isEqual(expected, received);
-        } catch (NoSuchAlgorithmException | InvalidKeyException | IllegalArgumentException e) {
-            log.error("Webhook signature validation error", e);
-            return false;
-        }
-    }
-
-    private static byte[] hexStringToBytes(String hex) {
-        if (hex.length() % 2 != 0) throw new IllegalArgumentException("Odd hex length");
-        byte[] data = new byte[hex.length() / 2];
-        for (int i = 0; i < hex.length(); i += 2) {
-            int hi = Character.digit(hex.charAt(i),     16);
-            int lo = Character.digit(hex.charAt(i + 1), 16);
-            if (hi < 0 || lo < 0) throw new IllegalArgumentException("Non-hex character");
-            data[i / 2] = (byte) ((hi << 4) | lo);
-        }
-        return data;
-    }
 }

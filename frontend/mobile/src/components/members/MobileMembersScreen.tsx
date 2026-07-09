@@ -2,16 +2,19 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
   Image,
 } from 'react-native';
 import api from '../../api/axios';
 import { T } from '../../constants/tokens';
+import { projectService, ProjectMemberRole } from '../../services/project-service';
 
 type MemberRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER' | string;
 type MemberStatus = 'Active' | 'Pending' | string;
@@ -147,10 +150,20 @@ function Chip({
   );
 }
 
-function MemberCard({ member }: { member: MemberRow }) {
+function MemberCard({
+  member,
+  onChangeRole,
+  onRemove,
+}: {
+  member: MemberRow;
+  onChangeRole: (role: ProjectMemberRole) => void;
+  onRemove: () => void;
+}) {
   const role = ROLE_META[member.role] || { label: member.role, bg: '#F1F5F9', text: '#475569', icon: 'account-outline' as const };
   const statusValue = member.status || 'Active';
   const status = STATUS_META[statusValue] || STATUS_META.Active;
+  const isPending = statusValue === 'Pending';
+  const isOwner = member.role === 'OWNER';
 
   return (
     <View style={styles.memberCard}>
@@ -185,6 +198,27 @@ function MemberCard({ member }: { member: MemberRow }) {
           <Text style={styles.metaValue}>{formatLastActive(member)}</Text>
         </View>
       </View>
+      {!isPending && !isOwner ? (
+        <View style={styles.memberActions}>
+          {(['ADMIN', 'MEMBER', 'VIEWER'] as ProjectMemberRole[]).map((roleOption) => (
+            <TouchableOpacity
+              key={roleOption}
+              activeOpacity={0.78}
+              onPress={() => onChangeRole(roleOption)}
+              disabled={member.role === roleOption}
+              style={[styles.roleBtn, member.role === roleOption && styles.roleBtnActive]}
+            >
+              <Text style={[styles.roleBtnText, member.role === roleOption && styles.roleBtnTextActive]}>
+                {roleOption}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity activeOpacity={0.78} onPress={onRemove} style={styles.removeBtn}>
+            <MaterialCommunityIcons name="account-remove-outline" size={15} color="#DC2626" />
+            <Text style={styles.removeBtnText}>Remove</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -208,6 +242,9 @@ export default function MobileMembersScreen({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<Exclude<ProjectMemberRole, 'OWNER'>>('MEMBER');
+  const [inviteBusy, setInviteBusy] = useState(false);
 
   const loadMembers = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
     if (!projectId || Number.isNaN(projectId)) return;
@@ -257,6 +294,60 @@ export default function MobileMembersScreen({
     pending: members.filter((member) => (member.status || 'Active') === 'Pending').length,
   }), [members]);
 
+  const sendInvite = async () => {
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email) return;
+    setInviteBusy(true);
+    try {
+      await projectService.inviteMember(projectId, { email, role: inviteRole });
+      setInviteEmail('');
+      await loadMembers('refresh');
+    } catch (err) {
+      Alert.alert('Invite failed', String((err as any)?.response?.data?.message ?? 'Please try again.'));
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const changeRole = (member: MemberRow, role: ProjectMemberRole) => {
+    const userId = member.user.userId;
+    if (!userId) return;
+    Alert.alert('Change role', `Change ${memberName(member)} to ${role}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Change',
+        onPress: async () => {
+          try {
+            await projectService.changeMemberRole(projectId, userId, role);
+            await loadMembers('refresh');
+          } catch (err) {
+            Alert.alert('Role not changed', String((err as any)?.response?.data?.message ?? 'Please try again.'));
+          }
+        },
+      },
+    ]);
+  };
+
+  const removeMember = (member: MemberRow) => {
+    const userId = member.user.userId;
+    if (!userId) return;
+    Alert.alert('Remove member', `Remove ${memberName(member)} from this project?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await projectService.removeMember(projectId, userId);
+            await loadMembers('refresh');
+          } catch (err) {
+            Alert.alert('Member not removed', String((err as any)?.response?.data?.message ?? 'Please try again.'));
+          }
+        },
+      },
+    ]);
+  };
+
   if (loading) {
     return <MembersSkeleton topOffset={topOffset} />;
   }
@@ -304,6 +395,40 @@ export default function MobileMembersScreen({
         />
       </View>
 
+      <View style={styles.inviteCard}>
+        <Text style={styles.sectionTitle}>Invite teammate</Text>
+        <TextInput
+          value={inviteEmail}
+          onChangeText={setInviteEmail}
+          placeholder="teammate@example.com"
+          placeholderTextColor={T.textMuted}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          style={styles.inviteInput}
+        />
+        <View style={styles.inviteRoleRow}>
+          {(['ADMIN', 'MEMBER', 'VIEWER'] as const).map((role) => (
+            <TouchableOpacity
+              key={role}
+              activeOpacity={0.78}
+              onPress={() => setInviteRole(role)}
+              style={[styles.roleBtn, inviteRole === role && styles.roleBtnActive]}
+            >
+              <Text style={[styles.roleBtnText, inviteRole === role && styles.roleBtnTextActive]}>{role}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity
+          activeOpacity={0.82}
+          disabled={inviteBusy || !inviteEmail.trim()}
+          onPress={sendInvite}
+          style={[styles.inviteBtn, (inviteBusy || !inviteEmail.trim()) && styles.inviteBtnDisabled]}
+        >
+          {inviteBusy ? <ActivityIndicator size="small" color="#fff" /> : <MaterialCommunityIcons name="send-outline" size={16} color="#fff" />}
+          <Text style={styles.inviteBtnText}>{inviteBusy ? 'Sending...' : 'Send Invite'}</Text>
+        </TouchableOpacity>
+      </View>
+
       {error ? (
         <View style={styles.errorCard}>
           <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#DC2626" />
@@ -317,7 +442,12 @@ export default function MobileMembersScreen({
       </View>
 
       {filteredMembers.map((member) => (
-        <MemberCard key={`${member.id}-${member.user.email}`} member={member} />
+        <MemberCard
+          key={`${member.id}-${member.user.email}`}
+          member={member}
+          onChangeRole={(role) => changeRole(member, role)}
+          onRemove={() => removeMember(member)}
+        />
       ))}
 
       {!filteredMembers.length ? (
@@ -438,6 +568,41 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
+  inviteCard: {
+    backgroundColor: T.bg,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: T.border,
+    padding: 14,
+    gap: 10,
+  },
+  inviteInput: {
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.bgSecondary,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    color: T.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  inviteRoleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  inviteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    backgroundColor: T.primary,
+    borderRadius: 12,
+    paddingVertical: 11,
+  },
+  inviteBtnDisabled: { opacity: 0.55 },
+  inviteBtnText: { color: '#fff', fontSize: 14, fontWeight: '900' },
   errorCard: {
     borderRadius: 12,
     backgroundColor: '#FEF2F2',
@@ -547,6 +712,49 @@ const styles = StyleSheet.create({
   metaValue: {
     color: T.textPrimary,
     fontSize: 13,
+    fontWeight: '900',
+  },
+  memberActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: T.borderLight,
+  },
+  roleBtn: {
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    backgroundColor: T.bgSecondary,
+  },
+  roleBtnActive: {
+    borderColor: T.primary,
+    backgroundColor: T.primaryLight,
+  },
+  roleBtnText: {
+    color: T.textSecondary,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  roleBtnTextActive: { color: T.primary },
+  removeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  removeBtnText: {
+    color: '#DC2626',
+    fontSize: 11,
     fontWeight: '900',
   },
   chip: {

@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { Suspense, useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import TaskHeader from './TaskHeader';
 import TaskMainContent from './TaskMainContent';
@@ -7,9 +7,10 @@ import TaskSidebar from './TaskSidebar';
 import api from '@/lib/axios';
 import { normalizeApiError } from '@/lib/api-error';
 import { toast } from '@/components/ui';
-import { getProjectGitHubRepo } from '@/services/githubService';
+import { getProjectGitHubRepo } from '@/services/github-service';
 import CreateIssueFromTaskModal from '@/components/github/CreateIssueFromTaskModal';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
+import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 
 interface TaskData {
   id: number;
@@ -23,7 +24,7 @@ interface TaskData {
   reporterName: string;
   assigneeName: string;
   sprintName: string;
-  labels: Array<{ id: number; name: string }>;
+  labels: Array<{ id: number; name: string; color?: string | null }>;
   createdAt: string;
   updatedAt: string;
   dueDate: string;
@@ -230,6 +231,9 @@ function TaskPageContent() {
           taskId={`TASK-${taskData.id}`} 
           numericTaskId={taskData.id}
           archived={taskData.archived}
+          status={taskData.status}
+          priority={taskData.priority}
+          dueDate={taskData.dueDate}
           onClose={handleClose} 
         />
 
@@ -242,6 +246,18 @@ function TaskPageContent() {
               subtasks={taskData.subtasks || []}
               dependencies={taskData.dependencies || []}
               taskId={taskData.id}
+              projectId={taskData.projectId}
+              overview={{
+                status: taskData.status,
+                priority: taskData.priority,
+                dueDate: taskData.dueDate,
+                storyPoint: taskData.storyPoint,
+                labels: taskData.labels ?? [],
+                assignees: taskData.assigneeName ? [{ name: taskData.assigneeName }] : [],
+                githubIssueNumber: taskData.githubIssueNumber,
+                githubRepoFullName: taskData.githubRepoFullName,
+                archived: taskData.archived,
+              }}
               onUpdateTitle={(title) => updateTask({ title })}
               onUpdateDescription={(description) => updateTask({ description })}
           />
@@ -292,7 +308,10 @@ function TaskPageContent() {
   );
 }
 
-// Server component that renders the wrapper
 export default function TaskPage() {
-  return <TaskPageContent />;
+  return (
+    <Suspense fallback={<RouteLoadingState title="Loading task" subtitle="Preparing task details." variant="detail" />}>
+      <TaskPageContent />
+    </Suspense>
+  );
 }

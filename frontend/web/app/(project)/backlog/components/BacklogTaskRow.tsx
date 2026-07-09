@@ -13,6 +13,7 @@ import { DayPicker } from 'react-day-picker';
 import { format, parseISO } from 'date-fns';
 import { tasksApi } from '@/services/tasks-contract';
 import { ArchiveBadge } from '@/components/ui';
+import { formatLocalDate } from '@/lib/date-format';
 import 'react-day-picker/dist/style.css';
 
 const PRIORITY_CONFIG: Record<string, { color: string; icon: React.ElementType; label: string }> = {
@@ -72,7 +73,7 @@ export default function BacklogTaskRow({
     }, []);
 
     const handleDateChange = async (date: Date | undefined) => {
-        const formattedDate = date ? date.toISOString().split('T')[0] : null;
+        const formattedDate = date ? formatLocalDate(date) : null;
         // Optimistic update
         onDateChange?.(task.id, formattedDate);
         try {
@@ -184,7 +185,7 @@ export default function BacklogTaskRow({
                         </button>
                     </Popover.Trigger>
                     <Popover.Portal>
-                        <Popover.Content className="z-[10000] p-3 bg-cu-bg rounded-xl shadow-cu-xl border border-cu-border" sideOffset={5}>
+                        <Popover.Content className="z-[var(--cu-z-modal-popover)] p-3 bg-cu-bg rounded-xl shadow-cu-xl border border-cu-border" sideOffset={5}>
                             <DayPicker
                                 mode="single"
                                 selected={task.dueDate ? parseISO(task.dueDate) : undefined}

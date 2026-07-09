@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useMemo, useState, useRef, useCallback, ChangeEvent } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback, ChangeEvent } from 'react';
 import { Paperclip, Send, Smile, Loader2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { Theme } from 'emoji-picker-react';
+import { EmojiStyle, Theme } from 'emoji-picker-react';
 import { uploadChatDocument } from './uploadChatDocument';
 import { useParams } from 'next/navigation';
+import { toast } from '@/components/ui';
 
 interface ChatInputProps {
   onSendMessage: (msg: string) => void;
@@ -39,6 +40,7 @@ export const ChatInput = ({
   const [uploading, setUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,9 +48,11 @@ export const ChatInput = ({
     setUploading(true);
     try {
       const url = await uploadChatDocument(projectId, file);
+      // Uploaded S3 URLs are the chat attachment contract: isFileDocument renders
+      // them with attachment chrome in messages, threads, and conversation previews.
       onSendMessage(url);
     } catch {
-      alert('Failed to upload file.');
+      toast("Couldn't upload file. Please try again.", 'error');
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -135,6 +139,23 @@ export const ChatInput = ({
 
   const canSend = input.trim().length > 0 && !disabled && !uploading;
 
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+
+    const handleDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (target instanceof Node && !emojiPickerRef.current?.contains(target)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleDocumentMouseDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentMouseDown);
+    };
+  }, [showEmojiPicker]);
+
   return (
     <div
       className="relative flex-shrink-0 border-t border-cu-border bg-cu-bg/95 px-2 sm:px-4 py-3 mb-[calc(3.75rem+env(safe-area-inset-bottom,0px))] md:mb-0 z-30 shadow-cu-sm supports-[backdrop-filter]:backdrop-blur"
@@ -169,39 +190,42 @@ export const ChatInput = ({
         ${disabled ? 'opacity-60 cursor-not-allowed' : 'focus-within:bg-cu-bg-tertiary focus-within:border-cu-primary/40 focus-within:ring-2 focus-within:ring-cu-primary/10'}
         border-cu-border shadow-cu-sm`}>
 
-        {/* Emoji Picker Dropdown */}
-        {showEmojiPicker && !disabled && (
-          <div className="absolute bottom-[calc(100%+12px)] left-4 z-50 shadow-cu-lg rounded-2xl overflow-hidden border border-cu-border bg-cu-bg">
-            <EmojiPicker
-              onEmojiClick={(emojiData) => {
-                const nextValue = input + emojiData.emoji;
-                setInput(nextValue);
-                setShowEmojiPicker(false);
-                onTypingChange?.(nextValue.trim().length > 0);
-                textareaRef.current?.focus();
-              }}
-              lazyLoadEmojis={true}
-              theme={Theme.DARK}
-              searchDisabled={true}
-              previewConfig={{ showPreview: false }}
-              height={350}
-              width={320}
-            />
-          </div>
-        )}
+        <div ref={emojiPickerRef} className="relative flex-shrink-0">
+          {/* Emoji Picker Dropdown */}
+          {showEmojiPicker && !disabled && (
+            <div className="absolute bottom-[calc(100%+12px)] left-0 z-50 shadow-cu-lg rounded-2xl overflow-hidden border border-cu-border bg-cu-bg">
+              <EmojiPicker
+                onEmojiClick={(emojiData) => {
+                  const nextValue = input + emojiData.emoji;
+                  setInput(nextValue);
+                  setShowEmojiPicker(false);
+                  onTypingChange?.(nextValue.trim().length > 0);
+                  textareaRef.current?.focus();
+                }}
+                lazyLoadEmojis={true}
+                emojiStyle={EmojiStyle.NATIVE}
+                theme={Theme.DARK}
+                searchDisabled={true}
+                previewConfig={{ showPreview: false }}
+                height={350}
+                width={320}
+              />
+            </div>
+          )}
 
-        {/* Emoji placeholder button */}
-        <button
-          type="button"
-          onClick={() => setShowEmojiPicker((prev) => !prev)}
-          disabled={disabled}
-          className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl transition-all flex-shrink-0
-            ${showEmojiPicker ? 'text-cu-primary bg-cu-primary/10' : 'text-cu-text-muted hover:text-cu-text-primary hover:bg-cu-bg-tertiary'}`}
-          title="Emoji Picker"
-          aria-label="Toggle emoji picker"
-        >
-          <Smile size={18} strokeWidth={2} />
-        </button>
+          {/* Emoji placeholder button */}
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker((prev) => !prev)}
+            disabled={disabled}
+            className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl transition-all flex-shrink-0
+              ${showEmojiPicker ? 'text-cu-primary bg-cu-primary/10' : 'text-cu-text-muted hover:text-cu-text-primary hover:bg-cu-bg-tertiary'}`}
+            title="Emoji Picker"
+            aria-label="Toggle emoji picker"
+          >
+            <Smile size={18} strokeWidth={2} />
+          </button>
+        </div>
 
         {/* Hidden file input */}
         <input

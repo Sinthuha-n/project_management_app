@@ -6,6 +6,10 @@ describe('resolveWebSocketBaseUrl', () => {
   beforeEach(() => {
     jest.resetModules();
     process.env = { ...originalEnv };
+    delete process.env.NEXT_PUBLIC_WS_BASE_URL;
+    delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    delete process.env.NEXT_PUBLIC_BACKEND_URL;
+    delete process.env.NEXT_PHASE;
   });
 
   afterAll(() => {
@@ -39,12 +43,29 @@ describe('resolveWebSocketBaseUrl', () => {
     expect(resolveWebSocketBaseUrl('')).toBe('ws://localhost:8080');
   });
 
-  it('throws in production when NEXT_PUBLIC_WS_BASE_URL is missing', () => {
+  it('falls back to backendUrl in production when NEXT_PUBLIC_WS_BASE_URL is missing', () => {
     Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', configurable: true });
     delete process.env.NEXT_PHASE;
     delete process.env.NEXT_PUBLIC_WS_BASE_URL;
-    expect(() => resolveWebSocketBaseUrl('https://api.example.com')).toThrow(
-      'NEXT_PUBLIC_WS_BASE_URL environment variable is missing.'
+    expect(resolveWebSocketBaseUrl('https://api.example.com')).toBe('wss://api.example.com');
+  });
+
+  it('falls back to NEXT_PUBLIC_API_BASE_URL in production when the WebSocket URL is missing', () => {
+    Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', configurable: true });
+    delete process.env.NEXT_PHASE;
+    delete process.env.NEXT_PUBLIC_WS_BASE_URL;
+    process.env.NEXT_PUBLIC_API_BASE_URL = 'https://api.example.com';
+    expect(resolveWebSocketBaseUrl('')).toBe('wss://api.example.com');
+  });
+
+  it('throws in production when no public or fallback backend URL is available', () => {
+    Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', configurable: true });
+    delete process.env.NEXT_PHASE;
+    delete process.env.NEXT_PUBLIC_WS_BASE_URL;
+    delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    delete process.env.NEXT_PUBLIC_BACKEND_URL;
+    expect(() => resolveWebSocketBaseUrl('')).toThrow(
+      'WebSocket backend URL is missing. Set NEXT_PUBLIC_WS_BASE_URL to the deployed backend origin.'
     );
   });
 

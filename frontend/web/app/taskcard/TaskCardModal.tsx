@@ -5,9 +5,10 @@ import TaskHeader from './TaskHeader';
 import TaskMainContent from './TaskMainContent';
 import TaskSidebar from './TaskSidebar';
 import { toast } from '@/components/ui';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 import { motion } from 'framer-motion';
 import { useStomp } from '@/ws/stomp-provider';
-import { getProjectGitHubRepo } from '@/services/githubService';
+import { getProjectGitHubRepo } from '@/services/github-service';
 import CreateIssueFromTaskModal from '@/components/github/CreateIssueFromTaskModal';
 import { authApi } from '@/services/auth-contract';
 import api from '@/lib/axios';
@@ -38,7 +39,7 @@ interface TaskData {
   sprintName: string;
   milestoneId?: number | null;
   milestoneName?: string | null;
-  labels: Array<{ id: number; name: string }>;
+  labels: Array<{ id: number; name: string; color?: string | null }>;
   createdAt: string;
   updatedAt: string;
   dueDate: string | null;
@@ -68,6 +69,7 @@ interface ProjectMemberOption {
 interface LabelOption {
   id: number;
   name: string;
+  color?: string | null;
 }
 
 interface SprintOption {
@@ -108,12 +110,18 @@ const toTaskData = (task: Task & {
   dueDate: task.dueDate ?? null,
   subtasks: task.subtasks ?? [],
   dependencies: task.dependencies ?? [],
-  assignees: task.assignees?.map((assignee) => ({
-    memberId: assignee.id,
-    userId: assignee.id,
-    name: assignee.name,
-    photoUrl: resolveProfilePhotoUrl(assignee.avatar ?? assignee.profilePicUrl, assignee.id),
-  })),
+  assignees: task.assignees?.map((assignee) => {
+    const raw = assignee as MultiAssignee & { id?: number; memberId?: number; userId?: number; avatar?: string; profilePicUrl?: string };
+    const memberId = raw.memberId ?? raw.id;
+    const userId = raw.userId ?? raw.id;
+    const photoUrl = raw.photoUrl ?? resolveProfilePhotoUrl(raw.avatar ?? raw.profilePicUrl, userId);
+    return {
+      memberId,
+      userId,
+      name: assignee.name,
+      photoUrl,
+    };
+  }),
   recurrenceRule: task.recurrenceRule ?? null,
   recurrenceEnd: task.recurrenceEnd ?? null,
   customInterval: task.customInterval ?? null,
@@ -201,8 +209,8 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
             photoUrl: resolveProfilePhotoUrl(member.user!.profilePicUrl, member.user!.userId),
           })),
       );
-      const labelsRaw = (labelsRes || []) as Array<{ id: number; name: string }>;
-      setProjectLabels(labelsRaw.map((label) => ({ id: label.id, name: label.name })));
+      const labelsRaw = (labelsRes || []) as Array<{ id: number; name: string; color?: string | null }>;
+      setProjectLabels(labelsRaw.map((label) => ({ id: label.id, name: label.name, color: label.color })));
       const sprintsRaw = (sprintsRes || []) as Array<{ id: number; name: string; status?: string }>;
       setProjectSprints(
         sprintsRaw
@@ -222,7 +230,7 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
     const cached = localStorage.getItem(`planora:task:${taskId}`);
     if (cached) {
       try {
-        setTaskData(JSON.parse(cached) as TaskData);
+        setTaskData(toTaskData(JSON.parse(cached)));
         setLoading(false);
       } catch { /* ignore */ }
     }
@@ -302,12 +310,19 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
     setTaskData((prev) => prev ? { ...prev, ...updates } : prev);
     setIsSyncing(true);
     try {
-      await api.put(`/api/tasks/${taskId}`, updates);
+      const updatedTask = await tasksApi.update(taskId, updates);
+      const nextTaskData = toTaskData(updatedTask as Task & {
+        projectName?: string;
+        reporterName?: string;
+        assigneeName?: string;
+        sprintName?: string;
+        githubIssueNumber?: number | null;
+        githubRepoFullName?: string | null;
+      });
+      setTaskData(nextTaskData);
       wasModified.current = true;
-      // Notify sibling components (e.g. sprint board) that this task changed without requiring a full re-fetch
-      window.dispatchEvent(new CustomEvent('planora:task-updated', { detail: { taskId } }));
-      // Bust the taskcard page cache so standalone page shows fresh data on next visit
-      localStorage.removeItem(`planora:task:${taskId}`);
+      window.dispatchEvent(new CustomEvent('planora:task-updated', { detail: { taskId, task: updatedTask, updates } }));
+      localStorage.setItem(`planora:task:${taskId}`, JSON.stringify({ ...updatedTask, timestamp: Date.now() }));
     } catch (err: unknown) {
       // Revert the optimistic update by re-fetching the server's authoritative state
       await fetchTaskData();
@@ -341,7 +356,8 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999]" onClick={() => onClose(wasModified.current)}>
+    <OverlayPortal>
+      <div className="fixed inset-0 z-[var(--cu-z-modal)]" onClick={() => onClose(wasModified.current)}>
       {/* Backdrop */}
       <motion.div 
         initial={{ opacity: 0 }} 
@@ -418,6 +434,10 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
               taskId={`TASK-${taskData.id}`}
               numericTaskId={taskData.id}
               archived={taskData.archived}
+              status={taskData.status}
+              priority={taskData.priority}
+              dueDate={taskData.dueDate}
+              readOnly={!canEdit}
               onClose={(wasModifiedFlag) => onClose(wasModifiedFlag || wasModified.current)}
             />
             <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-y-auto md:overflow-hidden">
@@ -429,6 +449,21 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
                   dependencies={taskData.dependencies || []}
                   taskId={taskData.id}
                   projectId={taskData.projectId}
+                  overview={{
+                    status: taskData.status,
+                    priority: taskData.priority,
+                    dueDate: taskData.dueDate,
+                    storyPoint: taskData.storyPoint,
+                    labels: taskData.labels ?? [],
+                    assignees: taskData.assignees?.length
+                      ? taskData.assignees.map((assignee) => ({ name: assignee.name, photoUrl: assignee.photoUrl }))
+                      : taskData.assigneeName
+                        ? [{ name: taskData.assigneeName, photoUrl: taskData.assigneePhotoUrl }]
+                        : [],
+                    githubIssueNumber: taskData.githubIssueNumber,
+                    githubRepoFullName: taskData.githubRepoFullName,
+                    archived: taskData.archived,
+                  }}
                   onUpdateTitle={(title) => updateTask({ title })}
                   onUpdateDescription={(description) => canEdit && updateTask({ description })}
                   onSubtaskAdded={(newSubtask) => setTaskData(prev => prev ? { ...prev, subtasks: [...prev.subtasks, newSubtask] } : prev)}
@@ -513,6 +548,7 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
           </>
         )}
       </motion.div>
-    </div>
+      </div>
+    </OverlayPortal>
   );
 }

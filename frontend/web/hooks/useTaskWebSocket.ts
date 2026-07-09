@@ -7,7 +7,7 @@ import { resolveWebSocketBaseUrl } from '@/lib/realtime-url';
 import { getApiBaseUrl } from '@/lib/api-base-url';
 
 interface TaskEvent {
-  type: 'TASK_CREATED' | 'TASK_UPDATED' | 'TASK_DELETED';
+  type: 'TASK_CREATED' | 'TASK_UPDATED' | 'TASK_DELETED' | 'TASK_STATUS_CHANGED';
   task?: {
     id: number;
     projectTaskNumber?: number;
@@ -15,7 +15,10 @@ interface TaskEvent {
     storyPoint: number;
     status: string;
     priority: string;
+    projectId?: number | null;
     sprintId: number | null;
+    milestoneId?: number | null;
+    milestoneName?: string | null;
     assigneeName: string | null;
     assigneePhotoUrl: string | null;
     assignees?: Array<{ id?: number; userId?: number; name?: string; username?: string; photoUrl?: string | null; avatar?: string | null }>;
@@ -25,6 +28,8 @@ interface TaskEvent {
     archivedAt?: string | null;
   };
   taskId?: number;
+  status?: string;
+  projectId?: number;
 }
 
 export function useTaskWebSocket(

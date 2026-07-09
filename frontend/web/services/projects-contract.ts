@@ -34,10 +34,14 @@ export interface Member {
   userId?: number;
   username?: string;
   email?: string;
+  githubUsername?: string | null;
+  githubEmail?: string | null;
   user?: {
     userId: number;
     username: string;
     email?: string;
+    githubUsername?: string | null;
+    githubEmail?: string | null;
     profilePicUrl?: string | null;
   };
 }
@@ -136,7 +140,7 @@ export const projectsApi = {
     return data;
   },
   changeMemberRole: async (projectId: number | string, userId: number, role: string): Promise<void> => {
-    await api.patch(`/api/projects/${projectId}/members/${userId}/role`, { role, userId });
+    await api.patch(`/api/projects/${projectId}/members/${userId}/role`, { role });
   },
   removeMember: async (projectId: number | string, userId: number): Promise<void> => {
     await api.delete(`/api/projects/${projectId}/members/${userId}`);

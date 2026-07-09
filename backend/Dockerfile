@@ -21,12 +21,21 @@ RUN ./mvnw clean package -DskipTests
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
+RUN apk add --no-cache curl \
+    && addgroup -S planora \
+    && adduser -S planora -G planora
+
 # Copy the built jar
-COPY --from=build /app/target/*.jar app.jar
+COPY --from=build --chown=planora:planora /app/target/*.jar app.jar
+
+USER planora
+
+ENV JAVA_OPTS=""
 
 # Expose port
 EXPOSE 8080
 
-# --- UPDATED ENTRYPOINT ---
-# Added "-Djava.net.preferIPv4Stack=true" to fix network unreachable errors
-ENTRYPOINT ["java", "-Djava.net.preferIPv4Stack=true", "-jar", "app.jar"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD curl -fsS http://127.0.0.1:8080/actuator/health/readiness || exit 1
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -Djava.net.preferIPv4Stack=true -jar app.jar"]

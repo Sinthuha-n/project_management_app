@@ -132,23 +132,17 @@ describe('auth requestRefreshAccessToken URL handling', () => {
     expect(getValidToken()).toBeNull();
   });
 
-  it('can refresh from the HttpOnly cookie when the local marker is missing', async () => {
+  it('does not probe the refresh endpoint when the local marker is missing', async () => {
     saveRefreshToken('mock-refresh-token');
     window.localStorage.removeItem('planora:has_refresh_token');
 
     expect(getRefreshToken()).toBeNull();
 
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ token: 'cookie-only-access-token' }),
-    });
-
     const token = await ensureValidToken({ allowCookieRefresh: true });
 
-    expect(token).toBe('cookie-only-access-token');
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(window.localStorage.getItem('planora:has_refresh_token')).toBe('true');
+    expect(token).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem('planora:has_refresh_token')).toBeNull();
   });
 
   it('does not refresh from cookies after explicit logout', async () => {

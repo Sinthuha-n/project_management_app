@@ -18,6 +18,8 @@ import com.planora.backend.repository.TeamMemberRepository;
 import com.planora.backend.repository.TeamRepository;
 import com.planora.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -45,6 +47,7 @@ public class ProjectService {
     private final SprintRepository sprintRepository;
     private final SprintboardRepository sprintboardRepository;
     private final TaskRepository taskRepository;
+    private final CacheManager cacheManager;
 
     // Checks whether a project key is already in use.
     public boolean checkKeyExists(String key) {
@@ -200,25 +203,17 @@ public class ProjectService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"project-recent", "project-favorites"}, allEntries = true)
     public void recordProjectAccess(Long projectId, Long userId) {
-        // Saves the latest access time so recent-project lists stay accurate.
-        Project project = findProjectById(projectId);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
-        ProjectAccess access = projectAccessRepository.findByProject_IdAndUser_UserId(projectId, userId)
-                .orElse(new ProjectAccess());
-        
-        access.setProject(project);
-        access.setUser(user);
-        // Explicitly update lastAccessedAt to mark entity as dirty, so Hibernate executes an UPDATE.
-        access.setLastAccessedAt(LocalDateTime.now());
-        projectAccessRepository.save(access);
+        // Saves the latest access time using a throttled PostgreSQL upsert. Repeated
+        // refreshes/revisits within five minutes become no-ops instead of write load.
+        findProjectById(projectId);
+        int changedRows = projectAccessRepository.upsertThrottledAccess(projectId, userId);
+        if (changedRows > 0) {
+            evictUserRecentProjectCaches(userId);
+        }
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"project-recent", "project-favorites"}, allEntries = true)
     public void toggleFavorite(Long projectId, Long userId) {
         // Adds the project to favorites if missing, otherwise removes it.
         Project project = findProjectById(projectId);
@@ -235,42 +230,33 @@ public class ProjectService {
                         projectFavoriteRepository.save(favorite);
                     }
                 );
+        evictUserProjectCaches(userId);
     }
 
     // Returns the most recently accessed projects for the user.
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = "project-recent", key = "#userId + ':' + #limit")
     public List<ProjectResponseDTO> getRecentProjectsForUser(Long userId, int limit) {
-        // Find all teams the user belongs to.
+        int safeLimit = Math.max(1, Math.min(limit, 50));
+        List<ProjectAccess> recentAccesses = projectAccessRepository.findAccessibleRecentForUser(
+                userId,
+                PageRequest.of(0, safeLimit)
+        );
+        if (recentAccesses.isEmpty()) return java.util.Collections.emptyList();
+
         List<TeamMember> memberships = teamMemberRepository.findByUserUserId(userId);
-        List<Team> userTeams = memberships.stream().map(TeamMember::getTeam).collect(Collectors.toList());
-
-        if (userTeams.isEmpty()) return java.util.Collections.emptyList();
-
-        // Load all projects from those teams, then sort by recent access.
-        List<Project> allMemberProjects = projectRepository.findByTeamIn(userTeams);
-
-        // Load related data once to keep the query count low.
-        User userRef = userRepository.getReferenceById(userId);
-
         java.util.Map<Long, LocalDateTime> teamJoinedMap = memberships.stream()
             .collect(Collectors.toMap(m -> m.getTeam().getId(), TeamMember::getJoinedAt, (a, b) -> a));
-            
-        java.util.Map<Long, LocalDateTime> accessMap = projectAccessRepository.findByUser_UserIdOrderByLastAccessedAtDesc(userId, Pageable.unpaged()).stream()
+
+        java.util.Map<Long, LocalDateTime> accessMap = recentAccesses.stream()
             .collect(Collectors.toMap(a -> a.getProject().getId(), ProjectAccess::getLastAccessedAt, (a, b) -> a));
-            
-        java.util.Map<Long, LocalDateTime> favoriteMap = projectFavoriteRepository.findByUserOrderByCreatedAtDesc(userRef).stream()
+
+        java.util.Map<Long, LocalDateTime> favoriteMap = projectFavoriteRepository.findAccessibleFavoritesForUser(userId, Pageable.unpaged()).stream()
             .collect(Collectors.toMap(f -> f.getProject().getId(), ProjectFavorite::getCreatedAt, (a, b) -> a));
 
-        // Sort by last access time, newest first.
-        return allMemberProjects.stream()
+        return recentAccesses.stream()
+                .map(ProjectAccess::getProject)
                 .map(p -> convertToResponseDTO(p, userId, teamJoinedMap, accessMap, favoriteMap))
-                .sorted((d1, d2) -> {
-                    LocalDateTime t1 = d1.getLastAccessedAt() != null ? d1.getLastAccessedAt() : LocalDateTime.MIN;
-                    LocalDateTime t2 = d2.getLastAccessedAt() != null ? d2.getLastAccessedAt() : LocalDateTime.MIN;
-                    return t2.compareTo(t1); // Descending order
-                })
-                .limit(limit)
                 .collect(Collectors.toList());
     }
 
@@ -278,16 +264,8 @@ public class ProjectService {
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = "project-favorites", key = "#userId")
     public List<ProjectResponseDTO> getFavoriteProjectsForUser(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
-        // Keep only favorites that belong to teams the user still has access to.
         List<TeamMember> memberships = teamMemberRepository.findByUserUserId(userId);
-        List<Team> userTeams = memberships.stream().map(TeamMember::getTeam).collect(Collectors.toList());
-        java.util.Set<Long> memberProjectIds = userTeams.isEmpty()
-                ? java.util.Collections.emptySet()
-                : projectRepository.findByTeamIn(userTeams).stream()
-                        .map(Project::getId).collect(java.util.stream.Collectors.toSet());
+        if (memberships.isEmpty()) return java.util.Collections.emptyList();
 
         // Load access timestamps once for efficient DTO mapping.
         java.util.Map<Long, LocalDateTime> teamJoinedMap = memberships.stream()
@@ -296,13 +274,11 @@ public class ProjectService {
         java.util.Map<Long, LocalDateTime> accessMap = projectAccessRepository.findByUser_UserIdOrderByLastAccessedAtDesc(userId, Pageable.unpaged()).stream()
             .collect(Collectors.toMap(a -> a.getProject().getId(), ProjectAccess::getLastAccessedAt, (a, b) -> a));
 
-        // Reuse the favorite list for both mapping and filtering.
-        List<ProjectFavorite> favorites = projectFavoriteRepository.findByUserOrderByCreatedAtDesc(user);
+        List<ProjectFavorite> favorites = projectFavoriteRepository.findAccessibleFavoritesForUser(userId, Pageable.unpaged());
         java.util.Map<Long, LocalDateTime> favoriteMap = favorites.stream()
             .collect(Collectors.toMap(f -> f.getProject().getId(), ProjectFavorite::getCreatedAt, (a, b) -> a));
 
         return favorites.stream()
-                .filter(fav -> memberProjectIds.contains(fav.getProject().getId()))
                 .map(fav -> convertToResponseDTO(fav.getProject(), userId, teamJoinedMap, accessMap, favoriteMap))
                 .collect(Collectors.toList());
     }
@@ -376,6 +352,26 @@ public class ProjectService {
     private Project findProjectById(Long id) {
         return projectRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + id));
+    }
+
+    private void evictUserRecentProjectCaches(Long userId) {
+        Cache recentCache = cacheManager.getCache("project-recent");
+        if (recentCache == null) return;
+
+        // Controllers currently allow small caller-selected limits. Evict the
+        // common bounded variants without clearing unrelated users' entries.
+        for (int limit : List.of(5, 10, 20, 50)) {
+            recentCache.evict(userId + ":" + limit);
+        }
+    }
+
+    private void evictUserProjectCaches(Long userId) {
+        evictUserRecentProjectCaches(userId);
+        Cache favoritesCache = cacheManager.getCache("project-favorites");
+        if (favoritesCache != null) {
+            favoritesCache.evict(userId.toString());
+            favoritesCache.evict(userId);
+        }
     }
 
     // Converts an entity into the response DTO used by the frontend.

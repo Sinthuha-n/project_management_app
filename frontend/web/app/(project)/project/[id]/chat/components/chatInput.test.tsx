@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { toast } from '@/components/ui';
 import { ChatInput } from './chatInput';
 import { uploadChatDocument } from './uploadChatDocument';
 
@@ -13,14 +14,20 @@ jest.mock('emoji-picker-react', () => ({
   default: ({ onEmojiClick }: { onEmojiClick: (emojiData: { emoji: string }) => void }) => (
     <button onClick={() => onEmojiClick({ emoji: '😀' })}>Pick emoji</button>
   ),
-  Theme: { LIGHT: 'light' },
+  EmojiStyle: { NATIVE: 'native' },
+  Theme: { DARK: 'dark', LIGHT: 'light' },
 }));
 
 jest.mock('./uploadChatDocument', () => ({
   uploadChatDocument: jest.fn(),
 }));
 
+jest.mock('@/components/ui', () => ({
+  toast: jest.fn(),
+}));
+
 const mockedUploadChatDocument = uploadChatDocument as jest.Mock;
+const mockedToast = toast as jest.MockedFunction<typeof toast>;
 
 describe('ChatInput', () => {
   beforeEach(() => {
@@ -88,9 +95,26 @@ describe('ChatInput', () => {
     expect(onSendMessage).not.toHaveBeenCalled();
   });
 
-  it('uploads file and sends uploaded URL when upload succeeds', async () => {
+  it('closes the emoji picker when clicking outside it', async () => {
     const onSendMessage = jest.fn();
-    mockedUploadChatDocument.mockResolvedValueOnce('https://files.example.com/report.pdf');
+
+    render(<ChatInput onSendMessage={onSendMessage} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle emoji picker' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Pick emoji')).toBeInTheDocument();
+    });
+
+    fireEvent.mouseDown(document.body);
+
+    expect(screen.queryByText('Pick emoji')).not.toBeInTheDocument();
+  });
+
+  it('sends the uploaded S3 URL through the renderer attachment contract', async () => {
+    const onSendMessage = jest.fn();
+    const attachmentUrl = 'https://chat-files.s3.amazonaws.com/42/user/123_report.pdf?X-Amz-Credential=credential&X-Amz-Signature=signature';
+    mockedUploadChatDocument.mockResolvedValueOnce(attachmentUrl);
 
     render(<ChatInput onSendMessage={onSendMessage} />);
 
@@ -101,13 +125,12 @@ describe('ChatInput', () => {
 
     await waitFor(() => {
       expect(mockedUploadChatDocument).toHaveBeenCalledWith('42', file);
-      expect(onSendMessage).toHaveBeenCalledWith('https://files.example.com/report.pdf');
+      expect(onSendMessage).toHaveBeenCalledWith(attachmentUrl);
     });
   });
 
-  it('alerts user when file upload fails', async () => {
+  it('notifies the user when file upload fails', async () => {
     const onSendMessage = jest.fn();
-    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => undefined);
     mockedUploadChatDocument.mockRejectedValueOnce(new Error('upload failed'));
 
     render(<ChatInput onSendMessage={onSendMessage} />);
@@ -118,10 +141,9 @@ describe('ChatInput', () => {
     fireEvent.change(fileInput, { target: { files: [file] } });
 
     await waitFor(() => {
-      expect(alertSpy).toHaveBeenCalledWith('Failed to upload file.');
+      expect(mockedToast).toHaveBeenCalledWith("Couldn't upload file. Please try again.", 'error');
     });
 
     expect(onSendMessage).not.toHaveBeenCalled();
-    alertSpy.mockRestore();
   });
 });

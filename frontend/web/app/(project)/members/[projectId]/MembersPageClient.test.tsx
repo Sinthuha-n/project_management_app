@@ -119,12 +119,17 @@ const setupGetMocks = ({
   members = membersFixture,
   pending = pendingFixture,
   users = usersFixture,
+  project = { id: 7, ownerId: 999, ownerName: 'Project Owner', name: 'Project Alpha' },
 }: {
   members?: Member[];
   pending?: Array<{ id: number; email: string; invitedAt: string; status: string; role: string }>;
   users?: typeof usersFixture;
+  project?: Record<string, unknown>;
 }) => {
   mockedAxios.get.mockImplementation((url: string) => {
+    if (url === '/api/projects/7') {
+      return Promise.resolve({ data: project });
+    }
     if (url === '/api/projects/7/members') {
       return Promise.resolve({ data: members });
     }
@@ -161,7 +166,7 @@ describe('MembersPageClient', () => {
     expect(screen.getByText('Loading...')).toBeInTheDocument();
 
     await screen.findByText('Team Members');
-    expect(screen.getByText('Manage your team and their permissions')).toBeInTheDocument();
+    expect(screen.getByText('Review who can access this project, adjust roles, and invite collaborators.')).toBeInTheDocument();
     expect(screen.getByText('Bob Member')).toBeInTheDocument();
     expect(screen.getByText('Total Members')).toBeInTheDocument();
   });
@@ -212,7 +217,6 @@ describe('MembersPageClient', () => {
     await waitFor(() => {
       expect(mockedAxios.patch).toHaveBeenCalledWith('/api/projects/7/members/202/role', {
         role: 'VIEWER',
-        userId: 202,
       });
       expect(screen.getByText('Role updated successfully!')).toBeInTheDocument();
     });
@@ -236,6 +240,69 @@ describe('MembersPageClient', () => {
     expect(within(roleSelect as HTMLElement).getByRole('option', { name: 'Viewer' })).toBeInTheDocument();
   });
 
+  it('shows the project creator as owner even when the members endpoint returns another role', async () => {
+    setupGetMocks({
+      members: [
+        {
+          ...membersFixture[0],
+          role: 'ADMIN',
+          user: { ...membersFixture[0].user, userId: 201 },
+        },
+        membersFixture[1],
+      ],
+      project: { id: 7, ownerId: 201, ownerName: 'Alice Admin', name: 'Project Alpha' },
+    });
+
+    render(<MembersPageClient projectId="7" />);
+
+    await screen.findByText('Alice Admin');
+
+    expect(screen.getByText('Owner')).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('combobox').some((element) => (element as HTMLSelectElement).value === 'ADMIN'),
+    ).toBe(false);
+  });
+
+  it('resolves owner role from createdByUserId when ownerId is absent', async () => {
+    setupGetMocks({
+      members: [
+        {
+          ...membersFixture[0],
+          role: 'ADMIN',
+          user: { ...membersFixture[0].user, userId: 201 },
+        },
+        membersFixture[1],
+      ],
+      project: { id: 7, createdByUserId: 201, createdByUsername: 'alice', name: 'Project Alpha' },
+    });
+
+    render(<MembersPageClient projectId="7" />);
+
+    await screen.findByText('Alice Admin');
+
+    expect(screen.getByText('Owner')).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('combobox').some((element) => (element as HTMLSelectElement).value === 'OWNER'),
+    ).toBe(false);
+  });
+
+  it('renders owner rows as fixed badges even when the current owner email is unavailable', async () => {
+    mockedGetUserFromToken.mockReturnValue({ userId: 201 });
+    setupGetMocks({
+      members: ownerMembersFixture,
+      project: { id: 7, ownerId: 201, ownerName: 'Alice Admin', name: 'Project Alpha' },
+    });
+
+    render(<MembersPageClient projectId="7" />);
+
+    await screen.findByText('Alice Admin');
+
+    expect(screen.getByText('Owner')).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('combobox').some((element) => (element as HTMLSelectElement).value === 'OWNER'),
+    ).toBe(false);
+  });
+
   it('removes a member after confirmation modal acceptance', async () => {
     render(<MembersPageClient projectId="7" />);
 
@@ -243,11 +310,9 @@ describe('MembersPageClient', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[0]);
 
-    const removeHeading = screen.getByText('Remove Member');
-    expect(removeHeading).toBeInTheDocument();
-    const removeModal = removeHeading.closest('div');
-    expect(removeModal).toBeTruthy();
-    fireEvent.click(within(removeModal as HTMLElement).getByRole('button', { name: /^Remove$/ }));
+    const removeModal = screen.getByRole('dialog', { name: 'Remove Member' });
+    expect(removeModal).toBeInTheDocument();
+    fireEvent.click(within(removeModal).getByRole('button', { name: /Remove Member/i }));
 
     await waitFor(() => {
       expect(mockedAxios.delete).toHaveBeenCalledWith('/api/projects/7/members/202');
@@ -266,22 +331,21 @@ describe('MembersPageClient', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Invite Member' }));
 
-    const inviteHeader = screen.getByText('Invite Team Member');
-    const inviteModal = inviteHeader.closest('div');
-    expect(inviteModal).toBeTruthy();
-    expect(within(inviteModal as HTMLElement).queryByRole('option', { name: 'OWNER' })).not.toBeInTheDocument();
+    const inviteModal = screen.getByRole('dialog', { name: 'Invite Team Member' });
+    expect(inviteModal).toBeInTheDocument();
+    expect(within(inviteModal).queryByRole('option', { name: 'OWNER' })).not.toBeInTheDocument();
 
-    fireEvent.change(within(inviteModal as HTMLElement).getByRole('textbox'), {
+    fireEvent.change(within(inviteModal).getByRole('textbox'), {
       target: { value: 'newuser@example.com' },
     });
-    fireEvent.change(within(inviteModal as HTMLElement).getByRole('combobox'), {
+    fireEvent.change(within(inviteModal).getByRole('combobox'), {
       target: { value: 'MEMBER' },
     });
-    fireEvent.click(within(inviteModal as HTMLElement).getByRole('button', { name: /Send Invite/i }));
+    fireEvent.click(within(inviteModal).getByRole('button', { name: /Send Invite/i }));
 
     await screen.findByText('Invite failed');
 
-    fireEvent.click(within(inviteModal as HTMLElement).getByRole('button', { name: /Send Invite/i }));
+    fireEvent.click(within(inviteModal).getByRole('button', { name: /Send Invite/i }));
 
     await waitFor(() => {
       expect(mockedAxios.post).toHaveBeenLastCalledWith('/api/projects/7/invitations', {
@@ -289,5 +353,71 @@ describe('MembersPageClient', () => {
         role: 'MEMBER',
       });
     });
+  });
+
+  it('supports table pagination', async () => {
+    // Render with page size = 2. Alice Admin, Bob Member, Carol Viewer, and Pending member invitee@example.com make 4 total.
+    render(<MembersPageClient projectId="7" pageSize={2} />);
+
+    // Wait for the members to load and Alice Admin (page 1) to be in document
+    await screen.findByText('Alice Admin');
+    expect(screen.getByText('Bob Member')).toBeInTheDocument();
+    
+    // Carol Viewer and invitee@example.com should be on the next page, hence not visible initially
+    expect(screen.queryByText('Carol Viewer')).not.toBeInTheDocument();
+    expect(screen.queryByText('invitee@example.com')).not.toBeInTheDocument();
+
+    // Verify page indicators using custom matcher for text split across multiple tags
+    expect(screen.getByText((content, element) => {
+      const hasText = (node: Element) => node.textContent === 'Showing 1 to 2 of 4 members';
+      const nodeHasText = hasText(element as Element);
+      const childrenDontHaveText = Array.from(element?.children || []).every(child => !hasText(child));
+      return nodeHasText && childrenDontHaveText;
+    })).toBeInTheDocument();
+
+    // Click next page button
+    const nextButton = screen.getByRole('button', { name: 'Next Page' });
+    fireEvent.click(nextButton);
+
+    // Now page 2 elements should be visible
+    expect(screen.getByText('Carol Viewer')).toBeInTheDocument();
+    expect(screen.getAllByText('invitee@example.com')[0]).toBeInTheDocument();
+    expect(screen.queryByText('Alice Admin')).not.toBeInTheDocument();
+    expect(screen.queryByText('Bob Member')).not.toBeInTheDocument();
+
+    expect(screen.getByText((content, element) => {
+      const hasText = (node: Element) => node.textContent === 'Showing 3 to 4 of 4 members';
+      const nodeHasText = hasText(element as Element);
+      const childrenDontHaveText = Array.from(element?.children || []).every(child => !hasText(child));
+      return nodeHasText && childrenDontHaveText;
+    })).toBeInTheDocument();
+
+    // Click previous page button
+    const prevButton = screen.getByRole('button', { name: 'Previous Page' });
+    fireEvent.click(prevButton);
+
+    // Page 1 elements should be back
+    expect(screen.getByText('Alice Admin')).toBeInTheDocument();
+    expect(screen.getByText('Bob Member')).toBeInTheDocument();
+    expect(screen.queryByText('Carol Viewer')).not.toBeInTheDocument();
+  });
+
+  it('resets pagination when filters reduce the result set', async () => {
+    render(<MembersPageClient projectId="7" pageSize={2} />);
+
+    await screen.findByText('Alice Admin');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next Page' }));
+
+    expect(screen.getByText('Carol Viewer')).toBeInTheDocument();
+    expect(screen.queryByText('Alice Admin')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Search members by name or email...'), {
+      target: { value: 'alice' },
+    });
+
+    expect(screen.getByText('Alice Admin')).toBeInTheDocument();
+    expect(screen.queryByText('Carol Viewer')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Next Page' })).not.toBeInTheDocument();
   });
 });

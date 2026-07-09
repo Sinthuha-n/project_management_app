@@ -88,6 +88,9 @@ public class User {
     @Column(name = "github_username", length = 39)
     private String githubUsername;
 
+    @Column(name = "github_email", length = 255)
+    private String githubEmail;
+
     @Column(name = "notify_due_date_reminders", nullable = false)
     private boolean notifyDueDateReminders = true;
 

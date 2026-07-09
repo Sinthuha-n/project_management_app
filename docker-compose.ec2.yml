@@ -1,0 +1,64 @@
+services:
+  backend:
+    build: ./backend
+    image: ${BACKEND_IMAGE:-planora-backend:ec2}
+    container_name: planora-backend
+    restart: unless-stopped
+    env_file:
+      - ${PLANORA_ENV_FILE:-.env.production}
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      FLYWAY_ENABLED: ${FLYWAY_ENABLED:-true}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-validate}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      APP_CACHE_REDIS_ENABLED: ${APP_CACHE_REDIS_ENABLED:-true}
+      APP_CACHE_REDIS_FAIL_OPEN: ${APP_CACHE_REDIS_FAIL_OPEN:-true}
+      NOTIFICATIONS_CACHE_REDIS_ENABLED: ${NOTIFICATIONS_CACHE_REDIS_ENABLED:-true}
+      JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError}
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - planora-ec2
+
+  redis:
+    image: redis:7-alpine
+    container_name: planora-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - planora-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+    networks:
+      - planora-ec2
+
+networks:
+  planora-ec2:
+    driver: bridge
+
+volumes:
+  planora-redis-data:

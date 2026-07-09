@@ -11,5 +11,8 @@ public record BurndownResponseDTO(
         String startDate,           // sprint actual start date "YYYY-MM-DD"
         String endDate,             // sprint actual end date "YYYY-MM-DD"
         int totalStoryPoints,       // sum of storyPoint across ALL tasks in sprint
-        List<BurndownDataPointDTO> dataPoints
+        List<BurndownDataPointDTO> dataPoints,
+        BurndownSummaryDTO summary,
+        BurndownBreakdownDTO breakdown,
+        List<String> insights
 ) {}
