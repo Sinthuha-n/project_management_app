@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="title desc">
+  <title id="title">Planora dashboard mobile preview</title>
+  <desc id="desc">A mobile-sized preview of the Planora PWA dashboard with recent spaces and tasks.</desc>
+  <rect width="390" height="844" fill="#f8fafc"/>
+  <rect x="18" y="18" width="354" height="76" rx="22" fill="#ffffff"/>
+  <rect x="38" y="40" width="34" height="34" rx="10" fill="#155dfc"/>
+  <text x="88" y="63" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="#155dfc">planora</text>
+  <circle cx="334" cy="56" r="18" fill="#eaf1ff"/>
+  <text x="24" y="138" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="850" fill="#1a1a2e">Good morning</text>
+  <text x="24" y="162" font-family="Inter, Arial, sans-serif" font-size="14" fill="#64748b">Your project command center</text>
+  <rect x="24" y="196" width="342" height="148" rx="22" fill="#ffffff"/>
+  <rect x="48" y="224" width="112" height="14" rx="7" fill="#dbeafe"/>
+  <rect x="48" y="256" width="246" height="18" rx="9" fill="#155dfc" opacity=".18"/>
+  <rect x="48" y="294" width="188" height="12" rx="6" fill="#cbd5e1"/>
+  <rect x="24" y="368" width="342" height="148" rx="22" fill="#ffffff"/>
+  <rect x="48" y="396" width="96" height="14" rx="7" fill="#dcfce7"/>
+  <rect x="48" y="428" width="228" height="18" rx="9" fill="#16a34a" opacity=".18"/>
+  <rect x="48" y="466" width="210" height="12" rx="6" fill="#cbd5e1"/>
+  <rect x="24" y="548" width="342" height="246" rx="22" fill="#ffffff"/>
+  <text x="48" y="590" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" fill="#1a1a2e">Today</text>
+  <g fill="#e2e8f0">
+    <rect x="48" y="626" width="276" height="16" rx="8"/>
+    <rect x="48" y="672" width="240" height="16" rx="8"/>
+    <rect x="48" y="718" width="286" height="16" rx="8"/>
+  </g>
+</svg>
