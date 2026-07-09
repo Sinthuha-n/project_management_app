@@ -1,18 +1,33 @@
 "use client";
 import React, { useRef, useState } from 'react';
-import { Layout, Link2, MoreHorizontal, X, Check, FileText, Archive } from 'lucide-react';
+import { Layout, Link2, MoreHorizontal, X, Check, FileText, Archive, Calendar, Flag } from 'lucide-react';
 import api from '@/lib/axios';
 import { toast } from '@/components/ui';
+import { getDueDateMeta, getPriorityStyle, getStatusTone } from './components/taskUi';
 
 interface TaskHeaderProps {
   project: string;
   taskId: string;
   numericTaskId?: number;
   archived?: boolean;
+  status?: string;
+  priority?: string;
+  dueDate?: string | null;
+  readOnly?: boolean;
   onClose?: (wasModified: boolean) => void;
 }
 
-const TaskHeader: React.FC<TaskHeaderProps> = ({ project, taskId, numericTaskId, archived = false, onClose }) => {
+const TaskHeader: React.FC<TaskHeaderProps> = ({
+  project,
+  taskId,
+  numericTaskId,
+  archived = false,
+  status,
+  priority,
+  dueDate,
+  readOnly = false,
+  onClose,
+}) => {
   const [copied, setCopied] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -22,7 +37,7 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({ project, taskId, numericTaskId,
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleToggleArchive = async () => {
-    if (!numericTaskId) return;
+    if (!numericTaskId || readOnly) return;
     setArchiving(true);
     try {
       const nextState = !archived;
@@ -66,13 +81,42 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({ project, taskId, numericTaskId,
     }
   };
 
+  const statusTone = getStatusTone(status);
+  const priorityStyle = getPriorityStyle(priority);
+  const dueMeta = getDueDateMeta(dueDate, status);
+
   return (
-    <div className="px-4 sm:px-5 py-3 flex items-center justify-between border-b border-cu-border bg-cu-bg/95 backdrop-blur sticky top-0 z-10 flex-shrink-0">
-      <div className="flex items-center gap-2 text-sm min-w-0">
-        <Layout size={15} className="text-cu-primary flex-shrink-0" />
-        <span className="font-medium text-cu-text-secondary truncate">{project}</span>
-        <span className="flex-shrink-0 text-cu-text-muted">/</span>
-        <span className="text-cu-text-primary font-semibold flex-shrink-0">{taskId}</span>
+    <div className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3 border-b border-cu-border bg-cu-bg/95 backdrop-blur sticky top-0 z-10 flex-shrink-0">
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex items-center gap-2 text-sm min-w-0">
+          <Layout size={15} className="text-cu-primary flex-shrink-0" />
+          <span className="font-medium text-cu-text-secondary truncate">{project}</span>
+          <span className="flex-shrink-0 text-cu-text-muted">/</span>
+          <span className="text-cu-text-primary font-semibold flex-shrink-0">{taskId}</span>
+          {archived && (
+            <span className="hidden sm:inline-flex rounded-full bg-cu-warning/10 px-2 py-0.5 text-[10px] font-bold uppercase text-cu-warning">
+              Archived
+            </span>
+          )}
+        </div>
+        <div className="hidden min-w-0 items-center gap-1.5 sm:flex">
+          {statusTone && (
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${statusTone.bg} ${statusTone.text}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${statusTone.dot}`} />
+              {statusTone.label}
+            </span>
+          )}
+          {priorityStyle && priority && (
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${priorityStyle.bg} ${priorityStyle.text}`}>
+              <Flag size={10} />
+              {priorityStyle.label}
+            </span>
+          )}
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${dueMeta.className}`}>
+            <Calendar size={10} />
+            {dueMeta.label}
+          </span>
+        </div>
       </div>
 
       <div className="flex items-center gap-1 flex-shrink-0">
@@ -114,9 +158,9 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({ project, taskId, numericTaskId,
         </button>
         <button
           onClick={handleToggleArchive}
-          disabled={archiving}
+          disabled={archiving || readOnly}
           title={archived ? "Unarchive Task" : "Archive Task"}
-          className="p-2 hover:bg-cu-hover rounded-lg flex items-center gap-1.5 text-cu-text-secondary hover:text-cu-primary text-xs transition-colors"
+          className="p-2 hover:bg-cu-hover rounded-lg flex items-center gap-1.5 text-cu-text-secondary hover:text-cu-primary text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-45"
         >
           <Archive size={15} />
           <span className="hidden sm:inline">{archived ? 'Unarchive Task' : 'Archive Task'}</span>

@@ -1,12 +1,14 @@
-import { render, waitFor } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import PWARegistration, {
   applyStandaloneMarker,
+  PWA_UPDATE_CHECK_INTERVAL_MS,
   shouldRegisterServiceWorker,
 } from './PWARegistration';
 
 describe('PWARegistration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useRealTimers();
   });
 
   it('allows registration on HTTPS and localhost only', () => {
@@ -48,6 +50,42 @@ describe('PWARegistration', () => {
         updateViaCache: 'none',
       });
     });
+  });
+
+  it('checks for service worker updates after registration, focus, visibility, and interval', async () => {
+    jest.useFakeTimers();
+    const update = jest.fn().mockResolvedValue(undefined);
+    const register = jest.fn().mockResolvedValue({
+      scope: '/',
+      update,
+      addEventListener: jest.fn(),
+    });
+    Object.defineProperty(window.navigator, 'serviceWorker', {
+      configurable: true,
+      value: { register },
+    });
+
+    render(<PWARegistration />);
+    window.dispatchEvent(new Event('load'));
+
+    await waitFor(() => {
+      expect(update).toHaveBeenCalledTimes(1);
+    });
+
+    window.dispatchEvent(new Event('focus'));
+    expect(update).toHaveBeenCalledTimes(2);
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    });
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(update).toHaveBeenCalledTimes(3);
+
+    act(() => {
+      jest.advanceTimersByTime(PWA_UPDATE_CHECK_INTERVAL_MS);
+    });
+    expect(update).toHaveBeenCalledTimes(4);
   });
 
   it('applies a standalone marker to the document element', () => {

@@ -19,9 +19,10 @@ function formatFileSize(bytes: number): string {
 interface AttachmentsPanelProps {
   attachments: TaskAttachment[];
   onRemove: (id: number) => Promise<void>;
+  readOnly?: boolean;
 }
 
-const AttachmentsPanel: React.FC<AttachmentsPanelProps> = ({ attachments, onRemove }) => {
+const AttachmentsPanel: React.FC<AttachmentsPanelProps> = ({ attachments, onRemove, readOnly = false }) => {
   if (attachments.length === 0) return null;
 
   return (
@@ -44,13 +45,15 @@ const AttachmentsPanel: React.FC<AttachmentsPanelProps> = ({ attachments, onRemo
             >
               <Download size={14} />
             </a>
-            <button
-              onClick={() => onRemove(att.id)}
-              className="p-1.5 rounded hover:bg-cu-danger/10 text-cu-text-muted hover:text-cu-danger transition-colors opacity-0 group-hover:opacity-100"
-              title="Delete"
-            >
-              <Trash2 size={14} />
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => onRemove(att.id)}
+                className="p-1.5 rounded hover:bg-cu-danger/10 text-cu-text-muted hover:text-cu-danger transition-colors opacity-0 group-hover:opacity-100"
+                title="Delete"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
           </div>
         ))}
       </div>

@@ -18,6 +18,7 @@ interface RecentProjectCardProps {
     width?: string;
     isFavorite?: boolean;
     onFavoriteToggle?: (isFavorite: boolean) => void;
+    favoriteDisabled?: boolean;
     completedTasks?: number;
     totalTasks?: number;
 }
@@ -30,6 +31,7 @@ export default function RecentProjectCard({
     width,
     isFavorite: initialIsFavorite = false,
     onFavoriteToggle,
+    favoriteDisabled = false,
     completedTasks = 0,
     totalTasks = 0,
 }: RecentProjectCardProps) {
@@ -45,6 +47,7 @@ export default function RecentProjectCard({
     // Save or remove project from favorites
     const handleFavoriteClick = async (e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent card click when clicking the star
+        if (favoriteDisabled) return;
         const nextState = !isFavorite;
         setIsFavorite(nextState);
         try {
@@ -161,7 +164,9 @@ export default function RecentProjectCard({
 
                     <button
                         onClick={handleFavoriteClick}
-                        className={`transition-all duration-300 z-10 p-1.5 -mr-1.5 -mt-1.5 rounded-full hover:bg-cu-warning/10 ${isFavorite ? 'text-cu-warning scale-110 shadow-sm' : 'text-cu-border hover:text-cu-warning'}`}
+                        disabled={favoriteDisabled}
+                        title={favoriteDisabled ? 'Favorites are read-only while offline' : undefined}
+                        className={`transition-all duration-300 z-10 p-1.5 -mr-1.5 -mt-1.5 rounded-full hover:bg-cu-warning/10 disabled:cursor-not-allowed disabled:opacity-60 ${isFavorite ? 'text-cu-warning scale-110 shadow-sm' : 'text-cu-border hover:text-cu-warning'}`}
                     >
                         <svg
                             width="16" height="16" viewBox="0 0 24 24"
@@ -245,5 +250,4 @@ export default function RecentProjectCard({
         </div>
     );
 }
-
 

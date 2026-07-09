@@ -6,6 +6,7 @@ import nextConfig from '../next.config.mjs';
 
 const root = process.cwd();
 const requiredManifest = {
+  id: '/',
   name: 'Planora - Plan, Track, Ship',
   short_name: 'Planora',
   start_url: '/?source=pwa',
@@ -31,6 +32,22 @@ const requiredServiceWorkerSnippets = [
   'navigationPreload',
   'MAX_STATIC_CACHE_ENTRIES',
   'startsWith(\'/api/\')',
+];
+const requiredRegistrationSnippets = [
+  'registration.update()',
+  'visibilitychange',
+  'focus',
+  'PWA_UPDATE_CHECK_INTERVAL_MS',
+];
+const requiredShortcuts = [
+  ['/dashboard?source=pwa-shortcut', 'Dashboard'],
+  ['/spaces?source=pwa-shortcut', 'Spaces'],
+  ['/inbox?source=pwa-shortcut', 'Inbox'],
+  ['/createProject?source=pwa-shortcut', 'Create Project'],
+];
+const requiredScreenshots = [
+  ['/screenshots/planora-dashboard-wide.svg', '1280x720', 'wide'],
+  ['/screenshots/planora-dashboard-mobile.svg', '390x844', 'narrow'],
 ];
 
 function fail(message) {
@@ -68,6 +85,19 @@ async function validateManifest() {
       fail(`Manifest is missing icon ${src}`);
     }
   });
+
+  requiredShortcuts.forEach(([url, name]) => {
+    const shortcut = (manifest.shortcuts || []).find((entry) => entry.url === url);
+    if (!shortcut) fail(`Manifest is missing shortcut ${url}`);
+    if (shortcut.name !== name) fail(`Shortcut ${url} expected name ${name}, received ${shortcut.name}`);
+  });
+
+  requiredScreenshots.forEach(([src, sizes, formFactor]) => {
+    const screenshot = (manifest.screenshots || []).find((entry) => entry.src === src);
+    if (!screenshot) fail(`Manifest is missing screenshot ${src}`);
+    if (screenshot.sizes !== sizes) fail(`Screenshot ${src} expected size ${sizes}, received ${screenshot.sizes}`);
+    if (screenshot.form_factor !== formFactor) fail(`Screenshot ${src} expected form_factor ${formFactor}, received ${screenshot.form_factor}`);
+  });
 }
 
 async function validateIcons() {
@@ -84,11 +114,34 @@ async function validateIcons() {
   }));
 }
 
+async function validateScreenshots() {
+  requiredScreenshots.forEach(([src]) => {
+    const relativePath = `public${src}`;
+    const absolutePath = path.join(root, relativePath);
+    if (!fs.existsSync(absolutePath)) {
+      fail(`Missing screenshot asset ${relativePath}`);
+    }
+    const content = fs.readFileSync(absolutePath, 'utf8');
+    if (!content.includes('<svg') || !content.includes('role="img"')) {
+      fail(`${relativePath} must be an accessible SVG screenshot asset`);
+    }
+  });
+}
+
 function validateServiceWorker() {
   const serviceWorker = readText('public/sw.js');
   requiredServiceWorkerSnippets.forEach((snippet) => {
     if (!serviceWorker.includes(snippet)) {
       fail(`Service worker is missing "${snippet}"`);
+    }
+  });
+}
+
+function validateServiceWorkerRegistration() {
+  const registration = readText('components/pwa/PWARegistration.tsx');
+  requiredRegistrationSnippets.forEach((snippet) => {
+    if (!registration.includes(snippet)) {
+      fail(`PWA registration is missing "${snippet}"`);
     }
   });
 }
@@ -122,7 +175,9 @@ function validateMetadata() {
 async function main() {
   await validateManifest();
   await validateIcons();
+  await validateScreenshots();
   validateServiceWorker();
+  validateServiceWorkerRegistration();
   await validateServiceWorkerHeaders();
   validateMetadata();
   console.log('PWA validation passed.');

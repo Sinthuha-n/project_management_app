@@ -13,6 +13,7 @@ import KeyboardShortcutsProvider from "@/components/providers/KeyboardShortcutsP
 import AuthBootstrapProvider from "@/components/providers/AuthBootstrapProvider";
 import SWRProvider from "@/components/providers/SWRProvider";
 import IOSInstallPrompt from "@/components/pwa/IOSInstallPrompt";
+import { OnlineStatusProvider } from "@/components/pwa/OnlineStatusProvider";
 import PWARegistration from "@/components/pwa/PWARegistration";
 import PWAUpdateToast from "@/components/pwa/PWAUpdateToast";
 import NextTopLoader from 'nextjs-toploader';
@@ -102,15 +103,17 @@ export default function RootLayout({
             <AuthBootstrapProvider>
               <ThemeProvider>
                 <ToastProvider>
-                  <GlobalNotificationProvider>
-                    <PWARegistration />
-                    <PWAUpdateToast />
-                    <IOSInstallPrompt />
-                    <KeyboardShortcutsProvider />
-                    <Suspense fallback={null}>
-                      {children}
-                    </Suspense>
-                  </GlobalNotificationProvider>
+                  <OnlineStatusProvider>
+                    <GlobalNotificationProvider>
+                      <PWARegistration />
+                      <PWAUpdateToast />
+                      <IOSInstallPrompt />
+                      <KeyboardShortcutsProvider />
+                      <Suspense fallback={null}>
+                        {children}
+                      </Suspense>
+                    </GlobalNotificationProvider>
+                  </OnlineStatusProvider>
                 </ToastProvider>
               </ThemeProvider>
             </AuthBootstrapProvider>

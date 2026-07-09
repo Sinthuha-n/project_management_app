@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { STATUS_MAP, StatusKey, T } from '../../constants/tokens';
 import { BoardTask, useProjectBoard } from '../../hooks/useProjectBoard';
+import MobileTaskDetailSheet from '../task-detail/MobileTaskDetailSheet';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -57,13 +58,13 @@ function dueSortValue(task: BoardTask) {
   return date?.getTime() ?? Number.MAX_SAFE_INTEGER;
 }
 
-function TaskRow({ task, dotColor }: { task: BoardTask; dotColor: string }) {
+function TaskRow({ task, dotColor, onPress }: { task: BoardTask; dotColor: string; onPress: () => void }) {
   const priorityTone = task.priority ? PRIORITY_TONES[task.priority.toUpperCase()] ?? T.textSecondary : null;
   const overdue = isOverdue(task);
   const due = formatDate(task.dueDate);
 
   return (
-    <View style={styles.taskRow}>
+    <TouchableOpacity activeOpacity={0.78} onPress={onPress} style={styles.taskRow}>
       <View style={[styles.taskDot, { backgroundColor: dotColor }]} />
       <View style={{ flex: 1 }}>
         <Text style={styles.taskTitle} numberOfLines={2}>{task.title}</Text>
@@ -97,7 +98,7 @@ function TaskRow({ task, dotColor }: { task: BoardTask; dotColor: string }) {
           ) : null}
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -112,6 +113,7 @@ export default function MobileListScreen({
 }) {
   const { tasks, columns, loading, refreshing, error, refresh } = useProjectBoard(projectId);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
 
   const groups = useMemo(() => {
     const byStatus = new Map<string, BoardTask[]>();
@@ -212,7 +214,7 @@ export default function MobileListScreen({
                 group.tasks.length ? (
                   <View style={styles.groupBody}>
                     {group.tasks.map((task) => (
-                      <TaskRow key={task.id} task={task} dotColor={group.color} />
+                      <TaskRow key={task.id} task={task} dotColor={group.color} onPress={() => setSelectedTaskId(task.id)} />
                     ))}
                   </View>
                 ) : (
@@ -223,6 +225,13 @@ export default function MobileListScreen({
           );
         })
       )}
+      <MobileTaskDetailSheet
+        visible={selectedTaskId !== null}
+        taskId={selectedTaskId}
+        projectId={projectId}
+        onClose={() => setSelectedTaskId(null)}
+        onChanged={refresh}
+      />
     </ScrollView>
   );
 }

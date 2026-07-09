@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
-import { Paperclip, CheckSquare, Link2, Loader2, X } from 'lucide-react';
+import Image from 'next/image';
+import { Paperclip, CheckSquare, Link2, Loader2, X, Calendar, Flag, GitBranch, Tag, Users } from 'lucide-react';
 import SubtaskList from './SubtaskList';
 import CommentSection from './CommentSection';
 import DescriptionEditor from './main/DescriptionEditor';
@@ -9,6 +10,15 @@ import { useTaskAttachments } from '@/hooks/useTaskAttachments';
 import api from '@/lib/axios';
 import TaskActionButton from './components/TaskActionButton';
 import DependencyPicker from './components/DependencyPicker';
+import {
+  getDueDateMeta,
+  getInitial,
+  getPriorityStyle,
+  getStatusTone,
+  labelChipStyle,
+  type TaskLabelChip,
+  type TaskPersonChip,
+} from './components/taskUi';
 
 interface Dependency {
   id: number;
@@ -31,7 +41,106 @@ interface TaskMainContentProps {
   onSubtaskAdded?: (subtask: any) => void;
   onDependencyChanged?: () => void;
   readOnly?: boolean;
+  overview?: {
+    status?: string;
+    priority?: string;
+    dueDate?: string | null;
+    storyPoint?: number | null;
+    labels?: TaskLabelChip[];
+    assignees?: TaskPersonChip[];
+    githubIssueNumber?: number | null;
+    githubRepoFullName?: string | null;
+    archived?: boolean;
+  };
 }
+
+const TaskOverviewStrip = ({ overview }: { overview?: TaskMainContentProps['overview'] }) => {
+  if (!overview) return null;
+  const statusTone = getStatusTone(overview.status);
+  const priority = getPriorityStyle(overview.priority);
+  const due = getDueDateMeta(overview.dueDate, overview.status);
+  const labels = overview.labels ?? [];
+  const assignees = overview.assignees?.filter((person) => person.name) ?? [];
+
+  return (
+    <div className="mb-5 rounded-xl border border-cu-border bg-cu-bg-secondary/70 p-3 shadow-cu-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        {statusTone && (
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${statusTone.bg} ${statusTone.text}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${statusTone.dot}`} />
+            {statusTone.label}
+          </span>
+        )}
+        {priority && overview.priority && (
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${priority.bg} ${priority.text}`}>
+            <Flag size={11} />
+            {priority.label}
+          </span>
+        )}
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${due.className}`}>
+          <Calendar size={11} />
+          {due.label}
+        </span>
+        {overview.storyPoint != null && overview.storyPoint > 0 && (
+          <span className="inline-flex items-center rounded-full bg-violet-500/10 px-2.5 py-1 text-[11px] font-bold text-violet-500">
+            {overview.storyPoint} pt
+          </span>
+        )}
+        {overview.githubIssueNumber && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-cu-bg px-2.5 py-1 text-[11px] font-bold text-cu-text-secondary ring-1 ring-cu-border">
+            <GitBranch size={11} />
+            GH #{overview.githubIssueNumber}
+          </span>
+        )}
+        {overview.archived && (
+          <span className="inline-flex items-center rounded-full bg-cu-warning/10 px-2.5 py-1 text-[11px] font-bold text-cu-warning">
+            Archived
+          </span>
+        )}
+      </div>
+      {(labels.length > 0 || assignees.length > 0) && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-cu-border pt-3">
+          {labels.length > 0 && (
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <Tag size={12} className="text-cu-text-muted" />
+              {labels.slice(0, 4).map((label) => (
+                <span
+                  key={label.id ?? label.name}
+                  style={labelChipStyle(label.color)}
+                  className="inline-flex max-w-[140px] items-center rounded-full border border-cu-border bg-cu-bg px-2 py-0.5 text-[11px] font-semibold text-cu-text-secondary"
+                >
+                  <span className="truncate">{label.name}</span>
+                </span>
+              ))}
+              {labels.length > 4 && <span className="text-[11px] font-semibold text-cu-text-muted">+{labels.length - 4}</span>}
+            </div>
+          )}
+          {assignees.length > 0 && (
+            <div className="ml-auto flex min-w-0 items-center gap-2">
+              <Users size={12} className="text-cu-text-muted" />
+              <div className="flex -space-x-2">
+                {assignees.slice(0, 4).map((person) => (
+                  <div
+                    key={person.name}
+                    title={person.name}
+                    className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border-2 border-cu-bg bg-cu-primary text-[10px] font-bold text-white shadow-cu-sm"
+                  >
+                    {person.photoUrl ? (
+                      <Image src={person.photoUrl} alt={person.name} width={28} height={28} className="h-full w-full object-cover" unoptimized />
+                    ) : (
+                      getInitial(person.name)
+                    )}
+                  </div>
+                ))}
+              </div>
+              {assignees.length > 4 && <span className="text-[11px] font-semibold text-cu-text-muted">+{assignees.length - 4}</span>}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const TaskMainContent: React.FC<TaskMainContentProps> = ({ 
   title, 
@@ -45,6 +154,7 @@ const TaskMainContent: React.FC<TaskMainContentProps> = ({
   onSubtaskAdded,
   onDependencyChanged,
   readOnly = false,
+  overview,
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(title);
@@ -66,7 +176,7 @@ const TaskMainContent: React.FC<TaskMainContentProps> = ({
   };
 
   return (
-    <div className="flex-1 min-h-0 overflow-visible md:overflow-y-auto p-4 sm:p-5 md:p-6 border-r-0 md:border-r border-cu-border scrollbar-thin scrollbar-thumb-cu-border">
+    <div className="flex-1 min-h-0 overflow-visible md:overflow-y-auto p-4 sm:p-5 md:p-6 border-r-0 md:border-r border-cu-border scrollbar-thin scrollbar-thumb-cu-border bg-cu-bg">
       
       {/* Title */}
       <div className="group mb-6">
@@ -89,19 +199,23 @@ const TaskMainContent: React.FC<TaskMainContentProps> = ({
         ) : (
           <h1 
             onClick={() => !readOnly && setIsEditingTitle(true)}
-            className="text-[22px] font-bold text-cu-text-primary tracking-tight hover:bg-cu-hover px-2 py-1 rounded-lg -ml-2 cursor-text transition-colors font-outfit"
+            className={`text-[22px] font-bold text-cu-text-primary tracking-tight px-2 py-1 rounded-lg -ml-2 transition-colors font-outfit ${readOnly ? '' : 'hover:bg-cu-hover cursor-text'}`}
           >
             {title}
           </h1>
         )}
       </div>
 
+      <TaskOverviewStrip overview={overview} />
+
       {/* Action Bar */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="flex flex-wrap gap-2 mb-6 rounded-xl border border-cu-border bg-cu-bg-secondary/60 p-2">
         <TaskActionButton
           icon={isUploading ? <Loader2 size={14} className="animate-spin" /> : <Paperclip size={14} />}
           label={isUploading ? 'Uploading...' : 'Attach'}
           onClick={() => !isUploading && attachInputRef.current?.click()}
+          disabled={readOnly || isUploading}
+          title={readOnly ? 'Viewers cannot add attachments' : 'Attach file'}
         />
         <input
           ref={attachInputRef}
@@ -119,16 +233,24 @@ const TaskMainContent: React.FC<TaskMainContentProps> = ({
           icon={<CheckSquare size={14} />}
           label="Add subtask"
           onClick={() => !readOnly && setSubtaskAddTrigger(n => n + 1)}
+          disabled={readOnly}
+          title={readOnly ? 'Viewers cannot add subtasks' : 'Add subtask'}
         />
-        <TaskActionButton icon={<Link2 size={14} />} label="Link issue" onClick={() => !readOnly && setShowDependencyPicker(true)} />
+        <TaskActionButton
+          icon={<Link2 size={14} />}
+          label="Link issue"
+          onClick={() => !readOnly && taskId && projectId && setShowDependencyPicker(true)}
+          disabled={readOnly || !taskId || !projectId}
+          title={!projectId ? 'Project context is required to link dependencies' : readOnly ? 'Viewers cannot link dependencies' : 'Link task dependency'}
+        />
       </div>
       {attachError && (
         <p className="text-xs text-cu-danger bg-cu-danger/10 border border-cu-danger/20 px-3 py-1.5 rounded mb-4">{attachError}</p>
       )}
 
-      <AttachmentsPanel attachments={attachments} onRemove={removeFile} />
+      <AttachmentsPanel attachments={attachments} onRemove={removeFile} readOnly={readOnly} />
 
-      <DescriptionEditor description={description} onUpdateDescription={onUpdateDescription} />
+      <DescriptionEditor description={description} onUpdateDescription={onUpdateDescription} readOnly={readOnly} />
 
       {/* Subtasks Component */}
       <SubtaskList
@@ -136,6 +258,7 @@ const TaskMainContent: React.FC<TaskMainContentProps> = ({
         taskId={taskId}
         onSubtaskAdded={onSubtaskAdded}
         addTrigger={subtaskAddTrigger}
+        readOnly={readOnly}
       />
 
       {/* Linked Issues (Dependencies) */}

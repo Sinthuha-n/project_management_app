@@ -25,23 +25,64 @@ export async function fetchGitHubOAuthConfig(): Promise<{ configured: boolean; c
 
 // ── Project repo connection ────────────────────────────────────────────────────
 export interface ProjectGitHubConnection {
+  integrationId?: number;
   repoFullName: string;
   ownerLogin: string;
   repoName: string;
   defaultBranch: string;
   private: boolean;
+  repositoryUrl?: string;
+  active?: boolean;
+}
+
+export interface BackendProjectGitHubRepository {
+  integrationId: number;
+  projectId: number;
+  repositoryFullName: string;
+  repositoryUrl?: string;
+  tokenType?: string;
+  active: boolean;
+}
+
+function connectionFromBackend(repo: BackendProjectGitHubRepository): ProjectGitHubConnection {
+  const [ownerLogin = '', repoName = ''] = repo.repositoryFullName.split('/');
+  return {
+    integrationId: repo.integrationId,
+    repoFullName: repo.repositoryFullName,
+    ownerLogin,
+    repoName,
+    defaultBranch: 'main',
+    private: false,
+    repositoryUrl: repo.repositoryUrl,
+    active: repo.active,
+  };
 }
 
 export async function getProjectGitHubRepo(projectId: string): Promise<ProjectGitHubConnection | null> {
+  try {
+    const { data } = await api.get<BackendProjectGitHubRepository[]>(`/api/github/project/${projectId}/repos`);
+    const active = (data ?? []).find(repo => repo.active) ?? data?.[0];
+    if (active) {
+      const connection = connectionFromBackend(active);
+      await AsyncStorage.setItem(`${REPO_PREFIX}${projectId}`, JSON.stringify(connection));
+      return connection;
+    }
+  } catch {
+    // Fall back to the previous local cache for offline or older backend states.
+  }
+
   const json = await AsyncStorage.getItem(`${REPO_PREFIX}${projectId}`);
   return json ? (JSON.parse(json) as ProjectGitHubConnection) : null;
 }
 
 export async function setProjectGitHubRepo(projectId: string, repo: GitHubRepository): Promise<void> {
+  const { data } = await api.post<BackendProjectGitHubRepository>('/api/github/link', {
+    projectId: Number(projectId),
+    repositoryFullName: repo.full_name,
+    tokenType: 'OAUTH',
+  });
   const conn: ProjectGitHubConnection = {
-    repoFullName: repo.full_name,
-    ownerLogin: repo.full_name.split('/')[0],
-    repoName: repo.name,
+    ...connectionFromBackend(data),
     defaultBranch: repo.default_branch,
     private: repo.private,
   };
@@ -49,6 +90,14 @@ export async function setProjectGitHubRepo(projectId: string, repo: GitHubReposi
 }
 
 export async function clearProjectGitHubRepo(projectId: string): Promise<void> {
+  try {
+    const current = await getProjectGitHubRepo(projectId);
+    if (current?.integrationId) {
+      await api.delete(`/api/github/link/${current.integrationId}`, { params: { projectId } });
+    }
+  } catch {
+    // Local cleanup should still happen if backend unlink fails.
+  }
   await AsyncStorage.removeItem(`${REPO_PREFIX}${projectId}`);
 }
 
@@ -173,6 +222,41 @@ export async function fetchIssues(repoFullName: string, _token?: string): Promis
     params: { repoFullName, state: 'all' },
   });
   return data.map(normalizeIssue);
+}
+
+function readPageContent<T>(payload: T[] | { content?: T[] } | { items?: T[] }): T[] {
+  if (Array.isArray(payload)) return payload;
+  if ('content' in payload) return payload.content ?? [];
+  if ('items' in payload) return payload.items ?? [];
+  return [];
+}
+
+export async function fetchProjectPullRequests(projectId: string, state = 'all'): Promise<GitHubPullRequest[]> {
+  const { data } = await api.get<GitHubPullRequest[] | { content?: GitHubPullRequest[] }>(
+    `/api/github/project/${projectId}/pull-requests`,
+    { params: { state, size: 50 } },
+  );
+  return readPageContent(data);
+}
+
+export async function fetchProjectCommits(projectId: string): Promise<GitHubCommit[]> {
+  const { data } = await api.get<GitHubCommit[] | { content?: GitHubCommit[] }>(
+    `/api/github/project/${projectId}/commits`,
+    { params: { size: 50 } },
+  );
+  return readPageContent(data);
+}
+
+export async function fetchProjectIssues(projectId: string, state = 'all'): Promise<GitHubIssue[]> {
+  const { data } = await api.get<GitHubIssue[] | { content?: BackendGitHubIssue[] }>(
+    `/api/github/project/${projectId}/issues`,
+    { params: { state, size: 50 } },
+  );
+  return readPageContent(data as BackendGitHubIssue[] | { content?: BackendGitHubIssue[] }).map(normalizeIssue);
+}
+
+export async function syncProjectGitHub(projectId: string): Promise<void> {
+  await api.post(`/api/github/project/${projectId}/sync`);
 }
 
 // ── Token exchange (backend uses root .env client secret) ─────────────────────

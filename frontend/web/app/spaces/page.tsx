@@ -3,12 +3,20 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getUserFromToken, User } from '@/lib/auth';
+import {
+    buildSessionCacheKey,
+    getSessionCache,
+    setSessionCache,
+} from '@/lib/session-cache';
+import { useOnlineStatus } from '@/components/pwa/OnlineStatusProvider';
 import { projectsApi } from '@/services/api-contract';
 import RecentProjectCard from '../dashboard/components/recentspaces/RecentProjectCard';
 
 import Link from 'next/link';
 import { LayoutGrid, List } from 'lucide-react';
 import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
+
+const SPACES_PROJECTS_CACHE_TTL = 2 * 60_000;
 
 interface SpaceProject {
     id: number;
@@ -23,8 +31,10 @@ interface SpaceProject {
 }
 
 function SpacesPageContent() {
+    const { isOnline } = useOnlineStatus();
     const [projects, setProjects] = useState<SpaceProject[]>([]);
     const [loading, setLoading] = useState(true);
+    const [usingCachedData, setUsingCachedData] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const searchParams = useSearchParams();
     const [sortBy, setSortBy] = useState<'recent' | 'alphabetical' | 'favorites-first'>('recent');
@@ -38,10 +48,35 @@ function SpacesPageContent() {
         localStorage.setItem('spaces-view', nextView);
     };
 
-    const fetchProjects = async () => {
+    const fetchProjects = async ({ checkCache = false }: { checkCache?: boolean } = {}) => {
+        const currentUser = getUserFromToken();
+        const cacheKey = currentUser
+            ? buildSessionCacheKey('spaces_projects', [currentUser.userId])
+            : null;
+
+        if (checkCache && cacheKey) {
+            const cached = getSessionCache<SpaceProject[]>(cacheKey, { allowStale: true });
+            if (cached.data) {
+                setProjects(cached.data);
+                setUsingCachedData(true);
+                setLoading(false);
+                if (!cached.isStale && !isOnline) return;
+            }
+        }
+
+        if (!isOnline) {
+            setLoading(false);
+            return;
+        }
+
         try {
             const response = await projectsApi.list();
-            setProjects(response as SpaceProject[]);
+            const fresh = response as SpaceProject[];
+            setProjects(fresh);
+            setUsingCachedData(false);
+            if (cacheKey) {
+                setSessionCache(cacheKey, fresh, SPACES_PROJECTS_CACHE_TTL);
+            }
         } catch (error) {
             console.error('Failed to fetch projects:', error);
         } finally {
@@ -68,8 +103,9 @@ function SpacesPageContent() {
     useEffect(() => {
         const userData = getUserFromToken();
         setUser(userData);
-        void fetchProjects();
-    }, []);
+        void fetchProjects({ checkCache: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOnline]);
 
     const filteredAndSortedProjects = [...projects]
         .filter((project) => {
@@ -121,6 +157,13 @@ function SpacesPageContent() {
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
                 </Link>
             </div>
+
+            {!isOnline && usingCachedData && (
+                <div className="mb-4 rounded-cu-xl border border-cu-warning/30 bg-cu-warning-light px-4 py-3 text-sm text-cu-text-primary shadow-cu-sm">
+                    <span className="font-bold">Offline read-only mode.</span>{' '}
+                    <span className="text-cu-text-secondary">Showing cached project spaces until your connection returns.</span>
+                </div>
+            )}
 
             {/* ── Desktop header ──────────────────────────────────────────── */}
             <div className="hidden sm:flex items-center justify-between mb-4">
@@ -295,6 +338,7 @@ function SpacesPageContent() {
                                 projectKey={project.projectKey}
                                 isFavorite={project.isFavorite}
                                 onFavoriteToggle={() => void fetchProjects()}
+                                favoriteDisabled={!isOnline}
                                 type={project.type === 'AGILE' ? 'Agile Scrum' : 'Kanban'}
                                 boardCount={1}
                                 width="w-full min-w-0 max-w-none"
@@ -335,6 +379,7 @@ function SpacesPageContent() {
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     onClick={async () => {
+                                                        if (!isOnline) return;
                                                         try {
                                                             await projectsApi.toggleFavorite(project.id);
                                                             window.dispatchEvent(new CustomEvent('planora:favorite-toggled'));
@@ -343,7 +388,9 @@ function SpacesPageContent() {
                                                             console.error('Failed to toggle favorite:', error);
                                                         }
                                                     }}
-                                                    className={`p-2 rounded-md border transition-colors ${project.isFavorite ? 'text-cu-warning border-cu-warning/30 bg-cu-warning/10' : 'text-cu-text-muted border-cu-border hover:text-cu-warning hover:bg-cu-hover'}`}
+                                                    disabled={!isOnline}
+                                                    title={!isOnline ? 'Favorites are read-only while offline' : undefined}
+                                                    className={`p-2 rounded-md border transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${project.isFavorite ? 'text-cu-warning border-cu-warning/30 bg-cu-warning/10' : 'text-cu-text-muted border-cu-border hover:text-cu-warning hover:bg-cu-hover'}`}
                                                     aria-label={project.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                                                 >
                                                     <svg width="15" height="15" viewBox="0 0 24 24" fill={project.isFavorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -364,6 +411,16 @@ function SpacesPageContent() {
                         </table>
                     </div>
                 )
+            ) : !isOnline && !usingCachedData ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-cu-warning-light text-3xl text-cu-warning">
+                        !
+                    </div>
+                    <h3 className="text-base font-semibold text-cu-text-primary">No cached spaces available</h3>
+                    <p className="mt-1 max-w-xs text-sm text-cu-text-secondary">
+                        Reconnect once to load your projects, then Planora can show them here while offline.
+                    </p>
+                </div>
             ) : (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                     <div className="w-16 h-16 rounded-2xl bg-cu-primary/10 flex items-center justify-center mb-4 text-3xl">

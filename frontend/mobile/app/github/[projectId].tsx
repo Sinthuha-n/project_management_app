@@ -19,11 +19,12 @@ import {
   fetchGitHubUser, fetchRepositoriesWithToken, fetchPullRequests, fetchCommits, fetchIssues,
   fetchGitHubOAuthConfig,
   exchangeCodeForToken,
+  fetchProjectPullRequests, fetchProjectCommits, fetchProjectIssues, syncProjectGitHub,
   type ProjectGitHubConnection, type GitHubUser,
   type GitHubPullRequest, type GitHubCommit, type GitHubIssue, type GitHubRepository,
 } from '../../src/services/githubMobileService';
 
-const DEFAULT_REDIRECT_URI = 'mobile://github-callback';
+const DEFAULT_REDIRECT_URI = 'planora://github-callback';
 type ActiveTab = 'prs' | 'commits' | 'issues';
 type IssueFilter = 'open' | 'closed' | 'all';
 type NotificationType = 'pull-request' | 'issue' | 'security' | 'release';
@@ -925,6 +926,22 @@ export default function GitHubScreen() {
     setLoading(true);
     setError(null);
     try {
+      if (conn.integrationId) {
+        await syncProjectGitHub(projectId).catch(() => {});
+        const [prsRes, commitsRes, issuesRes, userRes] = await Promise.allSettled([
+          fetchProjectPullRequests(projectId),
+          fetchProjectCommits(projectId),
+          fetchProjectIssues(projectId),
+          fetchGitHubUser(tok),
+        ]);
+        if (prsRes.status === 'fulfilled') setPRs(prsRes.value);
+        else setError(prsRes.reason instanceof Error ? prsRes.reason.message : String(prsRes.reason));
+        if (commitsRes.status === 'fulfilled') setCommits(commitsRes.value);
+        if (issuesRes.status === 'fulfilled') setIssues(issuesRes.value);
+        if (userRes.status === 'fulfilled') setGhUser(userRes.value);
+        return;
+      }
+
       const [prsRes, commitsRes, issuesRes, userRes] = await Promise.allSettled([
         fetchPullRequests(tok, conn.ownerLogin, conn.repoName),
         fetchCommits(tok, conn.ownerLogin, conn.repoName),
@@ -939,7 +956,7 @@ export default function GitHubScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     if (token && connection) void loadData(token, connection);

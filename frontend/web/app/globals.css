@@ -364,10 +364,9 @@ html.dark .skeleton {
   background-size: 200% 100%;
 }
 
-/* ── Mobile Page Transition Fix ── */
+/* ── Mobile sidebar interaction lock ── */
 @media (max-width: 767px) {
   body.mobile-sidebar-open .main-content-area {
-    filter: blur(6px);
     pointer-events: none;
     user-select: none;
   }
