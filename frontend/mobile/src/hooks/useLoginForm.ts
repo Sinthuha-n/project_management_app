@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../lib/axios';
 import { buildLoginRequest, login as loginBuilder, type LoginRequest } from '@planora/contracts';
 import { getValidToken, saveRefreshToken, saveToken, setRememberMe } from '../lib/auth';
@@ -9,6 +9,8 @@ import { registerForPushNotifications } from '../lib/pushNotifications';
 
 export function useLoginForm() {
   const router = useRouter();
+  const { redirect } = useLocalSearchParams<{ redirect?: string }>();
+  const redirectTo = Array.isArray(redirect) ? redirect[0] : redirect;
 
   const [email,        setEmail]        = useState('');
   const [password,     setPassword]     = useState('');
@@ -20,10 +22,10 @@ export function useLoginForm() {
   useEffect(() => {
     (async () => {
       const token = await getValidToken();
-      if (token) router.replace('/(tabs)');
+      if (token) router.replace((redirectTo || '/(tabs)') as never);
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [redirectTo]);
 
   const handleLogin = async () => {
     if (isLoading) return;
@@ -64,7 +66,7 @@ export function useLoginForm() {
           }
         }
 
-        router.replace('/(tabs)');
+        router.replace((redirectTo || '/(tabs)') as never);
       } else {
         setError(response.data.message || 'Login failed. Please try again.');
       }

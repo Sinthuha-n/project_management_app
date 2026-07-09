@@ -23,6 +23,16 @@ export interface UpdateProjectPayload {
   description?: string;
 }
 
+export type ProjectMemberRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
+
+export interface PendingProjectInvite {
+  id: number;
+  email: string;
+  invitedAt?: string;
+  status?: string;
+  role?: ProjectMemberRole;
+}
+
 const MEMBERS_CACHE_TTL_MS = 60_000;
 const membersCache = new Map<string, { data: any[]; expiresAt: number; inFlight?: Promise<any[]> }>();
 
@@ -48,6 +58,28 @@ export const projectService = {
 
   getMembers: (projectId: number | string): Promise<any[]> =>
     api.get<any[]>(`/api/projects/${projectId}/members`).then(r => r.data),
+
+  getPendingInvites: (projectId: number | string): Promise<PendingProjectInvite[]> =>
+    api.get<PendingProjectInvite[]>(`/api/projects/${projectId}/pending-invites`).then(r => r.data ?? []),
+
+  inviteMember: (
+    projectId: number | string,
+    payload: { email: string; role: Exclude<ProjectMemberRole, 'OWNER'> },
+  ): Promise<void> =>
+    api.post(`/api/projects/${projectId}/invitations`, payload).then(() => undefined),
+
+  changeMemberRole: (
+    projectId: number | string,
+    userId: number | string,
+    role: ProjectMemberRole,
+  ): Promise<void> =>
+    api.patch(`/api/projects/${projectId}/members/${userId}/role`, { role }).then(() => undefined),
+
+  removeMember: (projectId: number | string, userId: number | string): Promise<void> =>
+    api.delete(`/api/projects/${projectId}/members/${userId}`).then(() => undefined),
+
+  acceptInvitation: (token: string): Promise<void> =>
+    api.post('/api/projects/invitations/accept', { token }).then(() => undefined),
 
   getMembersCached: (projectId: number | string, options: { force?: boolean } = {}): Promise<any[]> => {
     const key = String(projectId);

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,10 +46,19 @@ const ph = StyleSheet.create({
 });
 
 // ─── Route ────────────────────────────────────────────────────────────────────
+const MAIN_TAB_KEYS: ProjectTab[] = ['summary', 'backlog', 'board', 'chat'];
+const MORE_TAB_KEYS: MoreTab[] = ['timeline', 'calendar', 'burndown', 'milestone', 'members', 'pages', 'docs', 'list', 'report'];
+
+function firstParam(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default function ProjectRoute() {
-  const { projectId, projectName } = useLocalSearchParams<{
+  const { projectId, projectName, tab, more } = useLocalSearchParams<{
     projectId: string;
     projectName?: string;
+    tab?: string;
+    more?: string;
   }>();
   const router  = useRouter();
   const insets  = useSafeAreaInsets();
@@ -58,13 +67,29 @@ export default function ProjectRoute() {
   const [lastMainTab,   setLastMainTab]   = useState<ProjectTab>('summary');
   const [activeMoreTab, setActiveMoreTab] = useState<MoreTab | undefined>();
 
+  useEffect(() => {
+    const requestedMore = firstParam(more);
+    if (requestedMore && MORE_TAB_KEYS.includes(requestedMore as MoreTab)) {
+      setActiveMoreTab(requestedMore as MoreTab);
+      setActiveTab(requestedMore as MoreTab);
+      return;
+    }
+
+    const requestedTab = firstParam(tab);
+    if (requestedTab && MAIN_TAB_KEYS.includes(requestedTab as ProjectTab)) {
+      setActiveTab(requestedTab as ProjectTab);
+      setLastMainTab(requestedTab as ProjectTab);
+      setActiveMoreTab(undefined);
+    }
+  }, [tab, more]);
+
   /** Total nav bar height so content scrolls below it */
   const navHeight = insets.top + NAV_INNER_HEIGHT;
 
   const handleTabChange = useCallback((tab: ProjectTab | MoreTab) => {
     setActiveTab(tab);
     // Clear more-tab when switching to a main tab
-    if (tab !== 'more' && !['timeline', 'calendar', 'burndown', 'milestone', 'members', 'pages', 'docs', 'list', 'report'].includes(tab as string)) {
+    if (tab !== 'more' && !MORE_TAB_KEYS.includes(tab as MoreTab)) {
       setLastMainTab(tab as ProjectTab);
       setActiveMoreTab(undefined);
     }
@@ -81,7 +106,7 @@ export default function ProjectRoute() {
   }, []);
 
   const numericId = Number(projectId);
-  const paramName = Array.isArray(projectName) ? projectName[0] : projectName;
+  const paramName = firstParam(projectName);
 
   const { data } = useProjectSummary(numericId);
   const name = paramName || data?.projectDetails?.name;

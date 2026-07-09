@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import api from '@/src/api/axios';
 import { T } from '@/src/constants/tokens';
+import { resolveNotificationRoute } from '@/src/navigation/routes';
 
 type NotificationFilter = 'all' | 'unread' | 'read';
 
@@ -103,38 +104,6 @@ function typeColor(type: string): string {
     default:
       return '#64748B';
   }
-}
-
-function normalizeRouteLink(link?: string): string | null {
-  if (!link?.trim()) return null;
-
-  const trimmed = link.trim();
-  let pathname = trimmed;
-
-  try {
-    const url = new URL(trimmed, 'https://planora.local');
-    pathname = `${url.pathname}${url.search}${url.hash}`;
-  } catch {
-    pathname = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  }
-
-  const chatMatch = pathname.match(/^\/project\/([^/]+)\/chat(.*)$/);
-  if (chatMatch) {
-    return `/(project)/${chatMatch[1]}/chat${chatMatch[2] || ''}`;
-  }
-
-  if (
-    pathname.startsWith('/summary/') ||
-    pathname.startsWith('/board/') ||
-    pathname.startsWith('/github/') ||
-    pathname.startsWith('/portfolios/') ||
-    pathname.startsWith('/create-project') ||
-    pathname.startsWith('/(tabs)')
-  ) {
-    return pathname;
-  }
-
-  return null;
 }
 
 function NotificationRow({
@@ -231,7 +200,7 @@ export default function DashboardNotificationsScreen() {
       }
     }
 
-    const route = normalizeRouteLink(notification.link);
+    const route = resolveNotificationRoute(notification);
     if (route) {
       router.push(route as never);
     }

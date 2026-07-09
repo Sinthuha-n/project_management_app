@@ -25,6 +25,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { T, STATUS_MAP, StatusKey } from '../../constants/tokens';
 import { Colors } from '../../constants/colors';
 import OfflineStaleBanner from '../ui/OfflineStaleBanner';
+import MobileTaskDetailSheet from '../task-detail/MobileTaskDetailSheet';
 import { offlineSyncManager } from '../../services/offlineSyncManager';
 import {
   BoardMember,
@@ -764,6 +765,7 @@ export default function ProjectBoardScreen({
   const [newColumnName, setNewColumnName] = useState('');
   const [editingTask, setEditingTask] = useState<BoardTask | null>(null);
   const [editTaskTitle, setEditTaskTitle] = useState('');
+  const [selectedDetailTaskId, setSelectedDetailTaskId] = useState<number | null>(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showColumnModal, setShowColumnModal] = useState(false);
   const [showCreateDatePicker, setShowCreateDatePicker] = useState(false);
@@ -916,8 +918,7 @@ export default function ProjectBoardScreen({
   };
 
   const openEditTask = (task: BoardTask) => {
-    setEditingTask(task);
-    setEditTaskTitle(task.title);
+    setSelectedDetailTaskId(task.id);
   };
 
   const openDatePicker = (task: BoardTask) => {
@@ -1442,6 +1443,14 @@ export default function ProjectBoardScreen({
           </View>
         </SafeAreaView>
       </Modal>
+
+      <MobileTaskDetailSheet
+        visible={selectedDetailTaskId !== null}
+        taskId={selectedDetailTaskId}
+        projectId={projectId}
+        onClose={() => setSelectedDetailTaskId(null)}
+        onChanged={refresh}
+      />
     </SafeAreaView>
   );
 }
