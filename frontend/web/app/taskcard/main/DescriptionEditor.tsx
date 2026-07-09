@@ -5,9 +5,10 @@ import { Edit2 } from 'lucide-react';
 interface DescriptionEditorProps {
   description: string;
   onUpdateDescription?: (description: string) => void;
+  readOnly?: boolean;
 }
 
-const DescriptionEditor: React.FC<DescriptionEditorProps> = ({ description, onUpdateDescription }) => {
+const DescriptionEditor: React.FC<DescriptionEditorProps> = ({ description, onUpdateDescription, readOnly = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [edited, setEdited] = useState(description);
 
@@ -60,13 +61,13 @@ const DescriptionEditor: React.FC<DescriptionEditorProps> = ({ description, onUp
         </div>
       ) : (
         <div
-          onClick={() => setIsEditing(true)}
-          className="p-4 rounded-xl hover:bg-cu-hover border border-cu-border hover:border-cu-primary/30 cursor-text transition-all min-h-[100px] text-cu-text-secondary text-sm leading-relaxed relative"
+          onClick={() => !readOnly && onUpdateDescription && setIsEditing(true)}
+          className={`p-4 rounded-xl border border-cu-border transition-all min-h-[112px] text-cu-text-secondary text-sm leading-relaxed relative bg-cu-bg ${readOnly || !onUpdateDescription ? '' : 'hover:bg-cu-hover hover:border-cu-primary/30 cursor-text'}`}
         >
           {description || <span className="text-cu-text-muted italic">No description provided</span>}
-          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          {!readOnly && onUpdateDescription && <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <Edit2 size={14} className="text-cu-text-muted" />
-          </div>
+          </div>}
         </div>
       )}
     </div>

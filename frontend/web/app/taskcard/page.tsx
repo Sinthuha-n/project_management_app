@@ -24,7 +24,7 @@ interface TaskData {
   reporterName: string;
   assigneeName: string;
   sprintName: string;
-  labels: Array<{ id: number; name: string }>;
+  labels: Array<{ id: number; name: string; color?: string | null }>;
   createdAt: string;
   updatedAt: string;
   dueDate: string;
@@ -231,6 +231,9 @@ function TaskPageContent() {
           taskId={`TASK-${taskData.id}`} 
           numericTaskId={taskData.id}
           archived={taskData.archived}
+          status={taskData.status}
+          priority={taskData.priority}
+          dueDate={taskData.dueDate}
           onClose={handleClose} 
         />
 
@@ -243,6 +246,18 @@ function TaskPageContent() {
               subtasks={taskData.subtasks || []}
               dependencies={taskData.dependencies || []}
               taskId={taskData.id}
+              projectId={taskData.projectId}
+              overview={{
+                status: taskData.status,
+                priority: taskData.priority,
+                dueDate: taskData.dueDate,
+                storyPoint: taskData.storyPoint,
+                labels: taskData.labels ?? [],
+                assignees: taskData.assigneeName ? [{ name: taskData.assigneeName }] : [],
+                githubIssueNumber: taskData.githubIssueNumber,
+                githubRepoFullName: taskData.githubRepoFullName,
+                archived: taskData.archived,
+              }}
               onUpdateTitle={(title) => updateTask({ title })}
               onUpdateDescription={(description) => updateTask({ description })}
           />
