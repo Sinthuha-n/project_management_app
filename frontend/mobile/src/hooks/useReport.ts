@@ -263,7 +263,7 @@ export function useReport(projectId: number) {
     else   { void fetchData(false); }
     void fetchSchedules();
     return () => { isMounted.current = false; };
-  }, [fetchData, fetchSchedules]);
+  }, [fetchData, fetchSchedules, projectId]);
 
   return {
     data, loading, error,

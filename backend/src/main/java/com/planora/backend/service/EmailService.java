@@ -16,7 +16,10 @@ import java.nio.charset.StandardCharsets;
 import java.net.URLEncoder;
 import java.time.Year;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Service
+@Slf4j
 public class EmailService {
 
     private final JavaMailSenderImpl mailSender;
@@ -35,6 +38,7 @@ public class EmailService {
             String template = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
             return template.replace("{{OTP_CODE}}", otp);
         } catch (IOException e) {
+            log.warn("Unable to load OTP email template; using the plaintext fallback");
             // Fallback plaintext if template fails
             return "Your verification code is: " + otp + "\n\nThis code will expire in 10 minutes.";
         }
@@ -55,7 +59,7 @@ public class EmailService {
 
             mailSender.send(message);
         } catch (MessagingException e) {
-            e.printStackTrace();
+            log.error("Unable to send verification email", e);
         }
     }
 
@@ -74,7 +78,7 @@ public class EmailService {
 
             mailSender.send(message);
         } catch (MessagingException e) {
-            e.printStackTrace();
+            log.error("Unable to send password-reset email", e);
         }
     }
 

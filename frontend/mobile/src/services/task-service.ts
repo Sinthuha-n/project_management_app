@@ -192,7 +192,7 @@ export const sprintboardService = {
   addColumn: (sprintboardId: number | string, payload: { name: string; status: string }): Promise<any> =>
     api.post(`/api/sprintboards/${sprintboardId}/columns`, payload).then(r => r.data),
 
-  reorderColumns: (sprintboardId: number | string, reorderRequest: Array<{ id: number; position: number }>): Promise<void> =>
+  reorderColumns: (sprintboardId: number | string, reorderRequest: { id: number; position: number }[]): Promise<void> =>
     api.patch(`/api/sprintboards/${sprintboardId}/columns/reorder`, reorderRequest).then(() => undefined),
 
   deleteColumn: (sprintboardId: number | string, columnId: number | string): Promise<void> =>
@@ -209,7 +209,7 @@ export const kanbanService = {
   deleteColumn: (columnId: number | string): Promise<void> =>
     api.delete(`/api/kanban-columns/${columnId}`).then(() => undefined),
 
-  reorderColumns: (reorderRequest: Array<{ id: number; position: number }>): Promise<void> =>
+  reorderColumns: (reorderRequest: { id: number; position: number }[]): Promise<void> =>
     api.patch('/api/kanban-columns/reorder', reorderRequest).then(() => undefined),
 
   renameColumn: (columnId: number | string, payload: { name: string }): Promise<void> =>

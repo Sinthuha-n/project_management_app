@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planora.backend.dto.*;
 import com.planora.backend.exception.StorageQuotaExceededException;
 import com.planora.backend.service.DocumentService;
+import com.planora.backend.service.DocumentBatchUploadService;
 import com.planora.backend.service.JWTService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,9 @@ class DocumentControllerTest {
 
         @MockBean
     private DocumentService documentService;
+
+    @MockBean
+    private DocumentBatchUploadService documentBatchUploadService;
 
         @MockBean
     private JWTService jwtService;

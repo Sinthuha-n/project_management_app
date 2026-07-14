@@ -1,4 +1,5 @@
 import type { ChatMessage } from '@/app/(project)/project/[id]/chat/components/chat';
+import { parseInstant } from '@/lib/date-time';
 
 // ── Identity helpers ──
 
@@ -42,14 +43,14 @@ export const mergeMessage = (list: ChatMessage[], incoming: ChatMessage): ChatMe
 
   // Fallback: match by content and timestamp window (~3s)
   if (incoming.id) {
-    const ts = new Date(incoming.timestamp || '').getTime();
+    const ts = parseInstant(incoming.timestamp)?.getTime() ?? 0;
     if (!isNaN(ts)) {
       const dup = list.findIndex(m => 
         !m.id && 
         m.content === incoming.content &&
         isSameIdentity(m.sender, incoming.sender) &&
         m.roomId === incoming.roomId &&
-        Math.abs(new Date(m.timestamp || '').getTime() - ts) < 3000
+        Math.abs((parseInstant(m.timestamp)?.getTime() ?? 0) - ts) < 3000
       );
       if (dup !== -1) {
         const next = [...list];

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../api/axios';
 import { buildCreateProjectRequest, createProject as createProjectBuilder, type CreateProjectRequest } from '@planora/contracts';
 

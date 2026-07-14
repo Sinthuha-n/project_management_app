@@ -58,13 +58,14 @@ class GitHubIntegrationServiceTest {
         user.setUserId(7L);
         user.setEmail("planora-user@example.com");
         when(userRepository.findById(7L)).thenReturn(Optional.of(user));
+        when(userRepository.findByGithubUserId(99L)).thenReturn(Optional.empty());
 
         server.expect(requestTo("https://github.com/login/oauth/access_token"))
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess("{\"access_token\":\"gh-token\"}", MediaType.APPLICATION_JSON));
         server.expect(requestTo("https://api.github.com/user"))
                 .andExpect(method(HttpMethod.GET))
-                .andRespond(withSuccess("{\"login\":\"octocat\",\"email\":null}", MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess("{\"id\":99,\"login\":\"octocat\",\"email\":null}", MediaType.APPLICATION_JSON));
         server.expect(requestTo("https://api.github.com/user/emails"))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess("[{\"email\":\"other@example.com\",\"primary\":false,\"verified\":true},{\"email\":\"octocat@example.com\",\"primary\":true,\"verified\":true}]", MediaType.APPLICATION_JSON));
@@ -76,6 +77,7 @@ class GitHubIntegrationServiceTest {
         verify(userRepository).save(captor.capture());
         assertEquals("octocat", captor.getValue().getGithubUsername());
         assertEquals("octocat@example.com", captor.getValue().getGithubEmail());
+        assertEquals(99L, captor.getValue().getGithubUserId());
         verify(userProfileCache).evict("planora-user@example.com");
         server.verify();
     }
@@ -86,13 +88,14 @@ class GitHubIntegrationServiceTest {
         user.setUserId(7L);
         user.setEmail("planora-user@example.com");
         when(userRepository.findById(7L)).thenReturn(Optional.of(user));
+        when(userRepository.findByGithubUserId(99L)).thenReturn(Optional.empty());
 
         server.expect(requestTo("https://github.com/login/oauth/access_token"))
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess("{\"access_token\":\"gh-token\"}", MediaType.APPLICATION_JSON));
         server.expect(requestTo("https://api.github.com/user"))
                 .andExpect(method(HttpMethod.GET))
-                .andRespond(withSuccess("{\"login\":\"octocat\",\"email\":null}", MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess("{\"id\":99,\"login\":\"octocat\",\"email\":null}", MediaType.APPLICATION_JSON));
         server.expect(requestTo("https://api.github.com/user/emails"))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withForbiddenRequest());

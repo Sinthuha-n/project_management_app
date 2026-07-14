@@ -8,12 +8,36 @@ import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/se
 import { tasksApi } from '@/services/tasks-contract';
 import type { Task } from '@/types';
 import { toDateKey } from '../utils/date';
+import { useProjectTasks } from '@/hooks/useProjectTasks';
+import { applyTaskMutation, createMutationId, publishTaskMutation } from '@/lib/task-cache';
+
+function updateCalendarSessionCache(projectId: string | null, events: CalendarEventItem[]) {
+  if (!projectId) return;
+  const key = buildSessionCacheKey('calendar-events', [projectId]);
+  if (key) setSessionCache(key, events, 30 * 60 * 1000);
+}
 
 export function useCalendarEvents(projectId: string | null) {
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const patchingTaskIdsRef = useRef<Set<number>>(new Set());
+  const canonicalTasks = useProjectTasks(projectId, false);
+
+  // Calendar task events are projections of the canonical project task cache.
+  // Sprint events remain owned by the calendar endpoint.
+  useEffect(() => {
+    if (!canonicalTasks.authoritative) return;
+    setEvents((previous) => {
+      const sprints = previous.filter((event) => event.kind === 'sprint');
+      const taskEvents = canonicalTasks.tasks
+        .filter((task) => !task.archived && Boolean(task.startDate || task.dueDate))
+        .map(mapTaskToCalendarEvent);
+      const next = [...sprints, ...taskEvents];
+      updateCalendarSessionCache(projectId, next);
+      return next;
+    });
+  }, [canonicalTasks.authoritative, canonicalTasks.tasks, projectId]);
 
   // Background/Initial fetch
   const revalidate = useCallback(
@@ -27,7 +51,6 @@ export function useCalendarEvents(projectId: string | null) {
         if (cached.data) {
           setEvents(cached.data);
           setLoading(false);
-          if (!cached.isStale) return; // cache is fresh
         }
       }
 
@@ -84,19 +107,29 @@ export function useCalendarEvents(projectId: string | null) {
 
   // Appends one task without refetching
   const appendEvent = useCallback(
-    (task: Task) => {
+    (task: Task, replacesTaskId?: number) => {
       const mapped = mapTaskToCalendarEvent(task);
       setEvents((prev) => {
-        if (prev.some((e) => e.id === mapped.id)) {
-          return prev;
-        }
-        const next = [...prev, mapped];
+        const withoutOptimistic = replacesTaskId == null
+          ? prev
+          : prev.filter((event) => event.taskId !== replacesTaskId);
+        const next = withoutOptimistic.some((event) => event.id === mapped.id)
+          ? withoutOptimistic.map((event) => event.id === mapped.id ? mapped : event)
+          : [...withoutOptimistic, mapped];
         updateCache(next);
         return next;
       });
     },
     [updateCache]
   );
+
+  const removeEvent = useCallback((taskId: number) => {
+    setEvents((prev) => {
+      const next = prev.filter((event) => event.taskId !== taskId);
+      updateCache(next);
+      return next;
+    });
+  }, [updateCache]);
 
   // Optimistic date patching
   const patchEventDate = useCallback(
@@ -111,6 +144,7 @@ export function useCalendarEvents(projectId: string | null) {
 
       // Snapshot for revert on failure
       const originalEvent = { ...event };
+      const mutationId = createMutationId();
 
       // Optimistic update
       setEvents((prev) => {
@@ -122,10 +156,20 @@ export function useCalendarEvents(projectId: string | null) {
         updateCache(next);
         return next;
       });
+      applyTaskMutation({
+        operation: 'updated', projectId: Number(projectId), taskId, mutationId,
+        source: 'optimistic', patch: { startDate: dateStr, dueDate: dateStr }, occurredAt: new Date().toISOString(),
+      });
 
       try {
         const updatedTask = await patchTaskDates(taskId, dateStr, dateStr);
         const authoritativeEvent = mapTaskToCalendarEvent(updatedTask);
+        const committed = {
+          operation: 'updated' as const, projectId: Number(projectId), taskId, mutationId,
+          source: 'http' as const, task: updatedTask, occurredAt: new Date().toISOString(),
+        };
+        applyTaskMutation(committed);
+        publishTaskMutation(committed);
         setEvents((prev) => {
           const next = prev.map((e) => (e.id === eventId ? authoritativeEvent : e));
           updateCache(next);
@@ -138,11 +182,18 @@ export function useCalendarEvents(projectId: string | null) {
           updateCache(next);
           return next;
         });
+        applyTaskMutation({
+          operation: 'updated', projectId: Number(projectId), taskId, mutationId,
+          source: 'rollback', patch: {
+            startDate: originalEvent.startDate,
+            dueDate: originalEvent.dueDate,
+          }, occurredAt: new Date().toISOString(),
+        });
       } finally {
         patchingTaskIdsRef.current.delete(taskId);
       }
     },
-    [events, updateCache]
+    [events, projectId, updateCache]
   );
 
   // Refresh only single task
@@ -237,6 +288,7 @@ export function useCalendarEvents(projectId: string | null) {
     error,
     revalidate: () => void revalidate({ showSpinner: true, forceNetwork: true }),
     appendEvent,
+    removeEvent,
     patchEventDate,
     refreshOneTask,
     patchingTaskIdsRef,

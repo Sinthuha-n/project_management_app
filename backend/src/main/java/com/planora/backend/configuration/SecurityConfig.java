@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import lombok.RequiredArgsConstructor;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 
 @Configuration
@@ -33,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
+    private final ObjectMapper objectMapper;
 
     @Value("${cors.allowed-origins:http://localhost:3000}")
     private String corsAllowedOrigins;
@@ -70,7 +72,7 @@ public class SecurityConfig {
                                 req.getRequestURI(),
                                 null
                             );
-                            res.getWriter().write(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(errorResponse));
+                            res.getWriter().write(objectMapper.writeValueAsString(errorResponse));
                         })
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
@@ -84,7 +86,14 @@ public class SecurityConfig {
         List<String> origins = Arrays.stream(corsAllowedOrigins.split(","))
                 .map(String::trim)
                 .filter(origin -> !origin.isEmpty())
+                .distinct()
                 .toList();
+        if (origins.isEmpty()) {
+            throw new IllegalStateException("At least one CORS allowed origin must be configured");
+        }
+        if (origins.contains("*")) {
+            throw new IllegalStateException("Wildcard CORS origins are not allowed with credentials");
+        }
         configuration.setAllowedOriginPatterns(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));

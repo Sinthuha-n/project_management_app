@@ -80,11 +80,25 @@ const ownerMembersFixture: Member[] = [
   },
   {
     id: 2,
+    role: 'ADMIN',
+    user: { userId: 204, username: 'dave', fullName: 'Dave Admin', email: 'dave@example.com' },
+    taskCount: 2,
+    status: 'Active',
+  },
+  {
+    id: 3,
     role: 'MEMBER',
     user: { userId: 202, username: 'bob', fullName: 'Bob Member', email: 'bob@example.com' },
     taskCount: 3,
     status: 'Active',
     lastActive: '2026-04-01T11:00:00.000Z',
+  },
+  {
+    id: 4,
+    role: 'VIEWER',
+    user: { userId: 203, username: 'carol', fullName: 'Carol Viewer', email: 'carol@example.com' },
+    taskCount: 0,
+    status: 'Active',
   },
 ];
 
@@ -211,6 +225,7 @@ describe('MembersPageClient', () => {
     expect(within(roleSelect as HTMLElement).queryByRole('option', { name: 'Admin' })).not.toBeInTheDocument();
     expect(within(roleSelect as HTMLElement).getByRole('option', { name: 'Member' })).toBeInTheDocument();
     expect(within(roleSelect as HTMLElement).getByRole('option', { name: 'Viewer' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Change role for invitee@example.com' })).not.toBeInTheDocument();
 
     fireEvent.change(roleSelect as HTMLElement, { target: { value: 'VIEWER' } });
 
@@ -238,6 +253,68 @@ describe('MembersPageClient', () => {
     expect(within(roleSelect as HTMLElement).getByRole('option', { name: 'Admin' })).toBeInTheDocument();
     expect(within(roleSelect as HTMLElement).getByRole('option', { name: 'Member' })).toBeInTheDocument();
     expect(within(roleSelect as HTMLElement).getByRole('option', { name: 'Viewer' })).toBeInTheDocument();
+
+    for (const name of ['Dave Admin', 'Bob Member', 'Carol Viewer']) {
+      const select = screen.getByRole('combobox', { name: `Change role for ${name}` });
+      expect(within(select).getByRole('option', { name: 'Admin' })).toBeInTheDocument();
+      expect(within(select).getByRole('option', { name: 'Member' })).toBeInTheDocument();
+      expect(within(select).getByRole('option', { name: 'Viewer' })).toBeInTheDocument();
+      expect(within(select).queryByRole('option', { name: 'Owner' })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByRole('combobox', { name: 'Change role for Alice Admin' })).not.toBeInTheDocument();
+  });
+
+  it('does not let an admin edit owner, admin, or self rows', async () => {
+    setupGetMocks({
+      members: [
+        {
+          ...ownerMembersFixture[0],
+          user: {
+            ...ownerMembersFixture[0].user,
+            userId: 999,
+            fullName: 'Project Owner',
+            email: 'owner@example.com',
+          },
+        },
+        membersFixture[0],
+        { ...ownerMembersFixture[1], user: { ...ownerMembersFixture[1].user, userId: 204 } },
+        membersFixture[1],
+        membersFixture[2],
+      ],
+      project: { id: 7, ownerId: 999, ownerName: 'Project Owner', name: 'Project Alpha' },
+    });
+
+    render(<MembersPageClient projectId="7" />);
+
+    await screen.findByText('Dave Admin');
+    expect(screen.queryByRole('combobox', { name: 'Change role for Project Owner' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Change role for Alice Admin' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Change role for Dave Admin' })).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Change role for Bob Member' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Change role for Carol Viewer' })).toBeInTheDocument();
+  });
+
+  it.each([
+    [{ userId: 202, email: 'bob@example.com' }, 'Bob Member'],
+    [{ userId: 203, email: 'carol@example.com' }, 'Carol Viewer'],
+  ])('does not expose role controls to members or viewers', async (tokenUser, currentName) => {
+    mockedGetUserFromToken.mockReturnValue(tokenUser);
+    render(<MembersPageClient projectId="7" />);
+
+    await screen.findByText(currentName);
+    expect(screen.queryByRole('combobox', { name: /Change role for/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps the displayed role unchanged when the PATCH request fails', async () => {
+    mockedAxios.patch.mockRejectedValueOnce({ response: { data: { message: 'Role change forbidden' } } });
+    render(<MembersPageClient projectId="7" />);
+
+    const roleSelect = await screen.findByRole('combobox', { name: 'Change role for Bob Member' });
+    expect(roleSelect).toHaveValue('MEMBER');
+    fireEvent.change(roleSelect, { target: { value: 'VIEWER' } });
+
+    expect(await screen.findByText('Role change forbidden')).toBeInTheDocument();
+    expect(roleSelect).toHaveValue('MEMBER');
   });
 
   it('shows the project creator as owner even when the members endpoint returns another role', async () => {

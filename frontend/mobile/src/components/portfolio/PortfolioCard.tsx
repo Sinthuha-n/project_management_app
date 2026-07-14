@@ -28,11 +28,11 @@ export default function PortfolioCard({ portfolio, onPress }: Props) {
 
   const onPressIn = useCallback(() => {
     Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, tension: 400, friction: 14 }).start();
-  }, []);
+  }, [scale]);
 
   const onPressOut = useCallback(() => {
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 240, friction: 16 }).start();
-  }, []);
+  }, [scale]);
 
   const handlePress = () => {
     if (onPress) { onPress(); return; }

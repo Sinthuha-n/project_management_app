@@ -112,12 +112,33 @@ jobs:
         
     - name: Ensure mvnw is executable
       run: chmod +x mvnw
+
+    - name: Cache OWASP Dependency-Check data
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2/repository/org/owasp/dependency-check-data
+        key: dependency-check-data-v12-${{ runner.os }}
+        restore-keys: |
+          dependency-check-data-v12-${{ runner.os }}-
         
-    - name: Run Unit Tests
-      run: ./mvnw -B test --file pom.xml
-        
-    - name: Run Integration Tests
-      run: ./mvnw -B failsafe:integration-test failsafe:verify --file pom.xml
+    - name: Run Backend Verification
+      env:
+        CI: true
+        NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+      run: ./mvnw -B -Psecurity verify --file pom.xml
+
+    - name: Publish Backend Test and Coverage Reports
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-quality-reports
+        if-no-files-found: warn
+        path: |
+          backend/target/surefire-reports/**
+          backend/target/failsafe-reports/**
+          backend/target/site/jacoco-unit/**
+          backend/target/site/jacoco-integration/**
+          backend/target/dependency-check-report.*
       
   frontend-build:
     name: Build Frontend
@@ -272,7 +293,7 @@ jobs:
       run: npm run lint
 
     - name: TypeScript Check
-      run: npx tsc --noEmit
+      run: npm run typecheck
 
     - name: Run Mobile Tests
       run: npm run test

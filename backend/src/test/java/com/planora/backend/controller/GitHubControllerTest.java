@@ -85,12 +85,14 @@ class GitHubControllerTest {
     @Test
     void getStatus_returnsConnectedTrueWhenTokenExists() throws Exception {
         when(githubTokenService.getToken(1L)).thenReturn("decrypted-token");
+        when(gitHubIntegrationService.getConnectedUsername(1L)).thenReturn("gituser");
 
         mockMvc.perform(get("/api/github/status")
                         .with(user(principal))
                         .with(csrf()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.connected").value(true));
+                .andExpect(jsonPath("$.connected").value(true))
+                .andExpect(jsonPath("$.username").value("gituser"));
     }
 
     @Test

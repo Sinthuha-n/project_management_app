@@ -32,6 +32,7 @@ interface BacklogCardProps {
   onDeleteTask: (taskId: number, sprintId: number) => void;
   onToggleTask: (taskId: number) => void;
   onSprintDeleted: (sprintId: number, tasks: TaskItem[]) => void;
+  onSprintUpdated: (sprintId: number, updates: Partial<SprintItem>) => void;
   onStatusChange?: (taskId: number, status: string) => void;
   onStoryPointsChange?: (taskId: number, points: number) => void;
   onAssignTask?: (taskId: number, name: string, photo: string | null) => void;
@@ -49,7 +50,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-function BacklogCard({ sprint, projectId, projectKey, currentUserRole, availableSprintsForMove = [], onDropTask, onCreateTask, onDeleteTask, onToggleTask, onSprintDeleted, onStatusChange, onStoryPointsChange, onAssignTask, onRenameTask, onDueDateChange, projectLabels = [], onCreateLabel, extraStatuses = [], existingSprintNames = [] }: BacklogCardProps) {
+function BacklogCard({ sprint, projectId, projectKey, currentUserRole, availableSprintsForMove = [], onDropTask, onCreateTask, onDeleteTask, onToggleTask, onSprintDeleted, onSprintUpdated, onStatusChange, onStoryPointsChange, onAssignTask, onRenameTask, onDueDateChange, projectLabels = [], onCreateLabel, extraStatuses = [], existingSprintNames = [] }: BacklogCardProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [showCreateTaskBox, setShowCreateTaskBox] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
@@ -69,6 +70,7 @@ function BacklogCard({ sprint, projectId, projectKey, currentUserRole, available
     projectId,
     availableSprintsForMove,
     onSprintDeleted,
+    onSprintUpdated,
     onStatusChange,
     onStoryPointsChange,
     onAssignTask,

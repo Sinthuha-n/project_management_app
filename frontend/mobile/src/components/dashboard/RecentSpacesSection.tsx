@@ -50,7 +50,7 @@ function SkeletonCard() {
         Animated.timing(anim, { toValue: 0.4, duration: 750, useNativeDriver: true }),
       ])
     ).start();
-  }, []);
+  }, [anim]);
 
   return (
     <Animated.View style={[skeletonStyles.card, { opacity: anim }]}>

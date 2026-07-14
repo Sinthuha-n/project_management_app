@@ -18,7 +18,7 @@ function FadeSlideIn({ children, delay = 0 }: { children: React.ReactNode; delay
       Animated.timing(opacity, { toValue: 1, duration: 380, delay, useNativeDriver: true }),
       Animated.spring(translateY, { toValue: 0, delay, useNativeDriver: true, tension: 180, friction: 20 }),
     ]).start();
-  }, []);
+  }, [delay, opacity, translateY]);
   return <Animated.View style={{ opacity, transform: [{ translateY }] }}>{children}</Animated.View>;
 }
 

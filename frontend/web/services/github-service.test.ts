@@ -4,6 +4,7 @@ import {
   backendIssueToGitHubIssue,
   backendPrToGitHubPullRequest,
   backendRepositoryToProjectConnection,
+  persistProjectGitHubConnection,
   projectConnectionToLinkRequest,
   type BackendGithubCommit,
   type BackendGithubIssue,
@@ -11,8 +12,13 @@ import {
   type BackendGithubRepository,
   type GitHubRepository,
 } from './github-service';
+import { gitHubApi } from './api-contract';
 
 describe('github-service adapters', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('converts a backend project repository into a page connection', () => {
     const repository: BackendGithubRepository = {
       integrationId: 42,
@@ -149,5 +155,43 @@ describe('github-service adapters', () => {
       ],
       comments: 0,
     });
+  });
+
+  it('treats an already-linked repository conflict as the existing connection', async () => {
+    const repository: BackendGithubRepository = {
+      integrationId: 42,
+      projectId: 7,
+      repositoryFullName: 'planora/web',
+      repositoryUrl: 'https://github.com/planora/web',
+      tokenType: 'OAUTH',
+      active: true,
+    };
+    jest.spyOn(gitHubApi, 'linkRepository').mockRejectedValue({
+      response: {
+        status: 409,
+        data: { error: 'CONFLICT', message: "Repository 'planora/web' is already linked to this project" },
+      },
+    });
+    jest.spyOn(gitHubApi, 'getLinkedRepositories').mockResolvedValue([repository]);
+
+    await expect(persistProjectGitHubConnection('7', 'Planora/Web')).resolves.toMatchObject({
+      integrationId: 42,
+      repoFullName: 'planora/web',
+      source: 'backend',
+    });
+    expect(gitHubApi.getLinkedRepositories).toHaveBeenCalledWith(7);
+  });
+
+  it('keeps surfacing a repository conflict when the linked repo cannot be found', async () => {
+    const conflict = {
+      response: {
+        status: 409,
+        data: { error: 'CONFLICT', message: "Repository 'planora/api' is already linked to this project" },
+      },
+    };
+    jest.spyOn(gitHubApi, 'linkRepository').mockRejectedValue(conflict);
+    jest.spyOn(gitHubApi, 'getLinkedRepositories').mockResolvedValue([]);
+
+    await expect(persistProjectGitHubConnection(7, 'planora/api')).rejects.toBe(conflict);
   });
 });

@@ -5,6 +5,8 @@ import java.util.Objects;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -27,9 +29,9 @@ import com.planora.backend.service.UserCacheService;
 import com.planora.backend.service.ChatDocumentService;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:3000")
 @RequestMapping("/api/projects/{projectId}/chat")
 public class ChatRestController {
+    private static final Logger log = LoggerFactory.getLogger(ChatRestController.class);
     public static record ChatRoomResponse(Long id,
                                           String name,
                                           Long projectId,
@@ -486,11 +488,10 @@ public class ChatRestController {
             return new ResponseEntity<>(HttpStatus.ACCEPTED);
         }
 
-        System.out.println("chat_telemetry project=" + projectId
-                + " user=" + username
-                + " event=" + request.eventName()
-                + " scope=" + request.scope()
-                + " metadata=" + request.metadata());
+        // Deliberately omit arbitrary client metadata: it can contain message text,
+        // tokens, or other user-controlled sensitive values.
+        log.info("event=chat_telemetry projectId={} user={} name={} scope={}",
+                projectId, username, request.eventName(), request.scope());
         return new ResponseEntity<>(HttpStatus.ACCEPTED);
     }
 

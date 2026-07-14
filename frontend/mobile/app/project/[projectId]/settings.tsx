@@ -3,20 +3,18 @@ import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, Platform, Animated, ActivityIndicator,
   Modal, KeyboardAvoidingView, TouchableWithoutFeedback,
-  Keyboard, StatusBar as RNStatusBar, Alert,
+  Keyboard, Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Svg, { Path, Circle, Rect, Polygon, Line } from 'react-native-svg';
+import Svg, { Path, Circle, Polygon, Line } from 'react-native-svg';
 import { T } from '../../../src/constants/tokens';
 import { projectService, type ProjectDetails } from '../../../src/services/project-service';
 import { getCurrentUserId } from '../../../src/auth/storage';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import CustomFieldsManager from '../../../src/components/settings/CustomFieldsManager';
 import RecurringSchedulesManager from '../../../src/components/settings/RecurringSchedulesManager';
-import GitHubAutoTransitionsCard from '../../../src/components/settings/GitHubAutoTransitionsCard';
 import NotificationPreferencesPanel from '../../../src/components/settings/NotificationPreferencesPanel';
 
 // ─── Inline SVG Icons ─────────────────────────────────────────────────────────
@@ -619,16 +617,6 @@ export default function ProjectSettingsPage() {
               iconBg="#FFF6E8"
             >
               <RecurringSchedulesManager projectId={numericId} />
-            </SectionCard>
-
-            {/* ── GitHub Auto-Transitions ──────────────────────────────── */}
-            <SectionCard
-              title="GitHub Auto-Transitions"
-              subtitle="Quick setup for common GitHub workflow rules"
-              icon={<MaterialCommunityIcons name="github" size={18} color="#1A1A2E" />}
-              iconBg="#F0F1F3"
-            >
-              <GitHubAutoTransitionsCard projectId={numericId} />
             </SectionCard>
 
             {/* ── Notification Preferences ─────────────────────────────── */}

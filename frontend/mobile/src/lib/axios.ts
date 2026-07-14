@@ -1,9 +1,10 @@
-import axios from 'axios';
+import { create } from 'axios';
 import { clearTokens, getRefreshToken, getValidToken, getUserFromToken, refreshAccessToken } from './auth';
 import { router } from 'expo-router';
 import { resolveApiBaseUrl } from '../api/baseUrl';
 
-const api = axios.create({
+const api = create({
+  timeout: 20_000,
   headers: {
     'Content-Type': 'application/json',
   },

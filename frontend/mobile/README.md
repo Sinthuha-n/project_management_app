@@ -72,7 +72,7 @@ Before release, confirm:
 ## Troubleshooting
 
 - If API requests go to the wrong host, check `.env`, restart Expo, and clear Metro cache.
-- If GitHub OAuth returns to the browser instead of the app, confirm the backend `redirectUri` uses `planora://github-callback` or the legacy `mobile://github-callback`.
+- If GitHub OAuth does not return to the app, confirm the GitHub OAuth app callback is the backend HTTPS `GITHUB_MOBILE_CALLBACK_URI`, the backend uses `APP_MOBILE_RETURN_URI=planora://github-callback`, and the installed native build registers the `planora` scheme. `mobile://github-callback` is accepted only for older releases.
 - If notifications do not register, test on a physical development build; Expo Go intentionally skips native push registration.
 - If Android links do not open the app, verify `https://planora.app/.well-known/assetlinks.json`.
 - If iOS links do not open the app, verify Associated Domains and the apple-app-site-association file.

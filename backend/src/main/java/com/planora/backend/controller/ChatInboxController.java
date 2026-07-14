@@ -15,7 +15,6 @@ import com.planora.backend.service.ChatInboxService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:3000")
 @RequestMapping("/api/chat")
 @RequiredArgsConstructor
 public class ChatInboxController {

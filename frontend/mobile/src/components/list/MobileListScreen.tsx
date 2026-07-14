@@ -15,6 +15,7 @@ import {
 import { STATUS_MAP, StatusKey, T } from '../../constants/tokens';
 import { BoardTask, useProjectBoard } from '../../hooks/useProjectBoard';
 import MobileTaskDetailSheet from '../task-detail/MobileTaskDetailSheet';
+import { GitHubTaskBadges } from '../github/GitHubTaskBadges';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -68,6 +69,7 @@ function TaskRow({ task, dotColor, onPress }: { task: BoardTask; dotColor: strin
       <View style={[styles.taskDot, { backgroundColor: dotColor }]} />
       <View style={{ flex: 1 }}>
         <Text style={styles.taskTitle} numberOfLines={2}>{task.title}</Text>
+        <GitHubTaskBadges task={task} />
         <View style={styles.taskMeta}>
           {task.projectTaskNumber ? (
             <Text style={styles.taskKey}>#{task.projectTaskNumber}</Text>

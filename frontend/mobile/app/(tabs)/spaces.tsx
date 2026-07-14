@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -15,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useDashboard, type ProjectSummary } from '@/src/hooks/useDashboard';
 import { getStripeColor, T } from '@/src/constants/tokens';
+import { StateView } from '@/src/components/ui/StateView';
 
 type SpaceFilter = 'recent' | 'favorites';
 
@@ -51,6 +51,8 @@ function SpaceCard({
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${project.name}`}
       onPress={openProject}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
@@ -60,7 +62,14 @@ function SpaceCard({
           <View style={styles.projectIcon}>
             <Ionicons name={isAgile ? 'git-branch-outline' : 'grid-outline'} size={17} color={T.primary} />
           </View>
-          <Pressable onPress={toggleFavorite} hitSlop={10} style={styles.favoriteButton}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={favorite ? `Remove ${project.name} from favorites` : `Add ${project.name} to favorites`}
+            accessibilityState={{ selected: favorite }}
+            onPress={toggleFavorite}
+            hitSlop={10}
+            style={styles.favoriteButton}
+          >
             <Ionicons name={favorite ? 'star' : 'star-outline'} size={18} color={favorite ? '#F5A623' : '#94A3B8'} />
           </Pressable>
         </View>
@@ -126,6 +135,7 @@ export default function SpacesScreen() {
         <View style={styles.searchBox}>
           <Ionicons name="search" size={17} color="#94A3B8" />
           <TextInput
+            accessibilityLabel="Search spaces"
             value={search}
             onChangeText={setSearch}
             placeholder="Search spaces"
@@ -141,6 +151,9 @@ export default function SpacesScreen() {
             return (
               <Pressable
                 key={item}
+                accessibilityRole="tab"
+                accessibilityLabel={item === 'recent' ? 'Recent spaces' : 'Favorite spaces'}
+                accessibilityState={{ selected: active }}
                 onPress={() => setFilter(item)}
                 style={[styles.segmentButton, active && styles.segmentButtonActive]}
               >
@@ -162,17 +175,12 @@ export default function SpacesScreen() {
         }
       >
         {loadingProjects && items.length === 0 ? (
-          <View style={styles.centerState}>
-            <ActivityIndicator color={T.primary} />
-          </View>
+          <StateView loading title="Loading spaces" />
         ) : items.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="folder-open-outline" size={28} color="#94A3B8" />
-            <Text style={styles.emptyTitle}>No spaces found</Text>
-            <Text style={styles.emptyText}>
-              {search ? 'Try a different search term.' : 'Recently opened and favorite spaces will appear here.'}
-            </Text>
-          </View>
+          <StateView
+            title="No spaces found"
+            message={search ? 'Try a different search term.' : 'Recently opened and favorite spaces will appear here.'}
+          />
         ) : (
           items.map((project) => (
             <SpaceCard

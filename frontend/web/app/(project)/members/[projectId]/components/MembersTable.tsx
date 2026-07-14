@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { ChevronDown, ChevronLeft, ChevronRight, Clock3, ListChecks, Mail, Trash2 } from 'lucide-react';
 import { ROLE_COLORS, ROLE_LABELS, STATUS_COLORS, ICONS } from '../constants';
-import type { Member, MemberCombined } from '../types';
+import type { AssignableTeamRole, Member, MemberCombined } from '../types';
 import { timeAgo } from '../utils';
 import { Tooltip, TooltipProvider } from '@/components/ui/Tooltip';
 
@@ -13,11 +13,11 @@ interface MembersTableProps {
   changingRoleId: number | null;
   canChangeRole: (member: MemberCombined) => boolean;
   canRemoveMember: (member: MemberCombined) => boolean;
-  getAvailableOptions: () => string[];
+  getAvailableOptions: (member: MemberCombined) => AssignableTeamRole[];
   resolveProfilePicUrl: (profilePicUrl?: string) => string;
   getMemberProfilePicCandidates: (member: Member) => string[];
   setBrokenProfileImages: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-  onRoleChange: (userId: number, newRole: string) => void;
+  onRoleChange: (userId: number, newRole: AssignableTeamRole) => void;
   onRequestRemove: (member: MemberCombined) => void;
   pageSize?: number;
 }
@@ -103,8 +103,8 @@ interface RoleControlProps {
   member: MemberCombined;
   changingRoleId: number | null;
   canChangeRole: (member: MemberCombined) => boolean;
-  getAvailableOptions: () => string[];
-  onRoleChange: (userId: number, newRole: string) => void;
+  getAvailableOptions: (member: MemberCombined) => AssignableTeamRole[];
+  onRoleChange: (userId: number, newRole: AssignableTeamRole) => void;
   compact?: boolean;
 }
 
@@ -132,11 +132,12 @@ function RoleControl({
       <div className="relative inline-flex items-center w-full sm:w-auto">
         <select
           value={role}
-          onChange={(event) => onRoleChange(member.user.userId, event.target.value)}
+          onChange={(event) => onRoleChange(member.user.userId, event.target.value as AssignableTeamRole)}
           disabled={changingRoleId === member.user.userId}
+          aria-label={`Change role for ${member.user.fullName || member.user.email}`}
           className={`h-10 w-full cursor-pointer appearance-none rounded-full border border-transparent pl-8 pr-8 text-sm font-semibold leading-none outline-none ring-1 ring-transparent transition-all focus:ring-cu-primary/25 disabled:cursor-wait sm:w-auto ${ROLE_COLORS[role] || 'bg-cu-bg-tertiary text-cu-text-secondary'}`}
         >
-          {getAvailableOptions().map((opt) => (
+          {getAvailableOptions(member).map((opt) => (
             <option key={opt} value={opt}>{ROLE_LABELS[opt] || opt}</option>
           ))}
         </select>

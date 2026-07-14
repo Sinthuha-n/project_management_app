@@ -22,7 +22,7 @@ export default function PasswordStrengthBar({ strength, password }: Props) {
         useNativeDriver: false,
       }).start();
     });
-  }, [strength]);
+  }, [barAnims, strength]);
 
   return (
     <View style={styles.container}>

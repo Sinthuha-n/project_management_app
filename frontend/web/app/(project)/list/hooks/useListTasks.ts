@@ -10,6 +10,7 @@ import type { Label, MilestoneResponse, Task } from '@/types';
 import { authApi, labelsApi, projectsApi, tasksApi } from '@/services/api-contract';
 import { normalizeTaskPriority } from '@/services/tasks-contract';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
+import { useTaskMutations } from '@/hooks/useTaskMutations';
 
 const MEMBERS_CACHE_TTL_MS = 1000 * 60 * 30;
 
@@ -90,6 +91,7 @@ export function useListTasks() {
   const searchParams = useSearchParams();
   const projectIdStr = searchParams.get('projectId');
   const projectId = projectIdStr ? Number(projectIdStr) : null;
+  const taskMutations = useTaskMutations(projectId);
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [members, setMembers] = useState<ListProjectMember[]>([]);
@@ -527,10 +529,9 @@ export function useListTasks() {
     }
   }, [patchTaskOptimistic, tasks]);
 
-  const handleAddTask = useCallback(async (data: CreateTaskData) => {
+  const handleAddTask = useCallback((data: CreateTaskData) => {
     if (!projectId) return;
-    try {
-      const res = await tasksApi.create({
+    const result = taskMutations.create({
         projectId,
         title: data.title,
         storyPoint: data.storyPoint,
@@ -538,16 +539,20 @@ export function useListTasks() {
         assigneeId: data.assigneeId,
         labelIds: data.labelIds,
         dueDate: data.dueDate,
-      });
+    });
+    setTasks((prev) => {
+      const next = [...prev, result.optimisticTask];
+      if (cacheKey) localStorage.setItem(cacheKey, JSON.stringify(next));
+      return next;
+    });
+    void result.completion.then((serverTask) => {
       setTasks((prev) => {
-        const next = [...prev, res as Task];
+        const next = prev.map((task) => task.id === result.optimisticTask.id ? serverTask : task);
         if (cacheKey) localStorage.setItem(cacheKey, JSON.stringify(next));
         return next;
       });
-    } catch (err) {
-      console.error('Failed to create task:', err);
-    }
-  }, [projectId, cacheKey]);
+    }).catch(() => setTasks((prev) => prev.filter((task) => task.id !== result.optimisticTask.id)));
+  }, [projectId, cacheKey, taskMutations]);
 
   const sortedTasks = useMemo(() => (
     [...tasks].sort((a, b) => a.id - b.id)

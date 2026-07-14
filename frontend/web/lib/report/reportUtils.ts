@@ -1,6 +1,7 @@
 
 // Data helpers: Combines and formats all project data for the report
 import { Task, Sprint, ProjectMetrics, MilestoneResponse } from '@/types';
+import { formatDate as formatInstantDate, formatDateTime, parseDateOnly, parseInstant } from '@/lib/date-time';
 
 // ── Colour palettes (used by UI charts + PDF/Excel) ──────────────────────────
 export const PRIORITY_COLORS: Record<string, string> = {
@@ -22,19 +23,16 @@ export const STATUS_COLORS: Record<string, string> = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 export function fmtDate(d?: string | null): string {
   if (!d) return '—';
-  const dt = new Date(d);
-  if (isNaN(dt.getTime())) return '—';
-  return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  const calendarDate = parseDateOnly(d);
+  if (calendarDate) return calendarDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatInstantDate(d, { year: 'numeric', month: 'short', day: 'numeric' }) || '—';
 }
 
 export function fmtDateTime(d?: string | null): string {
-  if (!d) return '—';
-  const dt = new Date(d);
-  if (isNaN(dt.getTime())) return '—';
-  return dt.toLocaleString('en-US', {
+  return formatDateTime(d, {
     year: 'numeric', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
-  });
+  }) || '—';
 }
 
 export function capitalize(s: string): string {
@@ -263,7 +261,7 @@ export function buildReportData(
   const avgLeadTimeDays = doneTasks.length
     ? Math.round(
         doneTasks.reduce((acc, t) =>
-          acc + (new Date(t.completedAt!).getTime() - new Date(t.createdAt!).getTime()) / 86400000,
+          acc + ((parseInstant(t.completedAt)?.getTime() ?? 0) - (parseInstant(t.createdAt)?.getTime() ?? 0)) / 86400000,
         0) / doneTasks.length * 10) / 10
     : 0;
 

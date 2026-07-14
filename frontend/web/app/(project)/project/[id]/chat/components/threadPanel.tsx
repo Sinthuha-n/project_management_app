@@ -5,6 +5,7 @@ import { MessageCircle, X, Send } from 'lucide-react';
 import { ChatMessage, ChatReactionSummary } from './chat';
 import { isFileDocument } from './chatMessage';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
+import { formatTime as formatInstantTime } from '@/lib/date-time';
 
 interface ThreadPanelProps {
   rootMessage: ChatMessage | null;
@@ -33,8 +34,7 @@ const avatarColor = (name: string) =>
   AVATAR_COLORS[(name.charCodeAt(0) % AVATAR_COLORS.length)];
 
 function formatTime(timestamp?: string | null): string {
-  if (!timestamp) return '';
-  return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return formatInstantTime(timestamp);
 }
 
 export const ThreadPanel = ({

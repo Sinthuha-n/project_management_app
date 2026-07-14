@@ -15,6 +15,7 @@ import RecentProjectCard from '../dashboard/components/recentspaces/RecentProjec
 import Link from 'next/link';
 import { LayoutGrid, List } from 'lucide-react';
 import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
+import { formatDate } from '@/lib/date-time';
 
 const SPACES_PROJECTS_CACHE_TTL = 2 * 60_000;
 
@@ -373,7 +374,7 @@ function SpacesPageContent() {
                                         </td>
                                         <td className="px-4 py-3 text-cu-text-secondary hidden md:table-cell">{project.memberCount ?? '-'}</td>
                                         <td className="px-4 py-3 text-cu-text-secondary hidden md:table-cell">
-                                            {project.updatedAt ? new Date(project.updatedAt).toLocaleDateString() : '-'}
+                                            {project.updatedAt ? formatDate(project.updatedAt) : '-'}
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-2">

@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
@@ -41,6 +42,7 @@ import com.planora.backend.repository.TeamMemberRepository;
 import com.planora.backend.service.JWTService;
 import com.planora.backend.service.TeamMemberService;
 import com.planora.backend.service.UserService;
+import org.springframework.security.access.AccessDeniedException;
 
 @WebMvcTest(ProjectMemberController.class)
 class ProjectMemberControllerTest {
@@ -184,6 +186,50 @@ class ProjectMemberControllerTest {
                 eq("/topic/project/8/members"),
                 any(ProjectMemberController.MemberEvent.class)
         );
+    }
+
+    @Test
+    void changeMemberRole_doesNotPublishEventWhenRoleIsUnchanged() throws Exception {
+        var request = new ProjectMemberController.ChangeRoleRequest();
+        request.role = "MEMBER";
+
+        TeamMember existing = new TeamMember();
+        existing.setRole(TeamRole.MEMBER);
+        when(teamMemberRepository.findByTeamIdAndUserUserId(50L, 20L)).thenReturn(Optional.of(existing));
+
+        TeamMember unchanged = new TeamMember();
+        unchanged.setRole(TeamRole.MEMBER);
+        when(teamMemberService.changeMemberRoleWithPermissions(50L, 20L, "MEMBER", 5L, 8L, "Apollo", 5L))
+                .thenReturn(unchanged);
+
+        mockMvc.perform(patch("/api/projects/8/members/20/role")
+                        .with(SecurityMockMvcRequestPostProcessors.user(principal))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        verify(simpMessagingTemplate, never()).convertAndSend(any(String.class), any(Object.class));
+    }
+
+    @Test
+    void changeMemberRole_returnsForbiddenWhenServiceRejectsActor() throws Exception {
+        var request = new ProjectMemberController.ChangeRoleRequest();
+        request.role = "ADMIN";
+
+        TeamMember existing = new TeamMember();
+        existing.setRole(TeamRole.MEMBER);
+        when(teamMemberRepository.findByTeamIdAndUserUserId(50L, 20L)).thenReturn(Optional.of(existing));
+        when(teamMemberService.changeMemberRoleWithPermissions(50L, 20L, "ADMIN", 5L, 8L, "Apollo", 5L))
+                .thenThrow(new AccessDeniedException("Only OWNER or ADMIN can change roles"));
+
+        mockMvc.perform(patch("/api/projects/8/members/20/role")
+                        .with(SecurityMockMvcRequestPostProcessors.user(principal))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Only OWNER or ADMIN can change roles"));
     }
 
     @Test

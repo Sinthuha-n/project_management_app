@@ -16,6 +16,7 @@ public class GithubWebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(interceptor)
-                .addPathPatterns("/api/github/**", "/api/projects/*/automations/github/**", "/api/users/me/github-username/**");
+                .addPathPatterns("/api/github/**", "/api/projects/*/automations/github/**", "/api/users/me/github-username/**")
+                .excludePathPatterns("/api/github/mobile/oauth/callback");
     }
 }

@@ -7,6 +7,7 @@ import { isFileDocument } from './chatMessage';
 import { CreateChannelModal, EditChannelModal, ConfirmDeleteModal } from './chatModals';
 import { avatarColor } from '@/hooks/chat/chat-utils';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
+import { formatDate, formatRelativeTime, formatTime as formatInstantTime, parseInstant } from '@/lib/date-time';
 
 interface ChatSidebarProps {
   currentUser: string;
@@ -43,13 +44,13 @@ interface ChatSidebarProps {
 
 function formatTime(timestamp?: string | null): string {
   if (!timestamp) return '';
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
+  const date = parseInstant(timestamp);
+  if (!date) return '';
+  const diff = Date.now() - date.getTime();
   if (diff < 60000) return 'now';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
-  if (diff < 86400000) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  if (diff < 3600000) return formatRelativeTime(timestamp);
+  if (diff < 86400000) return formatInstantTime(timestamp);
+  return formatDate(timestamp, { month: 'short', day: 'numeric' });
 }
 
 function UnreadBadge({ count }: { count: number }) {

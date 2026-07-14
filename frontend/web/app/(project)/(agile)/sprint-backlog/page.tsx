@@ -24,6 +24,7 @@ import { stripQueryParam } from '@/lib/url';
 import { motion, AnimatePresence } from 'framer-motion';
 import { projectsApi, sprintboardsApi, sprintsApi, tasksApi } from '@/services/api-contract';
 import { normalizeTaskPriority } from '@/services/tasks-contract';
+import { useTaskMutations } from '@/hooks/useTaskMutations';
 
 const LABEL_PALETTE = ["#EF4444","#F97316","#F59E0B","#84CC16","#22C55E","#14B8A6","#06B6D4","#3B82F6","#6366F1","#8B5CF6","#EC4899","#6B7280"];
 
@@ -62,6 +63,7 @@ function SprintBacklogPageContent() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId');
   const projectIdNum = projectId ? Number(projectId) : null;
+  const taskMutations = useTaskMutations(projectId);
 
   const cachedTasks       = useTaskStore((s) => (projectIdNum ? s.tasksByProject[projectIdNum] : undefined));
   const setTasksForProject = useTaskStore((s) => s.setTasksForProject);
@@ -322,78 +324,64 @@ function SprintBacklogPageContent() {
     }
   }, [projectId, fetchData]);
 
-  const createTask = useCallback(async (data: CreateTaskData) => {
+  const createTask = useCallback((data: CreateTaskData) => {
     const trimmed = data.title.trim();
     if (!trimmed || !projectId) return;
-
-    try {
-      const response = await tasksApi.create({
-        projectId: Number(projectId),
-        title: trimmed,
-        storyPoint: data.storyPoint ?? 0,
-        priority: normalizeTaskPriority(data.priority),
-        assigneeId: data.assigneeId,
-        labelIds: data.labelIds,
-      });
-      const raw = response as RawTask;
-      const newTask: TaskItem = {
+    const result = taskMutations.create({
+      projectId: Number(projectId), title: trimmed,
+      storyPoint: data.storyPoint ?? 0,
+      priority: normalizeTaskPriority(data.priority),
+      assigneeId: data.assigneeId, labelIds: data.labelIds,
+    });
+    const toItem = (raw: RawTask): TaskItem => ({
         id: raw.id,
         taskNo: raw.projectTaskNumber ?? raw.id,
         projectTaskNumber: raw.projectTaskNumber ?? raw.id,
         title: raw.title,
-        storyPoints: raw.storyPoint,
+        storyPoints: raw.storyPoint ?? 0,
         selected: false,
-        assigneeName: 'Unassigned',
+        assigneeName: raw.assigneeName ?? 'Unassigned',
         sprintId: null,
-      };
-      setProductTasks((prev) => [...prev.filter((x) => x.id !== raw.id), newTask]);
-      const cKey = buildSessionCacheKey('sprint-backlog', [projectId]);
-      if (cKey) removeSessionCache(cKey);
-      window.dispatchEvent(new CustomEvent('planora:task-updated'));
-      void fetchData({ showSpinner: false, forceNetwork: true });
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast(axiosErr?.response?.data?.message || 'Failed to create task.', 'error');
-    }
-  }, [projectId, fetchData]);
+    });
+    const optimistic = toItem(result.optimisticTask as RawTask);
+    setProductTasks((prev) => [...prev, optimistic]);
+    void result.completion.then((response) => {
+      const committed = toItem(response as RawTask);
+      setProductTasks((prev) => prev.map((task) => task.id === optimistic.id ? committed : task));
+    }).catch(() => setProductTasks((prev) => prev.filter((task) => task.id !== optimistic.id)));
+  }, [projectId, taskMutations]);
 
-  const createSprintTask = useCallback(async (title: string, sprintId: number) => {
+  const createSprintTask = useCallback((title: string, sprintId: number) => {
     const trimmed = title.trim();
     if (!trimmed || !projectId) return;
-
-    try {
-      const response = await tasksApi.create({
-        projectId: Number(projectId),
-        title: trimmed,
-        storyPoint: 0,
-        sprintId,
-      });
-      const raw = response as RawTask;
-      const newTask: TaskItem = {
+    const result = taskMutations.create({ projectId: Number(projectId), title: trimmed, storyPoint: 0, sprintId });
+    const toItem = (raw: RawTask): TaskItem => ({
         id: raw.id,
         taskNo: raw.projectTaskNumber ?? raw.id,
         projectTaskNumber: raw.projectTaskNumber ?? raw.id,
         title: raw.title,
-        storyPoints: raw.storyPoint,
+        storyPoints: raw.storyPoint ?? 0,
         selected: false,
-        assigneeName: 'Unassigned',
+        assigneeName: raw.assigneeName ?? 'Unassigned',
         sprintId,
-      };
-      setSprints((prev) =>
+    });
+    const optimistic = toItem(result.optimisticTask as RawTask);
+    setSprints((prev) =>
         prev.map((s) =>
           s.id === sprintId
-            ? { ...s, tasks: [...s.tasks.filter((x) => x.id !== newTask.id), newTask] }
+            ? { ...s, tasks: [...s.tasks, optimistic] }
             : s
         )
-      );
-      const cKey = buildSessionCacheKey('sprint-backlog', [projectId]);
-      if (cKey) removeSessionCache(cKey);
-      void fetchData({ showSpinner: false, forceNetwork: true });
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast(axiosErr?.response?.data?.message || 'Failed to create task.', 'error');
-    }
-  }, [projectId, fetchData]);
+    );
+    void result.completion.then((response) => {
+      const committed = toItem(response as RawTask);
+      setSprints((prev) => prev.map((sprint) => sprint.id !== sprintId ? sprint : {
+        ...sprint, tasks: sprint.tasks.map((task) => task.id === optimistic.id ? committed : task),
+      }));
+    }).catch(() => setSprints((prev) => prev.map((sprint) => sprint.id !== sprintId ? sprint : {
+      ...sprint, tasks: sprint.tasks.filter((task) => task.id !== optimistic.id),
+    })));
+  }, [projectId, taskMutations]);
 
   const moveTask = useCallback(async (
     taskId: number,
@@ -879,6 +867,11 @@ function SprintBacklogPageContent() {
                             setSprints((prev) => prev.map((s) => s.id === sprintId ? { ...s, tasks: s.tasks.filter((t) => t.id !== taskId) } : s));
                           }}
                           onSprintDeleted={handleSprintDeleted}
+                          onSprintUpdated={(sprintId, updates) => {
+                            setSprints((prev) => prev.map((item) =>
+                              item.id === sprintId ? { ...item, ...updates } : item
+                            ));
+                          }}
                           onStatusChange={handleTaskStatusChange}
                           onStoryPointsChange={updateTaskStoryPoints}
                           onAssignTask={(taskId, name, photo) => {

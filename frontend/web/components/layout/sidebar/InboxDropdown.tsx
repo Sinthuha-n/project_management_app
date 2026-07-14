@@ -6,27 +6,7 @@ import { useRouter } from 'next/navigation';
 import { UserIcon, MessageSquareIcon, SearchIcon } from './SidebarIcons';
 import type { ChatInboxActivity } from '@/services/chat-service';
 import InboxBadge from '@/components/layout/sidebar/InboxBadge';
-
-function formatRelativeTime(timestamp?: string | null): string {
-  if (!timestamp) return 'No timestamp';
-
-  const time = new Date(timestamp).getTime();
-  if (Number.isNaN(time)) return 'Unknown time';
-
-  const diffMs = Date.now() - time;
-  const diffMin = Math.floor(diffMs / 60000);
-
-  if (diffMin < 1) return 'Just now';
-  if (diffMin < 60) return `${diffMin}m`;
-
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h`;
-
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay}d`;
-
-  return new Date(timestamp).toLocaleDateString();
-}
+import { formatRelativeTime } from '@/lib/date-time';
 
 function InboxDropdownItem({ item, onClick }: { item: ChatInboxActivity; onClick: () => void }) {
   const label = item.chatType === 'ROOM'
