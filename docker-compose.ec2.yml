@@ -64,6 +64,13 @@ services:
     image: clamav/clamav:1.4
     container_name: planora-clamav
     restart: unless-stopped
+    environment:
+      CLAMD_CONF_StreamMaxLength: 100M
+      CLAMD_CONF_MaxFileSize: 100M
+      CLAMD_CONF_MaxScanSize: 1G
+      CLAMD_CONF_MaxRecursion: 20
+      CLAMD_CONF_MaxFiles: 10000
+      CLAMD_CONF_AlertEncrypted: "yes"
     volumes:
       - planora-clamav-data:/var/lib/clamav
     healthcheck:

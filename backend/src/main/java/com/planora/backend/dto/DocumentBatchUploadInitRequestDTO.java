@@ -12,7 +12,6 @@ public class DocumentBatchUploadInitRequestDTO {
     private Long folderId;
 
     @NotEmpty(message = "At least one file is required")
-    @Size(max = 25, message = "A batch can contain at most 25 files")
     private List<@Valid FileItem> files;
 
     @Data

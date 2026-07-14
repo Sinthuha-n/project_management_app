@@ -872,8 +872,7 @@
             "items": {
               "$ref": "#/components/schemas/FileItem"
             },
-            "maxItems": 25,
-            "minItems": 0,
+            "minItems": 1,
             "type": "array"
           },
           "folderId": {
