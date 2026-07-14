@@ -486,6 +486,7 @@
 						<version>12.1.0</version>
 						<configuration>
 							<failBuildOnCVSS>7.0</failBuildOnCVSS>
+							<nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
 							<assemblyAnalyzerEnabled>false</assemblyAnalyzerEnabled>
 							<nugetconfAnalyzerEnabled>false</nugetconfAnalyzerEnabled>
 							<nuspecAnalyzerEnabled>false</nuspecAnalyzerEnabled>
