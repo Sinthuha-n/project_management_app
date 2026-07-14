@@ -9,6 +9,7 @@ import { fetchAssignedTasks } from '@/services/dashboard-service';
 import { fetchNotifications, markNotificationRead } from '@/services/notifications-service';
 import type { RawTask } from '@/app/dashboard/components/table/types';
 import type { NotificationDto as Notification } from '@/services/system-contract';
+import { formatDateTime } from '@/lib/date-time';
 
 // Helper types
 interface FocusItem {
@@ -366,7 +367,7 @@ export default function PersonalHub({ userId }: { userId?: string }) {
                         {notif.message}
                       </button>
                       <span className="font-arimo text-[10px] text-cu-text-muted mt-1">
-                        {new Date(notif.createdAt).toLocaleDateString(undefined, {
+                        {formatDateTime(notif.createdAt, {
                           month: 'short',
                           day: 'numeric',
                           hour: '2-digit',

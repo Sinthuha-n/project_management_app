@@ -3,18 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import type { Notification } from '@/services/notifications-service';
-
-function formatRelativeTime(ts?: string | null): string {
-  if (!ts) return '';
-  const diff = Date.now() - new Date(ts).getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return 'Just now';
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  return `${day}d ago`;
-}
+import { formatRelativeTime } from '@/lib/date-time';
 
 function NotificationItem({ n, onClick }: { n: Notification; onClick: () => void }) {
   return (

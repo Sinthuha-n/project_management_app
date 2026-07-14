@@ -30,6 +30,7 @@ import { getUserIdFromToken } from '@/lib/auth';
 import CustomFieldsManager from './CustomFieldsManager';
 import NotificationPreferencesPanel from '@/components/settings/NotificationPreferencesPanel';
 import RecurringSchedulesManager from './RecurringSchedulesManager';
+import { formatDate } from '@/lib/date-time';
 type ProjectType = 'AGILE' | 'KANBAN';
 
 interface ProjectData {
@@ -837,7 +838,7 @@ export default function ProjectSettingsPage() {
                         {
                           label: 'Created',
                           value: project.createdAt
-                            ? new Date(project.createdAt).toLocaleDateString('en-US', {
+                            ? formatDate(project.createdAt, {
                               year: 'numeric',
                               month: 'short',
                               day: 'numeric',

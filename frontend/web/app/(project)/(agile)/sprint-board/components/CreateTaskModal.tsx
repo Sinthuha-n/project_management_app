@@ -12,7 +12,7 @@ import OverlayPortal from '@/components/ui/OverlayPortal';
 interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateTask: (taskData: Record<string, unknown>) => Promise<void>;
+  onCreateTask: (taskData: Record<string, unknown>) => Promise<void> | void;
   columnStatus: string;
   projectId: number;
   sprintId?: number;

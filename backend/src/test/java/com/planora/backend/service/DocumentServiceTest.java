@@ -69,6 +69,8 @@ class DocumentServiceTest {
     private S3StorageService s3StorageService;
     @Mock
     private VirusScanService virusScanService;
+    @Mock
+    private DocumentFileTypeRegistry fileTypeRegistry;
 
     @InjectMocks
     private DocumentService documentService;
@@ -77,6 +79,8 @@ class DocumentServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(fileTypeRegistry.normalizeContentType(anyString(), any())).thenAnswer(invocation -> invocation.getArgument(1));
+        lenient().when(fileTypeRegistry.allMimeTypes()).thenReturn(Set.of("application/pdf", "text/plain"));
         Team team = new Team();
         team.setId(12L);
 
@@ -554,7 +558,7 @@ class DocumentServiceTest {
 
         when(projectRepository.findById(5L)).thenReturn(Optional.of(project));
         when(teamMemberRepository.findByTeamIdAndUserUserId(12L, 55L)).thenReturn(Optional.of(member));
-        when(s3StorageService.resolveContentType(anyString(), anyString())).thenReturn("application/pdf");
+        when(fileTypeRegistry.normalizeContentType(anyString(), anyString())).thenReturn("application/pdf");
         doNothing().when(s3StorageService).validateFileRequest(any(), any(), any(), anyLong(), any());
         when(documentRepository.sumFileSizeByProjectId(5L)).thenReturn(0L);
         doNothing().when(s3StorageService).putObject(any(), anyString(), any(), any(), anyLong());

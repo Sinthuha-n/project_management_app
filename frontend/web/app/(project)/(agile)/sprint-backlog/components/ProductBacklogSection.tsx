@@ -32,7 +32,7 @@ interface ProductBacklogSectionProps {
   currentUserRole?: string | null;
   onToggleTask: (id: number) => void;
   onStoryPointsChange: (id: number, points: number) => void;
-  onCreateTask: (data: CreateTaskData) => Promise<void>;
+  onCreateTask: (data: CreateTaskData) => Promise<void> | void;
   onDeleteTask?: (id: number) => void;
   onCreateSprint: () => void;
   onDropTask: (taskId: number, targetIndex?: number) => void;

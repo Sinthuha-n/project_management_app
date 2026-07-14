@@ -1,27 +1,25 @@
 package com.planora.backend.service;
 
+import com.planora.backend.exception.DocumentUploadException;
+import org.junit.jupiter.api.Test;
+
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import static org.mockito.Mockito.mock;
 
 class VirusScanServiceTest {
-
-    private final VirusScanService service = new VirusScanService();
-
     @Test
-    void acceptsCleanFile() {
-        assertThatCode(() -> service.scanFile("documents/7/report.pdf", "report.pdf"))
-                .doesNotThrowAnyException();
+    void disabledScannerAllowsLocalAndTestUploads() {
+        VirusScanService service = new VirusScanService(mock(S3StorageService.class), "clamav", 3310, 1000, false);
+        assertThatCode(() -> service.scanFile("documents", "object", "report.pdf")).doesNotThrowAnyException();
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"malware.exe", "VIRUS.pdf", "invoice-malware.PDF"})
-    void rejectsThreatMarkersCaseInsensitively(String fileName) {
-        assertThatThrownBy(() -> service.scanFile("quarantine/object", fileName))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("File threat detected");
+    @Test
+    void enabledScannerFailsClosedWhenStorageCannotBeRead() {
+        VirusScanService service = new VirusScanService(mock(S3StorageService.class), "clamav", 3310, 1000, true);
+        assertThatThrownBy(() -> service.scanFile("documents", "object", "report.pdf"))
+                .isInstanceOf(DocumentUploadException.class)
+                .extracting(error -> ((DocumentUploadException) error).getErrorCode())
+                .isEqualTo("SCAN_UNAVAILABLE");
     }
 }

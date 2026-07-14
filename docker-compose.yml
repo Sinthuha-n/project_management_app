@@ -22,11 +22,15 @@ services:
       # Never use ddl-auto=update in a containerised environment — it silently breaks on NOT NULL columns.
       FLYWAY_ENABLED: "true"
       JPA_DDL_AUTO: validate
+      DMS_CLAMAV_ENABLED: ${DMS_CLAMAV_ENABLED:-true}
+      DMS_CLAMAV_HOST: clamav
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_started
+      clamav:
+        condition: service_healthy
     networks:
       - planora-network
 
@@ -58,9 +62,25 @@ services:
     networks:
       - planora-network
 
+  clamav:
+    image: clamav/clamav:1.4
+    container_name: planora-clamav
+    restart: unless-stopped
+    volumes:
+      - planora-clamav-data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    networks:
+      - planora-network
+
 networks:
   planora-network:
     driver: bridge
 
 volumes:
   planora-postgres-data:
+  planora-clamav-data:

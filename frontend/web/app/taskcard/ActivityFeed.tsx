@@ -2,20 +2,11 @@
 import React, { useEffect, useState } from 'react';
 import api from '@/lib/axios';
 import { TaskActivity } from '@/types';
+import { formatRelativeTime } from '@/lib/date-time';
+import { useTimeZone } from '@/components/providers/TimeZoneProvider';
 
 interface ActivityFeedProps {
   taskId?: number;
-}
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
 }
 
 // Keyed by activityType string from the API so new event types get a default '•'
@@ -49,6 +40,7 @@ const ACTIVITY_COLORS: Record<string, string> = {
 };
 
 const ActivityFeed: React.FC<ActivityFeedProps> = ({ taskId }) => {
+  const { minuteTick } = useTimeZone();
   const [activities, setActivities] = useState<TaskActivity[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -92,7 +84,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ taskId }) => {
             </div>
             <div className="flex items-baseline gap-2 mb-0.5 flex-wrap">
               <span className="text-sm font-semibold text-cu-text-primary">{activity.actorName}</span>
-              <span className="text-xs text-cu-text-muted">{timeAgo(activity.createdAt)}</span>
+              <span className="text-xs text-cu-text-muted">{formatRelativeTime(activity.createdAt, Date.now() + minuteTick * 0)}</span>
             </div>
             <p className="text-sm text-cu-text-secondary bg-cu-bg-secondary rounded px-3 py-1.5 border border-cu-border">
               {activity.description}

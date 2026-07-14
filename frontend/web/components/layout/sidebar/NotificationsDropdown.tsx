@@ -5,20 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SearchIcon, BellIcon } from './SidebarIcons';
 import type { Notification } from '@/services/notifications-service';
-
-function formatRelativeTime(timestamp?: string | null): string {
-  if (!timestamp) return 'Unknown time';
-  const time = new Date(timestamp).getTime();
-  if (Number.isNaN(time)) return 'Unknown time';
-  const diffMin = Math.floor((Date.now() - time) / 60000);
-  if (diffMin < 1) return 'Just now';
-  if (diffMin < 60) return `${diffMin}m`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay}d`;
-  return new Date(timestamp).toLocaleDateString();
-}
+import { formatRelativeTime } from '@/lib/date-time';
 
 function NotificationDropdownItem({ item, onClick }: { item: Notification; onClick: () => void }) {
   return (

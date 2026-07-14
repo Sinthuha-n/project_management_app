@@ -5,6 +5,9 @@ import com.planora.backend.model.DocumentStatus;
 import com.planora.backend.model.DocumentVersion;
 import com.planora.backend.repository.DocumentRepository;
 import com.planora.backend.repository.DocumentVersionRepository;
+import com.planora.backend.repository.DocumentUploadReservationRepository;
+import com.planora.backend.model.DocumentUploadReservation;
+import com.planora.backend.model.DocumentUploadStatus;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +34,7 @@ public class DocumentCleanupScheduler {
     private final DocumentRepository documentRepository;
     private final DocumentVersionRepository documentVersionRepository;
     private final S3StorageService s3StorageService;
+    private final DocumentUploadReservationRepository uploadReservationRepository;
 
     @Value("${aws.s3.dms-bucket}")
     private String dmsBucket;
@@ -102,5 +106,22 @@ public class DocumentCleanupScheduler {
 
         // Step 8. Log the final tally for the DevOps monitoring dashboards.
         logger.info("DocumentCleanupScheduler: permanently deleted {} document(s) older than 30 days.", deleted);
+    }
+
+    @Scheduled(fixedDelayString = "${app.dms.upload-cleanup-delay-millis:600000}")
+    @Transactional
+    public void cleanupExpiredUploads() {
+        List<DocumentUploadReservation> expired = uploadReservationRepository.findByStatusInAndExpiresAtBefore(
+                List.of(DocumentUploadStatus.RESERVED, DocumentUploadStatus.FINALIZING), LocalDateTime.now());
+        for (DocumentUploadReservation reservation : expired) {
+            try {
+                s3StorageService.deleteObject(dmsBucket, reservation.getObjectKey());
+            } catch (Exception ex) {
+                logger.warn("Could not delete abandoned upload object {}: {}", reservation.getObjectKey(), ex.getMessage());
+            }
+            reservation.setStatus(DocumentUploadStatus.EXPIRED);
+            reservation.setErrorCode("UPLOAD_EXPIRED");
+        }
+        if (!expired.isEmpty()) uploadReservationRepository.saveAll(expired);
     }
 }

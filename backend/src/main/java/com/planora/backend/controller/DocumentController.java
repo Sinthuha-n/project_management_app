@@ -3,6 +3,7 @@ package com.planora.backend.controller;
 import com.planora.backend.dto.*;
 import com.planora.backend.model.UserPrincipal;
 import com.planora.backend.service.DocumentService;
+import com.planora.backend.service.DocumentBatchUploadService;
 import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
 import jakarta.validation.constraints.NotEmpty;
@@ -24,6 +25,7 @@ import java.util.Map;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final DocumentBatchUploadService documentBatchUploadService;
 
     // ── Direct-to-S3 Upload Pipeline ──────────────────────────────────────────────
 
@@ -42,6 +44,40 @@ public class DocumentController {
                 documentService.initUpload(projectId, principal.getUserId(), request),
                 HttpStatus.OK
         );
+    }
+
+    @PostMapping("/documents/uploads/init")
+    public ResponseEntity<DocumentBatchUploadInitResponseDTO> initBatchUpload(
+            @PathVariable Long projectId,
+            @Valid @RequestBody DocumentBatchUploadInitRequestDTO request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(documentBatchUploadService.init(projectId, principal.getUserId(), request));
+    }
+
+    @PostMapping("/documents/uploads/{uploadId}/finalize")
+    public ResponseEntity<DocumentResponseDTO> finalizeBatchUpload(
+            @PathVariable Long projectId,
+            @PathVariable String uploadId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return new ResponseEntity<>(documentBatchUploadService.finalizeUpload(projectId, principal.getUserId(), uploadId), HttpStatus.CREATED);
+    }
+
+    @PostMapping(value = "/documents/uploads/{uploadId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<DocumentResponseDTO> uploadReservedViaBackend(
+            @PathVariable Long projectId,
+            @PathVariable String uploadId,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (file.getSize() > 100L * 1024 * 1024) return new ResponseEntity<>(HttpStatus.PAYLOAD_TOO_LARGE);
+        return new ResponseEntity<>(documentBatchUploadService.uploadViaBackend(projectId, principal.getUserId(), uploadId, file), HttpStatus.CREATED);
+    }
+
+    @GetMapping("/documents/upload-capabilities")
+    public ResponseEntity<DocumentUploadCapabilitiesResponseDTO> getUploadCapabilities(
+            @PathVariable Long projectId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        documentService.requireProjectMembership(projectId, principal.getUserId());
+        return ResponseEntity.ok(documentBatchUploadService.capabilities());
     }
 
     /*

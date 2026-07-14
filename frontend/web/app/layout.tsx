@@ -12,6 +12,8 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import KeyboardShortcutsProvider from "@/components/providers/KeyboardShortcutsProvider";
 import AuthBootstrapProvider from "@/components/providers/AuthBootstrapProvider";
 import SWRProvider from "@/components/providers/SWRProvider";
+import TimeZoneProvider from "@/components/providers/TimeZoneProvider";
+import TaskCacheProvider from "@/components/providers/TaskCacheProvider";
 import IOSInstallPrompt from "@/components/pwa/IOSInstallPrompt";
 import { OnlineStatusProvider } from "@/components/pwa/OnlineStatusProvider";
 import PWARegistration from "@/components/pwa/PWARegistration";
@@ -101,6 +103,8 @@ export default function RootLayout({
         <NavigationProvider>
           <SWRProvider>
             <AuthBootstrapProvider>
+              <TimeZoneProvider>
+              <TaskCacheProvider>
               <ThemeProvider>
                 <ToastProvider>
                   <OnlineStatusProvider>
@@ -116,6 +120,8 @@ export default function RootLayout({
                   </OnlineStatusProvider>
                 </ToastProvider>
               </ThemeProvider>
+              </TaskCacheProvider>
+              </TimeZoneProvider>
             </AuthBootstrapProvider>
           </SWRProvider>
         </NavigationProvider>

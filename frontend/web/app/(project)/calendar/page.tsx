@@ -14,11 +14,11 @@ import AgendaCalendarView from './components/AgendaCalendarView';
 import type { CalendarEventItem, CalendarFilters, CalendarView } from './types';
 import { addDays, addMonths, formatMonthLabel, formatWeekLabel, getCalendarSummary, toDateKey } from './utils/date';
 import CreateTaskModal, { type CreateTaskData } from '@/components/shared/CreateTaskModal';
-import { tasksApi } from '@/services/api-contract';
 import { normalizeTaskPriority } from '@/services/tasks-contract';
 import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 import TaskCardModal from '@/app/taskcard/TaskCardModal';
 import { useCalendarEvents } from './hooks/useCalendarEvents';
+import { useTaskMutations } from '@/hooks/useTaskMutations';
 
 const DEFAULT_FILTERS: CalendarFilters = {
   search: '',
@@ -96,10 +96,12 @@ function CalendarPageContent() {
     error,
     revalidate,
     appendEvent,
+    removeEvent,
     patchEventDate,
     refreshOneTask,
     patchingTaskIdsRef,
   } = useCalendarEvents(projectId);
+  const taskMutations = useTaskMutations(projectId);
 
   const [view, setView] = useState<CalendarView>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -190,9 +192,9 @@ function CalendarPageContent() {
     setShowCreateModal(true);
   };
 
-  const handleCreateTask = async (data: CreateTaskData) => {
+  const handleCreateTask = (data: CreateTaskData) => {
     if (!projectId) return;
-    const task = await tasksApi.create({
+    const result = taskMutations.create({
       projectId: parseInt(projectId, 10),
       title: data.title,
       priority: normalizeTaskPriority(data.priority),
@@ -201,7 +203,10 @@ function CalendarPageContent() {
       labelIds: data.labelIds,
       dueDate: data.dueDate,
     });
-    appendEvent(task);
+    appendEvent(result.optimisticTask);
+    void result.completion
+      .then((serverTask) => appendEvent(serverTask, result.optimisticTask.id))
+      .catch(() => removeEvent(result.optimisticTask.id));
   };
 
   const handleEventDrop = async (eventId: string, newDate: Date) => {

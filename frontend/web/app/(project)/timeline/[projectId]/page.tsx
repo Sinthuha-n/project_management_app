@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation';
 import TimelineView from '../../kanban/components/TimelineView';
 import { Task } from '../../kanban/types';
-import { createTask, fetchTasksByProject } from '../../kanban/api';
+import { createTask as createTimelineTask, fetchTasksByProject } from '../../kanban/api';
 import { AlertCircle, CalendarClock, CalendarRange, Diamond, ListChecks, Lock, Plus, RefreshCw } from 'lucide-react';
 import TaskCardModal from '@/app/taskcard/TaskCardModal';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
@@ -15,6 +15,7 @@ import EmptyState from '@/components/shared/EmptyState';
 import CreateTaskModal, { type CreateTaskData } from '@/components/shared/CreateTaskModal';
 import type { TimelineInsight } from '../../kanban/utils/timeline-utils';
 import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
+import { useTaskMutations } from '@/hooks/useTaskMutations';
 
 const TIMELINE_CACHE_TTL_MS = 10 * 60_000;
 
@@ -27,6 +28,7 @@ type TimelineTaskUpdatedDetail = {
 export default function TimelinePage() {
   const router = useRouter();
   const { projectId } = useParams<{ projectId: string }>();
+  const taskMutations = useTaskMutations(projectId);
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [milestones, setMilestones] = useState<MilestoneResponse[]>([]);
@@ -223,10 +225,10 @@ export default function TimelinePage() {
     return () => window.removeEventListener('planora:task-updated', onTaskUpdated);
   }, [fetchOneTask, loadMilestones, patchTask, upsertTask]);
 
-  const handleCreateTask = async (data: CreateTaskData) => {
+  const handleCreateTask = (data: CreateTaskData) => {
     const projectIdNum = parseInt(projectId, 10);
     if (isNaN(projectIdNum)) return;
-    const createdTask = await createTask({
+    const payload = {
       projectId: projectIdNum,
       title: data.title,
       status: data.status || 'TODO',
@@ -234,8 +236,13 @@ export default function TimelinePage() {
       storyPoint: data.storyPoint,
       assigneeId: data.assigneeId,
       dueDate: data.dueDate,
-    });
-    upsertTask(createdTask);
+    };
+    const result = taskMutations.create(payload, (request) => createTimelineTask(request as typeof payload));
+    const optimistic = result.optimisticTask as unknown as Task;
+    upsertTask(optimistic);
+    void result.completion.then((serverTask) => {
+      setTasks((previous) => previous.map((task) => task.id === optimistic.id ? serverTask as Task : task));
+    }).catch(() => setTasks((previous) => previous.filter((task) => task.id !== optimistic.id)));
   };
 
   const handleTimelineInsightsChange = useCallback((insights: TimelineInsight, rangeLabel: string) => {

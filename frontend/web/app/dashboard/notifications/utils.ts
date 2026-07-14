@@ -1,5 +1,6 @@
 import type { Notification } from '@/services/notifications-service';
 import type { TypeTone } from './types';
+import { formatDate, formatRelativeTime as formatRelativeInstant } from '@/lib/date-time';
 
 export const TYPE_TONES: Record<string, TypeTone> = {
   CHAT: { bg: 'bg-indigo-500/10', text: 'text-indigo-500' },
@@ -40,22 +41,8 @@ export function toTypeLabel(type: string): string {
 }
 
 export function formatRelativeTime(iso: string): string {
-  const time = new Date(iso).getTime();
-  if (Number.isNaN(time)) return 'Unknown time';
-
-  const diffMs = Date.now() - time;
-  const diffMin = Math.floor(diffMs / 60000);
-
-  if (diffMin < 1) return 'Just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay}d ago`;
-
-  return new Date(iso).toLocaleDateString();
+  const relative = formatRelativeInstant(iso);
+  return relative === 'recently' ? (formatDate(iso) || 'Unknown time') : relative;
 }
 
 export function hasActionLink(notification: Notification): boolean {

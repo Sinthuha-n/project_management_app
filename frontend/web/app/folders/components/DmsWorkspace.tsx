@@ -10,6 +10,7 @@ import DmsDocumentToolbar from '@/app/folders/components/DmsDocumentToolbar';
 import { ViewMode } from '@/app/folders/components/types';
 import { useDmsWorkspace } from '@/app/folders/hooks/useDmsWorkspace';
 import EmptyState from '@/components/shared/EmptyState';
+import DmsUploadQueue from '@/app/folders/components/DmsUploadQueue';
 
 interface DmsWorkspaceProps {
     mode: ViewMode;
@@ -29,7 +30,7 @@ export default function DmsWorkspace({ mode }: DmsWorkspaceProps) {
         selectedVersionsDocId, setSelectedVersionsDocId,
         selectedVersionsDoc, selectedInfoDoc, setSelectedInfoDoc,
         renameDoc, renameName, setRenameName,
-        versions, isUploading, uploadProgress,
+        versions,
         withProjectId, getFolderName,
         onCreateFolder, onDeleteFolder, onUpload, onDrop,
         onToggleFavorite, onView, onDownload, onRename, onConfirmRename, onCancelRename,
@@ -38,6 +39,8 @@ export default function DmsWorkspace({ mode }: DmsWorkspaceProps) {
         quota, selectedPermsFolder, folderPermissions, loadingPerms, savingPerms,
         onOpenFolderPermissions, onSaveFolderPermissions, onCloseFolderPermissions,
         previewDoc, setPreviewDoc,
+        uploadQueue, uploadCapabilities, isInitializingUploads,
+        cancelUpload, cancelRemainingUploads, retryUploads, clearFinishedUploads,
     } = useDmsWorkspace(mode);
 
     const dragCounter = useRef(0);
@@ -121,13 +124,18 @@ export default function DmsWorkspace({ mode }: DmsWorkspaceProps) {
                     <div className="absolute inset-0 z-30 flex items-center justify-center bg-cu-primary-light/90 backdrop-blur-sm pointer-events-none">
                         <div className="rounded-cu-lg border-2 border-dashed border-cu-primary bg-cu-bg px-8 py-7 text-center shadow-cu-lg">
                             <UploadCloud size={34} className="mx-auto text-cu-primary" />
-                            <p className="mt-3 text-lg font-bold text-cu-text-primary">Drop file to upload</p>
-                            <p className="mt-1 text-sm text-cu-text-secondary">It will be added to the selected folder.</p>
+                            <p className="mt-3 text-lg font-bold text-cu-text-primary">Drop files to upload</p>
+                            <p className="mt-1 text-sm text-cu-text-secondary">Up to 25 files will be added to the selected folder.</p>
                         </div>
                     </div>
                 )}
 
-                <DmsHeader title={title} isTrashMode={isTrashMode} onUpload={onUpload} />
+                <DmsHeader
+                    title={title} isTrashMode={isTrashMode} onUpload={onUpload}
+                    accept={uploadCapabilities?.acceptedExtensions.map((extension) => `.${extension}`).join(',')}
+                    initializing={isInitializingUploads}
+                    uploadEnabled={uploadCapabilities?.multiUploadEnabled !== false}
+                />
 
                 <div className="grid grid-cols-12 min-h-[70vh]">
                     <DmsSidebar
@@ -226,7 +234,7 @@ export default function DmsWorkspace({ mode }: DmsWorkspaceProps) {
                 selectedVersionsDocId={selectedVersionsDocId} selectedVersionsDoc={selectedVersionsDoc}
                 versions={versions} setSelectedVersionsDocId={setSelectedVersionsDocId}
                 selectedInfoDoc={selectedInfoDoc} setSelectedInfoDoc={setSelectedInfoDoc}
-                getFolderName={getFolderName} isUploading={isUploading} uploadProgress={uploadProgress}
+                getFolderName={getFolderName}
                 renameDoc={renameDoc} renameName={renameName} setRenameName={setRenameName}
                 onConfirmRename={onConfirmRename} onCancelRename={onCancelRename} busy={busy}
                 selectedPermsFolder={selectedPermsFolder} folderPermissions={folderPermissions}
@@ -234,6 +242,11 @@ export default function DmsWorkspace({ mode }: DmsWorkspaceProps) {
                 onSaveFolderPermissions={onSaveFolderPermissions} onCloseFolderPermissions={onCloseFolderPermissions}
                 projectId={projectId}
                 previewDoc={previewDoc} setPreviewDoc={setPreviewDoc}
+            />
+            <DmsUploadQueue
+                items={uploadQueue} initializing={isInitializingUploads}
+                onCancel={cancelUpload} onCancelRemaining={cancelRemainingUploads}
+                onRetry={(ids) => void retryUploads(ids)} onClearFinished={clearFinishedUploads}
             />
         </>
     );

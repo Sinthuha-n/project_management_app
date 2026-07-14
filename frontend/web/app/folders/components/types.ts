@@ -16,3 +16,16 @@ export interface DocumentFilters {
     favoriteOnly: boolean;
     dateRange: DocumentDateFilter;
 }
+
+export type UploadQueueStatus = 'queued' | 'uploading' | 'scanning' | 'completed' | 'failed' | 'cancelled';
+
+export interface UploadQueueItem {
+    id: string;
+    file: File;
+    folderId?: number;
+    folderName: string;
+    status: UploadQueueStatus;
+    progress: number;
+    errorCode?: string;
+    errorMessage?: string;
+}

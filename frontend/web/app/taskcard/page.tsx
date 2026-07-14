@@ -11,6 +11,8 @@ import { getProjectGitHubRepo } from '@/services/github-service';
 import CreateIssueFromTaskModal from '@/components/github/CreateIssueFromTaskModal';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
 import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
+import { applyTaskMutation, createMutationId, publishTaskMutation } from '@/lib/task-cache';
+import type { Task } from '@/types';
 
 interface TaskData {
   id: number;
@@ -154,13 +156,30 @@ function TaskPageContent() {
     dueDate: string;
   }>) => {
     if (!taskId || !taskData) return;
-    
+    const mutationId = createMutationId();
+    const previous = { ...taskData };
+    setTaskData((current) => current ? { ...current, ...updates } : current);
+    applyTaskMutation({
+      operation: 'updated', projectId: taskData.projectId, taskId: Number(taskId), mutationId,
+      source: 'optimistic', patch: updates, occurredAt: new Date().toISOString(),
+    });
     try {
-      await api.put(`/api/tasks/${taskId}`, updates);
+      const response = await api.put<Task>(`/api/tasks/${taskId}`, updates);
+      const committed = {
+        operation: 'updated' as const, projectId: taskData.projectId, taskId: Number(taskId), mutationId,
+        source: 'http' as const, task: response.data, occurredAt: new Date().toISOString(),
+      };
+      applyTaskMutation(committed);
+      publishTaskMutation(committed);
       // Invalidate after update so the next page visit fetches fresh data instead of the old snapshot
       localStorage.removeItem(`planora:task:${taskId}`);
       await fetchTaskData();
     } catch (err: unknown) {
+      setTaskData(previous);
+      applyTaskMutation({
+        operation: 'updated', projectId: taskData.projectId, taskId: Number(taskId), mutationId,
+        source: 'rollback', task: previous as unknown as Task, occurredAt: new Date().toISOString(),
+      });
       console.error('Failed to update task:', err);
       toast(`Failed to update task: ${normalizeApiError(err, 'Unknown error')}`, 'error');
     }
