@@ -4466,6 +4466,7 @@ export interface components {
         MobileGithubOAuthStartRequest: {
             /** @enum {string} */
             destination: "PROFILE" | "PROJECT";
+            loginHint?: string;
             /** Format: int64 */
             projectId?: number;
         };

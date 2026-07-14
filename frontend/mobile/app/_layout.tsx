@@ -190,6 +190,7 @@ export default function RootLayout() {
           <Stack.Screen name="portfolios/index"                options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="portfolios/[id]"                 options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="project/[projectId]/settings"    options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="settings/github"                 options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="github-callback"                 options={{ headerShown: false }} />
           <Stack.Screen name="modal"                           options={{ presentation: 'modal' }} />
         </Stack>

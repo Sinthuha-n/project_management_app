@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.ParameterizedTypeReference;
@@ -28,12 +29,19 @@ public class GithubIssuesSyncService {
     private final RestClient githubClient;
 
     @Autowired
-    public GithubIssuesSyncService(RestClient.Builder restClientBuilder) {
+    public GithubIssuesSyncService(
+            RestClient.Builder restClientBuilder,
+            @Value("${github.api-base-url:https://api.github.com}") String githubApiBaseUrl) {
         githubClient = restClientBuilder
-                .baseUrl("https://api.github.com")
+                .baseUrl(githubApiBaseUrl)
                 .defaultHeader(HttpHeaders.ACCEPT, "application/vnd.github+json")
                 .defaultHeader("X-GitHub-Api-Version", "2022-11-28")
                 .build();
+    }
+
+    /** Convenience constructor retained for isolated unit tests. */
+    GithubIssuesSyncService(RestClient.Builder restClientBuilder) {
+        this(restClientBuilder, "https://api.github.com");
     }
 
     /**

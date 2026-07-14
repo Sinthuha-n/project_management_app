@@ -2,6 +2,7 @@ package com.planora.backend.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.planora.backend.PostgresIntegrationIT;
 import com.planora.backend.model.User;
 import com.planora.backend.repository.UserRepository;
 import io.jsonwebtoken.Jwts;
@@ -10,12 +11,11 @@ import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -23,20 +23,21 @@ import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
 @AutoConfigureMockMvc
-@ActiveProfiles("test")
-class UserAuthIntegrationTest {
+@TestPropertySource(properties = {
+        "app.cookie.secure=true",
+        "app.cookie.samesite=None"
+})
+class UserAuthIT extends PostgresIntegrationIT {
 
     @Autowired
     private MockMvc mockMvc;
@@ -51,7 +52,7 @@ class UserAuthIntegrationTest {
     private BCryptPasswordEncoder passwordEncoder;
 
     @Test
-    void refresh_withOnlyLoginCookie_issuesNewAccessToken() throws Exception {
+    void refresh_withOnlyLoginCookie_rotatesRefreshTokenAndIssuesAccessToken() throws Exception {
         String rawPassword = "Test@1234";
         String email = "cookie-refresh-" + UUID.randomUUID() + "@example.com";
         seedVerifiedUser(email, rawPassword);
@@ -71,11 +72,8 @@ class UserAuthIntegrationTest {
                 .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("SameSite=None")))
                 .andReturn();
 
-        String loginAccessToken = readToken(loginResult);
         Cookie refreshCookie = loginResult.getResponse().getCookie("planora_refresh_token");
         assertNotNull(refreshCookie);
-
-        TimeUnit.MILLISECONDS.sleep(1100);
 
         MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
                         .cookie(refreshCookie))
@@ -88,7 +86,10 @@ class UserAuthIntegrationTest {
                 .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("SameSite=None")))
                 .andReturn();
 
-        assertNotEquals(loginAccessToken, readToken(refreshResult));
+        assertNotNull(readToken(refreshResult));
+        Cookie rotatedRefreshCookie = refreshResult.getResponse().getCookie("planora_refresh_token");
+        assertNotNull(rotatedRefreshCookie);
+        assertNotEquals(refreshCookie.getValue(), rotatedRefreshCookie.getValue());
     }
 
     /**

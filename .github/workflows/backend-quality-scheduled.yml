@@ -1,0 +1,126 @@
+name: Scheduled Backend Quality
+
+on:
+  schedule:
+    - cron: '30 1 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  mutation:
+    name: Critical Mutation Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: chmod +x mvnw
+      - name: Run PIT quality gate
+        run: ./mvnw -B -Djacoco.skip=true -Pmutation test-compile org.pitest:pitest-maven:mutationCoverage
+      - if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-pit-report
+          if-no-files-found: warn
+          path: backend/target/pit-reports/**
+
+  stability:
+    name: Unit Suite Stability
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: chmod +x mvnw
+      - name: Repeat unit suite three times
+        run: |
+          for run in 1 2 3; do
+            echo "Unit stabilization run ${run}/3"
+            ./mvnw -B test
+          done
+      - if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-stability-reports
+          if-no-files-found: warn
+          path: backend/target/surefire-reports/**
+
+  zap:
+    name: ZAP Baseline
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: planora_zap
+          POSTGRES_USER: planora
+          POSTGRES_PASSWORD: planora
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U planora -d planora_zap"
+          --health-interval=5s --health-timeout=5s --health-retries=10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Start ephemeral backend
+        working-directory: backend
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/planora_zap
+          SPRING_DATASOURCE_USERNAME: planora
+          SPRING_DATASOURCE_PASSWORD: planora
+          JWT_SECRET: dGhpcy1pcy1hLXN1cGVyLXNlY3JldC1rZXktMzJieXQ=
+          MAIL_HOST: localhost
+          MAIL_PORT: 2525
+          MAIL_USERNAME: integration
+          MAIL_PASSWORD: integration
+          AWS_ACCESS_KEY: test
+          AWS_SECRET_KEY: test
+          AWS_REGION: us-east-1
+          AWS_PROFILE_PHOTOS_BUCKET: zap-profile
+          AWS_DMS_BUCKET: zap-documents
+          AWS_CHAT_BUCKET: zap-chat
+          AWS_TASK_STORAGE_BUCKET: zap-tasks
+          GITHUB_SYNC_ENABLED: 'false'
+          SPRINGDOC_API_DOCS_ENABLED: 'true'
+        run: |
+          chmod +x mvnw
+          ./mvnw -q -DskipTests spring-boot:run &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:8080/actuator/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+      - name: Scan backend
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: http://localhost:8080
+          fail_action: true
+          artifact_name: backend-zap-report

@@ -62,7 +62,7 @@ class MobileGithubOAuthControllerTest {
         userEntity.setUserId(7L);
         userEntity.setEmail("user@example.com");
         UserPrincipal principal = new UserPrincipal(userEntity);
-        var request = new MobileGithubOAuthStartRequest(MobileGithubOAuthStartRequest.Destination.PROFILE, null);
+        var request = new MobileGithubOAuthStartRequest(MobileGithubOAuthStartRequest.Destination.PROFILE, null, null);
         when(oauthService.start(eq(7L), eq(request)))
                 .thenReturn(new MobileGithubOAuthStartResponse("https://github.com/login/oauth/authorize", 600));
 
@@ -72,6 +72,22 @@ class MobileGithubOAuthControllerTest {
                         .content(objectMapper.writeValueAsBytes(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.expiresInSeconds").value(600));
+    }
+
+    @Test
+    void invalidLoginHintIsRejected() throws Exception {
+        User userEntity = new User();
+        userEntity.setUserId(7L);
+        userEntity.setEmail("user@example.com");
+        UserPrincipal principal = new UserPrincipal(userEntity);
+
+        mockMvc.perform(post("/api/github/mobile/oauth/start")
+                        .with(user(principal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"destination":"PROFILE","loginHint":"invalid user"}
+                                """))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

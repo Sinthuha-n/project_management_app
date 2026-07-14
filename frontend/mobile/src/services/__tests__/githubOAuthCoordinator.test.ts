@@ -22,8 +22,17 @@ describe('GitHub OAuth coordinator', () => {
     mockOpen.mockResolvedValue({ type: 'success', url: 'planora://github-callback?result=success&destination=profile' });
 
     await expect(connectGitHub({ destination: 'PROFILE' })).resolves.toEqual({ type: 'success' });
-    expect(mockStart).toHaveBeenCalledWith('PROFILE', undefined);
+    expect(mockStart).toHaveBeenCalledWith('PROFILE', undefined, undefined);
     expect(mockOpen).toHaveBeenCalledWith(expect.stringContaining('github.com'), 'planora://github-callback');
+  });
+
+  it('forwards a saved-account login hint to the backend OAuth start', async () => {
+    mockStart.mockResolvedValue({ authorizationUrl: 'https://github.com/login/oauth/authorize', expiresInSeconds: 600 });
+    mockOpen.mockResolvedValue({ type: 'success', url: 'planora://github-callback?result=success' });
+
+    await connectGitHub({ destination: 'PROJECT', projectId: '12', loginHint: 'octo-user' });
+
+    expect(mockStart).toHaveBeenCalledWith('PROJECT', '12', 'octo-user');
   });
 
   it('maps browser dismissal to cancellation', async () => {

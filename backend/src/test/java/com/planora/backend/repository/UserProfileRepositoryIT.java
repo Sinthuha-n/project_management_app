@@ -6,8 +6,7 @@ import com.planora.backend.model.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.planora.backend.PostgresDataJpaIT;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
 import java.util.Optional;
@@ -22,9 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * stored on the {@link User} entity and persisted through {@link UserRepository}.
  * These tests validate that those fields round-trip correctly through JPA.
  */
-@ActiveProfiles("test")
-@DataJpaTest
-class UserProfileRepositoryTest {
+class UserProfileRepositoryIT extends PostgresDataJpaIT {
 
     @Autowired
     private TestEntityManager entityManager;

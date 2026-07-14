@@ -15,7 +15,6 @@ import { getCurrentUserId } from '../../../src/auth/storage';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import CustomFieldsManager from '../../../src/components/settings/CustomFieldsManager';
 import RecurringSchedulesManager from '../../../src/components/settings/RecurringSchedulesManager';
-import GitHubAutoTransitionsCard from '../../../src/components/settings/GitHubAutoTransitionsCard';
 import NotificationPreferencesPanel from '../../../src/components/settings/NotificationPreferencesPanel';
 
 // ─── Inline SVG Icons ─────────────────────────────────────────────────────────
@@ -618,16 +617,6 @@ export default function ProjectSettingsPage() {
               iconBg="#FFF6E8"
             >
               <RecurringSchedulesManager projectId={numericId} />
-            </SectionCard>
-
-            {/* ── GitHub Auto-Transitions ──────────────────────────────── */}
-            <SectionCard
-              title="GitHub Auto-Transitions"
-              subtitle="Quick setup for common GitHub workflow rules"
-              icon={<MaterialCommunityIcons name="github" size={18} color="#1A1A2E" />}
-              iconBg="#F0F1F3"
-            >
-              <GitHubAutoTransitionsCard projectId={numericId} />
             </SectionCard>
 
             {/* ── Notification Preferences ─────────────────────────────── */}

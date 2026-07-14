@@ -29,6 +29,7 @@ import {
   useMobileBacklog,
 } from '../../hooks/useMobileBacklog';
 import MobileTaskDetailSheet from '../task-detail/MobileTaskDetailSheet';
+import { GitHubTaskBadges } from '../github/GitHubTaskBadges';
 
 const hapticLight = () => {
   void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -651,6 +652,7 @@ function TaskCard({
           </View>
         </View>
         <Text style={[styles.taskTitle, task.status === 'DONE' && styles.doneTitle]} numberOfLines={2}>{task.title}</Text>
+        <GitHubTaskBadges task={task} />
 
         <View style={styles.metaRow}>
           <TouchableOpacity

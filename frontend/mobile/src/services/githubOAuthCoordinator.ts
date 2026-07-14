@@ -23,11 +23,16 @@ let flowActive = false;
 export async function connectGitHub(options: {
   destination: 'PROFILE' | 'PROJECT';
   projectId?: string;
+  loginHint?: string;
 }): Promise<GitHubOAuthOutcome> {
   if (flowActive) return { type: 'busy' };
   flowActive = true;
   try {
-    const { authorizationUrl } = await startMobileGitHubOAuth(options.destination, options.projectId);
+    const { authorizationUrl } = await startMobileGitHubOAuth(
+      options.destination,
+      options.projectId,
+      options.loginHint,
+    );
     const browserResult = await WebBrowser.openAuthSessionAsync(
       authorizationUrl,
       'planora://github-callback',

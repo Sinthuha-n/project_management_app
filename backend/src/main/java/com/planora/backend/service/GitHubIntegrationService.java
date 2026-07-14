@@ -46,8 +46,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class GitHubIntegrationService {
 
-    private static final String GITHUB_API = "https://api.github.com";
     private static final int MAX_ITEMS = 5;
+
+    @Value("${github.api-base-url:https://api.github.com}")
+    private String githubApiBaseUrl = "https://api.github.com";
+
+    @Value("${github.oauth-base-url:https://github.com}")
+    private String githubOauthBaseUrl = "https://github.com";
 
     @Value("${github.client.id:}")
     private String clientId;
@@ -106,7 +111,7 @@ public class GitHubIntegrationService {
                     "GitHub token is required");
         }
 
-        String url = GITHUB_API + "/user/repos?per_page=100&sort=updated";
+        String url = githubApiBaseUrl + "/user/repos?per_page=100&sort=updated";
         HttpHeaders headers = buildHeaders(githubToken);
 
         try {
@@ -184,7 +189,7 @@ public class GitHubIntegrationService {
     private List<GitHubTaskData.LinkedPr> fetchLinkedPRs(String owner, String repo,
                                                           String branch, HttpHeaders headers) {
         // Filter by head branch so only PRs from this exact branch are returned.
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo
                 + "/pulls?head=" + owner + ":" + branch
                 + "&state=all&per_page=" + MAX_ITEMS;
 
@@ -241,7 +246,7 @@ public class GitHubIntegrationService {
      * @return one of "APPROVED", "CHANGES_REQUESTED", "COMMENTED", "REVIEW_REQUIRED", or null on error
      */
     private String fetchReviewStatus(String owner, String repo, int prNumber, HttpHeaders headers) {
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo
                 + "/pulls/" + prNumber + "/reviews";
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -290,7 +295,7 @@ public class GitHubIntegrationService {
 
     private List<GitHubTaskData.RecentCommit> fetchRecentCommits(String owner, String repo,
                                                                    String branch, HttpHeaders headers) {
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo
                 + "/commits?sha=" + branch + "&per_page=" + MAX_ITEMS;
 
         try {
@@ -354,7 +359,7 @@ public class GitHubIntegrationService {
 
     private CiStatus fetchAndResolveCheckRuns(String owner, String repo,
                                                String sha, HttpHeaders headers) {
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo
                 + "/commits/" + sha + "/check-runs";
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -367,7 +372,7 @@ public class GitHubIntegrationService {
 
     private CiStatus fetchAndResolveCommitStatuses(String owner, String repo,
                                                     String sha, HttpHeaders headers) {
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo
                 + "/commits/" + sha + "/statuses";
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -443,7 +448,7 @@ public class GitHubIntegrationService {
                     "GitHub OAuth is not configured on this server");
         }
 
-        String url = "https://github.com/login/oauth/access_token";
+        String url = githubOauthBaseUrl + "/login/oauth/access_token";
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.ACCEPT, "application/json");
         headers.set(HttpHeaders.CONTENT_TYPE, "application/json");
@@ -499,7 +504,7 @@ public class GitHubIntegrationService {
     }
 
     private GithubIdentity fetchGitHubIdentity(String accessToken) {
-        String url = GITHUB_API + "/user";
+        String url = githubApiBaseUrl + "/user";
         HttpHeaders headers = buildHeaders(accessToken);
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -519,7 +524,7 @@ public class GitHubIntegrationService {
     }
 
     private String fetchPrimaryVerifiedGithubEmail(String accessToken) {
-        String url = GITHUB_API + "/user/emails";
+        String url = githubApiBaseUrl + "/user/emails";
         HttpHeaders headers = buildHeaders(accessToken);
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -571,7 +576,7 @@ public class GitHubIntegrationService {
     }
 
     private boolean revokeWithCredentials(String token, String oauthClientId, String oauthClientSecret) {
-        String url = GITHUB_API + "/applications/" + oauthClientId + "/grant";
+        String url = githubApiBaseUrl + "/applications/" + oauthClientId + "/grant";
         HttpHeaders headers = new HttpHeaders();
         headers.setBasicAuth(oauthClientId, oauthClientSecret);
         headers.set(HttpHeaders.ACCEPT, "application/vnd.github.v3+json");
@@ -605,7 +610,7 @@ public class GitHubIntegrationService {
         if (isBlank(githubToken)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "GitHub token is required");
         }
-        String url = GITHUB_API + "/user";
+        String url = githubApiBaseUrl + "/user";
         HttpHeaders headers = buildHeaders(githubToken);
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -624,7 +629,7 @@ public class GitHubIntegrationService {
         if (isBlank(githubToken)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "GitHub token is required");
         }
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo + "/pulls?state=all&per_page=50&sort=updated&direction=desc";
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo + "/pulls?state=all&per_page=50&sort=updated&direction=desc";
         HttpHeaders headers = buildHeaders(githubToken);
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -643,7 +648,7 @@ public class GitHubIntegrationService {
         if (isBlank(githubToken)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "GitHub token is required");
         }
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo + "/pulls/" + prNumber;
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo + "/pulls/" + prNumber;
         HttpHeaders headers = buildHeaders(githubToken);
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -662,7 +667,7 @@ public class GitHubIntegrationService {
         if (isBlank(githubToken)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "GitHub token is required");
         }
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo + "/commits?per_page=50";
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo + "/commits?per_page=50";
         HttpHeaders headers = buildHeaders(githubToken);
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(

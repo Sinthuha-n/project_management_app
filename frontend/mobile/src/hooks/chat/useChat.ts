@@ -21,47 +21,15 @@ import {
   syncQueuedChatMessages,
   type QueuedChatMessage,
 } from '../../services/chatOfflineService';
+import {
+  buildStompConnect as buildConnect,
+  buildStompSend as buildSend,
+  buildStompSubscribe as buildSubscribe,
+  parseStompFrame as parseFrame,
+  sendStompFrame,
+} from '../../realtime/stompFrames';
 
 // ── Minimal inline STOMP builder/parser ──────────────────────────────────────
-
-// Builders do NOT include the null-byte terminator — sendStompFrame appends it.
-function buildConnect(token: string) {
-  return `CONNECT\naccept-version:1.2\nheart-beat:0,0\nAuthorization:Bearer ${token}\n\n`;
-}
-function buildSubscribe(id: string, dest: string) {
-  return `SUBSCRIBE\nid:${id}\ndestination:${dest}\n\n`;
-}
-function buildSend(dest: string, body: string) {
-  return `SEND\ndestination:${dest}\ncontent-type:application/json\n\n${body}`;
-}
-
-// On React Native/Android, OkHttp's UTF-8 text-frame encoding can silently drop the
-// STOMP null-byte terminator (\0).  Sending as a binary frame (Uint8Array) guarantees
-// the 0x00 byte reaches the server exactly.  On web the browser handles it fine.
-function sendStompFrame(ws: WebSocket, frame: string) {
-  if (Platform.OS === 'web') {
-    ws.send(frame + '\0');
-  } else {
-    const bytes = new TextEncoder().encode(frame + '\0');
-    ws.send(bytes as unknown as string); // React Native WebSocket accepts ArrayBufferView
-  }
-}
-function parseFrame(raw: string): { command: string; headers: Record<string, string>; body: string } {
-  const s = raw.replace(/\r\n/g, '\n');
-  if (!s.trim() || s === '\n') return { command: 'HEARTBEAT', headers: {}, body: '' };
-  const div = s.indexOf('\n\n');
-  if (div === -1) return { command: s.trim(), headers: {}, body: '' };
-  const headerSection = s.slice(0, div);
-  const body = s.slice(div + 2).replace(/\0$/, '');
-  const lines = headerSection.split('\n');
-  const command = lines[0].trim();
-  const headers: Record<string, string> = {};
-  lines.slice(1).forEach(l => {
-    const idx = l.indexOf(':');
-    if (idx > 0) headers[l.slice(0, idx).trim()] = l.slice(idx + 1).trim();
-  });
-  return { command, headers, body };
-}
 
 function dmKey(username: string): string {
   return username.trim().toLowerCase();

@@ -5,17 +5,18 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
-import org.springframework.test.context.ActiveProfiles;
+
+import com.planora.backend.PostgresDataJpaIT;
 
 import com.planora.backend.model.ChatMessage;
 import com.planora.backend.model.ChatReaction;
+import com.planora.backend.model.Project;
+import com.planora.backend.model.ProjectType;
+import com.planora.backend.model.Team;
 import com.planora.backend.model.User;
 
-@ActiveProfiles("test")
-@DataJpaTest
-class ChatMessageRepositoryTest {
+class ChatMessageRepositoryIT extends PostgresDataJpaIT {
 
     @Autowired
     private TestEntityManager entityManager;
@@ -35,13 +36,25 @@ class ChatMessageRepositoryTest {
         user.setVerified(true);
         entityManager.persist(user);
 
+        Team team = new Team();
+        team.setName("Chat integration team");
+        team.setOwner(user);
+        entityManager.persist(team);
+
+        Project project = new Project();
+        project.setName("Chat integration project");
+        project.setProjectKey("CHAT-IT");
+        project.setOwner(user);
+        project.setTeam(team);
+        project.setType(ProjectType.KANBAN);
+        entityManager.persist(project);
+
         ChatMessage message = new ChatMessage();
         message.setType(ChatMessage.MessageType.CHAT);
         message.setContent("Message with reactions");
         message.setSender("owner");
         message.setRecipient(null);
-        message.setProjectId(101L);
-        message.setRoomId(202L);
+        message.setProjectId(project.getId());
         message.setChatType(ChatMessage.ChatType.GROUP);
         entityManager.persist(message);
 

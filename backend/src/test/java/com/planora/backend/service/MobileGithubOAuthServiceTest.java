@@ -60,13 +60,15 @@ class MobileGithubOAuthServiceTest {
         when(values.increment("github:oauth:start:7")).thenReturn(1L);
 
         var response = service.start(7L,
-                new MobileGithubOAuthStartRequest(MobileGithubOAuthStartRequest.Destination.PROFILE, null));
+                new MobileGithubOAuthStartRequest(MobileGithubOAuthStartRequest.Destination.PROFILE, null, "octo-user"));
 
         assertEquals(600, response.expiresInSeconds());
         assertTrue(response.authorizationUrl().contains("client_id=mobile-client"));
         assertTrue(response.authorizationUrl().contains("code_challenge_method=S256"));
         assertTrue(response.authorizationUrl().contains("state="));
+        assertTrue(response.authorizationUrl().contains("login=octo-user"));
         assertFalse(response.authorizationUrl().contains("code_verifier"));
+        assertFalse(response.authorizationUrl().contains("user%40example.com"));
         verify(values).set(anyString(), anyString(), eq(Duration.ofMinutes(10)));
     }
 

@@ -58,6 +58,7 @@ export const routes = {
     return (`/summary/${projectId}${qs ? `?${qs}` : ''}`) as Href;
   },
   github: (projectId: number | string): Href => `/github/${projectId}` as Href,
+  githubSettings: '/settings/github' as Href,
   settings: (projectId: number | string, projectName?: string): Href => {
     const qs = projectName ? `?projectName=${encodeURIComponent(projectName)}` : '';
     return `/project/${projectId}/settings${qs}` as Href;

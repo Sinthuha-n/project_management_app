@@ -8,8 +8,7 @@ import com.planora.backend.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.planora.backend.PostgresDataJpaIT;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 
 import java.time.LocalDateTime;
@@ -18,9 +17,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@ActiveProfiles("test")
-@DataJpaTest
-class TaskAttachmentRepositoryTest {
+class TaskAttachmentRepositoryIT extends PostgresDataJpaIT {
 
     @Autowired
     private TestEntityManager entityManager;

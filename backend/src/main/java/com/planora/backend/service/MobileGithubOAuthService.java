@@ -50,6 +50,9 @@ public class MobileGithubOAuthService {
     @Value("${github.oauth.transaction-ttl:10m}")
     private Duration transactionTtl;
 
+    @Value("${github.oauth-base-url:https://github.com}")
+    private String githubOauthBaseUrl = "https://github.com";
+
     public MobileGithubOAuthStartResponse start(
             Long userId,
             MobileGithubOAuthStartRequest request) {
@@ -76,14 +79,18 @@ public class MobileGithubOAuthService {
                     "GitHub connection is temporarily unavailable");
         }
 
-        String authorizationUrl = UriComponentsBuilder
-                .fromUriString("https://github.com/login/oauth/authorize")
+        UriComponentsBuilder authorizationUri = UriComponentsBuilder
+                .fromUriString(githubOauthBaseUrl + "/login/oauth/authorize")
                 .queryParam("client_id", gitHubIntegrationService.getMobileClientId())
                 .queryParam("redirect_uri", callbackUri)
                 .queryParam("scope", "repo user:email")
                 .queryParam("state", state)
                 .queryParam("code_challenge", challenge)
-                .queryParam("code_challenge_method", "S256")
+                .queryParam("code_challenge_method", "S256");
+        if (request.loginHint() != null && !request.loginHint().isBlank()) {
+            authorizationUri.queryParam("login", request.loginHint());
+        }
+        String authorizationUrl = authorizationUri
                 .build()
                 .encode()
                 .toUriString();

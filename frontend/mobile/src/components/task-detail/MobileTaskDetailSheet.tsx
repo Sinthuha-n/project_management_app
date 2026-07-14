@@ -19,6 +19,7 @@ import { projectService } from '../../services/project-service';
 import { sprintService, taskService } from '../../services/task-service';
 import { taskDetailService, TaskDetailBundle } from '../../services/task-detail-service';
 import { apiErrorMessage } from '../../utils/apiError';
+import { TaskGitHubPanel } from '../github/TaskGitHubPanel';
 
 const STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'];
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
@@ -317,6 +318,8 @@ export default function MobileTaskDetailSheet({
                 {saving ? <ActivityIndicator size="small" color="#fff" /> : <MaterialCommunityIcons name="content-save-outline" size={18} color="#fff" />}
                 <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save Task'}</Text>
               </TouchableOpacity>
+
+              {taskId && task ? <TaskGitHubPanel taskId={taskId} projectId={projectId} task={task} /> : null}
 
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Comments</Text>
