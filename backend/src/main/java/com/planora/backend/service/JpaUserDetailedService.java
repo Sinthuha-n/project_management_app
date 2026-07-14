@@ -10,6 +10,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * It only understands objects that implement its internal "UserDetails" interface.
@@ -18,6 +19,7 @@ import lombok.RequiredArgsConstructor;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class JpaUserDetailedService implements UserDetailsService {
 
     private final UserRepository repository;
@@ -39,7 +41,7 @@ public class JpaUserDetailedService implements UserDetailsService {
 
         // Step 2. Fail fast if the user doesn't exist in our database.
         if(user == null){
-            System.out.println("User is not found");
+            log.debug("No user found for supplied authentication identity");
             throw new UsernameNotFoundException("User is not found");
         }
 

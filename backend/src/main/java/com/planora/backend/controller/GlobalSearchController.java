@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/search")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 public class GlobalSearchController {
 
     private final GlobalSearchService globalSearchService;

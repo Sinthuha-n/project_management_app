@@ -19,10 +19,12 @@ import com.planora.backend.dto.ChatMessageDTO;
 import com.planora.backend.model.ChatMessage;
 
 import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 
 // In-memory webhook registry intentionally keeps rollout simple before persistence is required.
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class ChatWebhookService {
 
     public record ChatWebhook(String id,
@@ -44,14 +46,16 @@ public class ChatWebhookService {
 
     private final Map<Long, Map<String, ChatWebhook>> webhooksByProject = new ConcurrentHashMap<>();
     // Shared client keeps webhook dispatch overhead low during high chat throughput.
-    private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final HttpClient httpClient;
+    private final ObjectMapper objectMapper;
+    private final OutboundUrlPolicy outboundUrlPolicy;
 
     public List<ChatWebhook> listWebhooks(Long projectId) {
         return webhooksByProject.getOrDefault(projectId, Map.of()).values().stream().toList();
     }
 
     public ChatWebhook createWebhook(Long projectId, String url, List<String> events, Boolean active, String secret) {
+        String validatedUrl = outboundUrlPolicy.requirePublicHttpUrl(url).toString();
         // Default events keep webhook setup ergonomic for first-time integrations.
         var normalizedEvents = (events == null || events.isEmpty())
                 ? List.of("MESSAGE_CREATED", "MESSAGE_UPDATED", "MESSAGE_DELETED")
@@ -59,7 +63,7 @@ public class ChatWebhookService {
 
         var webhook = new ChatWebhook(
                 UUID.randomUUID().toString(),
-                url,
+                validatedUrl,
                 normalizedEvents,
                 active == null || active,
                 secret,
@@ -142,7 +146,7 @@ public class ChatWebhookService {
     private void dispatchToWebhook(ChatWebhook hook, WebhookDispatchPayload payload) {
         try {
             var requestBuilder = HttpRequest.newBuilder()
-                    .uri(URI.create(hook.url()))
+                    .uri(outboundUrlPolicy.requirePublicHttpUrl(hook.url()))
                     .timeout(Duration.ofSeconds(8))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)));

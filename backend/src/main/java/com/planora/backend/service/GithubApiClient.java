@@ -1,7 +1,6 @@
 package com.planora.backend.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -32,12 +31,9 @@ public class GithubApiClient {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
-    public GithubApiClient() {
-        this.httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .build();
-        this.objectMapper = new ObjectMapper()
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    public GithubApiClient(HttpClient httpClient, ObjectMapper objectMapper) {
+        this.httpClient = httpClient;
+        this.objectMapper = objectMapper;
     }
 
     public List<JsonNode> fetchPullRequests(String repoFullName, String token, String state, int page, int perPage) {

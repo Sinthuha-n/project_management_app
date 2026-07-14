@@ -3,13 +3,12 @@ import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, Platform, Animated, ActivityIndicator,
   Modal, KeyboardAvoidingView, TouchableWithoutFeedback,
-  Keyboard, StatusBar as RNStatusBar, Alert,
+  Keyboard, Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Svg, { Path, Circle, Rect, Polygon, Line } from 'react-native-svg';
+import Svg, { Path, Circle, Polygon, Line } from 'react-native-svg';
 import { T } from '../../../src/constants/tokens';
 import { projectService, type ProjectDetails } from '../../../src/services/project-service';
 import { getCurrentUserId } from '../../../src/auth/storage';

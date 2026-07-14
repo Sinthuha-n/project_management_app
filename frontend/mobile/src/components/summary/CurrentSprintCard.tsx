@@ -3,8 +3,8 @@
  * Glassmorphic card with animated progress bar, days-left badge, and task counts.
  */
 import React, { useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, Animated, Platform } from 'react-native';
-import Svg, { Path, Polygon } from 'react-native-svg';
+import { View, Text, StyleSheet, Animated } from 'react-native';
+import Svg, { Polygon } from 'react-native-svg';
 import type { Task, Sprint } from '../../hooks/useProjectSummary';
 
 const PRIMARY = '#155DFC';
@@ -15,7 +15,7 @@ const AMBER   = '#F59E0B';
 export function CurrentSprintCard({ tasks, sprints }: { tasks: Task[]; sprints: Sprint[] }) {
   const activeSprint = useMemo(() => sprints.find(s => s.status === 'ACTIVE'), [sprints]);
 
-  const { sprintTasks, donePoints, totalPoints, doneTasks, pct, daysLeft, isUrgent, daysText } = useMemo(() => {
+  const { sprintTasks, donePoints, totalPoints, doneTasks, pct, isUrgent, daysText } = useMemo(() => {
     if (!activeSprint) return { sprintTasks: [], donePoints: 0, totalPoints: 0, doneTasks: 0, pct: 0, daysLeft: 0, isUrgent: false, daysText: '' };
 
     const st = tasks.filter(t => t.sprintId === activeSprint.id);

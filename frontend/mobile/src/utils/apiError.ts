@@ -11,7 +11,7 @@ export function apiErrorMessage(error: unknown, fallback: string) {
   if (data && typeof data === 'object') {
     const body = data as {
       message?: string;
-      fieldErrors?: Array<{ field?: string; message?: string }>;
+      fieldErrors?: { field?: string; message?: string }[];
     };
 
     if (Array.isArray(body.fieldErrors)) {

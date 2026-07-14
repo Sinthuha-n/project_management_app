@@ -35,6 +35,25 @@ class QueryGuardianTest {
     }
 
     @Test
+    void doFilterInternal_preservesOnlySafeRequestIds() throws Exception {
+        ReflectionTestUtils.setField(queryGuardrailFilter, "warnThreshold", 40);
+        ReflectionTestUtils.setField(queryGuardrailFilter, "failThreshold", 120);
+        ReflectionTestUtils.setField(queryGuardrailFilter, "failOnExceed", false);
+
+        MockHttpServletRequest safeRequest = new MockHttpServletRequest("GET", "/api/tasks");
+        safeRequest.addHeader("X-Request-Id", "client-request_123");
+        MockHttpServletResponse safeResponse = new MockHttpServletResponse();
+        queryGuardrailFilter.doFilterInternal(safeRequest, safeResponse, mock(FilterChain.class));
+        assertEquals("client-request_123", safeResponse.getHeader("X-Request-Id"));
+
+        MockHttpServletRequest unsafeRequest = new MockHttpServletRequest("GET", "/api/tasks");
+        unsafeRequest.addHeader("X-Request-Id", "forged\nlog-entry");
+        MockHttpServletResponse unsafeResponse = new MockHttpServletResponse();
+        queryGuardrailFilter.doFilterInternal(unsafeRequest, unsafeResponse, mock(FilterChain.class));
+        assertNotEquals("forged\nlog-entry", unsafeResponse.getHeader("X-Request-Id"));
+    }
+
+    @Test
     void validateThresholds_acceptsOrderedPositiveThresholds() {
         ReflectionTestUtils.setField(queryGuardrailFilter, "warnThreshold", 60);
         ReflectionTestUtils.setField(queryGuardrailFilter, "failThreshold", 180);

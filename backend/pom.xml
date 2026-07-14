@@ -291,6 +291,9 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
 					<argLine>@{argLine} ${mockito.agent.argLine} -Xshare:off</argLine>
+					<systemPropertyVariables>
+						<debug>false</debug>
+					</systemPropertyVariables>
 					<excludes>
 						<exclude>**/*IT.java</exclude>
 					</excludes>
@@ -301,6 +304,9 @@
 				<artifactId>maven-failsafe-plugin</artifactId>
 				<configuration>
 					<argLine>@{argLine} ${mockito.agent.argLine} -Xshare:off</argLine>
+					<systemPropertyVariables>
+						<debug>false</debug>
+					</systemPropertyVariables>
 				</configuration>
 				<executions>
 					<execution>

@@ -879,6 +879,11 @@ function SprintBacklogPageContent() {
                             setSprints((prev) => prev.map((s) => s.id === sprintId ? { ...s, tasks: s.tasks.filter((t) => t.id !== taskId) } : s));
                           }}
                           onSprintDeleted={handleSprintDeleted}
+                          onSprintUpdated={(sprintId, updates) => {
+                            setSprints((prev) => prev.map((item) =>
+                              item.id === sprintId ? { ...item, ...updates } : item
+                            ));
+                          }}
                           onStatusChange={handleTaskStatusChange}
                           onStoryPointsChange={updateTaskStoryPoints}
                           onAssignTask={(taskId, name, photo) => {

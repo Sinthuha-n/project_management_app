@@ -61,8 +61,9 @@ public class NotificationController {
 
     // Deletes a specific notification by its ID.
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteNotification(@PathVariable Long id) {
-        notificationService.deleteNotification(id);
+    public ResponseEntity<Void> deleteNotification(@PathVariable Long id,
+                                                   @AuthenticationPrincipal UserPrincipal principal) {
+        notificationService.deleteNotification(id, principal.getUserId());
         return ResponseEntity.noContent().build();
     }
 }

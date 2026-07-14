@@ -1,13 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Image, Linking,
   FlatList, Dimensions, GestureResponderEvent,
 } from 'react-native';
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
   FadeInDown,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
