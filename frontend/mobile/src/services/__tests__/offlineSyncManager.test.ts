@@ -1,4 +1,4 @@
-import { offlineSyncManager, QueuedMutation, SyncEvent } from '../offlineSyncManager';
+import { offlineSyncManager, SyncEvent } from '../offlineSyncManager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../api/axios';
 

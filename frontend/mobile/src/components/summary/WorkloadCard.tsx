@@ -42,7 +42,7 @@ function MemberBar({ entry, maxTasks }: { entry: WorkloadEntry; maxTasks: number
       toValue: maxTasks > 0 ? entry.tasks / maxTasks : 0,
       duration: 900, useNativeDriver: false,
     }).start();
-  }, [entry.tasks, maxTasks]);
+  }, [entry.tasks, fillAnim, maxTasks]);
 
   const initials = entry.initials;
   const doneColor = '#00875A';

@@ -115,6 +115,8 @@ function Field({
     <View style={field.wrap}>
       <Text style={field.label}>{label}</Text>
       <TextInput
+        accessibilityLabel={label}
+        accessibilityState={{ disabled }}
         style={[field.input, disabled && field.disabled, multiline && field.multi]}
         value={value}
         onChangeText={onChange}

@@ -3,6 +3,7 @@ async function loadResolver(options: {
   apiBaseUrl?: string;
   hostUri?: string;
   os: 'android' | 'ios' | 'web';
+  environment?: 'development' | 'preview' | 'production' | 'test';
 }) {
   jest.resetModules();
   if (options.apiUrl !== undefined) {
@@ -10,6 +11,9 @@ async function loadResolver(options: {
   }
   if (options.apiBaseUrl !== undefined) {
     process.env.EXPO_PUBLIC_API_BASE_URL = options.apiBaseUrl;
+  }
+  if (options.environment !== undefined) {
+    process.env.EXPO_PUBLIC_APP_ENV = options.environment;
   }
 
   jest.doMock('react-native', () => ({
@@ -32,6 +36,7 @@ describe('resolveApiBaseUrl', () => {
   afterEach(() => {
     delete process.env.EXPO_PUBLIC_API_URL;
     delete process.env.EXPO_PUBLIC_API_BASE_URL;
+    delete process.env.EXPO_PUBLIC_APP_ENV;
     jest.resetModules();
   });
 
@@ -89,5 +94,29 @@ describe('resolveApiBaseUrl', () => {
     });
 
     expect(buildApiUrl('api/auth/refresh')).toBe('/api/auth/refresh');
+  });
+
+  test('normalizes the configured origin and derives a secure WebSocket URL', async () => {
+    const { buildApiUrl, buildWebSocketUrl, resolveApiBaseUrl } = await loadResolver({
+      apiBaseUrl: 'https://api.example.com/',
+      environment: 'preview',
+      os: 'android',
+    });
+
+    expect(resolveApiBaseUrl()).toBe('https://api.example.com');
+    expect(buildApiUrl('/api/projects')).toBe('https://api.example.com/api/projects');
+    expect(buildWebSocketUrl()).toBe('wss://api.example.com/ws-native');
+  });
+
+  test.each([
+    ['', 'required'],
+    ['http://api.example.com', 'HTTPS'],
+    ['https://localhost:8080', 'local API host'],
+  ])('rejects unsafe preview URL %s', async (apiBaseUrl, message) => {
+    await expect(loadResolver({
+      apiBaseUrl,
+      environment: 'preview',
+      os: 'android',
+    })).rejects.toThrow(message);
   });
 });

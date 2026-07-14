@@ -200,7 +200,7 @@ export default function RootLayout() {
           <SplashAnimation onFinished={handleSplashFinished} />
         )}
 
-        <StatusBar style="light" />
+        <StatusBar style={showSplash ? 'light' : 'dark'} />
       </View>
     </GestureHandlerRootView>
   );

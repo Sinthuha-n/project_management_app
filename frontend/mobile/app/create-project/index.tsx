@@ -116,7 +116,7 @@ function ProjectTypeCard({
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [delay, opacity, translateY]);
 
   const onPressIn = () =>
     Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, tension: 300, friction: 20 }).start();
@@ -218,7 +218,7 @@ export default function SelectProjectTypeScreen() {
       Animated.timing(headerOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
       Animated.spring(headerY, { toValue: 0, tension: 160, friction: 18, useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [headerOpacity, headerY]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>

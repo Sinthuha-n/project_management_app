@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useMemo, createContext, useContext, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useMemo, createContext, useContext, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, Animated,
   TouchableOpacity, RefreshControl, Platform, Dimensions, InteractionManager, Easing, Image,
@@ -52,7 +52,7 @@ function LoadingOverlay() {
       Animated.timing(barAnim, { toValue: 0.75, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: false }),
       Animated.timing(barAnim, { toValue: 0.88, duration: 3000, easing: Easing.linear, useNativeDriver: false }),
     ]).start();
-  }, []);
+  }, [barAnim]);
 
   // Cycle quotes every 3.5 seconds with fade in/out
   useEffect(() => {
@@ -64,7 +64,7 @@ function LoadingOverlay() {
       });
     }, 3500);
     return () => clearInterval(interval);
-  }, []);
+  }, [quoteOp]);
 
   const barWidth = barAnim.interpolate({ inputRange: [0, 1], outputRange: [0, SW * 0.55] });
   const q = QUOTES[quoteIdx];
@@ -119,7 +119,7 @@ function SpinProvider({ children }: { children: React.ReactNode }) {
     Animated.loop(
       Animated.timing(spinAnim, { toValue: 1, duration: 9000, useNativeDriver: true })
     ).start();
-  }, []);
+  }, [spinAnim]);
   return <SpinContext.Provider value={spinAnim}>{children}</SpinContext.Provider>;
 }
 
@@ -143,7 +143,7 @@ function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
       Animated.timing(op, { toValue: 1, duration: 360, delay, useNativeDriver: true }),
       Animated.spring(ty, { toValue: 0, delay, useNativeDriver: true, tension: 160, friction: 20 }),
     ]).start();
-  }, []);
+  }, [delay, op, ty]);
   return <Animated.View style={{ opacity: op, transform: [{ translateY: ty }] }}>{children}</Animated.View>;
 }
 
@@ -155,7 +155,7 @@ function Skeleton({ h = 14, w = '100%' as any, mb = 8 }) {
       Animated.timing(op, { toValue: 1, duration: 650, useNativeDriver: true }),
       Animated.timing(op, { toValue: 0.4, duration: 650, useNativeDriver: true }),
     ])).start();
-  }, []);
+  }, [op]);
   return <Animated.View style={{ height: h, width: w, backgroundColor: '#E8EDF5', borderRadius: 8, marginBottom: mb, opacity: op }} />;
 }
 
@@ -213,7 +213,7 @@ function CircularProgress({ pct }: { pct: number }) {
         useNativeDriver: true,
       })
     ).start();
-  }, [pct]);
+  }, [anim, pct, rotationAnim]);
 
   const offset = anim.interpolate({ inputRange: [0, 100], outputRange: [C, 0] });
   const spin = rotationAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
@@ -233,10 +233,10 @@ function CircularProgress({ pct }: { pct: number }) {
           </Svg>
         </Animated.View>
         <Text style={{ fontSize: 18, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 }}>{Math.round(pct)}%</Text>
-        <Text style={{ fontSize: 8, fontWeight: '700', color: '#94A3B8', letterSpacing: 0.5 }}>DONE</Text>
+        <Text style={{ fontSize: 12, fontWeight: '700', color: '#64748B', letterSpacing: 0.5 }}>DONE</Text>
       </View>
       <View style={{ flex: 1, gap: 4 }}>
-        <Text style={{ fontSize: 11, fontWeight: '600', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.8 }}>Overall Progress</Text>
+        <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Overall Progress</Text>
         <Text style={{ fontSize: 22, fontWeight: '900', color, letterSpacing: -0.5 }}>{label}</Text>
         <View style={{ height: 5, backgroundColor: '#EFF3FB', borderRadius: 3, overflow: 'hidden', marginTop: 4 }}>
           <Animated.View style={{
@@ -255,7 +255,7 @@ function MetricTile({ label, value, color, icon }: { label: string; value: numbe
     <View style={[s.tile, { borderColor: color + '22', backgroundColor: color + '0A' }]}>
       <Text style={{ fontSize: 20 }}>{icon}</Text>
       <Text style={{ fontSize: 24, fontWeight: '900', color: '#0F172A', letterSpacing: -1 }}>{value}</Text>
-      <Text style={{ fontSize: 10, fontWeight: '700', color: '#64748B', textAlign: 'center' }}>{label}</Text>
+      <Text style={{ fontSize: 12, fontWeight: '700', color: '#64748B', textAlign: 'center' }}>{label}</Text>
     </View>
   );
 }
@@ -300,7 +300,7 @@ function DueItem({ task }: { task: { id: number; title: string; dueDate?: string
         <Text style={s.listSub}>{task.assigneeName || 'Unassigned'} · TSK-{task.id}</Text>
       </View>
       {badge ? <View style={[s.badge, { backgroundColor: urgency + '18', borderColor: urgency + '30' }]}>
-        <Text style={{ fontSize: 10, fontWeight: '800', color: urgency }}>{badge}</Text>
+        <Text style={{ fontSize: 12, fontWeight: '800', color: urgency }}>{badge}</Text>
       </View> : null}
     </View>
   );
@@ -311,7 +311,7 @@ function CompletedItem({ task, rank }: { task: { id: number; title: string; assi
   const initials = task.assigneeName?.substring(0, 2).toUpperCase() || '??';
   return (
     <View style={s.listRow}>
-      <Text style={{ fontSize: 10, fontWeight: '900', color: '#CBD5E1', width: 18 }}>#{rank}</Text>
+      <Text style={{ fontSize: 12, fontWeight: '900', color: '#64748B', width: 22 }}>#{rank}</Text>
       {task.assigneePhotoUrl ? (
         <Image source={{ uri: task.assigneePhotoUrl }} style={s.avatar} />
       ) : (
@@ -345,7 +345,7 @@ function MilestoneItem({ m }: { m: { id: number; name: string; status: string; d
         </Text>
       </View>
       <View style={[s.badge, { backgroundColor: color + '18', borderColor: color + '30' }]}>
-        <Text style={{ fontSize: 9, fontWeight: '800', color }}>{m.status.replace('_', ' ')}</Text>
+        <Text style={{ fontSize: 12, fontWeight: '800', color }}>{m.status.replace('_', ' ')}</Text>
       </View>
     </View>
   );
@@ -592,12 +592,12 @@ const s = StyleSheet.create({
     backgroundColor: T.primaryLight, alignItems: 'center', justifyContent: 'center',
   },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A', letterSpacing: -0.3 },
-  headerSub: { fontSize: 11, fontWeight: '600', color: '#94A3B8', marginTop: 1 },
+  headerSub: { fontSize: 12, fontWeight: '600', color: '#64748B', marginTop: 1 },
   agilePill: {
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
     backgroundColor: T.primaryLight, borderWidth: 1, borderColor: T.primaryMuted + '55',
   },
-  agilePillText: { fontSize: 10, fontWeight: '800', color: T.primary, letterSpacing: 0.8 },
+  agilePillText: { fontSize: 12, fontWeight: '800', color: T.primary, letterSpacing: 0.5 },
   boardBtn: {
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
     backgroundColor: T.primary, borderWidth: 1, borderColor: T.primary,
@@ -625,7 +625,7 @@ const s = StyleSheet.create({
   cardBorderWrapper: { ...StyleSheet.absoluteFillObject, borderRadius: 18, overflow: 'hidden' },
   cardSpinner: { position: 'absolute', top: -500, left: -500, right: -500, bottom: -500 },
   cardInner: { backgroundColor: '#FFFFFF', borderRadius: 16.5, padding: 18, gap: 14 },
-  cardTitle: { fontSize: 11, fontWeight: '800', color: '#0F172A', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 4 },
+  cardTitle: { fontSize: 12, fontWeight: '800', color: '#0F172A', textTransform: 'uppercase', letterSpacing: 0.7, marginTop: 4 },
   tileRow: { flexDirection: 'row', gap: 10 },
   tile: { flex: 1, borderRadius: 14, borderWidth: 1, padding: 14, alignItems: 'center', gap: 4 },
   listRow: {
@@ -633,10 +633,10 @@ const s = StyleSheet.create({
     paddingVertical: 8, borderBottomWidth: 0.8, borderBottomColor: '#F8FAFC',
   },
   listTitle: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
-  listSub: { fontSize: 11, fontWeight: '500', color: '#94A3B8', marginTop: 1 },
+  listSub: { fontSize: 12, fontWeight: '500', color: '#64748B', marginTop: 1 },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1 },
   avatar: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  ago: { fontSize: 10, color: '#CBD5E1', fontWeight: '600' },
+  ago: { fontSize: 12, color: '#64748B', fontWeight: '600' },
   empty: { fontSize: 13, color: '#94A3B8', fontStyle: 'italic', textAlign: 'center', paddingVertical: 8 },
   errorBox: { margin: 20, padding: 24, backgroundColor: '#FEF2F2', borderRadius: 18, alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#FECACA' },
   errorText: { fontSize: 13, color: '#DC2626', textAlign: 'center', fontWeight: '600' },

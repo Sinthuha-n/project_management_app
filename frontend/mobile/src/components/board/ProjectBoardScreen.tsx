@@ -23,7 +23,6 @@ import { BlurView } from 'expo-blur';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { T, STATUS_MAP, StatusKey } from '../../constants/tokens';
-import { Colors } from '../../constants/colors';
 import OfflineStaleBanner from '../ui/OfflineStaleBanner';
 import MobileTaskDetailSheet from '../task-detail/MobileTaskDetailSheet';
 import { GitHubTaskBadges } from '../github/GitHubTaskBadges';

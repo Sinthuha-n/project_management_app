@@ -253,7 +253,7 @@ export default function ProjectSetupScreen() {
       Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, tension: 160, friction: 18, useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim]);
 
   const handleContinue = async () => {
     try {

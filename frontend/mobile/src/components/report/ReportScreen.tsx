@@ -14,15 +14,9 @@ import { useReport } from '../../hooks/useReport';
 import { ScheduledReportResponse } from '../../services/report-service';
 import DownloadSheet  from './DownloadSheet';
 import ScheduleWizard from './ScheduleWizard';
+import { StateView } from '../ui/StateView';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
-const ic = (d: string, c = T.primary, w = 2) => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none"
-    stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round">
-    <Path d={d} />
-  </Svg>
-);
-
 function IcDownload({ c = '#fff', size = 18 }: { c?: string; size?: number }) {
   return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><Path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><Polyline points="7 10 12 15 17 10" /><Path d="M12 15V3" /></Svg>;
 }
@@ -62,8 +56,8 @@ const kpi = StyleSheet.create({
   card:  { flex: 1, minWidth: '28%', borderRadius: 18, backgroundColor: '#fff', padding: 14, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)', ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 }, android: { elevation: 3 } }) },
   blob:  { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   value: { fontSize: 24, fontWeight: '900', lineHeight: 26, marginBottom: 2 },
-  label: { fontSize: 8.5, fontWeight: '800', color: T.textMuted, letterSpacing: 0.8, textTransform: 'uppercase' },
-  sub:   { fontSize: 9, color: T.textMuted, marginTop: 2, lineHeight: 12 },
+  label: { fontSize: 12, fontWeight: '800', color: T.textSecondary, letterSpacing: 0.6, textTransform: 'uppercase' },
+  sub:   { fontSize: 12, color: T.textSecondary, marginTop: 2, lineHeight: 16 },
 });
 
 // ── Schedule Row ──────────────────────────────────────────────────────────────
@@ -138,10 +132,10 @@ const sr_s = StyleSheet.create({
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 },
   freq:     { fontSize: 11, fontWeight: '700', color: '#1F2937' },
   badge:    { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  badgeTxt: { fontSize: 8.5, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
-  sub:      { fontSize: 10, color: T.textMuted },
+  badgeTxt: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
+  sub:      { fontSize: 12, color: T.textSecondary },
   actions:  { flexDirection: 'row', alignItems: 'center' },
-  actionBtn: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6' },
+  actionBtn: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6' },
 });
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -302,19 +296,14 @@ export default function ReportScreen({ projectId, projectName, topOffset = 0 }: 
   // ── Error ──────────────────────────────────────────────────────────────────
   if (error && !data) {
     return (
-      <View style={[ms.flex1, ms.center, { paddingTop: topOffset }]}>
-        <Text style={{ fontSize: 32, marginBottom: 12 }}>⚠️</Text>
-        <Text style={ms.errTxt}>{error}</Text>
-        <TouchableOpacity onPress={refresh} style={ms.retryBtn}>
-          <Text style={ms.retryTxt}>Try Again</Text>
-        </TouchableOpacity>
+      <View style={[ms.flex1, { paddingTop: topOffset }]}>
+        <StateView title="Report unavailable" message={error} icon="warning-outline" actionLabel="Try again" onAction={refresh} />
       </View>
     );
   }
 
   const d = data;
   const completionPct  = d?.completionPct  ?? 0;
-  const overduePct     = d?.overduePct     ?? 0;
 
   const kpiCards = [
     { label: 'Total Tasks', value: d?.metrics.totalTasks ?? 0,    color: T.primary },

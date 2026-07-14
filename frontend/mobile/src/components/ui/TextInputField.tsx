@@ -33,6 +33,8 @@ type Props = {
   autoComplete?: TextInputProps['autoComplete'];
   right?: React.ReactNode;
   inputRef?: React.RefObject<TextInput | null>;
+  accessibilityHint?: string;
+  testID?: string;
 };
 
 export default function TextInputField({
@@ -54,6 +56,8 @@ export default function TextInputField({
   autoComplete,
   right,
   inputRef,
+  accessibilityHint,
+  testID,
 }: Props) {
   const [isFocused, setIsFocused] = useState(false);
   const localInputRef = useRef<TextInput>(null);
@@ -67,7 +71,7 @@ export default function TextInputField({
       duration: 160,
       useNativeDriver: false, // color interpolation requires false
     }).start();
-  }, [isFocused, value]);
+  }, [floatAnim, isFocused, value]);
 
   const labelTop = floatAnim.interpolate({
     inputRange: [0, 1],
@@ -104,6 +108,7 @@ export default function TextInputField({
         {label}
       </Animated.Text>
       <Pressable
+        accessibilityRole="none"
         onPress={() => resolvedInputRef.current?.focus()}
         style={[styles.inputContainer, { borderColor }, isFocused && styles.focusedShadow]}
       >
@@ -111,6 +116,10 @@ export default function TextInputField({
           ref={resolvedInputRef}
           style={[styles.input, isWeb && { height: undefined }, { paddingTop: 10 }]}
           value={value}
+          accessibilityLabel={label}
+          accessibilityHint={accessibilityHint}
+          accessibilityState={{ disabled: !editable }}
+          testID={testID}
           onChangeText={onChangeText}
           placeholder={isFocused || value ? '' : undefined}
           placeholderTextColor="#B0B7C3"
@@ -152,7 +161,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 56,
+    minHeight: 56,
     borderWidth: 1.5,
     borderRadius: 16,
     paddingHorizontal: 16,

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView,
+  View, Text, TouchableOpacity, StyleSheet,
   Pressable, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';

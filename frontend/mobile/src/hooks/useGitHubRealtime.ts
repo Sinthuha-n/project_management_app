@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { ensureValidToken } from '../auth/storage';
-import { resolveApiBaseUrl } from '../api/baseUrl';
+import { buildWebSocketUrl } from '../api/baseUrl';
 import { offlineSyncManager } from '../services/offlineSyncManager';
 import {
   buildStompConnect,
@@ -48,8 +48,7 @@ export function useGitHubRealtime(projectId: string, handlers: GitHubRealtimeHan
     if (socketRef.current?.readyState === WebSocket.OPEN || socketRef.current?.readyState === WebSocket.CONNECTING) return;
     const token = await ensureValidToken();
     if (!token || !activeRef.current) return;
-    const base = resolveApiBaseUrl().replace(/\/api\/?$/, '');
-    const socket = new WebSocket(`${base.replace(/^http/, 'ws')}/ws-native`);
+    const socket = new WebSocket(buildWebSocketUrl());
     socketRef.current = socket;
 
     const scheduleRetry = () => {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { DeviceEventEmitter, Platform } from 'react-native';
 import * as chatService from '../../services/chatService';
-import { API_BASE_URL } from '../../api/axios';
+import { buildWebSocketUrl } from '../../api/baseUrl';
 import { ChatMessage, ChatFeatureFlags } from '../../types/chat';
 import { useChatRooms } from './useChatRooms';
 import { useChatMessages } from './useChatMessages';
@@ -420,8 +420,7 @@ export function useChat(projectId: string) {
         return;
       }
 
-      const base = API_BASE_URL.replace(/\/api$/, '');
-      const wsUrl = base.replace(/^https?/, 'ws') + '/ws-native';
+      const wsUrl = buildWebSocketUrl();
 
       console.info('[Chat] Connecting:', wsUrl);
       const ws = new WebSocket(wsUrl);
