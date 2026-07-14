@@ -112,6 +112,14 @@ jobs:
         
     - name: Ensure mvnw is executable
       run: chmod +x mvnw
+
+    - name: Cache OWASP Dependency-Check data
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2/repository/org/owasp/dependency-check-data
+        key: dependency-check-${{ runner.os }}-${{ hashFiles('backend/pom.xml') }}
+        restore-keys: |
+          dependency-check-${{ runner.os }}-
         
     - name: Run Backend Verification
       env:
