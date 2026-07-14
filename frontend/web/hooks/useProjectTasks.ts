@@ -7,6 +7,8 @@ import { tasksApi } from '@/services/tasks-contract';
 import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
 import { TASK_CACHE_RETENTION_MS, taskKeys } from '@/lib/task-cache';
 
+const EMPTY_TASKS: Task[] = [];
+
 export function useProjectTasks(projectId: string | number | null, archived = false) {
   const [loadedNetworkKey, setLoadedNetworkKey] = useState<string | null>(null);
   const numericProjectId = projectId == null ? null : Number(projectId);
@@ -41,12 +43,12 @@ export function useProjectTasks(projectId: string | number | null, archived = fa
   );
 
   return {
-    tasks: swr.data ?? [],
+    tasks: swr.data ?? EMPTY_TASKS,
     error: swr.error,
     loading: swr.isLoading && !cachedTasks,
     validating: swr.isValidating,
     hasData: swr.data !== undefined,
-    authoritative: loadedNetworkKey === networkKey || cachedTasks !== undefined,
+    authoritative: numericProjectId !== null && (loadedNetworkKey === networkKey || cachedTasks !== undefined),
     revalidate: swr.mutate,
   };
 }
