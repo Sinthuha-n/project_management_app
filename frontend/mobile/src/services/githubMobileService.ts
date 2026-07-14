@@ -6,8 +6,29 @@ const BACKEND_GITHUB_TOKEN_SENTINEL = 'backend-managed';
 
 // ── Backend-managed GitHub connection ─────────────────────────────────────────
 export async function getGitHubToken(): Promise<string | null> {
-  const { data } = await api.get<{ connected: boolean }>('/api/github/status');
+  const data = await fetchGitHubConnectionStatus();
   return data.connected ? BACKEND_GITHUB_TOKEN_SENTINEL : null;
+}
+
+export interface GitHubConnectionStatus {
+  connected: boolean;
+  username?: string;
+}
+
+export async function fetchGitHubConnectionStatus(): Promise<GitHubConnectionStatus> {
+  const { data } = await api.get<GitHubConnectionStatus>('/api/github/status');
+  return data;
+}
+
+export async function startMobileGitHubOAuth(
+  destination: 'PROFILE' | 'PROJECT',
+  projectId?: string,
+): Promise<{ authorizationUrl: string; expiresInSeconds: number }> {
+  const { data } = await api.post<{ authorizationUrl: string; expiresInSeconds: number }>(
+    '/api/github/mobile/oauth/start',
+    { destination, ...(projectId ? { projectId: Number(projectId) } : {}) },
+  );
+  return data;
 }
 
 export async function saveGitHubToken(_token: string): Promise<void> {

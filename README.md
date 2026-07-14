@@ -164,6 +164,11 @@ cp .env.production.example .env.production
 | `MAIL_USERNAME` | Sender email address | `you@example.com` |
 | `MAIL_PASSWORD` | SMTP app password | `your-app-password` |
 | `APP_FRONTEND_BASE_URL` | Public frontend origin used in invitation emails. Required for `prod`/`production` startup. | `https://planora-pma.netlify.app` |
+| `GITHUB_MOBILE_CLIENT_ID` | Client ID for the environment-specific GitHub OAuth app used by mobile. | `Ov23...` |
+| `GITHUB_MOBILE_CLIENT_SECRET` | Server-only secret for the mobile GitHub OAuth app. | `github_pat_secret` |
+| `GITHUB_MOBILE_CALLBACK_URI` | Public HTTPS backend callback registered in the GitHub OAuth app. | `https://api.planora.app/api/github/mobile/oauth/callback` |
+| `APP_MOBILE_RETURN_URI` | Branded app link used after the backend completes OAuth. | `planora://github-callback` |
+| `GITHUB_OAUTH_TRANSACTION_TTL` | Lifetime of the single-use Redis OAuth transaction. | `10m` |
 | `AWS_ACCESS_KEY` | AWS IAM access key | `your_aws_access_key` |
 | `AWS_SECRET_KEY` | AWS IAM secret key | `your_aws_secret_key` |
 | `AWS_REGION` | S3 bucket region | `eu-north-1` |

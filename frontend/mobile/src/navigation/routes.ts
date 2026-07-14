@@ -71,6 +71,9 @@ export function normalizeRouteLink(link: string): string {
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) {
     try {
       const url = new URL(trimmed);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:' && url.host) {
+        return `/${url.host}${url.pathname}${url.search}${url.hash}`;
+      }
       return `${url.pathname}${url.search}${url.hash}` || '/';
     } catch {
       return trimmed;
@@ -134,6 +137,7 @@ export function resolveMobileRoute(rawLink: string): Href | null {
   if (pathname.startsWith('/dashboard/notifications') || pathname.startsWith('/notifications')) {
     return routes.notifications;
   }
+  if (pathname === '/github-callback') return normalized as Href;
   if (pathname.startsWith('/portfolios')) return normalized as Href;
   if (pathname.startsWith('/create-project') || pathname.startsWith('/createProject')) return routes.createProject;
   if (pathname.startsWith('/github/')) return normalized as Href;

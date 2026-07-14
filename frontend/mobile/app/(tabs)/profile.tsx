@@ -14,6 +14,8 @@ import api from '@/src/api/axios';
 import PasswordInput from '@/src/components/ui/PasswordInput';
 import { validatePassword, getPasswordStrength } from '@/src/lib/validation';
 import PasswordStrengthBar from '@/src/components/ui/PasswordStrengthBar';
+import { fetchGitHubConnectionStatus } from '@/src/services/githubMobileService';
+import { connectGitHub, githubOAuthErrorMessage } from '@/src/services/githubOAuthCoordinator';
 import {
   buildForgotPasswordRequest,
   buildResetPasswordRequest,
@@ -280,7 +282,6 @@ export default function ProfileScreen() {
   const [notifyDueDateReminders, setNotifyDueDateReminders] = useState(false);
 
   // GitHub actions states
-  const [githubInput, setGithubInput] = useState('');
   const [githubLinking, setGithubLinking] = useState(false);
   const [githubUnlinking, setGithubUnlinking] = useState(false);
   const [loggingOutAll, setLoggingOutAll] = useState(false);
@@ -302,7 +303,8 @@ export default function ProfileScreen() {
       setBio(p.bio ?? '');
       setPhone(p.contactNumber ?? '');
       setCountryCode(p.countryCode ?? '');
-      setGithubUsername(p.githubUsername ?? null);
+      const githubStatus = await fetchGitHubConnectionStatus().catch(() => ({ connected: false, username: undefined }));
+      setGithubUsername(githubStatus.connected ? (githubStatus.username ?? p.githubUsername ?? null) : null);
       setNotifyDueDateReminders(p.notifyDueDateReminders ?? false);
     } catch { setErrMsg('Failed to load profile.'); }
     finally { setLoading(false); }
@@ -370,23 +372,20 @@ export default function ProfileScreen() {
   };
 
   const handleLinkGithub = async () => {
-    if (!githubInput.trim()) {
-      Alert.alert('Error', 'GitHub username cannot be empty');
-      return;
-    }
     setGithubLinking(true);
     setErrMsg(''); setSuccessMsg('');
     try {
-      const res = await api.put<UserProfile>('/api/users/me/github-username', {
-        githubUsername: githubInput.trim()
-      });
-      setProfile(res.data);
-      setGithubUsername(res.data.githubUsername);
-      setGithubInput('');
-      setSuccessMsg('GitHub account linked successfully.');
-    } catch (err: any) {
-      const msg = err.response?.data;
-      setErrMsg(typeof msg === 'string' && msg ? msg : 'Failed to link GitHub account.');
+      const outcome = await connectGitHub({ destination: 'PROFILE' });
+      if (outcome.type === 'success') {
+        const status = await fetchGitHubConnectionStatus();
+        setGithubUsername(status.connected ? (status.username ?? null) : null);
+        await loadProfile();
+        setSuccessMsg('GitHub account connected successfully.');
+      } else if (outcome.type === 'error') {
+        setErrMsg(githubOAuthErrorMessage(outcome.code));
+      }
+    } catch {
+      setErrMsg('Failed to connect GitHub account.');
     } finally {
       setGithubLinking(false);
     }
@@ -399,9 +398,9 @@ export default function ProfileScreen() {
         setGithubUnlinking(true);
         setErrMsg(''); setSuccessMsg('');
         try {
-          const res = await api.delete<UserProfile>('/api/users/me/github-username');
-          setProfile(res.data);
-          setGithubUsername(res.data.githubUsername);
+          await api.post('/api/github/revoke');
+          setGithubUsername(null);
+          await loadProfile();
           setSuccessMsg('GitHub account unlinked successfully.');
         } catch {
           setErrMsg('Failed to unlink GitHub account.');
@@ -421,7 +420,7 @@ export default function ProfileScreen() {
           await api.post('/api/user/me/logout-all');
           await clearTokens();
           router.replace('/(auth)/login');
-        } catch (err) {
+        } catch {
           Alert.alert('Error', 'Failed to log out of all sessions. Please try again.');
         } finally {
           setLoggingOutAll(false);
@@ -584,12 +583,9 @@ export default function ProfileScreen() {
               </View>
             ) : (
               <View style={{ gap: 10 }}>
-                <Field
-                  label="GitHub Username"
-                  value={githubInput}
-                  onChange={setGithubInput}
-                  placeholder="Enter your GitHub username"
-                />
+                <Text style={s.preferenceDesc}>
+                  Authorize Planora to access your repositories and verify your GitHub identity.
+                </Text>
                 <TouchableOpacity
                   style={s.githubBtn}
                   onPress={handleLinkGithub}

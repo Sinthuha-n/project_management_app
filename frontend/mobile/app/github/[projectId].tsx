@@ -10,21 +10,18 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import * as WebBrowser from 'expo-web-browser';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 import {
-  getGitHubToken, saveGitHubToken, clearGitHubToken,
+  getGitHubToken, clearGitHubToken,
   getProjectGitHubRepo, setProjectGitHubRepo, clearProjectGitHubRepo,
   fetchGitHubUser, fetchRepositoriesWithToken, fetchPullRequests, fetchCommits, fetchIssues,
-  fetchGitHubOAuthConfig,
-  exchangeCodeForToken,
   fetchProjectPullRequests, fetchProjectCommits, fetchProjectIssues, syncProjectGitHub,
   type ProjectGitHubConnection, type GitHubUser,
   type GitHubPullRequest, type GitHubCommit, type GitHubIssue, type GitHubRepository,
 } from '../../src/services/githubMobileService';
+import { connectGitHub, githubOAuthErrorMessage } from '../../src/services/githubOAuthCoordinator';
 
-const DEFAULT_REDIRECT_URI = 'planora://github-callback';
 type ActiveTab = 'prs' | 'commits' | 'issues';
 type IssueFilter = 'open' | 'closed' | 'all';
 type NotificationType = 'pull-request' | 'issue' | 'security' | 'release';
@@ -962,49 +959,19 @@ export default function GitHubScreen() {
     if (token && connection) void loadData(token, connection);
   }, [token, connection, loadData]);
 
-  // ── OAuth connect ────────────────────────────────────────────────────────
-  // Platform split:
-  //   iOS  → ASWebAuthenticationSession intercepts mobile://github-callback before
-  //           Expo Router sees it, so the code comes back via result.url here.
-  //   Android → Chrome Custom Tab fires the deep link to the router which navigates
-  //           to app/github-callback.tsx; that page exchanges the code and comes back.
   const handleConnect = useCallback(async () => {
     setConnecting(true);
     setError(null);
     try {
-      const oauthConfig = await fetchGitHubOAuthConfig();
-      if (!oauthConfig.configured || !oauthConfig.clientId) {
-        setError('GitHub OAuth is not configured on the backend.');
-        return;
-      }
-      const redirectUri = oauthConfig.redirectUri || DEFAULT_REDIRECT_URI;
-      const authUrl =
-        `https://github.com/login/oauth/authorize` +
-        `?client_id=${oauthConfig.clientId}&scope=repo&state=${projectId}&redirect_uri=${encodeURIComponent(redirectUri)}`;
-
-      if (Platform.OS === 'ios') {
-        // iOS: openAuthSessionAsync returns the redirect URL directly.
-        const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-        if (result.type === 'success' && result.url) {
-          const code = new URL(result.url).searchParams.get('code');
-          if (code) {
-            const accessToken = await exchangeCodeForToken(code, redirectUri);
-            if (accessToken) {
-              await saveGitHubToken(accessToken);
-              setToken(accessToken);
-              const data = await fetchRepositoriesWithToken(accessToken).catch(() => []);
-              setRepos(data);
-              setShowRepoPicker(true);
-            } else {
-              setError('GitHub token exchange failed. Check the backend GitHub OAuth configuration.');
-            }
-          }
-        }
-      } else {
-        // Android: open the browser; when GitHub redirects to mobile://github-callback
-        // the OS fires a deep link and Expo Router navigates to app/github-callback.tsx
-        // which handles the code exchange and navigates back here.
-        await WebBrowser.openBrowserAsync(authUrl);
+      const outcome = await connectGitHub({ destination: 'PROJECT', projectId });
+      if (outcome.type === 'success') {
+        const connectedToken = await getGitHubToken();
+        setToken(connectedToken);
+        const data = await fetchRepositoriesWithToken().catch(() => []);
+        setRepos(data);
+        setShowRepoPicker(true);
+      } else if (outcome.type === 'error') {
+        setError(githubOAuthErrorMessage(outcome.code));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

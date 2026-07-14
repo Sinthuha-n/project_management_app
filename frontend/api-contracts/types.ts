@@ -517,6 +517,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/github/mobile/oauth/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["callback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/github/mobile/oauth/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/github/oauth-config": {
         parameters: {
             query?: never;
@@ -4431,6 +4463,17 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        MobileGithubOAuthStartRequest: {
+            /** @enum {string} */
+            destination: "PROFILE" | "PROJECT";
+            /** Format: int64 */
+            projectId?: number;
+        };
+        MobileGithubOAuthStartResponse: {
+            authorizationUrl?: string;
+            /** Format: int64 */
+            expiresInSeconds?: number;
+        };
         MovePageRequestDto: {
             /** Format: int64 */
             parentPageId?: number;
@@ -5475,6 +5518,8 @@ export interface components {
             fullName?: string;
             githubAccessToken?: string;
             githubEmail?: string;
+            /** Format: int64 */
+            githubUserId?: number;
             githubUsername?: string;
             jobTitle?: string;
             /** Format: date-time */
@@ -6237,6 +6282,52 @@ export interface operations {
             };
         };
     };
+    callback: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MobileGithubOAuthStartRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MobileGithubOAuthStartResponse"];
+                };
+            };
+        };
+    };
     getOAuthConfig: {
         parameters: {
             query?: never;
@@ -6581,7 +6672,7 @@ export interface operations {
                 };
                 content: {
                     "*/*": {
-                        [key: string]: boolean;
+                        [key: string]: Record<string, never>;
                     };
                 };
             };

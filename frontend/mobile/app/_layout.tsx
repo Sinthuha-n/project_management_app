@@ -5,6 +5,7 @@ import 'react-native-reanimated';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Platform, View, StyleSheet } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Linking from 'expo-linking';
 import Constants from 'expo-constants';
 import SplashAnimation from '@/src/components/SplashAnimation';
 import { getValidToken } from '@/src/auth/storage';
@@ -117,6 +118,15 @@ export default function RootLayout() {
     }
   }, []);
 
+  const handleIncomingUrl = useCallback((url: string | null) => {
+    if (!url) return;
+    const route = resolveMobileRoute(url);
+    if (route) {
+      setPendingRoute(String(route));
+      if (!showSplash && authChecked) router.replace(route);
+    }
+  }, [authChecked, router, showSplash]);
+
   // Check auth in background while animation plays
   useEffect(() => {
     // Hide the native OS splash immediately — our JS splash takes over
@@ -124,9 +134,7 @@ export default function RootLayout() {
 
     (async () => {
       await offlineSyncManager.init();
-      const initialUrl = await import('expo-linking')
-        .then((Linking) => Linking.getInitialURL())
-        .catch(() => null);
+      const initialUrl = await Linking.getInitialURL().catch(() => null);
       if (initialUrl) {
         const route = resolveMobileRoute(initialUrl);
         if (route) setPendingRoute(String(route));
@@ -136,6 +144,11 @@ export default function RootLayout() {
       setAuthChecked(true);
     })();
   }, []);
+
+  useEffect(() => {
+    const subscription = Linking.addEventListener('url', ({ url }) => handleIncomingUrl(url));
+    return () => subscription.remove();
+  }, [handleIncomingUrl]);
 
   // Called by SplashAnimation when exit animation finishes
   const handleSplashFinished = useCallback(() => {
@@ -177,6 +190,7 @@ export default function RootLayout() {
           <Stack.Screen name="portfolios/index"                options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="portfolios/[id]"                 options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="project/[projectId]/settings"    options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="github-callback"                 options={{ headerShown: false }} />
           <Stack.Screen name="modal"                           options={{ presentation: 'modal' }} />
         </Stack>
 

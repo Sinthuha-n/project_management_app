@@ -4,6 +4,15 @@ describe('mobile routes', () => {
   it('normalizes absolute links to app paths', () => {
     expect(normalizeRouteLink('https://planora.app/project/42/chat?roomId=7')).toBe('/project/42/chat?roomId=7');
     expect(normalizeRouteLink('summary/4')).toBe('/summary/4');
+    expect(normalizeRouteLink('planora://github-callback?result=success')).toBe('/github-callback?result=success');
+    expect(normalizeRouteLink('mobile://github-callback?result=success')).toBe('/github-callback?result=success');
+  });
+
+  it('resolves branded and legacy GitHub callbacks without losing parameters', () => {
+    expect(resolveMobileRoute('planora://github-callback?result=success&destination=profile'))
+      .toBe('/github-callback?result=success&destination=profile');
+    expect(resolveMobileRoute('mobile://github-callback?result=expired_state'))
+      .toBe('/github-callback?result=expired_state');
   });
 
   it('maps web project routes into the mobile project shell', () => {

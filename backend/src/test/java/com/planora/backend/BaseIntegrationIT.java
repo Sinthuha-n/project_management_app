@@ -2,6 +2,7 @@ package com.planora.backend;
 
 import org.junit.jupiter.api.extension.ConditionEvaluationResult;
 import org.junit.jupiter.api.extension.ExecutionCondition;
+import org.junit.jupiter.api.extension.ExtensionConfigurationException;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -44,6 +45,10 @@ public abstract class BaseIntegrationIT {
         public ConditionEvaluationResult evaluateExecutionCondition(ExtensionContext context) {
             if (DockerClientFactory.instance().isDockerAvailable()) {
                 return ConditionEvaluationResult.enabled("Docker is available");
+            }
+            if (Boolean.parseBoolean(System.getenv("CI"))) {
+                throw new ExtensionConfigurationException(
+                        "Docker is required for Testcontainers-backed integration tests in CI");
             }
             return ConditionEvaluationResult.disabled("Docker is unavailable; skipping Testcontainers-backed integration tests");
         }

@@ -88,6 +88,9 @@ public class User {
     @Column(name = "github_username", length = 39)
     private String githubUsername;
 
+    @Column(name = "github_user_id", unique = true)
+    private Long githubUserId;
+
     @Column(name = "github_email", length = 255)
     private String githubEmail;
 
