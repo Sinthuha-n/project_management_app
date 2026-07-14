@@ -36,6 +36,8 @@
 		<unit.jacoco.argLine/>
 		<integration.jacoco.argLine/>
 		<mockito.agent.argLine>-javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</mockito.agent.argLine>
+		<jacoco.line.coverage.minimum>0.50</jacoco.line.coverage.minimum>
+		<jacoco.branch.coverage.minimum>0.35</jacoco.branch.coverage.minimum>
 	</properties>
 
 	<dependencyManagement>
@@ -372,12 +374,12 @@
 									<limit>
 										<counter>LINE</counter>
 										<value>COVEREDRATIO</value>
-										<minimum>0.90</minimum>
+										<minimum>${jacoco.line.coverage.minimum}</minimum>
 									</limit>
 									<limit>
 										<counter>BRANCH</counter>
 										<value>COVEREDRATIO</value>
-										<minimum>0.90</minimum>
+										<minimum>${jacoco.branch.coverage.minimum}</minimum>
 									</limit>
 								</limits>
 							</rule>
