@@ -24,7 +24,7 @@ services:
       redis:
         condition: service_healthy
       clamav:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/actuator/health/readiness"]
       interval: 30s
