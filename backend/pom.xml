@@ -520,7 +520,6 @@
 							<failBuildOnCVSS>7.0</failBuildOnCVSS>
 							<failOnError>false</failOnError>
 							<nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
-							<nvdApiDelay>6000</nvdApiDelay>
 							<nvdApiResultsPerPage>2000</nvdApiResultsPerPage>
 							<nvdMaxRetryCount>5</nvdMaxRetryCount>
 							<nvdValidForHours>24</nvdValidForHours>
