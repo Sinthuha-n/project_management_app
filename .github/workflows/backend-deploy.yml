@@ -64,13 +64,50 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
+      - name: Verify Required Secrets
+        run: |
+          missing=0
+          if [ -z "${{ secrets.EC2_HOST }}" ]; then
+            echo "Error: EC2_HOST secret is not set."
+            missing=1
+          fi
+          if [ -z "${{ secrets.EC2_USER }}" ]; then
+            echo "Error: EC2_USER secret is not set."
+            missing=1
+          fi
+          if [ -z "${{ secrets.EC2_APP_DIR }}" ]; then
+            echo "Error: EC2_APP_DIR secret is not set."
+            missing=1
+          fi
+          if [ -z "${{ secrets.EC2_SSH_PRIVATE_KEY }}" ]; then
+            echo "Error: EC2_SSH_PRIVATE_KEY secret is not set."
+            missing=1
+          fi
+          if [ -z "${{ secrets.GHCR_READ_TOKEN }}" ]; then
+            echo "Error: GHCR_READ_TOKEN secret is not set."
+            missing=1
+          fi
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
+
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           printf '%s\n' "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/ec2_deploy_key
           chmod 600 ~/.ssh/ec2_deploy_key
-          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+          echo "Scanning host keys for ${{ secrets.EC2_HOST }}..."
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts || {
+            echo "========================================= ERROR ========================================="
+            echo "ssh-keyscan failed to retrieve host keys from ${{ secrets.EC2_HOST }}."
+            echo "This usually means one of the following:"
+            echo "  1. The EC2 instance is stopped or offline."
+            echo "  2. The EC2_HOST secret in GitHub is incorrect or has changed."
+            echo "  3. Inbound port 22 (SSH) is blocked on the EC2 security group for GitHub Actions runner IPs."
+            echo "========================================================================================="
+            exit 1
+          }
 
       - name: Deploy Backend Container
         env:
