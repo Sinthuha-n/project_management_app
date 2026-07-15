@@ -37,7 +37,7 @@ public class DocumentService {
 
     private static final Logger logger = LoggerFactory.getLogger(DocumentService.class);
 
-    private static final long MAX_FILE_SIZE_BYTES = 100L * 1024 * 1024;
+    private static final long MAX_FILE_SIZE_BYTES = DocumentFileTypeRegistry.MAX_FILE_SIZE_BYTES;
     private static final long PROJECT_STORAGE_QUOTA_BYTES = 5L * 1024 * 1024 * 1024;
     private static final long VERSION_MIN_INTERVAL_MINUTES = 5;
     private static final long VERSION_MIN_SIZE_DELTA_BYTES = 512;
@@ -70,6 +70,7 @@ public class DocumentService {
     private final UserRepository userRepository;
     private final S3StorageService s3StorageService;
     private final VirusScanService virusScanService;
+    private final DocumentFileTypeRegistry fileTypeRegistry;
 
     @Value("${aws.s3.dms-bucket}")
     private String dmsBucket;
@@ -109,7 +110,7 @@ public class DocumentService {
     }
 
     // After successfully uploading a file, we need to save the metadata to our database.
-    @Transactional
+    @Transactional(noRollbackFor = com.planora.backend.exception.DocumentUploadException.class)
     public DocumentResponseDTO finalizeUpload(Long projectId, Long userId, DocumentUploadFinalizeRequestDTO request) {
         // Step 1: Re-verify permissions.
         TeamMember member = getProjectMember(projectId, userId);
@@ -120,7 +121,7 @@ public class DocumentService {
         validateObjectKeyOwnership(projectId, request.getObjectKey());
 
         // Virus scan verification
-        virusScanService.scanFile(request.getObjectKey(), request.getFileName());
+        virusScanService.scanFile(dmsBucket, request.getObjectKey(), request.getFileName());
 
         // Step 3: Crucial check — did the file actually make it to S3?
         // We don't want a database record pointing to a ghost file.
@@ -184,7 +185,7 @@ public class DocumentService {
         }
 
         String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload.bin";
-        String resolvedContentType = resolveContentType(file.getContentType(), fileName);
+        String resolvedContentType = fileTypeRegistry.normalizeContentType(fileName, file.getContentType());
 
         validateFileRequest(fileName, resolvedContentType, file.getSize());
         requireWithinProjectQuota(projectId, file.getSize());
@@ -196,15 +197,14 @@ public class DocumentService {
 
         String objectKey = buildObjectKey(projectId, folderId, fileName);
 
-        // Virus scan verification
-        virusScanService.scanFile(objectKey, fileName);
-
         try {
             // Stream the file bytes to S3
             s3StorageService.putObject(dmsBucket, objectKey, resolvedContentType, file.getInputStream(), file.getSize());
         } catch (Exception e) {
             throw new RuntimeException("Could not upload file to S3 from backend: " + e.getMessage());
         }
+
+        virusScanService.scanFile(dmsBucket, objectKey, fileName);
 
         // Instead of rewriting the database logic, we just build a fake request
         // and pass it to our existing finalizeUpload method! Code reuse for the win.
@@ -259,7 +259,7 @@ public class DocumentService {
         validateObjectKeyOwnership(projectId, request.getObjectKey());
 
         // Virus scan verification
-        virusScanService.scanFile(request.getObjectKey(), request.getFileName());
+        virusScanService.scanFile(dmsBucket, request.getObjectKey(), request.getFileName());
 
         verifyObjectExists(request.getObjectKey());
 
@@ -393,7 +393,9 @@ public class DocumentService {
         } catch (ResourceNotFoundException e) {
             throw new ResourceNotFoundException("Document file is no longer available in storage. The file may have been deleted externally.");
         }
-        return s3StorageService.generatePresignedDownloadUrl(dmsBucket, document.getLatestObjectKey(), URL_DURATION);
+        return requiresAttachment(document.getName())
+                ? s3StorageService.generatePresignedDownloadUrl(dmsBucket, document.getLatestObjectKey(), URL_DURATION, true)
+                : s3StorageService.generatePresignedDownloadUrl(dmsBucket, document.getLatestObjectKey(), URL_DURATION);
     }
 
     @Transactional(readOnly = true)
@@ -793,7 +795,26 @@ public class DocumentService {
     }
 
     private void validateFileRequest(String fileName, String contentType, Long fileSize) {
-        s3StorageService.validateFileRequest(fileName, contentType, fileSize, MAX_FILE_SIZE_BYTES, ALLOWED_CONTENT_TYPES);
+        String normalizedType = fileTypeRegistry.normalizeContentType(fileName, contentType);
+        if (normalizedType == null) {
+            throw new RuntimeException("Unsupported file type");
+        }
+        s3StorageService.validateFileRequest(fileName, normalizedType, fileSize, MAX_FILE_SIZE_BYTES, fileTypeRegistry.allMimeTypes());
+    }
+
+    @Transactional(readOnly = true)
+    public DocumentFolder requireWritableUploadFolder(Long projectId, Long userId, Long folderId) {
+        TeamMember member = getProjectMember(projectId, userId);
+        requireNotViewer(member);
+        if (folderId == null) return null;
+        DocumentFolder folder = resolveFolder(projectId, folderId);
+        requireFolderPermission(folder.getId(), member, "WRITE");
+        return folder;
+    }
+
+    @Transactional(readOnly = true)
+    public void requireProjectMembership(Long projectId, Long userId) {
+        getProjectMember(projectId, userId);
     }
 
     private void requireWithinProjectQuota(Long projectId, Long additionalBytes) {
@@ -853,7 +874,14 @@ public class DocumentService {
     }
 
     private String generateDownloadUrl(String objectKey) {
-        return s3StorageService.generatePresignedDownloadUrl(dmsBucket, objectKey, URL_DURATION);
+        return requiresAttachment(objectKey)
+                ? s3StorageService.generatePresignedDownloadUrl(dmsBucket, objectKey, URL_DURATION, true)
+                : s3StorageService.generatePresignedDownloadUrl(dmsBucket, objectKey, URL_DURATION);
+    }
+
+    private boolean requiresAttachment(String name) {
+        String extension = fileTypeRegistry.extensionOf(name);
+        return extension != null && Set.of("docm", "pptm", "xlsm", "xlsb", "svg", "ai", "eps").contains(extension);
     }
 
     private Project getProject(Long projectId) {

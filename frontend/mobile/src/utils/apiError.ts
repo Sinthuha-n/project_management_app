@@ -1,4 +1,14 @@
 export function apiErrorMessage(error: unknown, fallback: string) {
+  const code = (error as { code?: string })?.code;
+  if (code === 'ECONNABORTED' || code === 'ETIMEDOUT') {
+    return 'The server took too long to respond. Check your connection and try again.';
+  }
+
+  const requestError = error as { request?: unknown; response?: unknown };
+  if ((requestError.request && !requestError.response) || code === 'ERR_NETWORK') {
+    return 'Cannot reach Planora. Check your internet connection and try again.';
+  }
+
   if (error instanceof Error && error.message && !('response' in error)) {
     return error.message;
   }
@@ -11,7 +21,7 @@ export function apiErrorMessage(error: unknown, fallback: string) {
   if (data && typeof data === 'object') {
     const body = data as {
       message?: string;
-      fieldErrors?: Array<{ field?: string; message?: string }>;
+      fieldErrors?: { field?: string; message?: string }[];
     };
 
     if (Array.isArray(body.fieldErrors)) {

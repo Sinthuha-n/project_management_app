@@ -517,6 +517,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/github/mobile/oauth/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["callback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/github/mobile/oauth/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/github/oauth-config": {
         parameters: {
             query?: never;
@@ -1929,6 +1961,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{projectId}/documents/upload-capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getUploadCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{projectId}/documents/upload/finalize": {
         parameters: {
             query?: never;
@@ -1955,6 +2003,54 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["initUpload_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{projectId}/documents/uploads/{uploadId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["uploadReservedViaBackend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{projectId}/documents/uploads/{uploadId}/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["finalizeBatchUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{projectId}/documents/uploads/init": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["initBatchUpload"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3903,6 +3999,17 @@ export interface components {
             unseenCount?: number;
             username?: string;
         };
+        DocumentBatchUploadInitRequestDTO: {
+            files: components["schemas"]["FileItem"][];
+            /** Format: int64 */
+            folderId?: number;
+        };
+        DocumentBatchUploadInitResponseDTO: {
+            batchId?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            files?: components["schemas"]["FileResult"][];
+        };
         DocumentFolderCreateRequestDTO: {
             name: string;
             /** Format: int64 */
@@ -3970,6 +4077,21 @@ export interface components {
             type?: "TASK" | "DOCUMENT" | "MEMBER" | "PROJECT" | "MESSAGE";
             url?: string;
         };
+        DocumentUploadCapabilitiesResponseDTO: {
+            acceptedExtensions?: string[];
+            /** Format: int32 */
+            maxBatchFiles?: number;
+            /** Format: int64 */
+            maxBatchSizeBytes?: number;
+            /** Format: int64 */
+            maxFileSizeBytes?: number;
+            mimeTypesByExtension?: {
+                [key: string]: string[];
+            };
+            multiUploadEnabled?: boolean;
+            /** Format: int32 */
+            recommendedConcurrency?: number;
+        };
         DocumentUploadFinalizeRequestDTO: {
             contentType: string;
             fileName: string;
@@ -4018,6 +4140,25 @@ export interface components {
             phaseEEnabled?: boolean;
             telemetryEnabled?: boolean;
             webhooksEnabled?: boolean;
+        };
+        FileItem: {
+            clientId: string;
+            contentType: string;
+            fileName: string;
+            /** Format: int64 */
+            fileSize: number;
+        };
+        FileResult: {
+            accepted?: boolean;
+            clientId?: string;
+            contentType?: string;
+            errorCode?: string;
+            /** Format: int64 */
+            expiresInSeconds?: number;
+            message?: string;
+            objectKey?: string;
+            uploadId?: string;
+            uploadUrl?: string;
         };
         FolderPermissionRequest: {
             permissions: string[];
@@ -4241,7 +4382,7 @@ export interface components {
             projects?: components["schemas"]["ProjectSearchResultDTO"][];
             tasks?: components["schemas"]["TaskSearchResultDTO"][];
         };
-        JsonNode: Record<string, never>;
+        JsonNode: unknown;
         Kanban: {
             columns?: components["schemas"]["KanbanColumn"][];
             /** Format: int64 */
@@ -4431,6 +4572,18 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        MobileGithubOAuthStartRequest: {
+            /** @enum {string} */
+            destination: "PROFILE" | "PROJECT";
+            loginHint?: string;
+            /** Format: int64 */
+            projectId?: number;
+        };
+        MobileGithubOAuthStartResponse: {
+            authorizationUrl?: string;
+            /** Format: int64 */
+            expiresInSeconds?: number;
+        };
         MovePageRequestDto: {
             /** Format: int64 */
             parentPageId?: number;
@@ -4468,6 +4621,7 @@ export interface components {
             read?: boolean;
         };
         OtpRequest: {
+            /** Format: email */
             email: string;
         };
         OwnerDTO: {
@@ -4653,7 +4807,7 @@ export interface components {
             owner?: components["schemas"]["User"];
             projectKey?: string;
             tasks?: components["schemas"]["Task"][];
-            team?: components["schemas"]["Team"];
+            team?: unknown;
             /** @enum {string} */
             type?: "AGILE" | "KANBAN";
             /** Format: date-time */
@@ -4683,6 +4837,7 @@ export interface components {
             tokenType?: string;
         };
         ProjectInviteRequest: {
+            /** Format: email */
             email: string;
             /** @enum {string} */
             role: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
@@ -4793,6 +4948,7 @@ export interface components {
             sprintId?: number;
         };
         ResetPasswordRequest: {
+            /** Format: email */
             email: string;
             newPassword: string;
             token: string;
@@ -5101,7 +5257,7 @@ export interface components {
             id?: number;
             /** Format: date-time */
             lastAccessedAt?: string;
-            task?: components["schemas"]["Task"];
+            task?: unknown;
             user?: components["schemas"]["User"];
         };
         TaskActivity: {
@@ -5113,7 +5269,7 @@ export interface components {
             description?: string;
             /** Format: int64 */
             id?: number;
-            task?: components["schemas"]["Task"];
+            task?: unknown;
         };
         TaskActivityResponseDTO: {
             activityType?: string;
@@ -5133,7 +5289,7 @@ export interface components {
             /** Format: int64 */
             id?: number;
             objectKey?: string;
-            task?: components["schemas"]["Task"];
+            task?: unknown;
             uploadedBy?: components["schemas"]["User"];
         };
         TaskAttachmentResponseDTO: {
@@ -5228,7 +5384,7 @@ export interface components {
             parentId?: number;
             priority?: string;
             /** Format: int64 */
-            projectId: number;
+            projectId?: number;
             recurrenceActive?: boolean;
             /** Format: date */
             recurrenceEnd?: string;
@@ -5244,7 +5400,7 @@ export interface components {
             status?: string;
             /** Format: int32 */
             storyPoint?: number;
-            title: string;
+            title?: string;
         };
         TaskResponseDTO: {
             archived?: boolean;
@@ -5385,7 +5541,7 @@ export interface components {
             invitedAt?: string;
             role?: string;
             status?: string;
-            team?: components["schemas"]["Team"];
+            team?: unknown;
             token?: string;
         };
         TeamMember: {
@@ -5470,11 +5626,14 @@ export interface components {
             countryCode?: string;
             /** Format: date-time */
             createdAt?: string;
+            /** Format: email */
             email: string;
             firstName?: string;
             fullName?: string;
             githubAccessToken?: string;
             githubEmail?: string;
+            /** Format: int64 */
+            githubUserId?: number;
             githubUsername?: string;
             jobTitle?: string;
             /** Format: date-time */
@@ -5502,6 +5661,7 @@ export interface components {
             username?: string;
         };
         VerifyRequest: {
+            /** Format: email */
             email: string;
             otp: string;
         };
@@ -6237,6 +6397,52 @@ export interface operations {
             };
         };
     };
+    callback: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MobileGithubOAuthStartRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MobileGithubOAuthStartResponse"];
+                };
+            };
+        };
+    };
     getOAuthConfig: {
         parameters: {
             query?: never;
@@ -6253,7 +6459,7 @@ export interface operations {
                 };
                 content: {
                     "*/*": {
-                        [key: string]: Record<string, never>;
+                        [key: string]: unknown;
                     };
                 };
             };
@@ -6581,7 +6787,7 @@ export interface operations {
                 };
                 content: {
                     "*/*": {
-                        [key: string]: boolean;
+                        [key: string]: unknown;
                     };
                 };
             };
@@ -8908,6 +9114,28 @@ export interface operations {
             };
         };
     };
+    getUploadCapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DocumentUploadCapabilitiesResponseDTO"];
+                };
+            };
+        };
+    };
     finalizeUpload_1: {
         parameters: {
             query?: never;
@@ -8956,6 +9184,85 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["DocumentUploadInitResponseDTO"];
+                };
+            };
+        };
+    };
+    uploadReservedViaBackend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                uploadId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DocumentResponseDTO"];
+                };
+            };
+        };
+    };
+    finalizeBatchUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+                uploadId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DocumentResponseDTO"];
+                };
+            };
+        };
+    };
+    initBatchUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentBatchUploadInitRequestDTO"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DocumentBatchUploadInitResponseDTO"];
                 };
             };
         };
@@ -10083,7 +10390,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    [key: string]: Record<string, never>;
+                    [key: string]: unknown;
                 };
             };
         };
@@ -10907,7 +11214,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    [key: string]: Record<string, never>;
+                    [key: string]: unknown;
                 };
             };
         };
@@ -11003,7 +11310,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    [key: string]: Record<string, never>;
+                    [key: string]: unknown;
                 };
             };
         };

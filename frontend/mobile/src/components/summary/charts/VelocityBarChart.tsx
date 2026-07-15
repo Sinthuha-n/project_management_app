@@ -24,7 +24,7 @@ export function VelocityBarChart({ tasks, sprints }: { tasks: Task[]; sprints: S
   useEffect(() => {
     anim.setValue(0);
     Animated.timing(anim, { toValue: 1, duration: 1100, useNativeDriver: false }).start();
-  }, [data.length]);
+  }, [anim, data.length]);
 
   if (data.length === 0) return (
     <View style={st.empty}><Text style={st.emptyIcon}>⚡</Text><Text style={st.emptyText}>Complete sprints to see velocity</Text></View>

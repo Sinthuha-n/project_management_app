@@ -49,6 +49,7 @@
               "format": "int64",
               "type": "integer"
             },
+            "minItems": 1,
             "type": "array"
           }
         },
@@ -69,6 +70,7 @@
               "format": "int64",
               "type": "integer"
             },
+            "minItems": 1,
             "type": "array"
           }
         },
@@ -864,6 +866,43 @@
         },
         "type": "object"
       },
+      "DocumentBatchUploadInitRequestDTO": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/FileItem"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "folderId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "type": "object"
+      },
+      "DocumentBatchUploadInitResponseDTO": {
+        "properties": {
+          "batchId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/FileResult"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "DocumentFolderCreateRequestDTO": {
         "properties": {
           "name": {
@@ -1038,6 +1077,45 @@
         },
         "type": "object"
       },
+      "DocumentUploadCapabilitiesResponseDTO": {
+        "properties": {
+          "acceptedExtensions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "maxBatchFiles": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "maxBatchSizeBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "maxFileSizeBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "mimeTypesByExtension": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object"
+          },
+          "multiUploadEnabled": {
+            "type": "boolean"
+          },
+          "recommendedConcurrency": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "DocumentUploadFinalizeRequestDTO": {
         "properties": {
           "contentType": {
@@ -1077,7 +1155,8 @@
       "DocumentUploadInitRequestDTO": {
         "properties": {
           "contentType": {
-            "pattern": "^(application/pdf|application/msword|application/vnd\\.openxmlformats-officedocument\\.wordprocessingml\\.document|application/vnd\\.ms-excel|application/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet|text/plain|image/jpeg|image/png|image/gif|image/webp)$",
+            "maxLength": 255,
+            "minLength": 0,
             "type": "string"
           },
           "fileName": {
@@ -1184,16 +1263,83 @@
         },
         "type": "object"
       },
+      "FileItem": {
+        "properties": {
+          "clientId": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string"
+          },
+          "contentType": {
+            "maxLength": 255,
+            "minLength": 0,
+            "type": "string"
+          },
+          "fileName": {
+            "maxLength": 255,
+            "minLength": 0,
+            "type": "string"
+          },
+          "fileSize": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "clientId",
+          "contentType",
+          "fileName",
+          "fileSize"
+        ],
+        "type": "object"
+      },
+      "FileResult": {
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "expiresInSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "uploadId": {
+            "type": "string"
+          },
+          "uploadUrl": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "FolderPermissionRequest": {
         "properties": {
           "permissions": {
             "items": {
+              "minLength": 1,
               "pattern": "^(READ|WRITE|MANAGE)$",
               "type": "string"
             },
+            "minItems": 1,
             "type": "array"
           },
           "teamRole": {
+            "minLength": 1,
             "pattern": "^(OWNER|ADMIN|MEMBER|VIEWER)$",
             "type": "string"
           }
@@ -1474,6 +1620,7 @@
             "type": "array"
           },
           "title": {
+            "minLength": 1,
             "type": "string"
           }
         },
@@ -1501,6 +1648,7 @@
             "type": "array"
           },
           "repoFullName": {
+            "minLength": 1,
             "type": "string"
           },
           "taskId": {
@@ -1508,6 +1656,7 @@
             "type": "integer"
           },
           "title": {
+            "minLength": 1,
             "type": "string"
           }
         },
@@ -1599,6 +1748,7 @@
               "format": "int32",
               "type": "integer"
             },
+            "minItems": 1,
             "type": "array"
           },
           "projectId": {
@@ -1606,6 +1756,7 @@
             "type": "integer"
           },
           "repoFullName": {
+            "minLength": 1,
             "type": "string"
           }
         },
@@ -1834,9 +1985,7 @@
         },
         "type": "object"
       },
-      "JsonNode": {
-        "type": "object"
-      },
+      "JsonNode": {},
       "Kanban": {
         "properties": {
           "columns": {
@@ -1975,6 +2124,7 @@
             "type": "integer"
           },
           "status": {
+            "minLength": 1,
             "type": "string"
           },
           "taskId": {
@@ -2343,6 +2493,43 @@
         },
         "type": "object"
       },
+      "MobileGithubOAuthStartRequest": {
+        "properties": {
+          "destination": {
+            "enum": [
+              "PROFILE",
+              "PROJECT"
+            ],
+            "type": "string"
+          },
+          "loginHint": {
+            "maxLength": 39,
+            "minLength": 0,
+            "pattern": "^$|^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$",
+            "type": "string"
+          },
+          "projectId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "destination"
+        ],
+        "type": "object"
+      },
+      "MobileGithubOAuthStartResponse": {
+        "properties": {
+          "authorizationUrl": {
+            "type": "string"
+          },
+          "expiresInSeconds": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "MovePageRequestDto": {
         "properties": {
           "parentPageId": {
@@ -2440,6 +2627,8 @@
       "OtpRequest": {
         "properties": {
           "email": {
+            "format": "email",
+            "minLength": 1,
             "type": "string"
           }
         },
@@ -2925,9 +3114,7 @@
             },
             "type": "array"
           },
-          "team": {
-            "$ref": "#/components/schemas/Team"
-          },
+          "team": {},
           "type": {
             "enum": [
               "AGILE",
@@ -2959,6 +3146,7 @@
             "type": "integer"
           },
           "projectKey": {
+            "minLength": 1,
             "pattern": "^[A-Z0-9-]{2,10}$",
             "type": "string"
           },
@@ -3018,6 +3206,8 @@
       "ProjectInviteRequest": {
         "properties": {
           "email": {
+            "format": "email",
+            "minLength": 1,
             "type": "string"
           },
           "role": {
@@ -3309,6 +3499,8 @@
       "ResetPasswordRequest": {
         "properties": {
           "email": {
+            "format": "email",
+            "minLength": 1,
             "type": "string"
           },
           "newPassword": {
@@ -3420,6 +3612,7 @@
             "type": "string"
           },
           "format": {
+            "minLength": 1,
             "pattern": "^(PDF|EXCEL|BOTH)$",
             "type": "string"
           },
@@ -3433,20 +3626,24 @@
           },
           "recipientsBcc": {
             "items": {
+              "format": "email",
               "type": "string"
             },
             "type": "array"
           },
           "recipientsCc": {
             "items": {
+              "format": "email",
               "type": "string"
             },
             "type": "array"
           },
           "recipientsTo": {
             "items": {
+              "format": "email",
               "type": "string"
             },
+            "minItems": 1,
             "type": "array"
           },
           "scheduledDate": {
@@ -3454,6 +3651,7 @@
             "type": "string"
           },
           "scheduleType": {
+            "minLength": 1,
             "pattern": "^(ONE_TIME|RECURRING)$",
             "type": "string"
           },
@@ -3470,6 +3668,7 @@
             "type": "integer"
           },
           "sendTime": {
+            "minLength": 1,
             "pattern": "^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$",
             "type": "string"
           },
@@ -4176,7 +4375,9 @@
             "type": "string"
           },
           "task": {
-            "$ref": "#/components/schemas/Task"
+            "required": [
+              "title"
+            ]
           },
           "user": {
             "$ref": "#/components/schemas/User"
@@ -4219,7 +4420,9 @@
             "type": "integer"
           },
           "task": {
-            "$ref": "#/components/schemas/Task"
+            "required": [
+              "title"
+            ]
           }
         },
         "type": "object"
@@ -4269,7 +4472,9 @@
             "type": "string"
           },
           "task": {
-            "$ref": "#/components/schemas/Task"
+            "required": [
+              "title"
+            ]
           },
           "uploadedBy": {
             "$ref": "#/components/schemas/User"
@@ -4575,10 +4780,6 @@
             "type": "string"
           }
         },
-        "required": [
-          "projectId",
-          "title"
-        ],
         "type": "object"
       },
       "TaskResponseDTO": {
@@ -4903,6 +5104,7 @@
         "properties": {
           "inviteEmails": {
             "items": {
+              "format": "email",
               "type": "string"
             },
             "type": "array"
@@ -4978,9 +5180,7 @@
           "status": {
             "type": "string"
           },
-          "team": {
-            "$ref": "#/components/schemas/Team"
-          },
+          "team": {},
           "token": {
             "type": "string"
           }
@@ -5124,6 +5324,7 @@
       "UpdateGithubUsernameRequest": {
         "properties": {
           "githubUsername": {
+            "minLength": 1,
             "pattern": "^(?!-)[A-Za-z0-9-]{1,39}(?<!-)$",
             "type": "string"
           }
@@ -5136,6 +5337,7 @@
       "UpdatePriorityRequest": {
         "properties": {
           "priority": {
+            "minLength": 1,
             "pattern": "^(LOW|NORMAL|MEDIUM|HIGH|URGENT)$",
             "type": "string"
           }
@@ -5245,6 +5447,8 @@
             "type": "string"
           },
           "email": {
+            "format": "email",
+            "minLength": 1,
             "type": "string"
           },
           "firstName": {
@@ -5258,6 +5462,10 @@
           },
           "githubEmail": {
             "type": "string"
+          },
+          "githubUserId": {
+            "format": "int64",
+            "type": "integer"
           },
           "githubUsername": {
             "type": "string"
@@ -5341,9 +5549,12 @@
       "VerifyRequest": {
         "properties": {
           "email": {
+            "format": "email",
+            "minLength": 1,
             "type": "string"
           },
           "otp": {
+            "minLength": 1,
             "pattern": "^[0-9]{6}$",
             "type": "string"
           }
@@ -6398,6 +6609,75 @@
         ]
       }
     },
+    "/api/github/mobile/oauth/callback": {
+      "get": {
+        "operationId": "callback",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "mobile-github-o-auth-controller"
+        ]
+      }
+    },
+    "/api/github/mobile/oauth/start": {
+      "post": {
+        "operationId": "start",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MobileGithubOAuthStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MobileGithubOAuthStartResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "mobile-github-o-auth-controller"
+        ]
+      }
+    },
     "/api/github/oauth-config": {
       "get": {
         "operationId": "getOAuthConfig",
@@ -6406,9 +6686,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "object"
-                  },
+                  "additionalProperties": {},
                   "type": "object"
                 }
               }
@@ -6940,9 +7218,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "boolean"
-                  },
+                  "additionalProperties": {},
                   "type": "object"
                 }
               }
@@ -10525,6 +10801,37 @@
         ]
       }
     },
+    "/api/projects/{projectId}/documents/upload-capabilities": {
+      "get": {
+        "operationId": "getUploadCapabilities",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentUploadCapabilitiesResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "document-controller"
+        ]
+      }
+    },
     "/api/projects/{projectId}/documents/upload/finalize": {
       "post": {
         "operationId": "finalizeUpload_1",
@@ -10596,6 +10903,143 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/DocumentUploadInitResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "document-controller"
+        ]
+      }
+    },
+    "/api/projects/{projectId}/documents/uploads/{uploadId}": {
+      "post": {
+        "operationId": "uploadReservedViaBackend",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uploadId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "document-controller"
+        ]
+      }
+    },
+    "/api/projects/{projectId}/documents/uploads/{uploadId}/finalize": {
+      "post": {
+        "operationId": "finalizeBatchUpload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "uploadId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResponseDTO"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "document-controller"
+        ]
+      }
+    },
+    "/api/projects/{projectId}/documents/uploads/init": {
+      "post": {
+        "operationId": "initBatchUpload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentBatchUploadInitRequestDTO"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBatchUploadInitResponseDTO"
                 }
               }
             },
@@ -12353,9 +12797,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": {
-                  "type": "object"
-                },
+                "additionalProperties": {},
                 "type": "object"
               }
             }
@@ -13585,9 +14027,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": {
-                  "type": "object"
-                },
+                "additionalProperties": {},
                 "type": "object"
               }
             }
@@ -13734,9 +14174,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": {
-                  "type": "object"
-                },
+                "additionalProperties": {},
                 "type": "object"
               }
             }

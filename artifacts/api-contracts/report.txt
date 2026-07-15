@@ -1,16 +1,16 @@
 Planora API Contract Check
-Frontend call sites scanned: 430
-Backend routes scanned: 273
+Frontend call sites scanned: 442
+Backend routes scanned: 279
 
-Backend endpoints with no frontend/mobile usage: 39
-- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:392 GET /api/projects/:projectId/chat/search
-- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:423 GET /api/projects/:projectId/chat/webhooks
-- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:438 POST /api/projects/:projectId/chat/webhooks
-- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:452 DELETE /api/projects/:projectId/chat/webhooks/:webhookId
-- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:466 POST /api/projects/:projectId/chat/webhooks/test
-- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:661 PATCH /api/projects/:projectId/chat/rooms/:roomId/members/:memberUserId/role
-- backend/src/main/java/com/planora/backend/controller/DocumentController.java:91 POST /api/projects/:projectId/documents/:documentId/versions/upload/init
-- backend/src/main/java/com/planora/backend/controller/DocumentController.java:106 POST /api/projects/:projectId/documents/:documentId/versions/upload/finalize
+Backend endpoints with no frontend/mobile usage: 40
+- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:394 GET /api/projects/:projectId/chat/search
+- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:425 GET /api/projects/:projectId/chat/webhooks
+- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:440 POST /api/projects/:projectId/chat/webhooks
+- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:454 DELETE /api/projects/:projectId/chat/webhooks/:webhookId
+- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:468 POST /api/projects/:projectId/chat/webhooks/test
+- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:662 PATCH /api/projects/:projectId/chat/rooms/:roomId/members/:memberUserId/role
+- backend/src/main/java/com/planora/backend/controller/DocumentController.java:127 POST /api/projects/:projectId/documents/:documentId/versions/upload/init
+- backend/src/main/java/com/planora/backend/controller/DocumentController.java:142 POST /api/projects/:projectId/documents/:documentId/versions/upload/finalize
 - backend/src/main/java/com/planora/backend/controller/GitHubWebhookController.java:62 POST /api/github/webhook
 - backend/src/main/java/com/planora/backend/controller/GitHubWebhookController.java:62 POST /api/github/webhooks
 - backend/src/main/java/com/planora/backend/controller/GithubIssuesController.java:131 GET /api/github/issues/:owner/:repo/labels
@@ -24,11 +24,10 @@ Backend endpoints with no frontend/mobile usage: 39
 - backend/src/main/java/com/planora/backend/controller/KanbanController.java:47 DELETE /api/kanbans/:id
 - backend/src/main/java/com/planora/backend/controller/KanbanController.java:53 GET /api/kanbans/project/:projectId
 - backend/src/main/java/com/planora/backend/controller/KanbanController.java:65 POST /api/kanbans/project/:projectId/auto-create
+- backend/src/main/java/com/planora/backend/controller/MobileGithubOAuthController.java:39 GET /api/github/mobile/oauth/callback
 - backend/src/main/java/com/planora/backend/controller/ProjectGithubWebhookController.java:23 POST /api/github/webhook
 - backend/src/main/java/com/planora/backend/controller/SprintboardController.java:64 GET /api/sprintboards/:sprintboardId
 - backend/src/main/java/com/planora/backend/controller/SprintboardController.java:126 DELETE /api/sprintboards/:sprintboardId
-- backend/src/main/java/com/planora/backend/controller/TaskController.java:166 GET /api/tasks/:taskId/pull-requests
-- backend/src/main/java/com/planora/backend/controller/TaskController.java:196 GET /api/tasks/:taskId/commits
 - backend/src/main/java/com/planora/backend/controller/TaskTemplateController.java:51 DELETE /api/projects/:projectId/templates/:templateId
 - backend/src/main/java/com/planora/backend/controller/TeamController.java:36 POST /api/teams
 - backend/src/main/java/com/planora/backend/controller/TeamController.java:53 GET /api/teams
@@ -42,9 +41,11 @@ Backend endpoints with no frontend/mobile usage: 39
 - backend/src/main/java/com/planora/backend/controller/UserController.java:96 POST /api/auth/resend-otp
 - backend/src/main/java/com/planora/backend/controller/UserController.java:181 GET /api/auth/users/:userId/photo
 - backend/src/main/java/com/planora/backend/controller/UserController.java:192 GET /api/auth/me
+- backend/src/main/java/com/planora/backend/controller/UserGithubUsernameController.java:28 PUT /api/users/me/github-username
+- backend/src/main/java/com/planora/backend/controller/UserGithubUsernameController.java:46 DELETE /api/users/me/github-username
 
 Summary
 - Blocking critical issues: 0
 - Allowed blocking critical issues: 0
 - Likely parser misses: 0
-- Informational backend-only routes: 39
+- Informational backend-only routes: 40

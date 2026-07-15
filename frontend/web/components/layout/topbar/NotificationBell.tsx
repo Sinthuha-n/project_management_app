@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGlobalNotifications } from '@/components/providers/GlobalNotificationProvider';
 import { toast } from '@/components/ui/Toast';
 import { Notification } from '@/services/notifications-service';
+import { formatDate, parseInstant } from '@/lib/date-time';
 
 type NotificationListItem = {
   rowKey: string;
@@ -116,7 +117,7 @@ function buildNotificationListItems(notifications: Notification[]): Notification
       existing.unreadIds.push(notification.id);
     }
 
-    if (new Date(notification.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
+    if ((parseInstant(notification.createdAt)?.getTime() ?? 0) > (parseInstant(existing.createdAt)?.getTime() ?? 0)) {
       existing.createdAt = notification.createdAt;
       existing.link = link;
     }
@@ -135,7 +136,7 @@ function buildNotificationListItems(notifications: Notification[]): Notification
     });
   });
 
-  return rows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return rows.sort((a, b) => (parseInstant(b.createdAt)?.getTime() ?? 0) - (parseInstant(a.createdAt)?.getTime() ?? 0));
 }
 
 export function NotificationBell() {
@@ -352,7 +353,7 @@ export function NotificationBell() {
                             {item.displayMessage}
                           </p>
                           <span className="text-[10px] text-cu-text-muted mt-1.5 block font-bold uppercase tracking-wider font-outfit">
-                            {new Date(item.createdAt).toLocaleDateString()}
+                            {formatDate(item.createdAt)}
                           </span>
                         </div>
                       </div>

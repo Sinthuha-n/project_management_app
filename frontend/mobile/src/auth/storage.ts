@@ -10,6 +10,8 @@ import {
   getRememberMe,
   getUserIdFromToken
 } from '../lib/auth';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 export {
   getValidToken,
@@ -29,8 +31,7 @@ export async function clearRefreshToken(): Promise<void> {
   // Safe no-op or partial clear; clearTokens clears all which is safer
   const rt = await getRefreshToken();
   if (rt) {
-    const SecureStore = require('expo-secure-store');
-    if (require('react-native').Platform.OS === 'web') {
+    if (Platform.OS === 'web') {
       localStorage.removeItem('planora_refresh_token');
     } else {
       await SecureStore.deleteItemAsync('planora_refresh_token');

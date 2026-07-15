@@ -16,6 +16,7 @@ import { getApiErrorStatus, normalizeApiError } from '@/lib/api-error';
 import { labelsApi, projectsApi, sprintsApi, tasksApi } from '@/services/api-contract';
 import type { Task } from '@/types';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
+import { applyTaskMutation, createMutationId, publishTaskMutation } from '@/lib/task-cache';
 
 interface MultiAssignee {
   memberId: number;
@@ -306,8 +307,14 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
     labelIds: number[];
   }>) => {
     if (!taskData) return;
+    const mutationId = createMutationId();
+    const previousTask = { ...taskData };
     // Optimistic: apply locally before the API call so the UI reflects the change without latency
     setTaskData((prev) => prev ? { ...prev, ...updates } : prev);
+    applyTaskMutation({
+      operation: 'updated', projectId: taskData.projectId, taskId, mutationId,
+      source: 'optimistic', patch: updates as Partial<Task>, occurredAt: new Date().toISOString(),
+    });
     setIsSyncing(true);
     try {
       const updatedTask = await tasksApi.update(taskId, updates);
@@ -321,9 +328,18 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
       });
       setTaskData(nextTaskData);
       wasModified.current = true;
-      window.dispatchEvent(new CustomEvent('planora:task-updated', { detail: { taskId, task: updatedTask, updates } }));
+      const committed = {
+        operation: 'updated' as const, projectId: taskData.projectId, taskId, mutationId,
+        source: 'http' as const, task: updatedTask, occurredAt: new Date().toISOString(),
+      };
+      applyTaskMutation(committed);
+      publishTaskMutation(committed);
       localStorage.setItem(`planora:task:${taskId}`, JSON.stringify({ ...updatedTask, timestamp: Date.now() }));
     } catch (err: unknown) {
+      applyTaskMutation({
+        operation: 'updated', projectId: taskData.projectId, taskId, mutationId,
+        source: 'rollback', task: previousTask as unknown as Task, occurredAt: new Date().toISOString(),
+      });
       // Revert the optimistic update by re-fetching the server's authoritative state
       await fetchTaskData();
       toast(`Failed to update task: ${normalizeApiError(err, 'Unknown error')}`, 'error');

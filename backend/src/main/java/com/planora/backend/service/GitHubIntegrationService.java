@@ -15,6 +15,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.planora.backend.model.User;
 import com.planora.backend.repository.UserRepository;
@@ -45,8 +46,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class GitHubIntegrationService {
 
-    private static final String GITHUB_API = "https://api.github.com";
     private static final int MAX_ITEMS = 5;
+
+    @Value("${github.api-base-url:https://api.github.com}")
+    private String githubApiBaseUrl = "https://api.github.com";
+
+    @Value("${github.oauth-base-url:https://github.com}")
+    private String githubOauthBaseUrl = "https://github.com";
 
     @Value("${github.client.id:}")
     private String clientId;
@@ -71,7 +77,7 @@ public class GitHubIntegrationService {
     private final CiStatusResolver ciStatusResolver;
     private final CacheManager cacheManager;
 
-    private record GithubIdentity(String username, String email) {}
+    private record GithubIdentity(Long id, String username, String email) {}
 
     public String getClientId() {
         return clientId;
@@ -83,6 +89,14 @@ public class GitHubIntegrationService {
 
     public String getMobileRedirectUri() {
         return mobileRedirectUri;
+    }
+
+    public boolean isMobileOAuthConfigured() {
+        return !isBlank(getMobileClientId()) && !isBlank(mobileClientSecret);
+    }
+
+    public String getConnectedUsername(Long userId) {
+        return userRepository.findById(userId).map(User::getGithubUsername).orElse(null);
     }
 
     /**
@@ -97,7 +111,7 @@ public class GitHubIntegrationService {
                     "GitHub token is required");
         }
 
-        String url = GITHUB_API + "/user/repos?per_page=100&sort=updated";
+        String url = githubApiBaseUrl + "/user/repos?per_page=100&sort=updated";
         HttpHeaders headers = buildHeaders(githubToken);
 
         try {
@@ -175,7 +189,7 @@ public class GitHubIntegrationService {
     private List<GitHubTaskData.LinkedPr> fetchLinkedPRs(String owner, String repo,
                                                           String branch, HttpHeaders headers) {
         // Filter by head branch so only PRs from this exact branch are returned.
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo
                 + "/pulls?head=" + owner + ":" + branch
                 + "&state=all&per_page=" + MAX_ITEMS;
 
@@ -232,7 +246,7 @@ public class GitHubIntegrationService {
      * @return one of "APPROVED", "CHANGES_REQUESTED", "COMMENTED", "REVIEW_REQUIRED", or null on error
      */
     private String fetchReviewStatus(String owner, String repo, int prNumber, HttpHeaders headers) {
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo
                 + "/pulls/" + prNumber + "/reviews";
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -281,7 +295,7 @@ public class GitHubIntegrationService {
 
     private List<GitHubTaskData.RecentCommit> fetchRecentCommits(String owner, String repo,
                                                                    String branch, HttpHeaders headers) {
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo
                 + "/commits?sha=" + branch + "&per_page=" + MAX_ITEMS;
 
         try {
@@ -345,7 +359,7 @@ public class GitHubIntegrationService {
 
     private CiStatus fetchAndResolveCheckRuns(String owner, String repo,
                                                String sha, HttpHeaders headers) {
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo
                 + "/commits/" + sha + "/check-runs";
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -358,7 +372,7 @@ public class GitHubIntegrationService {
 
     private CiStatus fetchAndResolveCommitStatuses(String owner, String repo,
                                                     String sha, HttpHeaders headers) {
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo
                 + "/commits/" + sha + "/statuses";
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -394,22 +408,47 @@ public class GitHubIntegrationService {
         return s == null || s.isBlank();
     }
 
+    @Transactional
     public void exchangeAndSaveToken(Long userId, String email, String code) {
         exchangeAndSaveToken(userId, email, code, null);
     }
 
+    @Transactional
     public void exchangeAndSaveToken(Long userId, String email, String code, String redirectUri) {
         // Use mobile-specific credentials when the redirect URI is the mobile redirect URI.
         boolean isMobile = redirectUri != null && redirectUri.equals(mobileRedirectUri);
         String effectiveClientId     = isMobile ? getMobileClientId()     : clientId;
         String effectiveClientSecret = isMobile ? mobileClientSecret : clientSecret;
 
+        exchangeAndSaveToken(userId, email, code, redirectUri, null,
+                effectiveClientId, effectiveClientSecret);
+    }
+
+    @Transactional
+    public void exchangeMobileCodeAndSaveToken(
+            Long userId,
+            String email,
+            String code,
+            String redirectUri,
+            String codeVerifier) {
+        exchangeAndSaveToken(userId, email, code, redirectUri, codeVerifier,
+                getMobileClientId(), mobileClientSecret);
+    }
+
+    private void exchangeAndSaveToken(
+            Long userId,
+            String email,
+            String code,
+            String redirectUri,
+            String codeVerifier,
+            String effectiveClientId,
+            String effectiveClientSecret) {
         if (isBlank(effectiveClientId) || isBlank(effectiveClientSecret)) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "GitHub OAuth is not configured on this server");
         }
 
-        String url = "https://github.com/login/oauth/access_token";
+        String url = githubOauthBaseUrl + "/login/oauth/access_token";
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.ACCEPT, "application/json");
         headers.set(HttpHeaders.CONTENT_TYPE, "application/json");
@@ -420,6 +459,9 @@ public class GitHubIntegrationService {
         requestBody.put("code", code);
         if (!isBlank(redirectUri)) {
             requestBody.put("redirect_uri", redirectUri);
+        }
+        if (!isBlank(codeVerifier)) {
+            requestBody.put("code_verifier", codeVerifier);
         }
 
         try {
@@ -436,12 +478,19 @@ public class GitHubIntegrationService {
 
             GithubIdentity githubIdentity = fetchGitHubIdentity(accessToken);
 
+            userRepository.findByGithubUserId(githubIdentity.id())
+                    .filter(existing -> !existing.getUserId().equals(userId))
+                    .ifPresent(existing -> {
+                        throw new GithubAccountAlreadyLinkedException();
+                    });
+
             // Save token encrypted
             githubTokenService.saveToken(userId, accessToken);
 
             // Save GitHub identity
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+            user.setGithubUserId(githubIdentity.id());
             user.setGithubUsername(githubIdentity.username());
             user.setGithubEmail(githubIdentity.email());
             userRepository.save(user);
@@ -455,17 +504,18 @@ public class GitHubIntegrationService {
     }
 
     private GithubIdentity fetchGitHubIdentity(String accessToken) {
-        String url = GITHUB_API + "/user";
+        String url = githubApiBaseUrl + "/user";
         HttpHeaders headers = buildHeaders(accessToken);
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
                     url, HttpMethod.GET, new HttpEntity<>(headers), JsonNode.class);
             JsonNode body = response.getBody();
-            if (body != null && !body.path("login").isMissingNode()) {
+            if (body != null && body.path("id").canConvertToLong() && !body.path("login").isMissingNode()) {
+                Long id = body.path("id").longValue();
                 String username = body.path("login").asText();
                 String publicEmail = body.path("email").asText(null);
                 String primaryEmail = fetchPrimaryVerifiedGithubEmail(accessToken);
-                return new GithubIdentity(username, !isBlank(primaryEmail) ? primaryEmail : publicEmail);
+                return new GithubIdentity(id, username, !isBlank(primaryEmail) ? primaryEmail : publicEmail);
             }
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to retrieve username from GitHub profile");
         } catch (RestClientException e) {
@@ -474,7 +524,7 @@ public class GitHubIntegrationService {
     }
 
     private String fetchPrimaryVerifiedGithubEmail(String accessToken) {
-        String url = GITHUB_API + "/user/emails";
+        String url = githubApiBaseUrl + "/user/emails";
         HttpHeaders headers = buildHeaders(accessToken);
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -498,46 +548,69 @@ public class GitHubIntegrationService {
     }
 
     public void revokeToken(Long userId) {
-        if (isBlank(clientId) || isBlank(clientSecret)) {
+        boolean mobileConfigured = !isBlank(getMobileClientId()) && !isBlank(mobileClientSecret);
+        boolean webConfigured = !isBlank(clientId) && !isBlank(clientSecret);
+        if (!mobileConfigured && !webConfigured) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "GitHub OAuth is not configured on this server");
         }
 
         String token = githubTokenService.getToken(userId);
         if (isBlank(token)) {
-            return; // Already revoked or not connected
+            clearLocalGithubIdentity(userId);
+            return;
         }
 
-        String url = GITHUB_API + "/applications/" + clientId + "/grant";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBasicAuth(clientId, clientSecret);
-        headers.set(HttpHeaders.ACCEPT, "application/vnd.github.v3+json");
-        headers.set(HttpHeaders.CONTENT_TYPE, "application/json");
-
-        Map<String, String> requestBody = Map.of("access_token", token);
-
-        try {
-            restTemplate.exchange(url, HttpMethod.DELETE, new HttpEntity<>(requestBody, headers), Void.class);
-        } catch (RestClientException e) {
-            // Log warning but proceed to clear local data
+        boolean revoked = false;
+        if (mobileConfigured) {
+            revoked = revokeWithCredentials(token, getMobileClientId(), mobileClientSecret);
+        }
+        if (!revoked && webConfigured
+                && (!clientId.equals(getMobileClientId()) || !clientSecret.equals(mobileClientSecret))) {
+            revokeWithCredentials(token, clientId, clientSecret);
         }
 
         // Clear local token and GitHub identity
         githubTokenService.clearToken(userId);
+        clearLocalGithubIdentity(userId);
+    }
+
+    private boolean revokeWithCredentials(String token, String oauthClientId, String oauthClientSecret) {
+        String url = githubApiBaseUrl + "/applications/" + oauthClientId + "/grant";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBasicAuth(oauthClientId, oauthClientSecret);
+        headers.set(HttpHeaders.ACCEPT, "application/vnd.github.v3+json");
+        headers.set(HttpHeaders.CONTENT_TYPE, "application/json");
+        try {
+            restTemplate.exchange(url, HttpMethod.DELETE,
+                    new HttpEntity<>(Map.of("access_token", token), headers), Void.class);
+            return true;
+        } catch (RestClientException ex) {
+            return false;
+        }
+    }
+
+    private void clearLocalGithubIdentity(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         user.setGithubUsername(null);
         user.setGithubEmail(null);
+        user.setGithubUserId(null);
         userRepository.save(user);
-
         evictUserProfileCache(user.getEmail());
+    }
+
+    public static class GithubAccountAlreadyLinkedException extends RuntimeException {
+        public GithubAccountAlreadyLinkedException() {
+            super("This GitHub account is already linked to another Planora account");
+        }
     }
 
     public JsonNode fetchGitHubUser(String githubToken) {
         if (isBlank(githubToken)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "GitHub token is required");
         }
-        String url = GITHUB_API + "/user";
+        String url = githubApiBaseUrl + "/user";
         HttpHeaders headers = buildHeaders(githubToken);
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -556,7 +629,7 @@ public class GitHubIntegrationService {
         if (isBlank(githubToken)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "GitHub token is required");
         }
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo + "/pulls?state=all&per_page=50&sort=updated&direction=desc";
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo + "/pulls?state=all&per_page=50&sort=updated&direction=desc";
         HttpHeaders headers = buildHeaders(githubToken);
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -575,7 +648,7 @@ public class GitHubIntegrationService {
         if (isBlank(githubToken)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "GitHub token is required");
         }
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo + "/pulls/" + prNumber;
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo + "/pulls/" + prNumber;
         HttpHeaders headers = buildHeaders(githubToken);
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(
@@ -594,7 +667,7 @@ public class GitHubIntegrationService {
         if (isBlank(githubToken)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "GitHub token is required");
         }
-        String url = GITHUB_API + "/repos/" + owner + "/" + repo + "/commits?per_page=50";
+        String url = githubApiBaseUrl + "/repos/" + owner + "/" + repo + "/commits?per_page=50";
         HttpHeaders headers = buildHeaders(githubToken);
         try {
             ResponseEntity<JsonNode> response = restTemplate.exchange(

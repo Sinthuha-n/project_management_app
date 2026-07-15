@@ -6,6 +6,7 @@ import {
     DocumentSortKey,
     DocumentTypeFilter,
 } from '@/app/folders/components/types';
+import { formatDateTime, formatRelativeTime, parseInstant } from '@/lib/date-time';
 
 // toLocaleString() without a locale argument uses the browser's locale for date formatting,
 // matching whatever regional format the user's OS is set to rather than hard-coding one.
@@ -18,20 +19,11 @@ export function formatBytes(bytes: number): string {
 }
 
 export function toDateLabel(iso: string): string {
-    return new Date(iso).toLocaleString();
+    return formatDateTime(iso);
 }
 
 export function timeAgo(iso: string): string {
-    const diffMs = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diffMs / 60_000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 30) return `${days}d ago`;
-    const months = Math.floor(days / 30);
-    return `${months}mo ago`;
+    return formatRelativeTime(iso);
 }
 
 export const DOCUMENT_TYPE_LABELS: Record<DocumentTypeFilter, string> = {
@@ -66,7 +58,7 @@ const MS_PER_DAY = 86_400_000;
 
 function safeTime(iso?: string | null): number {
     if (!iso) return 0;
-    const time = new Date(iso).getTime();
+    const time = parseInstant(iso)?.getTime() ?? NaN;
     return Number.isFinite(time) ? time : 0;
 }
 

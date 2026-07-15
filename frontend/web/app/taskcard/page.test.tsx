@@ -231,7 +231,7 @@ describe('TaskPage cache and invalidation', () => {
     localStorage.setItem(
       'planora:task:123',
       JSON.stringify({
-        data: mockTask,
+        data: { ...mockTask, title: 'Cached Task Title' },
         timestamp: Date.now(),
       })
     );
@@ -245,9 +245,8 @@ describe('TaskPage cache and invalidation', () => {
 
     // Wait for initial stale-revalidate fetch to complete
     await waitFor(() => {
-      expect(apiGetMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('task-main-content')).toHaveTextContent('Original Task Title');
     });
-    expect(screen.getByTestId('task-main-content')).toHaveTextContent('Original Task Title');
 
     // Trigger local update
     const updateBtn = screen.getByTestId('update-title-btn');
@@ -269,7 +268,7 @@ describe('TaskPage cache and invalidation', () => {
     localStorage.setItem(
       'planora:task:123',
       JSON.stringify({
-        data: mockTask,
+        data: { ...mockTask, title: 'Cached Task Title' },
         timestamp: Date.now(),
       })
     );
@@ -281,9 +280,8 @@ describe('TaskPage cache and invalidation', () => {
     render(<TaskPage />);
 
     await waitFor(() => {
-      expect(apiGetMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('task-main-content')).toHaveTextContent('Original Task Title');
     });
-    expect(screen.getByTestId('task-main-content')).toHaveTextContent('Original Task Title');
 
     // Dispatch global event for task 123
     act(() => {
@@ -304,7 +302,7 @@ describe('TaskPage cache and invalidation', () => {
     localStorage.setItem(
       'planora:task:123',
       JSON.stringify({
-        data: mockTask,
+        data: { ...mockTask, title: 'Cached Task Title' },
         timestamp: Date.now(),
       })
     );
@@ -316,9 +314,8 @@ describe('TaskPage cache and invalidation', () => {
     render(<TaskPage />);
 
     await waitFor(() => {
-      expect(apiGetMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('task-main-content')).toHaveTextContent('Original Task Title');
     });
-    expect(screen.getByTestId('task-main-content')).toHaveTextContent('Original Task Title');
 
     expect(webSocketCallback).toBeDefined();
 
@@ -341,10 +338,12 @@ describe('TaskPage cache and invalidation', () => {
     localStorage.setItem(
       'planora:task:123',
       JSON.stringify({
-        data: mockTask,
+        data: { ...mockTask, title: 'Cached Task Title' },
         timestamp: Date.now(),
       })
     );
+
+    apiGetMock.mockImplementationOnce(() => Promise.resolve({ data: mockTask }));
 
     render(<TaskPage />);
 

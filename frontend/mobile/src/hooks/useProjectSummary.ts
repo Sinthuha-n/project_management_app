@@ -123,7 +123,7 @@ export function useProjectSummary(projectId: number) {
           cachedMilestones: newMilestones,
         })
       );
-    } catch (e) {
+    } catch {
       if (!isMounted.current) return;
       if (!background) setError('Failed to load project summary. Pull down to retry.');
     } finally {

@@ -115,6 +115,101 @@ export type ProjectStorageQuotaResponse = RequireKeys<
     'usedBytes' | 'quotaBytes' | 'maxFileSizeBytes' | 'documentCount' | 'humanReadableUsed' | 'humanReadableQuota'
 >;
 
+export interface DocumentUploadCapabilities {
+    multiUploadEnabled: boolean;
+    acceptedExtensions: string[];
+    mimeTypesByExtension: Record<string, string[]>;
+    maxFileSizeBytes: number;
+    maxBatchFiles: number;
+    maxBatchSizeBytes: number;
+    recommendedConcurrency: number;
+}
+
+export interface DocumentBatchUploadFileRequest {
+    clientId: string;
+    fileName: string;
+    contentType: string;
+    fileSize: number;
+}
+
+export interface DocumentBatchUploadInitResult {
+    clientId: string;
+    accepted: boolean;
+    uploadId?: string;
+    uploadUrl?: string;
+    objectKey?: string;
+    contentType?: string;
+    expiresInSeconds?: number;
+    errorCode?: string;
+    message?: string;
+}
+
+export interface DocumentBatchUploadInitResponse {
+    batchId: string;
+    expiresAt: string;
+    files: DocumentBatchUploadInitResult[];
+}
+
+export async function getDocumentUploadCapabilities(projectId: number): Promise<DocumentUploadCapabilities> {
+    const response = await api.get<DocumentUploadCapabilities>(`/api/projects/${projectId}/documents/upload-capabilities`);
+    return response.data;
+}
+
+export async function initDocumentUploadBatch(
+    projectId: number,
+    folderId: number | undefined,
+    files: DocumentBatchUploadFileRequest[]
+): Promise<DocumentBatchUploadInitResponse> {
+    const response = await api.post<DocumentBatchUploadInitResponse>(`/api/projects/${projectId}/documents/uploads/init`, {
+        folderId,
+        files,
+    });
+    return response.data;
+}
+
+export async function finalizeReservedDocument(projectId: number, uploadId: string, signal?: AbortSignal): Promise<DocumentItem> {
+    const response = await api.post<DocumentItem>(`/api/projects/${projectId}/documents/uploads/${uploadId}/finalize`, undefined, { signal });
+    return response.data;
+}
+
+export async function uploadReservedDocument(
+    projectId: number,
+    file: File,
+    reservation: DocumentBatchUploadInitResult,
+    onProgress?: (percent: number) => void,
+    onScanning?: () => void,
+    signal?: AbortSignal
+): Promise<DocumentItem> {
+    if (!reservation.uploadId || !reservation.uploadUrl || !reservation.contentType) {
+        throw new DmsError('UPLOAD_FAILED', 'Upload reservation was incomplete.');
+    }
+
+    try {
+        await axios.put(reservation.uploadUrl, file, {
+            headers: { 'Content-Type': reservation.contentType },
+            signal,
+            onUploadProgress: (event) => {
+                if (event.total) onProgress?.(Math.round((event.loaded * 100) / event.total));
+            },
+        });
+    } catch (error) {
+        if (signal?.aborted || axios.isCancel(error)) throw error;
+        if (!shouldFallbackToBackend(error)) throw toDmsError(error, 'Storage upload failed.');
+        onScanning?.();
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await api.post<DocumentItem>(
+            `/api/projects/${projectId}/documents/uploads/${reservation.uploadId}`,
+            formData,
+            { headers: { 'Content-Type': 'multipart/form-data' }, signal }
+        );
+        return response.data;
+    }
+
+    onScanning?.();
+    return finalizeReservedDocument(projectId, reservation.uploadId, signal);
+}
+
 export async function getFolderPermissions(projectId: number, folderId: number): Promise<FolderPermissionRequest[]> {
     const response = await api.get<FolderPermissionRequest[]>(`/api/projects/${projectId}/folders/${folderId}/permissions`);
     return response.data;

@@ -43,6 +43,7 @@ public class PublicEndpoints {
             // ── GitHub integration ────────────────────────────────────────────
             "/api/github/webhook",    // GitHub webhook deliveries carry no JWT
             "/api/github/webhooks",   // Alternate plural form used by some webhook configs
+            "/api/github/mobile/oauth/callback", // OAuth state authenticates this browser callback
 
             // ── WebSocket transports ──────────────────────────────────────────
             "/ws/**",

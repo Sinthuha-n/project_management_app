@@ -52,7 +52,7 @@ export function ProjectNotesCard({
   // Fade in animation
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }).start();
-  }, []);
+  }, [fadeAnim]);
 
   const handleEdit = () => {
     setIsEditing(true);

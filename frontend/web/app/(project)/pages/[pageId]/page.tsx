@@ -14,6 +14,7 @@ import {
 import { usePageEditor } from './usePageEditor';
 import { useRouter } from 'next/navigation';
 import OverlayPortal from '@/components/ui/OverlayPortal';
+import { formatDateTime } from '@/lib/date-time';
 
 export default function PageDetailPage() {
   const router = useRouter();
@@ -310,7 +311,7 @@ export default function PageDetailPage() {
                                   Edited by <span className="font-medium">{v.authorName}</span>
                                 </p>
                                 <p className="text-[11px] text-gray-400">
-                                  {new Date(v.createdAt).toLocaleString(undefined, {
+                                  {formatDateTime(v.createdAt, {
                                     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
                                   })}
                                 </p>

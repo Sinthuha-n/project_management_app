@@ -39,6 +39,7 @@ interface UseBacklogCardHandlersArgs {
   projectId: string;
   availableSprintsForMove?: AvailableDestSprint[];
   onSprintDeleted: (sprintId: number, tasks: TaskItem[]) => void;
+  onSprintUpdated: (sprintId: number, updates: Partial<SprintItem>) => void;
   onStatusChange?: (taskId: number, status: string) => void;
   onStoryPointsChange?: (taskId: number, points: number) => void;
   onAssignTask?: (taskId: number, name: string, photo: string | null) => void;
@@ -55,6 +56,7 @@ export function useBacklogCardHandlers({
   projectId,
   availableSprintsForMove = [],
   onSprintDeleted,
+  onSprintUpdated,
   onStatusChange,
   onStoryPointsChange,
   onAssignTask,
@@ -238,7 +240,7 @@ export function useBacklogCardHandlers({
     setEditingSprintLoading(true);
     try {
       await sprintsApi.update(sprint.id, { name });
-      sprint.name = name;
+      onSprintUpdated(sprint.id, { name });
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       toast(axiosErr?.response?.data?.message || 'Failed to rename sprint.', 'error');
@@ -265,7 +267,7 @@ export function useBacklogCardHandlers({
     try {
       await sprintsApi.update(sprint.id, { name: trimmedName });
       setShowEditSprintModal(false);
-      sprint.name = trimmedName;
+      onSprintUpdated(sprint.id, { name: trimmedName });
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       const msg = axiosErr?.response?.data?.message || 'Failed to edit sprint.';
@@ -307,9 +309,11 @@ export function useBacklogCardHandlers({
         endDate: formatLocalDate(endDate),
       });
       setShowStartSprintModal(false);
-      sprint.status = 'ACTIVE';
-      sprint.startDate = formatLocalDate(baseDate);
-      sprint.endDate = formatLocalDate(endDate);
+      onSprintUpdated(sprint.id, {
+        status: 'ACTIVE',
+        startDate: formatLocalDate(baseDate),
+        endDate: formatLocalDate(endDate),
+      });
       window.dispatchEvent(new CustomEvent('planora:task-updated'));
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
@@ -331,7 +335,7 @@ export function useBacklogCardHandlers({
     try {
       await sprintsApi.complete(sprint.id, completeDestination);
       setConfirmCompleteSprint(false);
-      sprint.status = 'COMPLETED';
+      onSprintUpdated(sprint.id, { status: 'COMPLETED' });
       window.dispatchEvent(new CustomEvent('planora:task-updated'));
       toast('Sprint completed successfully.', 'success');
     } catch (err: unknown) {

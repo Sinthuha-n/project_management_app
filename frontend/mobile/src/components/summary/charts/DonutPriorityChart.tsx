@@ -47,7 +47,7 @@ export function DonutPriorityChart({ tasks }: { tasks: { priority?: string }[] }
         useNativeDriver: true,
       })
     ).start();
-  }, [tasks.length]);
+  }, [anim, rotationAnim, tasks.length]);
 
   const spin = rotationAnim.interpolate({
     inputRange: [0, 1],

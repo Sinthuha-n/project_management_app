@@ -34,7 +34,24 @@ jest.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
   motion: new Proxy({}, {
     get: (_target, tag: string) => {
-      const Component = ({ children, ...props }: { children?: ReactNode; [key: string]: unknown }) => {
+      const Component = ({
+        children,
+        layout,
+        transition,
+        initial,
+        animate,
+        exit,
+        variants,
+        whileHover,
+        whileTap,
+        whileDrag,
+        whileFocus,
+        whileInView,
+        viewport,
+        onViewportEnter,
+        onViewportLeave,
+        ...props
+      }: { children?: ReactNode; [key: string]: unknown }) => {
         const Tag = tag as 'div';
         return <Tag {...props}>{children}</Tag>;
       };
@@ -176,17 +193,7 @@ const backendConnection: ProjectGitHubConnection = {
 function arrangeDefaults() {
   mockedEnsureValidToken.mockResolvedValue('access-token');
   mockedGetUserFromToken.mockReturnValue({ email: 'owner@example.com', userId: 10 });
-  mockedFetchMembers.mockResolvedValue([{
-    id: 1,
-    role: 'OWNER',
-    user: {
-      userId: 10,
-      username: 'owner',
-      email: 'owner@example.com',
-      githubUsername: 'ownerhub',
-      githubEmail: 'owner@users.noreply.github.com',
-    },
-  }] as Awaited<ReturnType<typeof fetchMembers>>);
+  mockedFetchMembers.mockReturnValue(new Promise(() => undefined));
   mockedFetchGitHubConnectionStatus.mockResolvedValue({ connected: true });
   mockedFetchProjectGitHubConnection.mockResolvedValue(backendConnection);
   mockedFetchProjectPullRequests.mockResolvedValue([]);
@@ -356,6 +363,17 @@ describe('GitHubProjectPage', () => {
   });
 
   it('renders existing collaborator success when GitHub updates access', async () => {
+    mockedFetchMembers.mockResolvedValueOnce([{
+      id: 1,
+      role: 'OWNER',
+      user: {
+        userId: 10,
+        username: 'owner',
+        email: 'owner@example.com',
+        githubUsername: 'ownerhub',
+        githubEmail: 'owner@users.noreply.github.com',
+      },
+    }] as Awaited<ReturnType<typeof fetchMembers>>);
     mockedInviteGitHubCollaborator.mockResolvedValueOnce({
       projectId: 7,
       integrationId: 42,
@@ -387,6 +405,17 @@ describe('GitHubProjectPage', () => {
   });
 
   it('renders backend invite errors in the modal', async () => {
+    mockedFetchMembers.mockResolvedValueOnce([{
+      id: 1,
+      role: 'OWNER',
+      user: {
+        userId: 10,
+        username: 'owner',
+        email: 'owner@example.com',
+        githubUsername: 'ownerhub',
+        githubEmail: 'owner@users.noreply.github.com',
+      },
+    }] as Awaited<ReturnType<typeof fetchMembers>>);
     mockedInviteGitHubCollaborator.mockRejectedValueOnce({
       response: {
         data: {

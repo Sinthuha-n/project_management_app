@@ -27,7 +27,11 @@ export default function ErrorBanner({ message, visible }: Props) {
   if (!visible) return null;
 
   return (
-    <Animated.View style={[styles.banner, { opacity, transform: [{ translateY }] }]}>
+    <Animated.View
+      accessibilityRole="alert"
+      accessibilityLiveRegion="assertive"
+      style={[styles.banner, { opacity, transform: [{ translateY }] }]}
+    >
       <Text style={styles.text}>{message}</Text>
     </Animated.View>
   );

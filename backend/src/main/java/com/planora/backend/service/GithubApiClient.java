@@ -1,10 +1,10 @@
 package com.planora.backend.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -26,22 +26,21 @@ import java.util.Map;
 @Service
 public class GithubApiClient {
 
-    private static final String GITHUB_API_BASE = "https://api.github.com";
     private static final int MAX_PER_PAGE = 100;
+
+    @Value("${github.api-base-url:https://api.github.com}")
+    private String githubApiBaseUrl = "https://api.github.com";
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
-    public GithubApiClient() {
-        this.httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .build();
-        this.objectMapper = new ObjectMapper()
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    public GithubApiClient(HttpClient httpClient, ObjectMapper objectMapper) {
+        this.httpClient = httpClient;
+        this.objectMapper = objectMapper;
     }
 
     public List<JsonNode> fetchPullRequests(String repoFullName, String token, String state, int page, int perPage) {
-        String url = GITHUB_API_BASE + "/repos/" + repoFullName + "/pulls"
+        String url = githubApiBaseUrl + "/repos/" + repoFullName + "/pulls"
             + "?state=" + state
             + "&per_page=" + Math.min(perPage, MAX_PER_PAGE)
             + "&page=" + page;
@@ -49,7 +48,7 @@ public class GithubApiClient {
     }
 
     public List<JsonNode> fetchCommits(String repoFullName, String token, int page, int perPage) {
-        String url = GITHUB_API_BASE + "/repos/" + repoFullName + "/commits"
+        String url = githubApiBaseUrl + "/repos/" + repoFullName + "/commits"
             + "?per_page=" + Math.min(perPage, MAX_PER_PAGE)
             + "&page=" + page;
         return getList(url, token);
@@ -57,7 +56,7 @@ public class GithubApiClient {
 
     public List<JsonNode> fetchIssues(String repoFullName, String token, String state, int page, int perPage) {
         // GitHub issues endpoint returns both issues and PRs — callers must filter out PRs
-        String url = GITHUB_API_BASE + "/repos/" + repoFullName + "/issues"
+        String url = githubApiBaseUrl + "/repos/" + repoFullName + "/issues"
             + "?state=" + state
             + "&per_page=" + Math.min(perPage, MAX_PER_PAGE)
             + "&page=" + page;
@@ -65,15 +64,15 @@ public class GithubApiClient {
     }
 
     public JsonNode fetchRepository(String repoFullName, String token) {
-        return get(GITHUB_API_BASE + "/repos/" + repoFullName, token);
+        return get(githubApiBaseUrl + "/repos/" + repoFullName, token);
     }
 
     public JsonNode fetchPublicUser(String username, String token) {
-        return get(GITHUB_API_BASE + "/users/" + encodePathSegment(username), token);
+        return get(githubApiBaseUrl + "/users/" + encodePathSegment(username), token);
     }
 
     public JsonNode getRepositoryPermission(String repoFullName, String username, String token) {
-        String url = GITHUB_API_BASE + "/repos/" + repoFullName
+        String url = githubApiBaseUrl + "/repos/" + repoFullName
             + "/collaborators/" + encodePathSegment(username) + "/permission";
         return get(url, token);
     }
@@ -85,7 +84,7 @@ public class GithubApiClient {
             String token) {
         try {
             String json = objectMapper.writeValueAsString(Map.of("permission", permission));
-            String url = GITHUB_API_BASE + "/repos/" + repoFullName
+            String url = githubApiBaseUrl + "/repos/" + repoFullName
                 + "/collaborators/" + encodePathSegment(username);
             HttpRequest request = buildRequest(url, token)
                 .PUT(HttpRequest.BodyPublishers.ofString(json))
@@ -104,7 +103,7 @@ public class GithubApiClient {
     }
 
     public List<JsonNode> fetchUserRepositories(String token, int page) {
-        String url = GITHUB_API_BASE + "/user/repos?per_page=30&page=" + page + "&sort=updated";
+        String url = githubApiBaseUrl + "/user/repos?per_page=30&page=" + page + "&sort=updated";
         return getList(url, token);
     }
 
@@ -116,7 +115,7 @@ public class GithubApiClient {
                 "labels", labels != null ? labels : List.of()
             );
             String json = objectMapper.writeValueAsString(payload);
-            return post(GITHUB_API_BASE + "/repos/" + repoFullName + "/issues", token, json);
+            return post(githubApiBaseUrl + "/repos/" + repoFullName + "/issues", token, json);
         } catch (IOException e) {
             throw new GithubApiException("Failed to serialize create-issue payload", e);
         }

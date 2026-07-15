@@ -15,10 +15,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -31,6 +33,7 @@ class TaskTemplateServiceTest {
     @Mock private ProjectRepository projectRepository;
     @Mock private TaskRepository taskRepository;
     @Mock private UserRepository userRepository;
+    @Spy private ObjectMapper objectMapper = new ObjectMapper();
 
     @InjectMocks
     private TaskTemplateService taskTemplateService;

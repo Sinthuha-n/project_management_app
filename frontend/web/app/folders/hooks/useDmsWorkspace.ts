@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
     createFolder,
@@ -17,7 +17,10 @@ import {
     restoreDocument,
     softDeleteDocument,
     updateDocumentMetadata,
-    uploadDocument,
+    getDocumentUploadCapabilities,
+    initDocumentUploadBatch,
+    uploadReservedDocument,
+    DocumentUploadCapabilities,
     getFolderPermissions,
     updateFolderPermissions,
     getProjectStorageQuota,
@@ -31,6 +34,7 @@ import {
     DocumentSortDirection,
     DocumentSortKey,
     ViewMode,
+    UploadQueueItem,
 } from '@/app/folders/components/types';
 
 const FAVORITES_KEY = 'dmsFavoriteDocumentIds';
@@ -93,8 +97,14 @@ export function useDmsWorkspace(mode: ViewMode) {
     const [documentFilters, setDocumentFilters] = useState<DocumentFilters>(DEFAULT_FILTERS);
     const [sortKey, setSortKey] = useState<DocumentSortKey>('updatedAt');
     const [sortDirection, setSortDirection] = useState<DocumentSortDirection>('desc');
-    const [uploadProgress, setUploadProgress] = useState(0);
-    const [isUploading, setIsUploading] = useState(false);
+    const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
+    const [uploadCapabilities, setUploadCapabilities] = useState<DocumentUploadCapabilities | null>(null);
+    const [isInitializingUploads, setIsInitializingUploads] = useState(false);
+    const uploadAbortControllers = useRef(new Map<string, AbortController>());
+    const cancelledUploadIds = useRef(new Set<string>());
+    const activeUploadSlots = useRef(0);
+    const uploadSlotWaiters = useRef<Array<() => void>>([]);
+    const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [isDragOver, setIsDragOver] = useState(false);
     const [currentProjectName, setCurrentProjectName] = useState<string | null>(null);
     const [renameDoc, setRenameDoc] = useState<DocumentItem | null>(null);
@@ -119,20 +129,27 @@ export function useDmsWorkspace(mode: ViewMode) {
         } catch { setFavoriteIds([]); }
     }, []);
 
+    useEffect(() => () => {
+        uploadAbortControllers.current.forEach((controller) => controller.abort());
+        if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    }, []);
+
     useEffect(() => {
         if (!projectId) { setLoading(false); return; }
         const load = async () => {
             try {
                 setLoading(true); setError(null);
-                const [folderData, documentData, allProjects, quotaData] = await Promise.all([
+                const [folderData, documentData, allProjects, quotaData, capabilitiesData] = await Promise.all([
                     listFolders(projectId),
                     listDocuments(projectId, undefined, isTrashMode),
                     listUserProjects(),
                     getProjectStorageQuota(projectId),
+                    getDocumentUploadCapabilities(projectId),
                 ]);
                 setFolders(folderData);
                 setDocuments(documentData);
                 setQuota(quotaData);
+                setUploadCapabilities(capabilitiesData);
                 const match = allProjects.find((p) => p.id === projectId);
                 setCurrentProjectName(match?.name ?? null);
             } catch { setError('Failed to load folder and document data.'); }
@@ -208,10 +225,10 @@ export function useDmsWorkspace(mode: ViewMode) {
         return map[mode] ?? 'All Documents';
     }, [mode]);
 
-    const refresh = async () => {
+    const refresh = async (silent = false) => {
         if (!projectId) return;
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             setError(null);
             const [folderData, documentData, allProjects, quotaData] = await Promise.all([
                 listFolders(projectId),
@@ -227,7 +244,7 @@ export function useDmsWorkspace(mode: ViewMode) {
         } catch {
             setError('Failed to load folder and document data.');
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
@@ -265,28 +282,140 @@ export function useDmsWorkspace(mode: ViewMode) {
         finally { setBusy(false); }
     };
 
-    const handleUploadFile = async (file: File) => {
-        if (!projectId) return;
+    const updateUploadItem = (id: string, changes: Partial<UploadQueueItem>) => {
+        setUploadQueue((current) => current.map((item) => item.id === id ? { ...item, ...changes } : item));
+    };
+
+    const queueRefresh = () => {
+        if (refreshTimer.current) clearTimeout(refreshTimer.current);
+        refreshTimer.current = setTimeout(() => void refresh(true), 350);
+    };
+
+    const runUploadItems = async (items: UploadQueueItem[]) => {
+        if (!projectId || items.length === 0) return;
+        setIsInitializingUploads(true);
         try {
-            setBusy(true); setIsUploading(true); setUploadProgress(0);
-            await uploadDocument(projectId, file, selectedFolderId, (p) => setUploadProgress(p));
-            await refresh();
-        } catch (err) {
-            setError(getDmsErrorMessage(err, 'Upload failed.'));
-        } finally { setBusy(false); setIsUploading(false); setUploadProgress(0); }
+            const response = await initDocumentUploadBatch(projectId, items[0].folderId, items.map((item) => ({
+                clientId: item.id,
+                fileName: item.file.name,
+                contentType: item.file.type || 'application/octet-stream',
+                fileSize: item.file.size,
+            })));
+            const reservations = new Map(response.files.map((result) => [result.clientId, result]));
+            const ready = items.filter((item) => {
+                const result = reservations.get(item.id);
+                if (!result?.accepted) {
+                    updateUploadItem(item.id, { status: 'failed', errorCode: result?.errorCode, errorMessage: result?.message || 'Upload was rejected.' });
+                    return false;
+                }
+                return true;
+            });
+            setIsInitializingUploads(false);
+            const acquireSlot = async () => {
+                const limit = uploadCapabilities?.recommendedConcurrency ?? 3;
+                if (activeUploadSlots.current < limit) { activeUploadSlots.current++; return; }
+                await new Promise<void>((resolve) => uploadSlotWaiters.current.push(resolve));
+            };
+            const releaseSlot = () => {
+                const waiter = uploadSlotWaiters.current.shift();
+                if (waiter) waiter();
+                else activeUploadSlots.current = Math.max(0, activeUploadSlots.current - 1);
+            };
+            let nextIndex = 0;
+            const worker = async () => {
+                while (nextIndex < ready.length) {
+                    const item = ready[nextIndex++];
+                    await acquireSlot();
+                    if (cancelledUploadIds.current.has(item.id)) { releaseSlot(); continue; }
+                    const reservation = reservations.get(item.id)!;
+                    const controller = new AbortController();
+                    uploadAbortControllers.current.set(item.id, controller);
+                    updateUploadItem(item.id, { status: 'uploading', progress: 0, errorCode: undefined, errorMessage: undefined });
+                    try {
+                        await uploadReservedDocument(projectId, item.file, reservation,
+                            (progress) => updateUploadItem(item.id, { progress }),
+                            () => updateUploadItem(item.id, { status: 'scanning', progress: 100 }),
+                            controller.signal);
+                        updateUploadItem(item.id, { status: 'completed', progress: 100 });
+                        queueRefresh();
+                    } catch (uploadError) {
+                        if (controller.signal.aborted) updateUploadItem(item.id, { status: 'cancelled', errorMessage: 'Upload cancelled.' });
+                        else updateUploadItem(item.id, { status: 'failed', errorMessage: getDmsErrorMessage(uploadError, 'Upload failed.') });
+                    } finally {
+                        uploadAbortControllers.current.delete(item.id);
+                        releaseSlot();
+                    }
+                }
+            };
+            await Promise.all(Array.from({ length: Math.min(uploadCapabilities?.recommendedConcurrency ?? 3, ready.length) }, () => worker()));
+            await refresh(true);
+        } catch (batchError) {
+            const message = getDmsErrorMessage(batchError, 'Failed to initialize uploads.');
+            items.forEach((item) => updateUploadItem(item.id, { status: 'failed', errorMessage: message }));
+        } finally {
+            setIsInitializingUploads(false);
+        }
+    };
+
+    const createUploadItems = (files: File[]): UploadQueueItem[] => {
+        const capabilities = uploadCapabilities;
+        const folderId = selectedFolderId;
+        const folderName = getFolderName(folderId ?? null);
+        const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+        const quotaRemaining = quota ? Math.max(0, quota.quotaBytes - quota.usedBytes) : Number.MAX_SAFE_INTEGER;
+        return files.map((file, index) => {
+            const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${index}-${Math.random()}`;
+            let errorMessage: string | undefined;
+            let errorCode: string | undefined;
+            const extension = file.name.split('.').pop()?.toLowerCase() || '';
+            if (capabilities && files.length > capabilities.maxBatchFiles) { errorCode = 'BATCH_FILE_LIMIT_EXCEEDED'; errorMessage = `Select no more than ${capabilities.maxBatchFiles} files.`; }
+            else if (capabilities && totalBytes > capabilities.maxBatchSizeBytes) { errorCode = 'BATCH_SIZE_LIMIT_EXCEEDED'; errorMessage = 'The selection exceeds 500 MB.'; }
+            else if (capabilities && file.size > capabilities.maxFileSizeBytes) { errorCode = 'FILE_TOO_LARGE'; errorMessage = 'The file exceeds 100 MB.'; }
+            else if (capabilities && !capabilities.acceptedExtensions.includes(extension)) { errorCode = 'UNSUPPORTED_EXTENSION'; errorMessage = 'This file extension is not supported.'; }
+            else if (totalBytes > quotaRemaining) { errorCode = 'STORAGE_QUOTA_EXCEEDED'; errorMessage = 'The selection exceeds the remaining project storage quota.'; }
+            return { id, file, folderId, folderName, status: errorMessage ? 'failed' : 'queued', progress: 0, errorCode, errorMessage };
+        });
+    };
+
+    const addFiles = async (files: File[]) => {
+        if (!projectId || files.length === 0) return;
+        const items = createUploadItems(files);
+        setUploadQueue((current) => [...current, ...items]);
+        await runUploadItems(items.filter((item) => item.status === 'queued'));
     };
 
     const onUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) { await handleUploadFile(file); event.target.value = ''; }
+        const files = Array.from(event.target.files || []);
+        event.target.value = '';
+        await addFiles(files);
     };
 
     const onDrop = async (event: React.DragEvent<HTMLDivElement>) => {
         event.preventDefault();
         setIsDragOver(false);
-        const file = event.dataTransfer.files?.[0];
-        if (file) await handleUploadFile(file);
+        await addFiles(Array.from(event.dataTransfer.files || []));
     };
+
+    const cancelUpload = (id: string) => {
+        cancelledUploadIds.current.add(id);
+        const controller = uploadAbortControllers.current.get(id);
+        if (controller) controller.abort();
+        else updateUploadItem(id, { status: 'cancelled', errorMessage: 'Upload cancelled.' });
+    };
+
+    const cancelRemainingUploads = () => {
+        uploadQueue.filter((item) => ['queued', 'uploading', 'scanning'].includes(item.status)).forEach((item) => cancelUpload(item.id));
+    };
+
+    const retryUploads = async (ids: string[]) => {
+        ids.forEach((id) => cancelledUploadIds.current.delete(id));
+        const retryItems = uploadQueue.filter((item) => ids.includes(item.id) && ['failed', 'cancelled'].includes(item.status))
+            .map((item) => ({ ...item, status: 'queued' as const, progress: 0, errorCode: undefined, errorMessage: undefined }));
+        setUploadQueue((current) => current.map((item) => retryItems.find((retry) => retry.id === item.id) ?? item));
+        await runUploadItems(retryItems);
+    };
+
+    const clearFinishedUploads = () => setUploadQueue((current) => current.filter((item) => !['completed', 'cancelled'].includes(item.status)));
 
     const onDownload = async (documentId: number) => {
         if (!projectId) return;
@@ -434,7 +563,9 @@ export function useDmsWorkspace(mode: ViewMode) {
         onCreateFolder, onDeleteFolder, onUpload, onDrop,
         onDownload, onView, onRename, onConfirmRename, onCancelRename, onSoftDelete, onRestore,
         onPermanentDelete, onToggleFavorite, onToggleVersions, onOpenInfo,
-        isDragOver, setIsDragOver, isUploading, uploadProgress, refresh,
+        isDragOver, setIsDragOver, refresh,
+        uploadQueue, uploadCapabilities, isInitializingUploads,
+        cancelUpload, cancelRemainingUploads, retryUploads, clearFinishedUploads,
         quota, selectedPermsFolder, folderPermissions, loadingPerms, savingPerms,
         onOpenFolderPermissions, onSaveFolderPermissions, onCloseFolderPermissions,
         previewDoc, setPreviewDoc,

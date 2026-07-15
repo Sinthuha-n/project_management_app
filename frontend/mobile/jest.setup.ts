@@ -9,7 +9,7 @@ const routerMock = {
 };
 
 jest.mock('react-native', () => {
-  const eventListeners: Record<string, Array<(payload: unknown) => void>> = {};
+  const eventListeners: Record<string, ((payload: unknown) => void)[]> = {};
 
   return {
     ActivityIndicator: 'ActivityIndicator',

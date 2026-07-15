@@ -217,9 +217,9 @@ function TabBtn({
   });
 
   const pressIn = useCallback(() =>
-    Animated.spring(press, { toValue: 0.9, tension: 700, friction: 14, useNativeDriver: false }).start(), []);
+    Animated.spring(press, { toValue: 0.9, tension: 700, friction: 14, useNativeDriver: false }).start(), [press]);
   const pressOut = useCallback(() =>
-    Animated.spring(press, { toValue: 1, tension: 300, friction: 18, useNativeDriver: false }).start(), []);
+    Animated.spring(press, { toValue: 1, tension: 300, friction: 18, useNativeDriver: false }).start(), [press]);
 
   return (
     <Animated.View
@@ -439,7 +439,7 @@ export default function ProjectTopNav({
       Animated.spring(entryY, { toValue: 0, tension: 200, friction: 24, useNativeDriver: true }),
       Animated.timing(entryOp, { toValue: 1, duration: 260, useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [entryOp, entryY]);
 
   const dropdownHeightAnim = useRef(new Animated.Value(0)).current;
   const dropdownOp = useRef(new Animated.Value(0)).current;

@@ -10,6 +10,7 @@ import { MembersHeader } from "./components/MembersHeader";
 import { MembersStatsCards } from "./components/MembersStatsCards";
 import { MembersTable } from "./components/MembersTable";
 import { RemoveMemberModal } from "./components/RemoveMemberModal";
+import type { AssignableTeamRole } from "./types";
 
 export default function MembersPageClient({ projectId, pageSize }: { projectId: string; pageSize?: number }) {
   const searchParams = useSearchParams();
@@ -95,7 +96,7 @@ export default function MembersPageClient({ projectId, pageSize }: { projectId: 
           resolveProfilePicUrl={resolveProfilePicUrl}
           getMemberProfilePicCandidates={getMemberProfilePicCandidates}
           setBrokenProfileImages={setBrokenProfileImages}
-          onRoleChange={(userId, newRole) => {
+          onRoleChange={(userId, newRole: AssignableTeamRole) => {
             void handleRoleChange(userId, newRole);
           }}
           onRequestRemove={(member) => {

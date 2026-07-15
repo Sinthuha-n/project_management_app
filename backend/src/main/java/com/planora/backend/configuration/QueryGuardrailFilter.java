@@ -2,6 +2,7 @@ package com.planora.backend.configuration;
 
 import java.io.IOException;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import javax.sql.DataSource;
 
@@ -33,6 +34,7 @@ import net.ttddyy.dsproxy.QueryCount;
 public class QueryGuardrailFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(QueryGuardrailFilter.class);
+    private static final Pattern SAFE_REQUEST_ID = Pattern.compile("[A-Za-z0-9._:-]{1,128}");
 
     @Value("${nplus1.guard.warn-threshold:40}")
     private int warnThreshold;
@@ -111,7 +113,7 @@ public class QueryGuardrailFilter extends OncePerRequestFilter {
 
     private String resolveRequestId(HttpServletRequest request) {
         String existingRequestId = request.getHeader("X-Request-Id");
-        if (existingRequestId != null && !existingRequestId.isBlank()) {
+        if (existingRequestId != null && SAFE_REQUEST_ID.matcher(existingRequestId).matches()) {
             return existingRequestId;
         }
         return UUID.randomUUID().toString();

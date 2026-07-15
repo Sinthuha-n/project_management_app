@@ -13,6 +13,7 @@ import {
 import { tasksApi } from '@/services/api-contract';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
 import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
+import { useProjectTasks } from '@/hooks/useProjectTasks';
 
 export const DEFAULT_COLUMN_CONFIGS: KanbanColumnConfig[] = [
   { id: 0, status: 'TODO', title: 'To Do', color: '', wipLimit: 0 },
@@ -22,6 +23,7 @@ export const DEFAULT_COLUMN_CONFIGS: KanbanColumnConfig[] = [
 ];
 
 export function useKanbanData(projectId: string | null) {
+  const canonicalTasks = useProjectTasks(projectId, false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +41,13 @@ export function useKanbanData(projectId: string | null) {
   useEffect(() => { columnConfigsRef.current = columnConfigs; }, [columnConfigs]);
   const kanbanIdRef = useRef<number | null>(kanbanId);
   useEffect(() => { kanbanIdRef.current = kanbanId; }, [kanbanId]);
+
+  useEffect(() => {
+    if (!canonicalTasks.authoritative) return;
+    const next = canonicalTasks.tasks as unknown as Task[];
+    setTasks(next);
+    tasksRef.current = next;
+  }, [canonicalTasks.authoritative, canonicalTasks.tasks]);
 
   // ── Local Task Helpers ──────────────────────────────────────────────────────
 
@@ -137,7 +146,6 @@ export function useKanbanData(projectId: string | null) {
         if (cached.data.tasks) setTasks(cached.data.tasks);
         if (cached.data.kanbanId) setKanbanId(cached.data.kanbanId);
         setLoading(false);
-        if (!cached.isStale) return; // Fresh cache — skip network fetch
       }
     }
 

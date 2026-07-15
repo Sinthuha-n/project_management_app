@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ChevronDown,
@@ -32,7 +32,7 @@ interface ProductBacklogSectionProps {
   currentUserRole?: string | null;
   onToggleTask: (id: number) => void;
   onStoryPointsChange: (id: number, points: number) => void;
-  onCreateTask: (data: CreateTaskData) => Promise<void>;
+  onCreateTask: (data: CreateTaskData) => Promise<void> | void;
   onDeleteTask?: (id: number) => void;
   onCreateSprint: () => void;
   onDropTask: (taskId: number, targetIndex?: number) => void;
@@ -92,6 +92,7 @@ export default function ProductBacklogSection({
   const [taskToDeleteId, setTaskToDeleteId] = useState<number | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMemberInfo[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const memberRequestRef = useRef(0);
   const [labelCache, setLabelCache] = useState<Record<number, Array<{ id: number; name: string; color?: string }>>>({});
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showCreateTaskBox, setShowCreateTaskBox] = useState(false);
@@ -113,29 +114,30 @@ export default function ProductBacklogSection({
 
   const getMemberDisplayName = (member: TeamMemberInfo) => member.user.fullName || member.user.username;
 
-  useEffect(() => {
-    void fetchTeamMembers(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
-  const fetchTeamMembers = async (showError = true) => {
-    if (loadingMembers) return;
-
+  const fetchTeamMembers = useCallback(async (showError = true) => {
+    const requestId = ++memberRequestRef.current;
     try {
       setLoadingMembers(true);
       const project = await projectsApi.get(projectId);
       const teamId = project.teamId;
       if (teamId) {
         const data = await projectsApi.getTeamMembers(teamId);
+        if (requestId !== memberRequestRef.current) return;
         setTeamMembers(Array.isArray(data) ? (data as TeamMemberInfo[]) : []);
       }
     } catch {
-      if (showError) {
+      if (showError && requestId === memberRequestRef.current) {
         toast('Failed to load team members.', 'error');
       }
     } finally {
-      setLoadingMembers(false);
+      if (requestId === memberRequestRef.current) setLoadingMembers(false);
     }
-  };
+  }, [projectId]);
+
+  useEffect(() => {
+    void fetchTeamMembers(false);
+    return () => { memberRequestRef.current += 1; };
+  }, [fetchTeamMembers]);
 
   const handleAssignTask = async (taskId: number, userId: number) => {
     try {

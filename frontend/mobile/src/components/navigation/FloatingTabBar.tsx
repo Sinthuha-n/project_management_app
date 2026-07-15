@@ -18,7 +18,7 @@ import {
   Platform, Animated, useWindowDimensions,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import Svg, { Path, Circle, Rect, G } from 'react-native-svg';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -174,7 +174,7 @@ function TabButton({
         friction: 20,
       }),
     ]).start();
-  }, [active]);
+  }, [active, crossfade, labelScale]);
 
   const onPressIn = useCallback(() => {
     Animated.spring(pressScale, {
@@ -183,7 +183,7 @@ function TabButton({
       tension: 500,
       friction: 12,
     }).start();
-  }, []);
+  }, [pressScale]);
 
   const onPressOut = useCallback(() => {
     Animated.spring(pressScale, {
@@ -192,7 +192,7 @@ function TabButton({
       tension: 240,
       friction: 16,
     }).start();
-  }, []);
+  }, [pressScale]);
 
   const OutlineIcon = OUTLINE_ICONS[tab.name];
   const FilledIcon  = FILLED_ICONS[tab.name];
