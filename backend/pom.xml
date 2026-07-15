@@ -523,6 +523,7 @@
 							<nvdApiResultsPerPage>2000</nvdApiResultsPerPage>
 							<nvdMaxRetryCount>5</nvdMaxRetryCount>
 							<nvdValidForHours>24</nvdValidForHours>
+							<dataDirectory>${project.basedir}/dependency-check-data</dataDirectory>
 							<ossIndexAnalyzerEnabled>false</ossIndexAnalyzerEnabled>
 							<assemblyAnalyzerEnabled>false</assemblyAnalyzerEnabled>
 							<nugetconfAnalyzerEnabled>false</nugetconfAnalyzerEnabled>
