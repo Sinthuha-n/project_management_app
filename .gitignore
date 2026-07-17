@@ -1,5 +1,6 @@
 .env
 .env.production
+.env*.local
 node_modules/
 frontend/web/node_modules
 .idea/

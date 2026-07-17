@@ -81,6 +81,10 @@ jobs:
         image: redis:7-alpine
         ports:
           - 6379:6379
+      mailhog:
+        image: mailhog/mailhog
+        ports:
+          - 2525:1025
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -99,6 +103,9 @@ jobs:
           MAIL_PORT: 2525
           MAIL_USERNAME: integration
           MAIL_PASSWORD: integration
+          SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: 'false'
+          SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: 'false'
+          SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED: 'false'
           AWS_ACCESS_KEY: test
           AWS_SECRET_KEY: test
           AWS_REGION: us-east-1
