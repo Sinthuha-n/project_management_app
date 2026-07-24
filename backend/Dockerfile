@@ -18,12 +18,14 @@ COPY src ./src
 RUN ./mvnw clean package -DskipTests
 
 # Stage 2: Run the application
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:21-jre-noble
 WORKDIR /app
 
-RUN apk add --no-cache curl \
-    && addgroup -S planora \
-    && adduser -S planora -G planora
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system planora \
+    && useradd --system --gid planora --create-home planora
 
 # Copy the built jar
 COPY --from=build --chown=planora:planora /app/target/*.jar app.jar

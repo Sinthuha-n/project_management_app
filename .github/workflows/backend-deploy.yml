@@ -52,6 +52,7 @@ jobs:
         with:
           context: ./backend
           push: true
+          pull: true
           tags: |
             ${{ steps.meta.outputs.image }}
             ${{ steps.meta.outputs.image_name }}:latest
