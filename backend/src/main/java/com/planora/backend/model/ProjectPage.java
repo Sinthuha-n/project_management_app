@@ -20,6 +20,10 @@ public class ProjectPage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @Column(name = "project_id", nullable = false)
     private Long projectId;
 

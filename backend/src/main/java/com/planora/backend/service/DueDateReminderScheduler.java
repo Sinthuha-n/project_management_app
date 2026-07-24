@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
+
 @Component
 @RequiredArgsConstructor
 public class DueDateReminderScheduler {
@@ -16,6 +18,7 @@ public class DueDateReminderScheduler {
 
     private final DueDateReminderProperties reminderProperties;
     private final TaskDueDateReminderService reminderService;
+    private final ScheduledJobLockService scheduledJobLockService;
 
     @Scheduled(
             cron = "${notifications.due-date-reminder.cron:0 0 12 * * *}",
@@ -28,16 +31,20 @@ public class DueDateReminderScheduler {
             return;
         }
 
-        TaskDueDateReminderService.ReminderRunStats stats = reminderService.sendDueDateReminders();
-        logger.info(
-                "DueDateReminderScheduler: scannedTasks={}, sent={}, dueSoon={}, overdue={}, skippedIneligible={}, skippedDisabled={}, skippedDuplicate={}",
-                stats.getScannedTasks(),
-                stats.getSentNotifications(),
-                stats.getSentDueSoonNotifications(),
-                stats.getSentOverdueNotifications(),
-                stats.getSkippedIneligibleTasks(),
-                stats.getSkippedDisabledRecipients(),
-                stats.getSkippedDuplicateNotifications()
-        );
+        if (!scheduledJobLockService.tryAcquire("due-date-reminders", Duration.ofHours(2))) {
+            logger.debug("Due-date reminders are already running on another instance.");
+            return;
+        }
+
+        try {
+            TaskDueDateReminderService.ReminderRunStats stats = reminderService.sendDueDateReminders();
+            logger.info(
+                    "DueDateReminderScheduler: scannedTasks={}, sent={}, dueSoon={}, overdue={}, skippedIneligible={}, skippedDisabled={}, skippedDuplicate={}",
+                    stats.getScannedTasks(), stats.getSentNotifications(), stats.getSentDueSoonNotifications(),
+                    stats.getSentOverdueNotifications(), stats.getSkippedIneligibleTasks(), stats.getSkippedDisabledRecipients(),
+                    stats.getSkippedDuplicateNotifications());
+        } finally {
+            scheduledJobLockService.release("due-date-reminders");
+        }
     }
 }

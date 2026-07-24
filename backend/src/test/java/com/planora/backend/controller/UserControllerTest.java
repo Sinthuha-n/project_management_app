@@ -238,6 +238,7 @@ public class UserControllerTest {
 
         mockMvc.perform(post("/api/auth/refresh")
                 .with(csrf())
+                .header("Origin", "http://localhost:3000")
                 .cookie(new jakarta.servlet.http.Cookie("planora_refresh_token", "old-refresh-token")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("new-access-token"))
@@ -245,6 +246,36 @@ public class UserControllerTest {
                 .andExpect(header().exists("Set-Cookie"))
                 .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("planora_refresh_token=new-refresh-token")))
                 .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("SameSite=None")));
+    }
+
+    @Test
+    @WithMockUserPrincipal
+    void testRefresh_NativeBodyToken_ReturnsRotatedTokenWithoutCookie() throws Exception {
+        LoginResponse response = new LoginResponse();
+        response.setSuccess(true);
+        response.setToken("new-access-token");
+        response.setRefreshToken("new-refresh-token");
+        when(userService.refreshTokens("old-native-refresh-token")).thenReturn(response);
+
+        mockMvc.perform(post("/api/auth/refresh")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"old-native-refresh-token\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("new-access-token"))
+                .andExpect(jsonPath("$.refreshToken").value("new-refresh-token"))
+                .andExpect(header().doesNotExist("Set-Cookie"));
+    }
+
+    @Test
+    @WithMockUserPrincipal
+    void testRefresh_BrowserBodyToken_IsRejected() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh")
+                .with(csrf())
+                .header("Origin", "http://localhost:3000")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"script-readable-token\"}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -321,6 +352,7 @@ public class UserControllerTest {
 
         mockMvc.perform(post("/api/auth/refresh")
                 .with(csrf())
+                .header("Origin", "http://localhost:3000")
                 .cookie(oldRefreshCookie))
                 .andExpect(status().isUnauthorized());
 

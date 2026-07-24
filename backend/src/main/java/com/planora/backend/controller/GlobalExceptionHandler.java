@@ -15,6 +15,7 @@ import com.planora.backend.exception.ResourceNotFoundException;
 import com.planora.backend.exception.StorageQuotaExceededException;
 import com.planora.backend.exception.DocumentUploadException;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
@@ -35,6 +36,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -84,6 +86,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ApiErrorResponse> handleConflict(ConflictException ex, HttpServletRequest request) {
         return buildError(HttpStatus.CONFLICT, "CONFLICT", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler({OptimisticLockException.class, ObjectOptimisticLockingFailureException.class})
+    public ResponseEntity<ApiErrorResponse> handleOptimisticLock(Exception ex, HttpServletRequest request) {
+        return buildError(HttpStatus.CONFLICT, "CONFLICT", "This resource was changed by another request. Refresh and try again.", request);
     }
 
     @ExceptionHandler(StorageQuotaExceededException.class)

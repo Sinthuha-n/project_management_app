@@ -1,6 +1,7 @@
 package com.planora.backend.controller;
 
 import com.planora.backend.service.GithubWebhookService;
+import com.planora.backend.service.GithubWebhookDeliveryService;
 import com.planora.backend.util.GithubWebhookSignatureVerifier;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -20,7 +21,8 @@ class ProjectGithubWebhookControllerTest {
         GithubWebhookService webhookService = mock(GithubWebhookService.class);
         ProjectGithubWebhookController controller = new ProjectGithubWebhookController(
                 webhookService,
-                new GithubWebhookSignatureVerifier("webhook-test-secret"));
+                new GithubWebhookSignatureVerifier("webhook-test-secret"),
+                mock(GithubWebhookDeliveryService.class));
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
         String payload = "{\"action\":\"opened\"}";
 

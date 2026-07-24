@@ -1,6 +1,7 @@
 package com.planora.backend.controller;
 
 import com.planora.backend.service.GithubWebhookService;
+import com.planora.backend.service.GithubWebhookDeliveryService;
 import com.planora.backend.util.GithubWebhookSignatureVerifier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,15 +20,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProjectGithubWebhookController {
     private final GithubWebhookService webhookService;
     private final GithubWebhookSignatureVerifier signatureVerifier;
+    private final GithubWebhookDeliveryService webhookDeliveryService;
 
     @PostMapping("/webhook")
     public ResponseEntity<Void> handleWebhook(
             @RequestHeader(value = "X-GitHub-Event", defaultValue = "unknown") String eventType,
             @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature,
+            @RequestHeader(value = "X-GitHub-Delivery", required = false) String deliveryId,
             @RequestBody String payload) {
         if (!signatureVerifier.isValid(payload, signature)) {
             log.warn("GitHub webhook signature validation failed for event: {}", eventType);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!webhookDeliveryService.registerIfNew(deliveryId, eventType)) {
+            return ResponseEntity.ok().build();
         }
 
         log.info("Received GitHub webhook: {}", eventType);

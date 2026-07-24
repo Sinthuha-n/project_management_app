@@ -45,4 +45,17 @@ class CookieAuthOriginFilterTest {
         filter.doFilterInternal(nativeRequest, nativeResponse, nativeChain);
         verify(nativeChain).doFilter(nativeRequest, nativeResponse);
     }
+
+    @Test
+    void rejectsBrowserMetadataWithoutOrigin() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/refresh");
+        request.addHeader("Sec-Fetch-Site", "same-origin");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilterInternal(request, response, chain);
+
+        assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatus());
+        verify(chain, never()).doFilter(request, response);
+    }
 }

@@ -27,6 +27,9 @@ class RecurringTaskServiceTest {
     @Mock
     private TaskActivityService taskActivityService;
 
+    @Mock
+    private ScheduledJobLockService scheduledJobLockService;
+
     @InjectMocks
     private RecurringTaskScheduler recurringTaskScheduler;
 
@@ -34,6 +37,7 @@ class RecurringTaskServiceTest {
 
     @BeforeEach
     void setUp() {
+        when(scheduledJobLockService.tryAcquire(anyString(), any())).thenReturn(true);
         templateTask = new Task();
         templateTask.setId(1L);
         templateTask.setTitle("Daily Standup");

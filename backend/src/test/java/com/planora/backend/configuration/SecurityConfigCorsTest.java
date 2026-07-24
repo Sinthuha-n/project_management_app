@@ -37,7 +37,7 @@ class SecurityConfigCorsTest {
         assertEquals(
                 List.of("authorization", "content-type"),
                 configuration.checkHeaders(List.of("authorization", "content-type")));
-        assertEquals(List.of("Content-Disposition"), configuration.getExposedHeaders());
+        assertEquals(List.of("Content-Disposition", "Retry-After", "X-Request-Id"), configuration.getExposedHeaders());
         assertTrue(configuration.getAllowCredentials());
     }
 
