@@ -34,7 +34,7 @@
 		<log4j2.version>2.26.1</log4j2.version>
 		<swagger-ui.version>5.32.8</swagger-ui.version>
 		<tomcat.version>10.1.57</tomcat.version>
-		<netty.version>4.1.135.Final</netty.version>
+		<netty.version>4.1.136.Final</netty.version>
 		<argLine/>
 		<unit.jacoco.argLine/>
 		<integration.jacoco.argLine/>
