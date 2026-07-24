@@ -73,13 +73,15 @@ jobs:
         chmod +x ./gitleaks
         ./gitleaks detect --source=. -v --redact
     - name: Run Trivy Security Scan (Backend)
-      uses: aquasecurity/trivy-action@v0.36.0
-      with:
-        scan-type: 'fs'
-        scan-ref: './backend'
-        exit-code: '1'
-        severity: 'CRITICAL,HIGH'
-        vuln-type: 'library'
+      run: |
+        docker run --rm \
+          --volume "${GITHUB_WORKSPACE}:/workspace:ro" \
+          --volume "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
+          aquasec/trivy:0.70.0 fs \
+          --exit-code 1 \
+          --severity CRITICAL,HIGH \
+          --vuln-type library \
+          /workspace/backend
 
   backend-build:
     name: Build Backend
