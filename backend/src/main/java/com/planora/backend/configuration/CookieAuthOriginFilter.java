@@ -44,10 +44,24 @@ public class CookieAuthOriginFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String origin = request.getHeader("Origin");
+        String fetchSite = request.getHeader("Sec-Fetch-Site");
+        // Fetch Metadata is browser-only. If it is present, Origin must also be
+        // present and allowlisted; native clients do not send either header.
+        if (fetchSite != null && !fetchSite.isBlank() && (origin == null || origin.isBlank())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Browser cookie request is missing Origin");
+            return;
+        }
         // Native clients do not send Origin. Browser requests do, so reject an
         // explicitly cross-site origin before reading the authentication cookie.
         if (origin != null && !allowedOrigins.contains(origin)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Untrusted request origin");
+            return;
+        }
+        if (fetchSite != null && !fetchSite.isBlank()
+                && !"same-origin".equalsIgnoreCase(fetchSite)
+                && !"same-site".equalsIgnoreCase(fetchSite)
+                && !"none".equalsIgnoreCase(fetchSite)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Cross-site cookie request rejected");
             return;
         }
         filterChain.doFilter(request, response);

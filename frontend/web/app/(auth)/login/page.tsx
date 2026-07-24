@@ -21,6 +21,7 @@ export default function LoginPage() {
     isLoading,
     isCheckingSession,
     error,
+    cooldown,
     handleLogin,
   } = useLoginForm();
 
@@ -162,10 +163,10 @@ export default function LoginPage() {
                      {/* Accessibility: The button's disabled state is managed by the isLoading flag to prevent multiple submissions */}
                     <button
                         type="submit"
-                        disabled={isLoading}
+                            disabled={isLoading || cooldown > 0}
                         className="w-full rounded-lg bg-[#155DFC] py-2 min-h-[44px] font-bold text-white shadow-sm transition-colors hover:bg-[#0C4DDA] disabled:cursor-not-allowed disabled:bg-[#155DFC] disabled:text-white disabled:opacity-60"
                     >
-                        {isLoading ? 'Signing in...' : 'Sign In'}
+                            {isLoading ? 'Signing in...' : cooldown > 0 ? `Try again in ${cooldown}s` : 'Sign In'}
                     </button>
                 </form>
 

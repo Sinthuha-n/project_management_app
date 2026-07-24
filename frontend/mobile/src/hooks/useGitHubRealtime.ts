@@ -28,6 +28,8 @@ const TOPICS = ['prs', 'ci', 'issues', 'task-badges'] as const;
 export function useGitHubRealtime(projectId: string, handlers: GitHubRealtimeHandlers) {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const accessDeniedRef = useRef(false);
   const socketRef = useRef<WebSocket | null>(null);
   const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const attemptsRef = useRef(0);
@@ -44,7 +46,7 @@ export function useGitHubRealtime(projectId: string, handlers: GitHubRealtimeHan
   }, []);
 
   const connect = useCallback(async () => {
-    if (!projectId || !activeRef.current || !offlineSyncManager.getOnlineStatus()) return;
+    if (!projectId || accessDeniedRef.current || !activeRef.current || !offlineSyncManager.getOnlineStatus()) return;
     if (socketRef.current?.readyState === WebSocket.OPEN || socketRef.current?.readyState === WebSocket.CONNECTING) return;
     const token = await ensureValidToken();
     if (!token || !activeRef.current) return;
@@ -74,7 +76,17 @@ export function useGitHubRealtime(projectId: string, handlers: GitHubRealtimeHan
           ));
           return;
         }
-        if (frame.command === 'ERROR') throw new Error(frame.body || 'Realtime connection failed');
+        if (frame.command === 'ERROR') {
+          const body = (frame.body || '').toLowerCase();
+          if (body.includes('forbidden') || body.includes('access denied')) {
+            accessDeniedRef.current = true;
+            setAccessDenied(true);
+            setError('Live GitHub updates are unavailable because you no longer have access to this project.');
+            socket.close();
+            return;
+          }
+          throw new Error(frame.body || 'Realtime connection failed');
+        }
         if (frame.command !== 'MESSAGE') return;
         const destination = frame.headers.destination ?? '';
         const payload = JSON.parse(frame.body);
@@ -90,12 +102,14 @@ export function useGitHubRealtime(projectId: string, handlers: GitHubRealtimeHan
     socket.onclose = () => {
       if (socketRef.current === socket) socketRef.current = null;
       setConnected(false);
-      scheduleRetry();
+      if (!accessDeniedRef.current) scheduleRetry();
     };
   }, [projectId]);
 
   useEffect(() => {
     activeRef.current = true;
+    accessDeniedRef.current = false;
+    setAccessDenied(false);
     void connect();
     const appState = AppState.addEventListener('change', state => {
       if (state === 'active') void connect();
@@ -114,5 +128,5 @@ export function useGitHubRealtime(projectId: string, handlers: GitHubRealtimeHan
     };
   }, [connect, disconnect]);
 
-  return { connected, error, reconnect: connect };
+  return { connected, error, accessDenied, reconnect: connect };
 }

@@ -29,6 +29,7 @@ import {
     DmsError,
 } from '@/lib/dms';
 import { filterDocuments, getFolderLabel, sortDocuments } from '@/app/folders/components/dmsUtils';
+import { reportClientFailure, toApiFailure } from '@/lib/api-failure';
 import {
     DocumentFilters,
     DocumentSortDirection,
@@ -67,10 +68,20 @@ function getDmsErrorMessage(error: unknown, fallback: string): string {
         return 'Permission denied. You do not have access to perform this document action.';
     }
 
+    if (status === 409) {
+        return 'This document changed elsewhere. Reload the latest version before trying again.';
+    }
+
+    if (status === 503) {
+        return 'Document storage is temporarily unavailable. Your current selection has been kept.';
+    }
+
     if (status === 413 || errorCode === 'STORAGE_QUOTA_EXCEEDED') {
         return responseMessage || 'Project storage quota exceeded. Delete files or contact an admin before uploading more documents.';
     }
 
+    const failure = toApiFailure(error, fallback);
+    reportClientFailure({ route: '/folders', operation: 'mutation', status: failure.status, errorCode: failure.code, requestId: failure.requestId, retryAfterSeconds: failure.retryAfterSeconds });
     const message = (error as { message?: string })?.message;
     return responseMessage?.trim() || message?.trim() || fallback;
 }

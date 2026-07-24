@@ -2322,6 +2322,25 @@
         },
         "type": "object"
       },
+      "LoginRequest": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "minLength": 1,
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 128,
+            "minLength": 0,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object"
+      },
       "MemberDTO": {
         "properties": {
           "email": {
@@ -3472,6 +3491,47 @@
         },
         "type": "object"
       },
+      "RefreshRequest": {
+        "properties": {
+          "refreshToken": {
+            "maxLength": 4096,
+            "minLength": 0,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "RegisterRequest": {
+        "properties": {
+          "email": {
+            "format": "email",
+            "minLength": 1,
+            "type": "string"
+          },
+          "fullName": {
+            "maxLength": 150,
+            "minLength": 0,
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 128,
+            "minLength": 8,
+            "pattern": "^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,128}$",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 50,
+            "minLength": 2,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "username"
+        ],
+        "type": "object"
+      },
       "ReorderTasksRequest": {
         "properties": {
           "orderedTaskIds": {
@@ -4357,6 +4417,10 @@
           "updatedAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "version": {
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
@@ -4478,6 +4542,10 @@
           },
           "uploadedBy": {
             "$ref": "#/components/schemas/User"
+          },
+          "version": {
+            "format": "int64",
+            "type": "integer"
           }
         },
         "type": "object"
@@ -5211,6 +5279,10 @@
           },
           "user": {
             "$ref": "#/components/schemas/User"
+          },
+          "version": {
+            "format": "int64",
+            "type": "integer"
           }
         },
         "type": "object"
@@ -5610,7 +5682,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/User"
+                "$ref": "#/components/schemas/LoginRequest"
               }
             }
           },
@@ -5695,8 +5767,33 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Sec-Fetch-Site",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -5751,7 +5848,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/User"
+                "$ref": "#/components/schemas/RegisterRequest"
               }
             }
           },
@@ -7305,6 +7402,14 @@
               "default": "",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-GitHub-Delivery",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -7353,6 +7458,14 @@
             "required": false,
             "schema": {
               "default": "",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-GitHub-Delivery",
+            "required": false,
+            "schema": {
               "type": "string"
             }
           }

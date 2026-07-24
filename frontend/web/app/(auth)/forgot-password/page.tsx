@@ -125,12 +125,12 @@ export default function ForgotPasswordPage() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || cooldown > 0}
               className={`w-full font-bold py-2.5 min-h-[44px] rounded-lg transition-colors text-white ${
                 isLoading ? 'bg-cu-primary/60 cursor-not-allowed' : 'bg-cu-primary hover:opacity-90'
               }`}
             >
-              {isLoading ? 'Sending...' : 'Send Reset Link'}
+              {isLoading ? 'Sending...' : cooldown > 0 ? `Try again in ${cooldown}s` : 'Send Reset Link'}
             </button>
           </form>
         )}

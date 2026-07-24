@@ -5,6 +5,7 @@ import api from '../lib/axios';
 import { buildRegisterRequest, register as registerBuilder, type RegisterRequest } from '@planora/contracts';
 import { getValidToken } from '../lib/auth';
 import { EMAIL_REGEX, validatePassword, getPasswordStrength } from '../lib/validation';
+import { apiErrorMessage, apiRetryAfterSeconds } from '../utils/apiError';
 
 export function useRegisterForm() {
   const router = useRouter();
@@ -16,6 +17,13 @@ export function useRegisterForm() {
   const [confirmPassword,  setConfirmPassword]  = useState('');
   const [isLoading,        setIsLoading]        = useState(false);
   const [error,            setError]            = useState('');
+  const [cooldown,         setCooldown]         = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => setCooldown((seconds) => Math.max(seconds - 1, 0)), 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   const strength = useMemo(() => getPasswordStrength(password), [password]);
 
@@ -28,6 +36,7 @@ export function useRegisterForm() {
   }, []);
 
   const handleRegister = async () => {
+    if (isLoading || cooldown > 0) return;
     setIsLoading(true);
     setError('');
 
@@ -67,16 +76,10 @@ export function useRegisterForm() {
       await AsyncStorage.setItem('pendingVerificationEmail', email.toLowerCase());
       router.push({ pathname: '/(auth)/verify-email', params: { email: email.toLowerCase() } });
     } catch (err: unknown) {
-      const e = err as { response?: { data?: unknown } };
-      const errorData = e.response?.data;
-      let errorMessage = 'Registration failed. Please try again.';
-
-      if (typeof errorData === 'string') {
-        errorMessage = errorData;
-      } else if (errorData && typeof errorData === 'object' && 'message' in errorData) {
-        errorMessage = (errorData as { message: string }).message;
-      }
-      setError(errorMessage);
+      const retryAfter = apiRetryAfterSeconds(err);
+      const errorMessage = apiErrorMessage(err, 'Registration failed. Please try again.');
+      setError(retryAfter ? `${errorMessage} Try again in ${retryAfter}s.` : errorMessage);
+      if (retryAfter) setCooldown(retryAfter);
     } finally {
       setIsLoading(false);
     }
@@ -89,6 +92,7 @@ export function useRegisterForm() {
     password, setPassword,
     confirmPassword, setConfirmPassword,
     isLoading,
+    cooldown,
     error, setError,
     strength,
     handleRegister,

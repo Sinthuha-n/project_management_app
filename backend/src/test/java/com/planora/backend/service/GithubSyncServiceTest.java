@@ -40,6 +40,8 @@ class GithubSyncServiceTest {
     private GithubIssueRepository issueRepository;
     @Mock
     private GithubTokenService githubTokenService;
+    @Mock
+    private ScheduledJobLockService scheduledJobLockService;
 
     @InjectMocks
     private GithubSyncService githubSyncService;
@@ -47,6 +49,7 @@ class GithubSyncServiceTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(githubSyncService, "syncEnabled", true);
+        when(scheduledJobLockService.tryAcquire(anyString(), any())).thenReturn(true);
     }
 
     @Test

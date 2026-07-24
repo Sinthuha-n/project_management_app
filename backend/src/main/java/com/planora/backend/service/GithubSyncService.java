@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import com.planora.backend.service.GithubApiClient.GithubApiException;
 
 import java.util.List;
+import java.time.Duration;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -29,6 +30,7 @@ public class GithubSyncService {
     private final GithubCommitRepository commitRepository;
     private final GithubIssueRepository issueRepository;
     private final GithubTokenService githubTokenService;
+    private final ScheduledJobLockService scheduledJobLockService;
 
     @Value("${github.sync.enabled:true}")
     private boolean syncEnabled;
@@ -36,13 +38,21 @@ public class GithubSyncService {
     @Scheduled(fixedDelayString = "${github.sync.interval-ms:300000}")
     public void scheduledSync() {
         if (!syncEnabled) return;
+        if (!scheduledJobLockService.tryAcquire("github-scheduled-sync", Duration.ofMinutes(10))) {
+            log.debug("Scheduled GitHub sync is already running on another instance.");
+            return;
+        }
 
-        List<GithubIntegration> integrations = integrationRepository.findAllByActiveTrue();
-        if (integrations.isEmpty()) return;
+        try {
+            List<GithubIntegration> integrations = integrationRepository.findAllByActiveTrue();
+            if (integrations.isEmpty()) return;
 
-        log.info("Starting scheduled GitHub sync for {} integrations", integrations.size());
-        integrations.forEach(this::syncIntegration);
-        log.info("Scheduled GitHub sync complete");
+            log.info("Starting scheduled GitHub sync for {} integrations", integrations.size());
+            integrations.forEach(this::syncIntegration);
+            log.info("Scheduled GitHub sync complete");
+        } finally {
+            scheduledJobLockService.release("github-scheduled-sync");
+        }
     }
 
     public void syncProject(Long projectId) {

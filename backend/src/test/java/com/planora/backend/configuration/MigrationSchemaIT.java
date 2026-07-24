@@ -43,6 +43,8 @@ class MigrationSchemaIT extends PostgresIntegrationIT {
                 .containsIgnoringCase("using gin").containsIgnoringCase("gin_trgm_ops");
         assertThat(indexDefinition("ux_users_github_user_id"))
                 .containsIgnoringCase("unique").containsIgnoringCase("where (github_user_id is not null)");
+        assertThat(indexDefinition("idx_scheduled_job_locks_locked_until"))
+                .containsIgnoringCase("scheduled_job_locks");
     }
 
     @Test
@@ -51,6 +53,9 @@ class MigrationSchemaIT extends PostgresIntegrationIT {
         assertThat(columnType("notification_preferences", "channel")).isEqualTo("character varying");
         assertThat(isNullable("users", "email")).isEqualTo("NO");
         assertThat(isNullable("tasks", "project_id")).isEqualTo("NO");
+        assertThat(columnType("scheduled_job_locks", "locked_until")).isEqualTo("timestamp with time zone");
+        assertThat(columnType("tasks", "version")).isEqualTo("bigint");
+        assertThat(columnType("github_webhook_deliveries", "received_at")).isEqualTo("timestamp with time zone");
     }
 
     private int count(String sql) {

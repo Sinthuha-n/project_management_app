@@ -25,6 +25,7 @@ import {
 import { connectGitHub, githubOAuthErrorMessage } from '@/src/services/githubOAuthCoordinator';
 import { AccountPicker } from '@/src/components/github/GitHubModals';
 import { routes } from '@/src/navigation/routes';
+import { mobileApiFailure, reportMobileFailure } from '@/src/utils/apiError';
 import {
   buildForgotPasswordRequest,
   buildResetPasswordRequest,
@@ -374,7 +375,11 @@ export default function ProfileScreen() {
         setProfile(prev => prev ? { ...prev, profilePicUrl: res.data.fileUrl } : prev);
         setSuccessMsg('Profile photo updated.');
       }
-    } catch { setErrMsg('Failed to upload photo.'); }
+    } catch (error) {
+      const failure = mobileApiFailure(error, 'Failed to upload photo.');
+      setErrMsg(failure.message);
+      reportMobileFailure({ screen: 'profile', operation: 'upload', status: failure.status, code: failure.code, requestId: failure.requestId, retryAfterSeconds: failure.retryAfterSeconds });
+    }
     finally { setUploading(false); }
   };
 

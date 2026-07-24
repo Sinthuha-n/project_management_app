@@ -8,7 +8,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.planora.backend.dto.LoginResponse;
+import com.planora.backend.dto.LoginRequest;
 import com.planora.backend.dto.OtpRequest;
+import com.planora.backend.dto.RegisterRequest;
+import com.planora.backend.dto.RefreshRequest;
 import com.planora.backend.dto.ResetPasswordRequest;
 import com.planora.backend.dto.VerifyRequest;
 import com.planora.backend.model.User;
@@ -46,7 +49,12 @@ public class UserController {
     //@Valid is used here to fail fast. It catches the bad data (like malformed emails or short passwords)
     //at the controller level before we waste resources hitting the database or service layer.
     @PostMapping("/register")
-    public ResponseEntity<String> register(@Valid @RequestBody User user) {
+    public ResponseEntity<String> register(@Valid @RequestBody RegisterRequest request) {
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setFullName(request.getFullName());
+        user.setEmail(request.getEmail());
+        user.setPassword(request.getPassword());
         return new ResponseEntity<>(service.register(user), HttpStatus.OK);
     }
 
@@ -63,7 +71,10 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody User user) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
+        User user = new User();
+        user.setEmail(request.getEmail());
+        user.setPassword(request.getPassword());
         LoginResponse response = service.loginUser(user);
         if (response.isSuccess()) {
             ResponseCookie cookie = ResponseCookie.from("planora_refresh_token", response.getRefreshToken())
@@ -115,26 +126,42 @@ public class UserController {
 
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(
-            @CookieValue(name = "planora_refresh_token", required = false) String refreshToken) {
+            @CookieValue(name = "planora_refresh_token", required = false) String cookieRefreshToken,
+            @Valid @RequestBody(required = false) RefreshRequest request,
+            @RequestHeader(value = "Origin", required = false) String origin,
+            @RequestHeader(value = "Sec-Fetch-Site", required = false) String fetchSite) {
+
+        boolean browserRequest = origin != null || (fetchSite != null && !fetchSite.isBlank());
+        String bodyRefreshToken = request == null ? null : request.getRefreshToken();
+
+        // A browser must use the HttpOnly cookie. Accepting a body token here would
+        // reintroduce script-readable refresh credentials into the browser flow.
+        if (browserRequest && bodyRefreshToken != null && !bodyRefreshToken.isBlank()) {
+            return new ResponseEntity<>("Browser refresh requests must use the refresh cookie", HttpStatus.BAD_REQUEST);
+        }
+
+        String refreshToken = browserRequest ? cookieRefreshToken
+                : (cookieRefreshToken != null && !cookieRefreshToken.isBlank() ? cookieRefreshToken : bodyRefreshToken);
 
         // Fail fast if the client didn't send the token, preventing unnecessary DB queries.
         if (refreshToken == null || refreshToken.isBlank()) {
-            return new ResponseEntity<>("Refresh token cookie is required", HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(browserRequest ? "Refresh token cookie is required" : "Refresh token is required",
+                    HttpStatus.BAD_REQUEST);
         }
 
         LoginResponse response = service.refreshTokens(refreshToken);
         if (response != null && response.isSuccess()) {
+            if (!browserRequest) {
+                // Preserve the established native response shape: the app stores
+                // the rotated token in platform secure storage.
+                return ResponseEntity.ok(response);
+            }
+
             ResponseCookie cookie = ResponseCookie.from("planora_refresh_token", response.getRefreshToken())
-                    .httpOnly(true)
-                    .secure(cookieSecure)
-                    .path("/")
-                    .maxAge(30 * 24 * 60 * 60)
-                    .sameSite(cookieSameSite)
-                    .build();
+                    .httpOnly(true).secure(cookieSecure).path("/")
+                    .maxAge(30 * 24 * 60 * 60).sameSite(cookieSameSite).build();
             response.setRefreshToken(null);
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                    .body(response);
+            return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, cookie.toString()).body(response);
         }
         return new ResponseEntity<>("Invalid or expired refresh token", HttpStatus.UNAUTHORIZED);
     }

@@ -53,9 +53,22 @@ describe('normalizeApiError', () => {
     [404, 'The requested resource was not found.'],
     [409, 'This action conflicts with the latest saved data.'],
     [422, 'Please fix the highlighted fields and try again.'],
+    [413, 'The request is too large. Reduce the upload or payload and try again.'],
+    [429, 'Too many requests. Please wait before trying again.'],
+    [503, 'The service is temporarily unavailable. Please try again shortly.'],
     [500, 'Something went wrong on the server. Please try again.'],
   ])('uses status category fallback for %s responses', (status, message) => {
     expect(normalizeApiError(axiosError(status), 'Fallback')).toBe(message);
+  });
+
+  it('reads retry and correlation headers without reading request data', async () => {
+    const { getApiRequestId, getApiRetryAfterSeconds } = await import('./api-error');
+    const error = {
+      isAxiosError: true,
+      response: { headers: { 'retry-after': '30', 'x-request-id': 'req_12345678' } },
+    };
+    expect(getApiRetryAfterSeconds(error)).toBe(30);
+    expect(getApiRequestId(error)).toBe('req_12345678');
   });
 
   it('supports fetch Response status categories without side effects', () => {

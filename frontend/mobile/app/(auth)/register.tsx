@@ -42,7 +42,7 @@ export default function RegisterScreen() {
     email, setEmail,
     password, setPassword,
     confirmPassword, setConfirmPassword,
-    isLoading, error,
+    isLoading, cooldown, error,
     strength,
     handleRegister,
   } = useRegisterForm();
@@ -218,8 +218,9 @@ export default function RegisterScreen() {
                   />
 
                   <PrimaryButton
-                    label="Create Account"
+                    label={cooldown > 0 ? `Try again in ${cooldown}s` : 'Create Account'}
                     loading={isLoading}
+                    disabled={cooldown > 0}
                     onPress={handleRegister}
                   />
                 </View>

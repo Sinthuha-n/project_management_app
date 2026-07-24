@@ -120,14 +120,17 @@ jobs:
           ./mvnw -q -DskipTests spring-boot:run &
           for attempt in $(seq 1 60); do
             if curl --fail --silent http://localhost:8080/actuator/health >/dev/null; then
-              exit 0
+              break
             fi
             sleep 2
           done
-          exit 1
+          curl --fail --silent http://localhost:8080/actuator/health >/dev/null
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8080/)" = "401"
       - name: Scan backend
         uses: zaproxy/action-baseline@v0.14.0
         with:
           target: http://localhost:8080
           fail_action: true
+          allow_issue_writing: false
+          rules_file_name: .zap/backend-baseline-rules.tsv
           artifact_name: backend-zap-report

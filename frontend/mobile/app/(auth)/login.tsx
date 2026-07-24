@@ -37,7 +37,7 @@ export default function LoginScreen() {
     email, setEmail,
     password, setPassword,
     remember, setRemember,
-    isLoading, error,
+    isLoading, cooldown, error,
     handleLogin,
   } = useLoginForm();
 
@@ -185,8 +185,9 @@ export default function LoginScreen() {
                   </View>
 
                   <PrimaryButton
-                    label="Sign In"
+                    label={cooldown > 0 ? `Try again in ${cooldown}s` : 'Sign In'}
                     loading={isLoading}
+                    disabled={cooldown > 0}
                     onPress={handleLogin}
                   />
                 </View>

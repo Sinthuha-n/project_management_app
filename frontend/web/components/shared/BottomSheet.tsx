@@ -85,26 +85,26 @@ export default function BottomSheet({
                         onDragEnd={(_, info) => {
                             if (info.offset.y > 80 || info.velocity.y > 500) onClose();
                         }}
-                        className={`fixed bottom-0 inset-x-0 z-[var(--cu-z-modal)] bg-white rounded-t-[24px] flex flex-col ${maxHeightClass} overflow-hidden`}
+                        className={`fixed bottom-0 inset-x-0 z-[var(--cu-z-modal)] bg-cu-bg rounded-t-[24px] flex flex-col ${maxHeightClass} overflow-hidden`}
                         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
                     >
                         {/* Drag handle */}
                         <div className="flex justify-center pt-3 pb-1 shrink-0 cursor-grab active:cursor-grabbing">
-                            <div className="w-9 h-[5px] rounded-full bg-[#D1D5DB]" />
+                            <div className="w-9 h-[5px] rounded-full bg-cu-border" />
                         </div>
 
                         {/* Header */}
                         {(title || !hideCloseButton) && (
-                            <div className="flex items-center justify-between px-5 py-3 border-b border-[#F3F4F6] shrink-0">
+                            <div className="flex items-center justify-between px-5 py-3 border-b border-cu-border shrink-0">
                                 {title ? (
-                                    <span className="text-[15px] font-semibold text-[#101828]">{title}</span>
+                                    <span className="text-[15px] font-semibold text-cu-text-primary">{title}</span>
                                 ) : (
                                     <span />
                                 )}
                                 {!hideCloseButton && (
                                     <button
                                         onClick={onClose}
-                                        className="p-1.5 rounded-full hover:bg-[#F3F4F6] transition-colors text-[#6A7282]"
+                                        className="p-1.5 rounded-full hover:bg-cu-hover transition-colors text-cu-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cu-primary"
                                         aria-label="Close"
                                     >
                                         <X size={18} />

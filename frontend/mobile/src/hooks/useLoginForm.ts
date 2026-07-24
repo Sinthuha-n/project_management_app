@@ -6,6 +6,7 @@ import { buildLoginRequest, login as loginBuilder, type LoginRequest } from '@pl
 import { getValidToken, saveRefreshToken, saveToken, setRememberMe } from '../lib/auth';
 import { EMAIL_REGEX } from '../lib/validation';
 import { registerForPushNotifications } from '../lib/pushNotifications';
+import { apiErrorMessage, apiRetryAfterSeconds } from '../utils/apiError';
 
 export function useLoginForm() {
   const router = useRouter();
@@ -18,6 +19,13 @@ export function useLoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading,    setIsLoading]    = useState(false);
   const [error,        setError]        = useState('');
+  const [cooldown,     setCooldown]     = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => setCooldown((seconds) => Math.max(seconds - 1, 0)), 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   useEffect(() => {
     (async () => {
@@ -28,7 +36,7 @@ export function useLoginForm() {
   }, [redirectTo]);
 
   const handleLogin = async () => {
-    if (isLoading) return;
+    if (isLoading || cooldown > 0) return;
     setIsLoading(true);
     setError('');
 
@@ -71,23 +79,18 @@ export function useLoginForm() {
         setError(response.data.message || 'Login failed. Please try again.');
       }
     } catch (err: unknown) {
-      const e = err as { response?: { status?: number; data?: unknown } };
-      const errorData = e.response?.data;
-      let errorMessage = 'Login failed. Please try again.';
-
-      if (typeof errorData === 'string') {
-        errorMessage = errorData;
-      } else if (errorData && typeof errorData === 'object' && 'message' in errorData) {
-        errorMessage = (errorData as { message: string }).message;
-      }
+      const e = err as { response?: { status?: number } };
+      const retryAfter = apiRetryAfterSeconds(err);
+      const errorMessage = apiErrorMessage(err, 'Login failed. Please try again.');
 
       if (e.response?.status === 403) {
         setError(errorMessage || 'Email is not verified. Please check your email.');
       } else if (e.response?.status === 401) {
         setError(errorMessage || 'Incorrect email or password.');
       } else {
-        setError(errorMessage);
+        setError(retryAfter ? `${errorMessage} Try again in ${retryAfter}s.` : errorMessage);
       }
+      if (retryAfter) setCooldown(retryAfter);
     } finally {
       setIsLoading(false);
     }
@@ -99,6 +102,7 @@ export function useLoginForm() {
     remember, setRemember,
     showPassword, setShowPassword,
     isLoading,
+    cooldown,
     error, setError,
     handleLogin,
   };

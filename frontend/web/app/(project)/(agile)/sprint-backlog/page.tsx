@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { projectsApi, sprintboardsApi, sprintsApi, tasksApi } from '@/services/api-contract';
 import { normalizeTaskPriority } from '@/services/tasks-contract';
 import { useTaskMutations } from '@/hooks/useTaskMutations';
+import { useVisibilityInterval } from '@/hooks/useVisibilityInterval';
 
 const LABEL_PALETTE = ["#EF4444","#F97316","#F59E0B","#84CC16","#22C55E","#14B8A6","#06B6D4","#3B82F6","#6366F1","#8B5CF6","#EC4899","#6B7280"];
 
@@ -649,9 +650,9 @@ function SprintBacklogPageContent() {
     }
     void fetchStaticData();
     void fetchData({ showSpinner: true });
-    const syncId = setInterval(() => void fetchData({ showSpinner: false }), 30_000);
-    return () => clearInterval(syncId);
   }, [projectId, fetchStaticData, fetchData]);
+
+  useVisibilityInterval(() => void fetchData({ showSpinner: false }), 30_000, Boolean(projectId));
 
   useEffect(() => {
     const onTaskUpdated = () => { void fetchData({ showSpinner: false, forceNetwork: true }); };

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { authApi } from '@/services/api-contract';
+import { getApiRetryAfterSeconds, normalizeApiError } from '@/lib/api-error';
 
 import AuthCard from './UI/AuthCard';
 import Button from './UI/Button';
@@ -67,7 +68,8 @@ export default function VerifyEmailForm() {
       const status = errResponse?.status;
       const errorData = errResponse?.data;
 
-      let errorMessage = 'Invalid OTP. Please try again.';
+      let errorMessage = normalizeApiError(_err, 'Invalid OTP. Please try again.');
+      const retryAfter = getApiRetryAfterSeconds(_err);
 
       // Backend Error Translation: 
       // We map specific HTTP status codes and backend string responses to user-friendly messages.
@@ -84,6 +86,7 @@ export default function VerifyEmailForm() {
       }
 
       setError(errorMessage);
+      if (retryAfter) setResendCooldown(retryAfter);
     } finally {
       // Always turn off the loading spinner, whether it succeeded or failed.
       setIsLoading(false);
@@ -106,7 +109,8 @@ export default function VerifyEmailForm() {
       setResendCooldown(60);
     } catch (_err: unknown) {
 
-      let errorMessage = 'Failed to resend OTP. Please try again.';
+      let errorMessage = normalizeApiError(_err, 'Failed to resend OTP. Please try again.');
+      const retryAfter = getApiRetryAfterSeconds(_err);
       const res = (_err as { response?: { data?: unknown } })?.response;
       const errorData = res?.data;
 
@@ -117,6 +121,7 @@ export default function VerifyEmailForm() {
       }
 
       setError(errorMessage);
+      if (retryAfter) setResendCooldown(retryAfter);
     } finally {
       setIsResending(false);
     }

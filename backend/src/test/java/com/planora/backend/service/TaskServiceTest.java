@@ -7,6 +7,7 @@ import com.planora.backend.exception.ForbiddenException;
 import com.planora.backend.exception.ResourceNotFoundException;
 import com.planora.backend.model.Comment;
 import com.planora.backend.model.KanbanColumn;
+import com.planora.backend.model.Label;
 import com.planora.backend.model.Priority;
 import com.planora.backend.model.Project;
 import com.planora.backend.model.Task;
@@ -689,6 +690,70 @@ class TaskServiceTest {
                 () -> taskService.addDependency(50L, 60L, 500L));
 
         assertEquals("User is not a member of this team", exception.getMessage());
+    }
+
+    @Test
+    void addDependency_persistsDependencyAndActor() {
+        Task task = buildTask(50L);
+        Task blocker = buildTask(60L);
+        when(taskRepository.findByIdWithProjectTeam(50L)).thenReturn(Optional.of(task));
+        when(taskRepository.findByIdWithProjectTeam(60L)).thenReturn(Optional.of(blocker));
+        when(taskRepository.findByIdWithDependencies(60L)).thenReturn(Optional.of(blocker));
+        when(userRepository.findById(500L)).thenReturn(Optional.of(actorUser));
+
+        taskService.addDependency(50L, 60L, 500L);
+
+        assertTrue(task.getDependencies().contains(blocker));
+        assertEquals(actorUser, task.getLastModifiedBy());
+        verify(taskRepository).save(task);
+    }
+
+    @Test
+    void addAndRemoveLabel_updateTaskLabelsAndPersistActor() {
+        Task task = buildTask(61L);
+        Label label = new Label();
+        label.setId(8L);
+        label.setName("urgent");
+        when(taskRepository.findByIdWithProjectTeam(61L)).thenReturn(Optional.of(task));
+        when(labelRepository.findById(8L)).thenReturn(Optional.of(label));
+        when(userRepository.findById(500L)).thenReturn(Optional.of(actorUser));
+
+        taskService.addLabel(61L, 8L, 500L);
+        assertTrue(task.getLabels().contains(label));
+        assertEquals(actorUser, task.getLastModifiedBy());
+
+        taskService.removeLabel(61L, 8L, 500L);
+        assertTrue(task.getLabels().isEmpty());
+        verify(taskRepository, times(2)).save(task);
+    }
+
+    @Test
+    void archiveTask_marksTaskAndWritesAuditEntry() {
+        Task task = buildTask(62L);
+        when(taskRepository.findByIdWithProjectTeam(62L)).thenReturn(Optional.of(task));
+        when(taskRepository.findByIdFullyFetched(62L)).thenReturn(Optional.of(task));
+        when(userRepository.findById(500L)).thenReturn(Optional.of(actorUser));
+
+        taskService.archiveTask(62L, 500L);
+
+        assertTrue(task.isArchived());
+        assertNotNull(task.getArchivedAt());
+        assertEquals(actorUser, task.getLastModifiedBy());
+        verify(taskRepository).save(task);
+        verify(taskActivityService).logActivity(eq(62L), org.mockito.ArgumentMatchers.eq(com.planora.backend.model.TaskActivityType.UPDATED), eq("actor"), eq("Task archived"));
+    }
+
+    @Test
+    void archiveTask_doesNotRewriteAlreadyArchivedTask() {
+        Task task = buildTask(63L);
+        task.setArchived(true);
+        when(taskRepository.findByIdWithProjectTeam(63L)).thenReturn(Optional.of(task));
+        when(taskRepository.findByIdFullyFetched(63L)).thenReturn(Optional.of(task));
+
+        taskService.archiveTask(63L, 500L);
+
+        verify(taskRepository, never()).save(task);
+        verify(taskActivityService, never()).logActivity(anyLong(), any(), any(), any());
     }
 
     @Test

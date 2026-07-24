@@ -29,7 +29,7 @@ export function DropdownMenuContent({
         sideOffset={sideOffset}
         className={[
           'z-[var(--cu-z-dropdown)] min-w-[180px] bg-cu-bg rounded-cu-lg shadow-cu-lg border border-cu-border p-1',
-          'animate-fade-in',
+          'animate-fade-in motion-reduce:animate-none',
           className,
         ].join(' ')}
         {...props}
@@ -50,7 +50,7 @@ export const DropdownMenuItem = React.forwardRef<
     ref={ref}
     className={[
       'flex items-center gap-2 px-2.5 py-1.5 rounded-cu-md text-sm cursor-pointer outline-none',
-      'transition-colors duration-fast',
+      'transition-colors duration-fast focus-visible:ring-2 focus-visible:ring-cu-primary',
       destructive
         ? 'text-cu-danger focus:bg-cu-danger-light'
         : 'text-cu-text-primary focus:bg-cu-bg-secondary',

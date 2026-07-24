@@ -4,10 +4,13 @@ import java.time.Duration;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.planora.backend.exception.BadRequestException;
 
 import lombok.RequiredArgsConstructor;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -29,8 +32,19 @@ public class ChatDocumentService {
 
     // Short-lived URLs limit accidental long-term sharing while keeping UX smooth.
     private static final Duration URL_DURATION = Duration.ofMinutes(15);
+    private static final long MAX_FILE_SIZE_BYTES = 25L * 1024 * 1024;
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
+            "application/pdf", "text/plain", "image/jpeg", "image/png", "image/gif", "image/webp",
+            "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
 
     public String uploadChatDocument(MultipartFile file, String key) {
+        if (file == null || file.isEmpty() || file.getSize() > MAX_FILE_SIZE_BYTES
+                || file.getContentType() == null || !ALLOWED_CONTENT_TYPES.contains(file.getContentType())) {
+            throw new BadRequestException("Unsupported chat attachment");
+        }
+        if (key == null || !key.matches("[A-Za-z0-9_./-]{1,500}") || key.contains("..")) {
+            throw new BadRequestException("Invalid chat attachment key");
+        }
         try {
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(chatBucket)

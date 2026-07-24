@@ -14,6 +14,7 @@ import { tasksApi } from '@/services/api-contract';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
 import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
 import { useProjectTasks } from '@/hooks/useProjectTasks';
+import { useVisibilityInterval } from '@/hooks/useVisibilityInterval';
 
 export const DEFAULT_COLUMN_CONFIGS: KanbanColumnConfig[] = [
   { id: 0, status: 'TODO', title: 'To Do', color: '', wipLimit: 0 },
@@ -182,9 +183,9 @@ export function useKanbanData(projectId: string | null) {
     if (!projectId) return;
     void fetchStaticData();
     void fetchData({ showSpinner: true });
-    const id = setInterval(() => void fetchData({ showSpinner: false }), 30_000);
-    return () => clearInterval(id);
   }, [projectId, fetchStaticData, fetchData]);
+
+  useVisibilityInterval(() => void fetchData({ showSpinner: false }), 30_000, Boolean(projectId));
 
   // ── WebSocket real-time task updates ──────────────────────────────────────
 

@@ -4509,6 +4509,11 @@ export interface components {
             title?: string;
             updatedAt?: string;
         };
+        LoginRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+        };
         MemberDTO: {
             email?: string;
             fullName?: string;
@@ -4940,6 +4945,16 @@ export interface components {
             message?: string;
             sha?: string;
         };
+        RefreshRequest: {
+            refreshToken?: string;
+        };
+        RegisterRequest: {
+            /** Format: email */
+            email: string;
+            fullName?: string;
+            password: string;
+            username: string;
+        };
         ReorderTasksRequest: {
             orderedTaskIds: number[];
             /** Format: int64 */
@@ -5251,6 +5266,8 @@ export interface components {
             title: string;
             /** Format: date-time */
             updatedAt?: string;
+            /** Format: int64 */
+            version?: number;
         };
         TaskAccess: {
             /** Format: int64 */
@@ -5291,6 +5308,8 @@ export interface components {
             objectKey?: string;
             task?: unknown;
             uploadedBy?: components["schemas"]["User"];
+            /** Format: int64 */
+            version?: number;
         };
         TaskAttachmentResponseDTO: {
             contentType?: string;
@@ -5553,6 +5572,8 @@ export interface components {
             role?: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
             team?: components["schemas"]["Team"];
             user?: components["schemas"]["User"];
+            /** Format: int64 */
+            version?: number;
         };
         TeamMemberResponseDTO: {
             /** Format: int64 */
@@ -5707,7 +5728,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["User"];
+                "application/json": components["schemas"]["LoginRequest"];
             };
         };
         responses: {
@@ -5767,13 +5788,20 @@ export interface operations {
     refreshToken: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                Origin?: string;
+                "Sec-Fetch-Site"?: string;
+            };
             path?: never;
             cookie?: {
                 planora_refresh_token?: string;
             };
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -5819,7 +5847,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["User"];
+                "application/json": components["schemas"]["RegisterRequest"];
             };
         };
         responses: {
@@ -6845,6 +6873,7 @@ export interface operations {
             header?: {
                 "X-GitHub-Event"?: string;
                 "X-Hub-Signature-256"?: string;
+                "X-GitHub-Delivery"?: string;
             };
             path?: never;
             cookie?: never;
@@ -6872,6 +6901,7 @@ export interface operations {
             header?: {
                 "X-GitHub-Event"?: string;
                 "X-Hub-Signature-256"?: string;
+                "X-GitHub-Delivery"?: string;
             };
             path?: never;
             cookie?: never;

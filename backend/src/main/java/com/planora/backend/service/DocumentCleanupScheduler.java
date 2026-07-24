@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -35,6 +36,7 @@ public class DocumentCleanupScheduler {
     private final DocumentVersionRepository documentVersionRepository;
     private final S3StorageService s3StorageService;
     private final DocumentUploadReservationRepository uploadReservationRepository;
+    private final ScheduledJobLockService scheduledJobLockService;
 
     @Value("${aws.s3.dms-bucket}")
     private String dmsBucket;
@@ -50,6 +52,11 @@ public class DocumentCleanupScheduler {
     // we don't end up with orphaned versions.
     @Transactional
     public void cleanupSoftDeletedDocuments() {
+        if (!scheduledJobLockService.tryAcquire("document-soft-delete-cleanup", Duration.ofHours(2))) {
+            logger.debug("Document cleanup is already running on another instance.");
+            return;
+        }
+        try {
         // Step 1. Define the cutoff threshold. Anything deleted at this exact moment ago
         // 30 days ago is marked for permanent execution.
         LocalDateTime cutoff = LocalDateTime.now().minusDays(30);
@@ -106,11 +113,19 @@ public class DocumentCleanupScheduler {
 
         // Step 8. Log the final tally for the DevOps monitoring dashboards.
         logger.info("DocumentCleanupScheduler: permanently deleted {} document(s) older than 30 days.", deleted);
+        } finally {
+            scheduledJobLockService.release("document-soft-delete-cleanup");
+        }
     }
 
     @Scheduled(fixedDelayString = "${app.dms.upload-cleanup-delay-millis:600000}")
     @Transactional
     public void cleanupExpiredUploads() {
+        if (!scheduledJobLockService.tryAcquire("document-upload-cleanup", Duration.ofMinutes(15))) {
+            logger.debug("Document upload cleanup is already running on another instance.");
+            return;
+        }
+        try {
         List<DocumentUploadReservation> expired = uploadReservationRepository.findByStatusInAndExpiresAtBefore(
                 List.of(DocumentUploadStatus.RESERVED, DocumentUploadStatus.FINALIZING), LocalDateTime.now());
         for (DocumentUploadReservation reservation : expired) {
@@ -123,5 +138,8 @@ public class DocumentCleanupScheduler {
             reservation.setErrorCode("UPLOAD_EXPIRED");
         }
         if (!expired.isEmpty()) uploadReservationRepository.saveAll(expired);
+        } finally {
+            scheduledJobLockService.release("document-upload-cleanup");
+        }
     }
 }

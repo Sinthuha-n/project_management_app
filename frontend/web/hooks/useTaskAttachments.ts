@@ -5,11 +5,14 @@ import {
     uploadTaskAttachment,
     deleteTaskAttachment,
 } from '@/services/task-attachments-service';
+import { reportClientFailure, toApiFailure } from '@/lib/api-failure';
+import type { UploadState } from '@/lib/upload-state';
 
 interface UseTaskAttachmentsReturn {
     attachments: TaskAttachment[];
     isLoading: boolean;
     isUploading: boolean;
+    uploadState: UploadState | null;
     error: string | null;
     uploadFile: (file: File) => Promise<void>;
     removeFile: (attachmentId: number) => Promise<void>;
@@ -21,6 +24,7 @@ export function useTaskAttachments(taskId: number | undefined): UseTaskAttachmen
     const [isLoading, setIsLoading] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [uploadState, setUploadState] = useState<UploadState | null>(null);
 
     const refresh = useCallback(async () => {
         if (!taskId) return;
@@ -45,10 +49,14 @@ export function useTaskAttachments(taskId: number | undefined): UseTaskAttachmen
         try {
             setIsUploading(true);
             setError(null);
-            const newAttachment = await uploadTaskAttachment(taskId, file);
+            const newAttachment = await uploadTaskAttachment(taskId, file, setUploadState);
+            setUploadState('visible');
             setAttachments(prev => [newAttachment, ...prev]);
         } catch (err) {
-            setError((err as Error).message || 'Upload failed');
+            const failure = toApiFailure(err, 'Upload failed');
+            setUploadState('failed');
+            setError(failure.message);
+            reportClientFailure({ route: `/tasks/${taskId}/attachments`, operation: 'upload', status: failure.status, errorCode: failure.code, requestId: failure.requestId, retryAfterSeconds: failure.retryAfterSeconds });
         } finally {
             setIsUploading(false);
         }
@@ -65,5 +73,5 @@ export function useTaskAttachments(taskId: number | undefined): UseTaskAttachmen
         }
     }, [taskId]);
 
-    return { attachments, isLoading, isUploading, error, uploadFile, removeFile, refresh };
+    return { attachments, isLoading, isUploading, uploadState, error, uploadFile, removeFile, refresh };
 }

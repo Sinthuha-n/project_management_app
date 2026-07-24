@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 public class UserServiceTest {
@@ -91,6 +92,10 @@ public class UserServiceTest {
         verify(userRepository).save(any(User.class));
         verify(tokenRepository).save(any(VerificationToken.class));
         verify(emailService).sendVerificationEmail(eq("test@example.com"), anyString());
+        ArgumentCaptor<VerificationToken> tokenCaptor = ArgumentCaptor.forClass(VerificationToken.class);
+        verify(tokenRepository).save(tokenCaptor.capture());
+        assertTrue(tokenCaptor.getValue().getToken().startsWith("v2:"));
+        assertFalse(tokenCaptor.getValue().getToken().matches("v2:[0-9]{6}"));
     }
 
     @Test
@@ -555,7 +560,7 @@ public class UserServiceTest {
         when(userRepository.findFirstByEmailIgnoreCase("test@example.com")).thenReturn(Optional.of(testUser));
         when(jwtService.extractJti("old-refresh")).thenReturn("old-jti");
         when(jwtService.extractJti("new-refresh")).thenReturn("new-jti");
-        when(tokenRepository.findByUserAndTokenType(testUser, VerificationToken.TokenType.REFRESH_TOKEN)).thenReturn(storedToken);
+        when(tokenRepository.findByUserAndTokenTypeForUpdate(testUser, VerificationToken.TokenType.REFRESH_TOKEN)).thenReturn(storedToken);
         when(jwtService.generateToken(anyString(), anyString(), any())).thenReturn("new-access");
         when(jwtService.generateRefreshToken(anyString())).thenReturn("new-refresh");
 
@@ -590,7 +595,7 @@ public class UserServiceTest {
         when(jwtService.validateRefreshToken("tampered-token")).thenReturn("test@example.com");
         when(userRepository.findFirstByEmailIgnoreCase("test@example.com")).thenReturn(Optional.of(testUser));
         when(jwtService.extractJti("tampered-token")).thenReturn("attacker-jti");
-        when(tokenRepository.findByUserAndTokenType(testUser, VerificationToken.TokenType.REFRESH_TOKEN)).thenReturn(storedToken);
+        when(tokenRepository.findByUserAndTokenTypeForUpdate(testUser, VerificationToken.TokenType.REFRESH_TOKEN)).thenReturn(storedToken);
 
         LoginResponse result = userService.refreshTokens("tampered-token");
 
@@ -614,7 +619,7 @@ public class UserServiceTest {
         when(userRepository.findFirstByEmailIgnoreCase("test@example.com")).thenReturn(Optional.of(testUser));
         when(jwtService.extractJti("old-refresh")).thenReturn("old-jti");
         when(jwtService.extractJti("new-refresh")).thenReturn("new-jti");
-        when(tokenRepository.findByUserAndTokenType(testUser, VerificationToken.TokenType.REFRESH_TOKEN)).thenReturn(storedToken);
+        when(tokenRepository.findByUserAndTokenTypeForUpdate(testUser, VerificationToken.TokenType.REFRESH_TOKEN)).thenReturn(storedToken);
         when(jwtService.generateToken(anyString(), anyString(), any())).thenReturn("new-access");
         when(jwtService.generateRefreshToken(anyString())).thenReturn("new-refresh");
 
@@ -644,7 +649,7 @@ public class UserServiceTest {
         when(jwtService.validateRefreshToken("used-token")).thenReturn("test@example.com");
         when(userRepository.findFirstByEmailIgnoreCase("test@example.com")).thenReturn(Optional.of(testUser));
         when(jwtService.extractJti("used-token")).thenReturn("jti-123");
-        when(tokenRepository.findByUserAndTokenType(testUser, VerificationToken.TokenType.REFRESH_TOKEN)).thenReturn(storedToken);
+        when(tokenRepository.findByUserAndTokenTypeForUpdate(testUser, VerificationToken.TokenType.REFRESH_TOKEN)).thenReturn(storedToken);
 
         LoginResponse result = userService.refreshTokens("used-token");
 
