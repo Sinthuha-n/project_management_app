@@ -1,5 +1,7 @@
 import { tasksApi } from './api-contract';
 import type { TaskAttachment, UploadInitRequest, UploadInitResponse, UploadFinalizeRequest } from './api-contract';
+import { normalizeApiError } from '@/lib/api-error';
+import type { UploadState } from '@/lib/upload-state';
 
 export type { TaskAttachment };
 
@@ -23,23 +25,13 @@ function inferContentType(file: File): string {
     return EXTENSION_MIME_MAP[ext] || 'application/octet-stream';
 }
 
-function extractErrorMessage(error: unknown, fallback: string): string {
-    const resp = (error as { response?: { data?: { message?: string } | string } })?.response?.data;
-    if (typeof resp === 'string' && resp.trim()) return resp;
-    if (typeof resp === 'object' && resp !== null) {
-        const msg = (resp as { message?: string }).message;
-        if (msg && msg.trim()) return msg;
-    }
-    const msg = (error as { message?: string })?.message;
-    if (msg && msg.trim()) return msg;
-    return fallback;
-}
-
 async function initUpload(taskId: number, request: UploadInitRequest): Promise<UploadInitResponse> {
     try {
         return await tasksApi.initAttachmentUpload(taskId, request);
     } catch (error) {
-        throw new Error(extractErrorMessage(error, 'Failed to initialize upload.'));
+        // Preserve response status/headers for shared conflict, cooldown, and diagnostic UX.
+        if (error instanceof Error && !('response' in error)) throw new Error(normalizeApiError(error, 'Failed to initialize upload.'));
+        throw error;
     }
 }
 
@@ -47,7 +39,8 @@ async function finalizeUpload(taskId: number, request: UploadFinalizeRequest): P
     try {
         return await tasksApi.finalizeAttachmentUpload(taskId, request);
     } catch (error) {
-        throw new Error(extractErrorMessage(error, 'Upload was sent to storage, but finalize failed.'));
+        if (error instanceof Error && !('response' in error)) throw new Error(normalizeApiError(error, 'Upload was sent to storage, but finalize failed.'));
+        throw error;
     }
 }
 
@@ -58,14 +51,17 @@ async function uploadViaBackend(taskId: number, file: File): Promise<TaskAttachm
     try {
         return await tasksApi.uploadAttachmentFallback(taskId, formData);
     } catch (error) {
-        throw new Error(extractErrorMessage(error, 'Backend upload fallback failed.'));
+        if (error instanceof Error && !('response' in error)) throw new Error(normalizeApiError(error, 'Backend upload fallback failed.'));
+        throw error;
     }
 }
 
 /** Upload a file to a task using presigned URL with backend fallback. */
-export async function uploadTaskAttachment(taskId: number, file: File): Promise<TaskAttachment> {
+export async function uploadTaskAttachment(taskId: number, file: File, onState?: (state: UploadState) => void): Promise<TaskAttachment> {
+    onState?.('validating');
     const contentType = inferContentType(file);
 
+    onState?.('reserved');
     const initResponse = await initUpload(taskId, {
         fileName: file.name,
         contentType,
@@ -74,19 +70,23 @@ export async function uploadTaskAttachment(taskId: number, file: File): Promise<
 
     let putResponse: Response;
     try {
+        onState?.('uploading');
         putResponse = await fetch(initResponse.uploadUrl, {
             method: 'PUT',
             body: file,
             headers: { 'Content-Type': contentType },
         });
     } catch {
+        onState?.('finalizing');
         return uploadViaBackend(taskId, file);
     }
 
     if (!putResponse.ok) {
+        onState?.('finalizing');
         return uploadViaBackend(taskId, file);
     }
 
+    onState?.('finalizing');
     return finalizeUpload(taskId, {
         fileName: file.name,
         contentType,

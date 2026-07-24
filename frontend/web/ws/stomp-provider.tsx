@@ -12,6 +12,8 @@ interface StompContextValue {
   client: CompatClient | null;
   connected: boolean;
   reconnectCount: number;
+  accessDenied: boolean;
+  realtimeError: string | null;
   subscribe: (
     destination: string,
     callback: (message: IMessage) => void,
@@ -30,6 +32,8 @@ const StompContext = createContext<StompContextValue>({
   client: null,
   connected: false,
   reconnectCount: 0,
+  accessDenied: false,
+  realtimeError: null,
   subscribe: () => null,
   send: () => { },
 });
@@ -46,6 +50,8 @@ export function StompProvider({ token, children }: StompProviderProps) {
   const [clientState, setClientState] = useState<CompatClient | null>(null);
   const [connected, setConnected] = useState(false);
   const [reconnectCount, setReconnectCount] = useState(0);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [realtimeError, setRealtimeError] = useState<string | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -83,9 +89,14 @@ export function StompProvider({ token, children }: StompProviderProps) {
         || normalized.includes('expired')
         || normalized.includes('invalid');
     };
+    const isAccessDenied = (error: unknown): boolean => {
+      const headers = (error as { headers?: Record<string, string> })?.headers;
+      const text = `${headers?.message ?? ''} ${typeof error === 'string' ? error : ''}`.toLowerCase();
+      return headers?.['x-error-code'] === 'FORBIDDEN' || text.includes('forbidden') || text.includes('access denied');
+    };
 
     const scheduleReconnect = (delayOverride?: number) => {
-      if (disposed) return;
+      if (disposed || accessDenied) return;
       clearReconnectTimer();
       const baseDelay = Math.min(30000, Math.pow(2, reconnectAttemptRef.current) * 1000);
       const jitter = delayOverride == null ? Math.floor(Math.random() * 250) : 0;
@@ -127,6 +138,8 @@ export function StompProvider({ token, children }: StompProviderProps) {
             }
 
             reconnectAttemptRef.current = 0;
+            setAccessDenied(false);
+            setRealtimeError(null);
             clientRef.current = stompClient;
             setClientState(stompClient);
             setConnected(true);
@@ -139,6 +152,12 @@ export function StompProvider({ token, children }: StompProviderProps) {
             clientRef.current = null;
             connectingRef.current = false;
 
+            if (isAccessDenied(error)) {
+              clearReconnectTimer();
+              setAccessDenied(true);
+              setRealtimeError('Live updates are unavailable because you no longer have access to this resource.');
+              return;
+            }
             if (isAuthError(error)) {
               const refreshedToken = await refreshAccessToken().catch(() => null);
               if (refreshedToken) {
@@ -164,6 +183,8 @@ export function StompProvider({ token, children }: StompProviderProps) {
 
     const reconnectOnTokenChange = () => {
       reconnectAttemptRef.current = 0;
+      setAccessDenied(false);
+      setRealtimeError(null);
       clearReconnectTimer();
       const existing = clientRef.current;
       clientRef.current = null;
@@ -194,7 +215,7 @@ export function StompProvider({ token, children }: StompProviderProps) {
       }
       clientRef.current = null;
     };
-  }, [token]);
+  }, [token, accessDenied]);
 
   const subscribe = useCallback(
     (destination: string, callback: (message: IMessage) => void) => {
@@ -213,7 +234,7 @@ export function StompProvider({ token, children }: StompProviderProps) {
   );
 
   return (
-    <StompContext.Provider value={{ client: clientState, connected, subscribe, send, reconnectCount }}>
+    <StompContext.Provider value={{ client: clientState, connected, subscribe, send, reconnectCount, accessDenied, realtimeError }}>
       {children}
     </StompContext.Provider>
   );

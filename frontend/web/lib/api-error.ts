@@ -8,6 +8,9 @@ const STATUS_MESSAGES: Record<number, string> = {
   404: 'The requested resource was not found.',
   409: 'This action conflicts with the latest saved data.',
   422: 'Please fix the highlighted fields and try again.',
+  413: 'The request is too large. Reduce the upload or payload and try again.',
+  429: 'Too many requests. Please wait before trying again.',
+  503: 'The service is temporarily unavailable. Please try again shortly.',
   500: 'Something went wrong on the server. Please try again.',
 };
 
@@ -89,6 +92,29 @@ export function getApiErrorStatus(error: unknown): number | undefined {
   }
 
   return undefined;
+}
+
+function getResponseHeader(error: unknown, name: string): string | undefined {
+  if (!axios.isAxiosError(error)) return undefined;
+  const headers = error.response?.headers;
+  if (!headers) return undefined;
+  const value = typeof headers.get === 'function' ? headers.get(name) : headers[name] ?? headers[name.toLowerCase()];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+/** Returns a bounded server-directed cooldown in seconds, if one was supplied. */
+export function getApiRetryAfterSeconds(error: unknown, now = Date.now()): number | undefined {
+  const retryAfter = getResponseHeader(error, 'retry-after');
+  if (!retryAfter) return undefined;
+  if (/^\d+$/.test(retryAfter)) return Math.min(Math.max(Number(retryAfter), 1), 86_400);
+  const retryAt = Date.parse(retryAfter);
+  if (Number.isNaN(retryAt)) return undefined;
+  return Math.min(Math.max(Math.ceil((retryAt - now) / 1000), 1), 86_400);
+}
+
+/** Safe to attach to diagnostics; callers must not attach request bodies or credentials. */
+export function getApiRequestId(error: unknown): string | undefined {
+  return getResponseHeader(error, 'x-request-id');
 }
 
 export function normalizeApiError(error: unknown, fallbackMessage: string): string {

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AUTH_TOKEN_CHANGED_EVENT, ensureValidToken, saveToken, saveRefreshToken, setRememberMe } from '@/lib/auth';
 import { buildVerifyEmailPath, isEmailVerificationRequired, rememberPendingVerificationEmail } from '@/lib/email-verification';
 import { authApi } from '@/services/api-contract';
+import { getApiRetryAfterSeconds, normalizeApiError } from '@/lib/api-error';
 
 const PENDING_INVITE_TOKEN_KEY = 'pendingInviteToken';
 
@@ -33,6 +34,13 @@ export function useLoginForm() {
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const interval = window.setInterval(() => setCooldown((seconds) => Math.max(seconds - 1, 0)), 1000);
+    return () => window.clearInterval(interval);
+  }, [cooldown]);
 
   /*
    * UX Optimization: Silent Auth Bypass.
@@ -74,7 +82,7 @@ export function useLoginForm() {
   // Core Login Execution
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (isLoading) return;
+    if (isLoading || cooldown > 0) return;
     setIsLoading(true);
     setError('');
 
@@ -126,21 +134,14 @@ export function useLoginForm() {
     } catch (err: any) {
       // ── API Error Translation ──
       // This block bridges the gap between raw HTTP protocol errors and user-friendly UI text.
-      let errorMessage = 'Login failed. Please try again.';
-      const errorData = err.response?.data;
+      const retryAfter = getApiRetryAfterSeconds(err);
+      const errorMessage = normalizeApiError(err, 'Login failed. Please try again.');
 
       if (isEmailVerificationRequired(err)) {
         const normalizedEmail = email.toLowerCase();
         rememberPendingVerificationEmail(normalizedEmail);
         router.push(buildVerifyEmailPath(normalizedEmail));
         return;
-      }
-
-      // Parse the Spring Boot payload formats
-      if (typeof errorData === 'string') {
-        errorMessage = errorData;
-      } else if (errorData?.message) {
-        errorMessage = errorData.message;
       }
 
       // Map strict HTTP Status Codes to contextual help.
@@ -152,8 +153,9 @@ export function useLoginForm() {
         setError(errorMessage || 'Incorrect email or password.');
       } else {
         // 500s or unknown errors.
-        setError(errorMessage);
+        setError(retryAfter ? `${errorMessage} Try again in ${retryAfter}s.` : errorMessage);
       }
+      if (retryAfter) setCooldown(retryAfter);
     } finally {
       setIsLoading(false);
     }
@@ -168,6 +170,7 @@ export function useLoginForm() {
     isLoading,
     isCheckingSession,
     error,
+    cooldown,
     handleLogin,
   };
 }

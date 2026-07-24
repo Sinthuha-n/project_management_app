@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import api from '../lib/axios';
 import { buildForgotPasswordRequest, forgotPassword as forgotPasswordBuilder, type ForgotPasswordRequest } from '@planora/contracts';
 import { EMAIL_REGEX } from '../lib/validation';
+import { apiErrorMessage, apiRetryAfterSeconds } from '../utils/apiError';
 
 export function useForgotPassword() {
   const [email,     setEmail]     = useState('');
@@ -18,8 +19,9 @@ export function useForgotPassword() {
     };
   }, []);
 
-  const startCountdown = () => {
-    setCountdown(60);
+  const startCountdown = (seconds = 60) => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    setCountdown(seconds);
     intervalRef.current = setInterval(() => {
       setCountdown(n => {
         if (n <= 1) {
@@ -33,7 +35,7 @@ export function useForgotPassword() {
   };
 
   const handleSubmit = async () => {
-    if (isLoading) return;
+    if (isLoading || countdown > 0) return;
     setError('');
 
     if (!EMAIL_REGEX.test(email)) {
@@ -48,14 +50,12 @@ export function useForgotPassword() {
       setSubmitted(true);
       startCountdown();
     } catch (err: unknown) {
-      const e = err as { response?: { data?: unknown } };
-      const errorData = e.response?.data;
-      let msg = 'Failed to send reset code. Please try again.';
-      if (typeof errorData === 'string') msg = errorData;
-      else if (errorData && typeof errorData === 'object' && 'message' in errorData) {
-        msg = (errorData as { message: string }).message;
+      const retryAfter = apiRetryAfterSeconds(err);
+      const message = apiErrorMessage(err, 'Failed to send reset code. Please try again.');
+      setError(retryAfter ? `${message} Try again in ${retryAfter}s.` : message);
+      if (retryAfter) {
+        startCountdown(retryAfter);
       }
-      setError(msg);
     } finally {
       setIsLoading(false);
     }
