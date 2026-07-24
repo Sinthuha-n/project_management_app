@@ -58,6 +58,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Scan production image
+        run: |
+          docker run --rm \
+            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
+            aquasec/trivy:0.70.0 image \
+            --exit-code 1 \
+            --severity CRITICAL,HIGH \
+            "${{ steps.meta.outputs.image }}"
+
   deploy-ec2:
     name: Deploy to EC2
     needs: build-and-push

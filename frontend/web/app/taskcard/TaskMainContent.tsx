@@ -6,6 +6,7 @@ import SubtaskList from './SubtaskList';
 import CommentSection from './CommentSection';
 import DescriptionEditor from './main/DescriptionEditor';
 import AttachmentsPanel from './main/AttachmentsPanel';
+import { UPLOAD_STATE_MESSAGE } from '@/lib/upload-state';
 import { useTaskAttachments } from '@/hooks/useTaskAttachments';
 import api from '@/lib/axios';
 import TaskActionButton from './components/TaskActionButton';
@@ -162,7 +163,7 @@ const TaskMainContent: React.FC<TaskMainContentProps> = ({
   const [showDependencyPicker, setShowDependencyPicker] = useState(false);
   const attachInputRef = useRef<HTMLInputElement>(null);
 
-  const { attachments, isUploading, error: attachError, uploadFile, removeFile } = useTaskAttachments(taskId);
+  const { attachments, isUploading, uploadState, error: attachError, uploadFile, removeFile } = useTaskAttachments(taskId);
 
   useEffect(() => {
     setEditedTitle(title);
@@ -244,8 +245,10 @@ const TaskMainContent: React.FC<TaskMainContentProps> = ({
           title={!projectId ? 'Project context is required to link dependencies' : readOnly ? 'Viewers cannot link dependencies' : 'Link task dependency'}
         />
       </div>
-      {attachError && (
-        <p className="text-xs text-cu-danger bg-cu-danger/10 border border-cu-danger/20 px-3 py-1.5 rounded mb-4">{attachError}</p>
+      {(attachError || (uploadState && uploadState !== 'visible')) && (
+        <p role="status" aria-live="polite" className={`text-xs px-3 py-1.5 rounded mb-4 ${attachError ? 'text-cu-danger bg-cu-danger/10 border border-cu-danger/20' : 'text-cu-text-secondary bg-cu-bg-secondary border border-cu-border'}`}>
+          {attachError || UPLOAD_STATE_MESSAGE[uploadState!]}
+        </p>
       )}
 
       <AttachmentsPanel attachments={attachments} onRemove={removeFile} readOnly={readOnly} />

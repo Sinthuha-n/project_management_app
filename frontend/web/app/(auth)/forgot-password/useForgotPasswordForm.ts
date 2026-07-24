@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { authApi } from '@/services/api-contract';
+import { getApiRetryAfterSeconds, normalizeApiError } from '@/lib/api-error';
 
 /*
  * Headless Business Logic Hook.
@@ -44,6 +45,7 @@ export function useForgotPasswordForm() {
   // Step 2: Form Submission Handler
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isLoading || cooldown > 0) return;
 
     // Reset state flags before firing the network request.
     setIsLoading(true);
@@ -69,15 +71,10 @@ export function useForgotPasswordForm() {
       // Spring Boot might send us a raw string (e.g., "Email not found") 
       // or a JSON object (e.g., { message: "Rate limit exceeded" }).
       // This block safely normalizes those responses into a string the UI can display.
-      let errorMessage = 'Failed to process request. Please try again.';
-      const errorData = err.response?.data;
-
-      if (typeof errorData === 'string') {
-        errorMessage = errorData;
-      } else if (errorData?.message) {
-        errorMessage = errorData.message;
-      }
-      setError(errorMessage);
+      const retryAfter = getApiRetryAfterSeconds(err);
+      const errorMessage = normalizeApiError(err, 'Failed to process request. Please try again.');
+      setError(retryAfter ? `${errorMessage} Try again in ${retryAfter}s.` : errorMessage);
+      if (retryAfter) setCooldown(retryAfter);
     } finally {
       // Step 4: Always turn off the loading spinner, even if the network fails.
       setIsLoading(false);

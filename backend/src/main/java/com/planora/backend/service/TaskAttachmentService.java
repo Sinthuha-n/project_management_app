@@ -1,6 +1,8 @@
 package com.planora.backend.service;
 
 import com.planora.backend.dto.*;
+import com.planora.backend.exception.BadRequestException;
+import com.planora.backend.exception.ForbiddenException;
 import com.planora.backend.model.*;
 import com.planora.backend.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -88,9 +92,16 @@ public class TaskAttachmentService {
         // Step 2: Ensure they aren't trying to attach a file from Task B into Task A.
         validateObjectKeyOwnership(taskId, request.getObjectKey());
 
-        // Step 3: Crucial Check - Ask AWS if the file actually exists.
-        // Prevents users from saving fake database records.
-        s3StorageService.verifyObjectExists(taskBucket, request.getObjectKey());
+        // Step 3: Trust the signed S3 object's metadata, never the metadata sent
+        // back by the client. This prevents a client from finalizing an oversized
+        // or differently typed object after it has received an upload URL.
+        HeadObjectResponse object = s3StorageService.headObject(taskBucket, request.getObjectKey());
+        String storedContentType = s3StorageService.resolveContentType(object.contentType(), request.getFileName());
+        long storedSize = object.contentLength() == null ? -1L : object.contentLength();
+        validateFileRequest(request.getFileName(), storedContentType, storedSize);
+        if (!storedContentType.equals(request.getContentType()) || storedSize != request.getFileSize()) {
+            throw new BadRequestException("Uploaded object metadata does not match the upload request");
+        }
 
         // Step 4: Idempotency. If the frontend had a network retry and sent this twice,
         // just return the existing record instead of crashing or creating duplicates.
@@ -105,8 +116,8 @@ public class TaskAttachmentService {
         TaskAttachment attachment = new TaskAttachment();
         attachment.setTask(task);
         attachment.setFileName(normalizeFileName(request.getFileName()));
-        attachment.setContentType(request.getContentType());
-        attachment.setFileSize(request.getFileSize());
+        attachment.setContentType(storedContentType);
+        attachment.setFileSize(storedSize);
         attachment.setObjectKey(request.getObjectKey());
         attachment.setUploadedBy(uploader);
 
@@ -122,7 +133,7 @@ public class TaskAttachmentService {
         validateTeamMember(task, userId);
 
         if (file == null || file.isEmpty()) {
-            throw new RuntimeException("File is required");
+            throw new BadRequestException("File is required");
         }
 
         // Step 2: Validate and sanitize the incoming file.
@@ -137,7 +148,7 @@ public class TaskAttachmentService {
             s3StorageService.putObject(taskBucket, objectKey, resolvedContentType,
                     file.getInputStream(), file.getSize());
         } catch (Exception e) {
-            throw new RuntimeException("Could not upload file to S3: " + e.getMessage());
+            throw new BadRequestException("Could not upload file to storage");
         }
 
         // Step 4: Code Reuse trick. We build a fake request and pass it to Phase 2
@@ -172,7 +183,7 @@ public class TaskAttachmentService {
 
         // Security: Ensure the attachment actually belongs to the specified task context.
         if (!attachment.getTask().getId().equals(taskId)) {
-            throw new RuntimeException("Attachment does not belong to this task");
+            throw new BadRequestException("Attachment does not belong to this task");
         }
 
         // Step 1: Delete physical bytes from AWS.
@@ -203,22 +214,22 @@ public class TaskAttachmentService {
     private void validateTeamMember(Task task, Long userId) {
         Long teamId = task.getProject().getTeam().getId();
         teamMemberRepository.findByTeamIdAndUserUserId(teamId, userId)
-                .orElseThrow(() -> new RuntimeException("User is not a member of this project team"));
+                .orElseThrow(() -> new ForbiddenException("User is not a member of this project team"));
     }
 
     // Task-specific validation: enforces ALLOWED_CONTENT_TYPES and MAX_FILE_SIZE_BYTES.
     private void validateFileRequest(String fileName, String contentType, Long fileSize) {
         if (fileName == null || fileName.isBlank()) {
-            throw new RuntimeException("fileName is required");
+            throw new BadRequestException("fileName is required");
         }
         if (contentType == null || contentType.isBlank()) {
-            throw new RuntimeException("contentType is required");
+            throw new BadRequestException("contentType is required");
         }
         if (!ALLOWED_CONTENT_TYPES.contains(contentType)) {
-            throw new RuntimeException("Unsupported file type");
+            throw new BadRequestException("Unsupported file type");
         }
         if (fileSize == null || fileSize <= 0 || fileSize > MAX_FILE_SIZE_BYTES) {
-            throw new RuntimeException("fileSize must be between 1 byte and 25MB");
+            throw new BadRequestException("fileSize must be between 1 byte and 25MB");
         }
     }
 
@@ -234,7 +245,7 @@ public class TaskAttachmentService {
         String withoutPath = trimmed.replace("\\", "/");
         String nameOnly = withoutPath.substring(withoutPath.lastIndexOf("/") + 1);
         if (nameOnly.isBlank()) {
-            throw new RuntimeException("Invalid file name");
+            throw new BadRequestException("Invalid file name");
         }
         return nameOnly;
     }
@@ -242,11 +253,11 @@ public class TaskAttachmentService {
     // Task-specific: ensures the objectKey belongs to this task's S3 prefix.
     private void validateObjectKeyOwnership(Long taskId, String objectKey) {
         if (objectKey == null || objectKey.isBlank()) {
-            throw new RuntimeException("objectKey is required");
+            throw new BadRequestException("objectKey is required");
         }
         String expectedPrefix = "task-" + taskId + "/";
         if (!objectKey.startsWith(expectedPrefix)) {
-            throw new RuntimeException("Invalid object key for this task");
+            throw new BadRequestException("Invalid object key for this task");
         }
     }
 

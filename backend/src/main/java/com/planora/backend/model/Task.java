@@ -23,6 +23,10 @@ public class Task {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @Column(nullable = false, length = 255)
     @NotBlank(message = "Task title is required")
     @Size(max = 255, message = "Task title must be 255 characters or fewer")

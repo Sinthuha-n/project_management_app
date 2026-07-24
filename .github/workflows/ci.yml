@@ -73,13 +73,15 @@ jobs:
         chmod +x ./gitleaks
         ./gitleaks detect --source=. -v --redact
     - name: Run Trivy Security Scan (Backend)
-      uses: aquasecurity/trivy-action@v0.36.0
-      with:
-        scan-type: 'fs'
-        scan-ref: './backend'
-        exit-code: '1'
-        severity: 'CRITICAL,HIGH'
-        vuln-type: 'library'
+      run: |
+        docker run --rm \
+          --volume "${GITHUB_WORKSPACE}:/workspace:ro" \
+          --volume "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
+          aquasec/trivy:0.70.0 fs \
+          --exit-code 1 \
+          --severity CRITICAL,HIGH \
+          --vuln-type library \
+          /workspace/backend
 
   backend-build:
     name: Build Backend
@@ -93,6 +95,8 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
+    - name: Verify Docker is available for integration tests
+      run: docker info
       
     - name: Check for Empty Flyway Migrations
       run: |
@@ -117,6 +121,16 @@ jobs:
       env:
         CI: true
       run: ./mvnw -B verify --file pom.xml
+
+    - name: Require executed integration tests
+      run: |
+        REPORT=target/failsafe-reports/failsafe-summary.xml
+        test -f "$REPORT"
+        COMPLETED=$(sed -n 's:.*<completed>\([0-9][0-9]*\)</completed>.*:\1:p' "$REPORT")
+        test "${COMPLETED:-0}" -gt 0
+        grep -q '<errors>0</errors>' "$REPORT"
+        grep -q '<failures>0</failures>' "$REPORT"
+        grep -q '<skipped>0</skipped>' "$REPORT"
 
     - name: Publish Backend Test and Coverage Reports
       if: ${{ always() }}

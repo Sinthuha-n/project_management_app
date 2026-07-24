@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 type Breakpoint = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 
@@ -9,15 +9,17 @@ type Breakpoint = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
  * caused by each page independently tracking window width.
  */
 export function useBreakpoint() {
-    const [width, setWidth] = useState<number>(
-        typeof window !== 'undefined' ? window.innerWidth : 1280
+    const width = useSyncExternalStore(
+        (onStoreChange) => {
+            const onResize = () => onStoreChange();
+            window.addEventListener('resize', onResize, { passive: true });
+            return () => window.removeEventListener('resize', onResize);
+        },
+        () => window.innerWidth,
+        // A stable server snapshot prevents hydration mismatches. Layout CSS remains
+        // the authority until the browser has supplied its real viewport width.
+        () => 1024,
     );
-
-    useEffect(() => {
-        const handleResize = () => setWidth(window.innerWidth);
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
 
     const isMobile  = width < 768;
     const isTablet  = width >= 768 && width < 1024;

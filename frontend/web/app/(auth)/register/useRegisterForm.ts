@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ensureValidToken } from '@/lib/auth';
 import { validatePassword, PASSWORD_REQUIREMENTS } from '@/lib/passwordValidation';
 import { authApi } from '@/services/api-contract';
+import { getApiRetryAfterSeconds, normalizeApiError } from '@/lib/api-error';
 
 // Exported so the view component can read human-friendly labels and Tailwind colour classes
 // without duplicating the mapping or adding a prop-drilling chain.
@@ -29,6 +30,13 @@ export function useRegisterForm() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const interval = window.setInterval(() => setCooldown((seconds) => Math.max(seconds - 1, 0)), 1000);
+    return () => window.clearInterval(interval);
+  }, [cooldown]);
 
   // replace() instead of push() so the browser's Back button can't navigate back to the register page after login
   useEffect(() => {
@@ -52,6 +60,7 @@ export function useRegisterForm() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading || cooldown > 0) return;
     setIsLoading(true);
     setError('');
 
@@ -93,15 +102,10 @@ export function useRegisterForm() {
       router.push(`/verify-email?email=${encodeURIComponent(email.toLowerCase())}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      let errorMessage = 'Registration failed. Please try again.';
-      const errorData = err.response?.data;
-
-      if (typeof errorData === 'string') {
-        errorMessage = errorData;
-      } else if (errorData?.message) {
-        errorMessage = errorData.message;
-      }
-      setError(errorMessage);
+      const retryAfter = getApiRetryAfterSeconds(err);
+      const errorMessage = normalizeApiError(err, 'Registration failed. Please try again.');
+      setError(retryAfter ? `${errorMessage} Try again in ${retryAfter}s.` : errorMessage);
+      if (retryAfter) setCooldown(retryAfter);
     } finally {
       setIsLoading(false);
     }
@@ -114,6 +118,7 @@ export function useRegisterForm() {
     password, setPassword,
     confirmPassword, setConfirmPassword,
     isLoading,
+    cooldown,
     error,
     strength,
     handleRegister,

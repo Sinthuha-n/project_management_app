@@ -17,6 +17,7 @@ import { normalizeTaskPriority } from '@/services/tasks-contract';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 import { useTaskMutations } from '@/hooks/useTaskMutations';
 import { useProjectTasks } from '@/hooks/useProjectTasks';
+import { useVisibilityInterval } from '@/hooks/useVisibilityInterval';
 import type { Task as CanonicalTask } from '@/types';
 
 type TaskWithAssignees = Task & {
@@ -175,9 +176,9 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         if (!projectId) return;
         void fetchStaticData();
         void fetchData({ showSpinner: true });
-        const id = setInterval(() => void fetchData({ showSpinner: false }), 30_000);
-        return () => clearInterval(id);
     }, [projectId, fetchStaticData, fetchData]);
+
+    useVisibilityInterval(() => void fetchData({ showSpinner: false }), 30_000, Boolean(projectId));
 
     useEffect(() => {
         void fetchArchivedData();

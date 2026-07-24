@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planora.backend.service.CiStatusResolver;
 import com.planora.backend.service.GithubNotificationService;
+import com.planora.backend.service.GithubWebhookDeliveryService;
 import com.planora.backend.service.TaskGithubService;
 import com.planora.backend.util.GithubWebhookSignatureVerifier;
 
@@ -134,10 +135,14 @@ class GitHubWebhookControllerTest {
 
     private MockMvc mockMvc;
     private GithubNotificationService githubNotificationService;
+    private GithubWebhookDeliveryService webhookDeliveryService;
 
     @BeforeEach
     void setUp() {
         githubNotificationService = mock(GithubNotificationService.class);
+        webhookDeliveryService = mock(GithubWebhookDeliveryService.class);
+        org.mockito.Mockito.when(webhookDeliveryService.registerIfNew(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(true);
         CiStatusResolver ciStatusResolver = mock(CiStatusResolver.class);
         TaskGithubService taskGithubService = mock(TaskGithubService.class);
         ObjectMapper objectMapper = new ObjectMapper();
@@ -147,7 +152,8 @@ class GitHubWebhookControllerTest {
                 taskGithubService,
                 githubNotificationService,
                 objectMapper,
-                new GithubWebhookSignatureVerifier(SECRET)
+                new GithubWebhookSignatureVerifier(SECRET),
+                webhookDeliveryService
         );
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
@@ -338,7 +344,8 @@ class GitHubWebhookControllerTest {
                 mock(TaskGithubService.class),
                 githubNotificationService,
                 new ObjectMapper(),
-                new GithubWebhookSignatureVerifier("")
+                new GithubWebhookSignatureVerifier(""),
+                mock(GithubWebhookDeliveryService.class)
         );
         MockMvc unconfiguredMockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 

@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 
@@ -34,6 +35,7 @@ public class ReportEmailScheduler {
     private final ProjectReportDataService   dataService;
     private final ReportPdfBuilder           pdfBuilder;
     private final ReportExcelBuilder         excelBuilder;
+    private final ScheduledJobLockService    scheduledJobLockService;
 
     private static final String FROM       = "no-reply@planora.com";
     private static final String APP_BASE   = "NEXT_PUBLIC_API_BASE_URL";
@@ -43,18 +45,25 @@ public class ReportEmailScheduler {
                    JavaMailSenderImpl         mailSender,
                    ProjectReportDataService   dataService,
                    ReportPdfBuilder           pdfBuilder,
-                   ReportExcelBuilder         excelBuilder) {
+                   ReportExcelBuilder         excelBuilder,
+                   ScheduledJobLockService    scheduledJobLockService) {
       this.repo         = repo;
       this.service      = service;
       this.mailSender   = mailSender;
       this.dataService  = dataService;
       this.pdfBuilder   = pdfBuilder;
       this.excelBuilder = excelBuilder;
+      this.scheduledJobLockService = scheduledJobLockService;
     }
 
     @Scheduled(fixedDelay = 60_000)   // check every 60 seconds
     @Transactional
     public void dispatchDueReports() {
+        if (!scheduledJobLockService.tryAcquire("scheduled-report-email", Duration.ofMinutes(10))) {
+            log.debug("Scheduled report email dispatch is already running on another instance.");
+            return;
+        }
+        try {
         Instant now = Instant.now();
         List<ScheduledReport> due = repo.findByStatusAndNextSendAtLessThanEqual("ACTIVE", now);
 
@@ -70,6 +79,9 @@ public class ReportEmailScheduler {
             } catch (Exception e) {
                 log.error("[ReportScheduler] Failed to send report id={}: {}", sr.getId(), e.getMessage());
             }
+        }
+        } finally {
+            scheduledJobLockService.release("scheduled-report-email");
         }
     }
 

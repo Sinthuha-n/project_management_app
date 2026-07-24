@@ -22,7 +22,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             className={[
               'w-full h-9 rounded-cu-md border bg-cu-bg text-cu-text-primary text-base',
               'placeholder:text-cu-text-tertiary',
-              'focus:outline-none focus:ring-2 focus:ring-cu-purple focus:border-transparent',
+              'focus:outline-none focus:ring-2 focus:ring-cu-primary focus:border-transparent',
               'transition-colors duration-fast',
               error ? 'border-cu-danger' : 'border-cu-border',
               icon ? 'pl-9 pr-3' : 'px-3',

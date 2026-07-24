@@ -21,6 +21,10 @@ public class DocumentUploadReservation {
     @Column(name = "upload_id", length = 36)
     private String uploadId;
 
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @Column(name = "batch_id", nullable = false, length = 36)
     private String batchId;
 

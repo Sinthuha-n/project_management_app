@@ -1,5 +1,5 @@
 "use client";
-import React, { Suspense, useEffect, useState, useCallback } from 'react';
+import React, { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import TaskHeader from './TaskHeader';
 import TaskMainContent from './TaskMainContent';
@@ -53,6 +53,7 @@ function TaskPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [showGitHubIssueModal, setShowGitHubIssueModal] = useState(false);
+  const fetchSequenceRef = useRef(0);
 
   useEffect(() => {
     setMounted(true);
@@ -60,6 +61,7 @@ function TaskPageContent() {
 
   const fetchTaskData = useCallback(async () => {
     if (!taskId) return;
+    const fetchSequence = ++fetchSequenceRef.current;
     const cacheKey = `planora:task:${taskId}`;
     // Stale-while-revalidate: show cached data instantly so the modal feels responsive,
     // then overwrite with fresh data once the API responds.
@@ -72,8 +74,10 @@ function TaskPageContent() {
         const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
         if (parsed && typeof parsed === 'object' && parsed.data && typeof parsed.timestamp === 'number') {
           if (now - parsed.timestamp < CACHE_TTL_MS) {
-            setTaskData(parsed.data);
-            setLoading(false);
+            if (fetchSequence === fetchSequenceRef.current) {
+              setTaskData(parsed.data);
+              setLoading(false);
+            }
             cachedLoaded = true;
           } else {
             localStorage.removeItem(cacheKey);
@@ -87,16 +91,18 @@ function TaskPageContent() {
     }
     try {
       const response = await api.get(`/api/tasks/${taskId}`);
+      if (fetchSequence !== fetchSequenceRef.current) return;
       setTaskData(response.data);
       localStorage.setItem(cacheKey, JSON.stringify({ data: response.data, timestamp: Date.now() }));
       setError(null);
     } catch (err: unknown) {
+      if (fetchSequence !== fetchSequenceRef.current) return;
       if (!cachedLoaded) {
         setError(normalizeApiError(err, 'Failed to fetch task data'));
         setTaskData(null);
       }
     } finally {
-      setLoading(false);
+      if (fetchSequence === fetchSequenceRef.current) setLoading(false);
     }
   }, [taskId]);
 
@@ -118,6 +124,9 @@ function TaskPageContent() {
 
     const handleTaskUpdatedEvent = (event: Event) => {
       const customEvent = event as CustomEvent;
+      // The local mutation path performs an explicit authoritative refetch below.
+      // Avoid issuing a second competing request for the same HTTP commit.
+      if (customEvent.detail?.source === 'http') return;
       if (customEvent.detail && customEvent.detail.taskId) {
         if (String(customEvent.detail.taskId) === String(taskId)) {
           localStorage.removeItem(`planora:task:${taskId}`);

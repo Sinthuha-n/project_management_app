@@ -76,6 +76,7 @@ class UserAuthIT extends PostgresIntegrationIT {
         assertNotNull(refreshCookie);
 
         MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:3000")
                         .cookie(refreshCookie))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -90,6 +91,30 @@ class UserAuthIT extends PostgresIntegrationIT {
         Cookie rotatedRefreshCookie = refreshResult.getResponse().getCookie("planora_refresh_token");
         assertNotNull(rotatedRefreshCookie);
         assertNotEquals(refreshCookie.getValue(), rotatedRefreshCookie.getValue());
+    }
+
+    @Test
+    void refresh_withNativeBodyToken_returnsRotatedTokenWithoutCookie() throws Exception {
+        String rawPassword = "Test@1234";
+        String email = "native-refresh-" + UUID.randomUUID() + "@example.com";
+        seedVerifiedUser(email, rawPassword);
+
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("email", email, "password", rawPassword))))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie refreshCookie = loginResult.getResponse().getCookie("planora_refresh_token");
+        assertNotNull(refreshCookie);
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("refreshToken", refreshCookie.getValue()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.token").isString())
+                .andExpect(jsonPath("$.refreshToken").isString())
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
     }
 
     /**
