@@ -62,6 +62,7 @@ jobs:
         run: |
           docker run --rm \
             --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume "${HOME}/.docker:/root/.docker:ro" \
             --volume "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
             aquasec/trivy:0.70.0 image \
             --exit-code 1 \
