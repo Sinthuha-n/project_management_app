@@ -51,6 +51,10 @@ export function usePersistedData<T>({
   const fetcherRef = useRef(fetcher);
   const requestGenerationRef = useRef(0);
   const hasDataRef = useRef(false);
+  const isDocumentVisible = useCallback(
+    () => typeof document === 'undefined' || document.visibilityState === 'visible',
+    [],
+  );
 
   useEffect(() => {
     fetcherRef.current = fetcher;
@@ -111,9 +115,20 @@ export function usePersistedData<T>({
   // Background sync
   useEffect(() => {
     if (skip || syncIntervalMs <= 0) return;
-    const id = setInterval(() => void fetchAndCache(false), syncIntervalMs);
-    return () => clearInterval(id);
-  }, [skip, syncIntervalMs, fetchAndCache]);
+    const sync = () => {
+      if (isDocumentVisible()) void fetchAndCache(false);
+    };
+    const handleVisibilityChange = () => {
+      // Refresh once on return, rather than keeping hidden tabs active.
+      if (isDocumentVisible()) sync();
+    };
+    const id = window.setInterval(sync, syncIntervalMs);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [skip, syncIntervalMs, fetchAndCache, isDocumentVisible]);
 
   const refresh = useCallback(() => fetchAndCache(true), [fetchAndCache]);
 

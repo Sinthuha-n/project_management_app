@@ -27,6 +27,7 @@ import {
 import type { SprintboardFullResponse } from './types';
 import { useSprintBoardStore } from './hooks/useSprintBoardStore';
 import { useSprintBoardActions } from './hooks/useSprintBoardActions';
+import { useVisibilityInterval } from '@/hooks/useVisibilityInterval';
 
 type SprintSummary = { id: number; status: string; sprintName?: string };
 type SprintBoardCache = { activeList: SprintSummary[]; boards: SprintboardFullResponse[] };
@@ -231,9 +232,9 @@ function SprintBoardPageContent() {
     if (!projectIdStr) return; 
     void fetchProjectInfo(); 
     void fetchData({ showSpinner: true }); 
-    const sync = setInterval(() => void fetchData({ showSpinner: false }), 30_000); 
-    return () => clearInterval(sync); 
   }, [projectIdStr, fetchProjectInfo, fetchData]);
+
+  useVisibilityInterval(() => void fetchData({ showSpinner: false }), 30_000, Boolean(projectIdStr));
 
   useEffect(() => { 
     const onTaskUpdated = () => void fetchData({ showSpinner: false, forceNetwork: true }); 

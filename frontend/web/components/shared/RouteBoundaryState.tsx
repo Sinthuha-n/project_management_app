@@ -75,10 +75,11 @@ function LoadingSkeleton({ variant }: { variant: LoadingVariant }) {
   );
 }
 
-export function RouteLoadingState({ title: _title, subtitle, variant = 'cards' }: RouteLoadingStateProps) {
+export function RouteLoadingState({ title, subtitle, variant = 'cards' }: RouteLoadingStateProps) {
   return (
-    <div className="min-h-[calc(100vh-140px)] bg-cu-bg-secondary px-4 py-6 md:px-6 md:py-8">
+    <div className="min-h-[calc(100vh-140px)] bg-cu-bg-secondary px-4 py-6 md:px-6 md:py-8" role="status" aria-live="polite" aria-busy="true" aria-label={title}>
       <div className="mx-auto w-full max-w-[1400px]">
+        <span className="sr-only">{title}</span>
         <div className="mb-4 rounded-2xl border border-cu-border bg-cu-bg px-5 py-4 shadow-cu-sm">
           <div className="animate-pulse space-y-2">
             <div className="h-5 w-48 rounded bg-cu-bg-tertiary" />
@@ -93,7 +94,7 @@ export function RouteLoadingState({ title: _title, subtitle, variant = 'cards' }
 
 export function RouteErrorState({ title, subtitle, retryLabel = 'Try again', onRetry, action }: RouteErrorStateProps) {
   return (
-    <div className="min-h-[calc(100vh-140px)] bg-cu-bg-secondary px-4 py-6 md:px-6 md:py-8 flex items-center justify-center">
+    <div className="min-h-[calc(100vh-140px)] bg-cu-bg-secondary px-4 py-6 md:px-6 md:py-8 flex items-center justify-center" role="alert">
       <div className="w-full max-w-2xl rounded-2xl border border-cu-danger/20 bg-cu-bg p-6 text-center shadow-cu-sm">
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-cu-danger/10 text-cu-danger">
           <AlertCircle size={22} />
@@ -104,7 +105,7 @@ export function RouteErrorState({ title, subtitle, retryLabel = 'Try again', onR
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex items-center gap-2 rounded-xl bg-cu-primary px-4 py-2.5 text-sm font-semibold text-white shadow-cu-sm transition-colors hover:bg-cu-primary-hover"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-cu-primary px-4 py-2.5 text-sm font-semibold text-white shadow-cu-sm transition-colors hover:bg-cu-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cu-primary focus-visible:ring-offset-2"
           >
             <RefreshCw size={14} />
             {retryLabel}

@@ -42,6 +42,37 @@ body {
   @apply bg-cu-bg text-cu-text-primary text-base font-inter;
 }
 
+/* Shared accessibility and interaction contract. Component-specific motion can
+   opt in, but users who request less motion should never receive decorative UI. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--cu-primary);
+  outline-offset: 2px;
+}
+
+button:disabled,
+[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 h1 {
   @apply text-2xl font-bold tracking-tight;
 }

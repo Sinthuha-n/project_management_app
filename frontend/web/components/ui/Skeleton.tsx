@@ -9,7 +9,8 @@ interface SkeletonProps {
 export function Skeleton({ className = '' }: SkeletonProps) {
   return (
     <div
-      className={`rounded-cu-md bg-gradient-to-r from-cu-bg-tertiary via-cu-bg-secondary to-cu-bg-tertiary bg-[length:200%_100%] animate-shimmer ${className}`}
+      aria-hidden="true"
+      className={`rounded-cu-md bg-gradient-to-r from-cu-bg-tertiary via-cu-bg-secondary to-cu-bg-tertiary bg-[length:200%_100%] animate-shimmer motion-reduce:animate-none ${className}`}
     />
   );
 }

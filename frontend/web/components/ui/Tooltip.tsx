@@ -29,7 +29,7 @@ export function Tooltip({ children, content, side = 'top', delayDuration = 200 }
           className={[
             'z-50 px-2.5 py-1.5 rounded-cu-md text-xs font-medium',
             'bg-cu-sidebar text-white shadow-cu-md',
-            'animate-fade-in',
+            'animate-fade-in motion-reduce:animate-none',
           ].join(' ')}
         >
           {content}
