@@ -58,6 +58,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Scan production image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.meta.outputs.image }}
+          format: table
+          exit-code: '1'
+          severity: CRITICAL,HIGH
+
   deploy-ec2:
     name: Deploy to EC2
     needs: build-and-push
