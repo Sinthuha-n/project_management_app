@@ -271,7 +271,7 @@ export default function Sidebar() {
   }, [fetchInboxActivity]);
 
   useEffect(() => {
-    const latest = notifications[0];
+    const latest = Array.isArray(notifications) ? notifications[0] : undefined;
     if (!latest || latest.id === latestSyncedNotificationRef.current) {
       return;
     }

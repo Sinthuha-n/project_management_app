@@ -40,10 +40,10 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             className={[
               'w-full h-9 rounded-cu-md border bg-cu-bg text-cu-text-primary text-base',
               'placeholder:text-cu-text-tertiary',
-              'focus:outline-none focus:ring-2 focus:ring-[var(--cu-focus-ring)] focus:border-[var(--cu-focus-border)]',
+              error ? 'border-cu-danger' : 'border-cu-border',
+              'focus:outline-none focus:ring-2 focus:ring-[var(--cu-focus-ring)] focus:border-[var(--cu-focus-border)] focus-visible:border-[var(--cu-focus-border)]',
               'disabled:cursor-not-allowed disabled:opacity-60 read-only:bg-cu-bg-secondary',
               'transition-colors duration-fast',
-              error ? 'border-cu-danger' : 'border-cu-border',
               icon ? 'pl-9' : 'pl-3',
               trailingIcon ? 'pr-9' : 'pr-3',
               className,

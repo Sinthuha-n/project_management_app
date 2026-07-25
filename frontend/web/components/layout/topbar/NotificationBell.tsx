@@ -80,6 +80,7 @@ function getChatDescriptor(notification: Notification): ChatDescriptor | null {
 }
 
 function buildNotificationListItems(notifications: Notification[]): NotificationListItem[] {
+  if (!Array.isArray(notifications)) return [];
   const grouped = new Map<string, { ids: number[]; unreadIds: number[]; link: string; createdAt: string; chatName: string }>();
   const rows: NotificationListItem[] = [];
 

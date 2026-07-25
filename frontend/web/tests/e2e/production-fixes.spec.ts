@@ -184,6 +184,7 @@ test('text fields use the neutral focus token in light and dark modes', async ({
   await page.goto('/login');
   const email = page.getByLabel('Email Address');
   await email.focus();
+  await page.waitForTimeout(200);
 
   const lightFocus = await email.evaluate((element) => {
     const input = getComputedStyle(element);
@@ -198,8 +199,9 @@ test('text fields use the neutral focus token in light and dark modes', async ({
   expect(lightFocus.boxShadow).not.toBe('none');
 
   await page.evaluate(() => document.documentElement.classList.add('dark'));
-  const password = page.getByLabel('Password');
+  const password = page.locator('input[type="password"]');
   await password.focus();
+  await page.waitForTimeout(200);
   const darkFocus = await password.evaluate((element) => {
     const input = getComputedStyle(element);
     const probe = document.createElement('span');

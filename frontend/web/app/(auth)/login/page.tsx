@@ -102,7 +102,7 @@ export default function LoginPage() {
                             autoCorrect="off"
                             inputMode="email"
                             // The text-[16px] prevents iOS Safari from auto-zooming
-                            className="w-full px-4 py-3 rounded-xl border border-cu-border bg-cu-bg text-cu-text-primary placeholder:text-cu-text-muted focus:border-cu-primary focus:ring-4 focus:ring-cu-primary/10 outline-none transition-all text-[16px] sm:text-sm"
+                            className="w-full px-4 py-3 rounded-xl border border-cu-border bg-cu-bg text-cu-text-primary placeholder:text-cu-text-muted focus:border-[var(--cu-focus-border)] focus:ring-4 focus:ring-[var(--cu-focus-ring)] outline-none transition-all text-[16px] sm:text-sm"
                             placeholder="Enter your email"
                             value={email}
                             // Data Normalization: Force lowercase immediately to prevent case-sensitive login bugs later.
@@ -121,7 +121,7 @@ export default function LoginPage() {
                                 id="login-password"
                                 type={showPassword ? 'text' : 'password'}
                                 autoComplete="current-password"
-                                className="w-full px-4 py-3 pr-11 rounded-xl border border-cu-border bg-cu-bg text-cu-text-primary placeholder:text-cu-text-muted focus:border-cu-primary focus:ring-4 focus:ring-cu-primary/10 outline-none transition-all text-[16px] sm:text-sm"
+                                className="w-full px-4 py-3 pr-11 rounded-xl border border-cu-border bg-cu-bg text-cu-text-primary placeholder:text-cu-text-muted focus:border-[var(--cu-focus-border)] focus:ring-4 focus:ring-[var(--cu-focus-ring)] outline-none transition-all text-[16px] sm:text-sm"
                                 placeholder="Enter your password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
