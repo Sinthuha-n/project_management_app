@@ -278,7 +278,11 @@ export default function TimelineView({
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setLocalTasks(tasks); }, [tasks]);
+  const [prevTasks, setPrevTasks] = useState<Task[]>(tasks);
+  if (prevTasks !== tasks) {
+    setPrevTasks(tasks);
+    setLocalTasks(tasks);
+  }
 
   const insights = useMemo(() => getTimelineInsights(localTasks, milestones), [localTasks, milestones]);
   const filteredTasks = useMemo(() => filterTimelineTasks(localTasks, filters), [localTasks, filters]);

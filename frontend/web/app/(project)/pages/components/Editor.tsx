@@ -210,7 +210,7 @@ export default function Editor({ content, onUpdate, onImmediateUpdate, editable 
   );
 
   // isMounted prevents TipTap from running during SSR — it depends on DOM APIs that don't exist server-side
-  useEffect(() => { setIsMounted(true); }, []); // eslint-disable-line react-hooks/set-state-in-effect
+  useEffect(() => { setIsMounted(true); }, []);  
 
   const extensions = useMemo(() => [
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

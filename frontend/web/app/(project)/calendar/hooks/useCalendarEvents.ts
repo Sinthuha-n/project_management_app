@@ -91,12 +91,17 @@ export function useCalendarEvents(projectId: string | null) {
     const cKey = buildSessionCacheKey('calendar-events', [projectId]);
     const cached = cKey ? getSessionCache<CalendarEventItem[]>(cKey, { allowStale: true }) : { data: null };
     if (cached.data) {
-      setEvents(cached.data);
-      setLoading(false);
-      queueMicrotask(() => void revalidate({ showSpinner: false, forceNetwork: false }));
+      const cachedData = cached.data;
+      queueMicrotask(() => {
+        setEvents(cachedData);
+        setLoading(false);
+        void revalidate({ showSpinner: false, forceNetwork: false });
+      });
     } else {
-      setLoading(true);
-      queueMicrotask(() => void revalidate({ showSpinner: true }));
+      queueMicrotask(() => {
+        setLoading(true);
+        void revalidate({ showSpinner: true });
+      });
     }
   }, [projectId, revalidate]);
 

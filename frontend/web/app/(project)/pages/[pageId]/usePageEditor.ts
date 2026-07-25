@@ -100,7 +100,7 @@ export function usePageEditor() {
 
   useEffect(() => {
     if (isDraft || !pageId || pageId === 'new') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setYdoc(null);
       setProvider(null);
       return;
