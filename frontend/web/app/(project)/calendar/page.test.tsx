@@ -2,11 +2,22 @@ import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
 import CalendarPage from './page';
 import { fetchCalendarEvents, patchTaskDates } from './api';
 import { useSearchParams } from 'next/navigation';
-import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
-import { getSessionCache, setSessionCache } from '@/lib/session-cache';
 import { tasksApi } from '@/services/api-contract';
+import type { CalendarEventItem } from './types';
+import type { CreateTaskData } from '@/components/shared/CreateTaskModal';
 
-let wsCallback: any = null;
+type CalendarTaskEvent = {
+  type: string;
+  task?: {
+    id: number;
+    title: string;
+    startDate?: string | null;
+    dueDate?: string | null;
+    status?: string;
+  };
+  taskId?: number;
+};
+let wsCallback: ((event: CalendarTaskEvent) => void) | null = null;
 
 jest.mock('next/navigation', () => ({
   useSearchParams: jest.fn(),
@@ -36,9 +47,9 @@ jest.mock('@/hooks/useTaskWebSocket', () => ({
 const mockGetSessionCache = jest.fn();
 const mockSetSessionCache = jest.fn();
 jest.mock('@/lib/session-cache', () => ({
-  buildSessionCacheKey: jest.fn((page, scope) => `cache-${page}-${scope.join('-')}`),
-  getSessionCache: (key: string, options: any) => mockGetSessionCache(key, options),
-  setSessionCache: (key: string, data: any, ttl: number) => mockSetSessionCache(key, data, ttl),
+  buildSessionCacheKey: jest.fn((page: string, scope: unknown[]) => `cache-${page}-${scope.join('-')}`),
+  getSessionCache: (key: string, options: unknown) => mockGetSessionCache(key, options),
+  setSessionCache: (key: string, data: unknown, ttl: number) => mockSetSessionCache(key, data, ttl),
 }));
 
 jest.mock('@/services/api-contract', () => ({
@@ -50,14 +61,22 @@ jest.mock('@/services/api-contract', () => ({
 
 jest.mock('@/services/tasks-contract', () => ({
   get tasksApi() {
-    return require('@/services/api-contract').tasksApi;
+    return (jest.requireMock('@/services/api-contract') as { tasksApi: typeof tasksApi }).tasksApi;
   },
-  normalizeTaskPriority: (p: any) => p || 'MEDIUM',
+  normalizeTaskPriority: (priority: string | undefined) => priority || 'MEDIUM',
 }));
 
 jest.mock('./components/MonthCalendarView', () => ({
   __esModule: true,
-  default: ({ onEventDrop, events, onOpenTask }: any) => (
+  default: ({
+    onEventDrop,
+    events,
+    onOpenTask,
+  }: {
+    onEventDrop: (id: string, date: Date) => void;
+    events: CalendarEventItem[];
+    onOpenTask: (id: number) => void;
+  }) => (
     <div data-testid="month-view">
       Month View
       <button data-testid="drop-btn" onClick={() => onEventDrop('task-101', new Date(2026, 3, 5))}>
@@ -66,7 +85,7 @@ jest.mock('./components/MonthCalendarView', () => ({
       <button data-testid="open-task-btn" onClick={() => onOpenTask(101)}>
         Open Task
       </button>
-      {events.map((e: any) => (
+      {events.map((e) => (
         <span key={e.id} data-testid={`event-${e.id}`}>
           {e.title} - {e.startDate}
         </span>
@@ -77,7 +96,13 @@ jest.mock('./components/MonthCalendarView', () => ({
 
 jest.mock('@/components/shared/CreateTaskModal', () => ({
   __esModule: true,
-  default: ({ onCreateTask, isOpen }: any) => {
+  default: ({
+    onCreateTask,
+    isOpen,
+  }: {
+    onCreateTask: (data: CreateTaskData) => void;
+    isOpen: boolean;
+  }) => {
     if (!isOpen) return null;
     return (
       <div data-testid="create-modal">
@@ -101,7 +126,7 @@ jest.mock('@/components/shared/CreateTaskModal', () => ({
 
 jest.mock('@/app/taskcard/TaskCardModal', () => ({
   __esModule: true,
-  default: ({ onClose }: any) => (
+  default: ({ onClose }: { onClose: (modified: boolean) => void }) => (
     <div data-testid="task-card-modal">
       <button data-testid="close-modal-modified-btn" onClick={() => onClose(true)}>
         Close Modified
@@ -313,7 +338,7 @@ describe('CalendarPage', () => {
     });
 
     act(() => {
-      wsCallback({
+      wsCallback?.({
         type: 'TASK_UPDATED',
         task: {
           id: 101,
@@ -352,7 +377,7 @@ describe('CalendarPage', () => {
     expect(screen.queryByTestId('event-task-101')).toBeInTheDocument();
 
     act(() => {
-      wsCallback({
+      wsCallback?.({
         type: 'TASK_DELETED',
         taskId: 101,
       });

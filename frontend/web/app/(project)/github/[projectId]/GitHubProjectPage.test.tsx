@@ -27,7 +27,9 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: (props: React.ImgHTMLAttributes<HTMLImageElement> & { alt?: string }) => <img {...props} alt={props.alt ?? ''} />,
+  default: ({ src, alt }: { src: string; alt?: string }) => (
+    <span role="img" aria-label={alt ?? ''} data-src={src} />
+  ),
 }));
 
 jest.mock('framer-motion', () => ({
@@ -36,20 +38,20 @@ jest.mock('framer-motion', () => ({
     get: (_target, tag: string) => {
       const Component = ({
         children,
-        layout,
-        transition,
-        initial,
-        animate,
-        exit,
-        variants,
-        whileHover,
-        whileTap,
-        whileDrag,
-        whileFocus,
-        whileInView,
-        viewport,
-        onViewportEnter,
-        onViewportLeave,
+        layout: _layout,
+        transition: _transition,
+        initial: _initial,
+        animate: _animate,
+        exit: _exit,
+        variants: _variants,
+        whileHover: _whileHover,
+        whileTap: _whileTap,
+        whileDrag: _whileDrag,
+        whileFocus: _whileFocus,
+        whileInView: _whileInView,
+        viewport: _viewport,
+        onViewportEnter: _onViewportEnter,
+        onViewportLeave: _onViewportLeave,
         ...props
       }: { children?: ReactNode; [key: string]: unknown }) => {
         const Tag = tag as 'div';

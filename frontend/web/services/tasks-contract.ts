@@ -261,9 +261,7 @@ export const tasksApi = {
     return data;
   },
   uploadAttachmentFallback: async (taskId: number | string, formData: FormData): Promise<TaskAttachment> => {
-    const { data } = await api.post(`/api/tasks/${taskId}/attachments/upload`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const { data } = await api.post(`/api/tasks/${taskId}/attachments/upload`, formData);
     return data;
   },
   deleteAttachment: async (taskId: number | string, attachmentId: number): Promise<void> => {

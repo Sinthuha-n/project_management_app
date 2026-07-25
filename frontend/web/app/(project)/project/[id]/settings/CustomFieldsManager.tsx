@@ -36,7 +36,7 @@ export default function CustomFieldsManager({ projectId }: Props) {
     }
   }, [projectId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { queueMicrotask(() => void load()); }, [load]);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;

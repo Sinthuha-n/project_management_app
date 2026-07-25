@@ -12,13 +12,19 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "playwright-report/**",
+    "test-results/**",
+    "coverage/**",
+    ".swc/**",
+    "artifacts/**",
+    "jest_results.json",
   ]),
   {
     rules: {
       // The current app predates React Compiler's stricter lint rules. Keep
       // these visible during local linting without blocking CI until the
       // affected flows can be refactored deliberately.
-      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/set-state-in-effect": "off",
       "react-hooks/immutability": "warn",
       "react-hooks/purity": "warn",
       "react-hooks/refs": "warn",

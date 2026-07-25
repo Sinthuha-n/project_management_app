@@ -16,6 +16,59 @@ import {
   UnreadBadgeSummary,
   PresenceResponse,
 } from '../types/chat';
+import type { components } from '@planora/contracts';
+import { apiErrorMessage } from '../utils/apiError';
+
+type ChatAttachmentCapabilities =
+  components['schemas']['ChatAttachmentUploadCapabilitiesDTO'];
+type ChatAttachmentUploadInitResponse =
+  components['schemas']['ChatAttachmentUploadInitResponseDTO'];
+
+export const CHAT_ATTACHMENT_MIME_TYPES = [
+  'application/pdf',
+  'text/plain',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+];
+
+const MIME_BY_EXTENSION: Record<string, string> = {
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+};
+const DEFAULT_ATTACHMENT_CAPABILITIES: ChatAttachmentCapabilities = {
+  allowedExtensions: Object.keys(MIME_BY_EXTENSION),
+  directUploadEnabled: false,
+  maxFileSizeBytes: 25 * 1024 * 1024,
+  mimeTypesByExtension: Object.fromEntries(
+    Object.entries(MIME_BY_EXTENSION).map(([extension, mime]) => [
+      extension,
+      [mime, 'application/octet-stream'],
+    ]),
+  ),
+};
+
+export type ChatUploadFile = {
+  uri: string;
+  name: string;
+  mimeType?: string | null;
+  size?: number;
+  file?: File;
+};
 
 export async function fetchCurrentUser(): Promise<{ username: string; email: string; aliases?: string[] }> {
   const { data } = await api.get('/api/user/me');
@@ -232,7 +285,103 @@ export async function markPrivateRead(projectId: string, partner: string): Promi
 
 export async function uploadChatDocument(
   projectId: string,
-  file: { uri: string; name: string; mimeType?: string; file?: File },
+  file: ChatUploadFile,
+): Promise<string> {
+  let capabilities = DEFAULT_ATTACHMENT_CAPABILITIES;
+  let capabilitiesAvailable = false;
+  try {
+    const response = await api.get<ChatAttachmentCapabilities>(
+      `/api/projects/${projectId}/chat/attachments/upload-capabilities`,
+    );
+    capabilities = response.data;
+    capabilitiesAvailable = true;
+  } catch {
+    // Preserve compatibility with additive backends that only expose multipart upload.
+  }
+
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+  const allowedExtensions = capabilities.allowedExtensions ?? Object.keys(MIME_BY_EXTENSION);
+  if (!extension || !allowedExtensions.includes(extension)) {
+    throw new Error(`Unsupported file type. Choose: ${allowedExtensions.join(', ')}.`);
+  }
+  const contentType = file.mimeType?.trim() || MIME_BY_EXTENSION[extension] || 'application/octet-stream';
+  const aliases = capabilities.mimeTypesByExtension?.[extension] ?? [];
+  if (contentType !== 'application/octet-stream' && aliases.length > 0 && !aliases.includes(contentType)) {
+    throw new Error('The file extension and content type do not match.');
+  }
+
+  let body: File | Blob | undefined = file.file;
+  let fileSize = file.size ?? file.file?.size;
+  if (!fileSize || !body) {
+    const localResponse = await fetch(file.uri);
+    if (!localResponse.ok) throw new Error('The selected file could not be read.');
+    const blob = await localResponse.blob();
+    body ??= blob;
+    fileSize ??= blob.size;
+  }
+  if (!fileSize || fileSize <= 0) throw new Error('The selected file is empty.');
+  if (capabilities.maxFileSizeBytes && fileSize > capabilities.maxFileSizeBytes) {
+    throw new Error(`Files must be ${Math.floor(capabilities.maxFileSizeBytes / 1024 / 1024)} MB or smaller.`);
+  }
+
+  if (capabilitiesAvailable && capabilities.directUploadEnabled) {
+    let initialized: ChatAttachmentUploadInitResponse;
+    try {
+      const response = await api.post<ChatAttachmentUploadInitResponse>(
+        `/api/projects/${projectId}/chat/attachments/upload/init`,
+        { fileName: file.name, contentType, fileSize },
+      );
+      initialized = response.data;
+      if (!initialized.uploadUrl || !initialized.objectKey || !initialized.contentType) {
+        throw new Error('The upload service returned an incomplete reservation.');
+      }
+    } catch (error) {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status != null && status < 500) {
+        throw new Error(apiErrorMessage(error, 'Failed to initialize the upload.'));
+      }
+      return uploadChatDocumentViaBackend(projectId, file);
+    }
+
+    try {
+      const putResponse = await fetch(initialized.uploadUrl, {
+        method: 'PUT',
+        body,
+        headers: { 'Content-Type': initialized.contentType },
+      });
+      if (!putResponse.ok) return uploadChatDocumentViaBackend(projectId, file);
+    } catch {
+      return uploadChatDocumentViaBackend(projectId, file);
+    }
+
+    try {
+      const response = await api.post<{ downloadUrl?: string }>(
+        `/api/projects/${projectId}/chat/attachments/upload/finalize`,
+        {
+          objectKey: initialized.objectKey,
+          fileName: file.name,
+          contentType,
+          fileSize,
+        },
+      );
+      if (!response.data.downloadUrl) {
+        throw new Error('The upload response did not include a download URL.');
+      }
+      return response.data.downloadUrl;
+    } catch (error) {
+      throw new Error(apiErrorMessage(
+        error,
+        'The file reached storage, but the upload could not be finalized.',
+      ));
+    }
+  }
+
+  return uploadChatDocumentViaBackend(projectId, file);
+}
+
+async function uploadChatDocumentViaBackend(
+  projectId: string,
+  file: ChatUploadFile,
 ): Promise<string> {
   const formData = new FormData();
 
@@ -243,15 +392,18 @@ export async function uploadChatDocument(
       uri: file.uri,
       name: file.name,
       type: file.mimeType || 'application/octet-stream',
-    } as any);
+    } as unknown as Blob);
   }
 
-  const { data } = await api.post<string>(`/api/projects/${projectId}/chat/messages/upload-document`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-  return data;
+  try {
+    const { data } = await api.post<string>(
+      `/api/projects/${projectId}/chat/messages/upload-document`,
+      formData,
+    );
+    return data;
+  } catch (error) {
+    throw new Error(apiErrorMessage(error, 'The file could not be uploaded.'));
+  }
 }
 
 export async function postTelemetry(

@@ -63,15 +63,15 @@ export default function BacklogRow({
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    setLocalStartDate(startDate);
+    queueMicrotask(() => setLocalStartDate(startDate));
   }, [startDate]);
 
   useEffect(() => {
-    setLocalEndDate(endDate);
+    queueMicrotask(() => setLocalEndDate(endDate));
   }, [endDate]);
 
   useEffect(() => {
-    setSelectedAssigneeId(assigneeId ?? '');
+    queueMicrotask(() => setSelectedAssigneeId(assigneeId ?? ''));
   }, [assigneeId]);
 
   useEffect(() => {

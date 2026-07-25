@@ -209,7 +209,7 @@ export const ThreadPanel = ({
 
       {/* Reply input */}
       <div className="flex-shrink-0 border-t border-cu-border bg-cu-bg p-3">
-        <div className="flex items-center gap-2 bg-cu-bg-secondary border border-cu-border rounded-xl px-2 py-1.5 focus-within:bg-cu-bg-tertiary focus-within:border-cu-primary/40 focus-within:ring-2 focus-within:ring-cu-primary/10 transition-all">
+        <div className="flex items-center gap-2 bg-cu-bg-secondary border border-cu-border rounded-xl px-2 py-1.5 focus-within:bg-cu-bg-tertiary focus-within:border-[var(--cu-focus-border)] focus-within:ring-2 focus-within:ring-[var(--cu-focus-ring)] transition-all">
           <input
             type="text"
             placeholder="Reply in thread..."

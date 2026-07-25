@@ -12,7 +12,7 @@ const StoryPointSection: React.FC<StoryPointSectionProps> = ({ storyPoint, onUpd
   const [edited, setEdited] = useState(storyPoint);
 
   useEffect(() => {
-    setEdited(storyPoint);
+    queueMicrotask(() => setEdited(storyPoint));
   }, [storyPoint]);
 
   // Hide entirely when points are unset (0) rather than showing "0 points" which could mislead

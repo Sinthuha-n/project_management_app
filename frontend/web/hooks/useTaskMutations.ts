@@ -25,14 +25,19 @@ export function useTaskMutations(projectId: string | number | null): TaskMutatio
 
   const create = useCallback((payload: CreateTaskRequest, request = tasksApi.create): OptimisticCreateResult => {
     const mutationId = createMutationId();
-    const optimisticTask = createOptimisticTask({ ...payload, projectId: Number(payload.projectId ?? pid) }, mutationId);
+    const correlatedPayload = {
+      ...payload,
+      projectId: Number(payload.projectId ?? pid),
+      clientMutationId: mutationId,
+    };
+    const optimisticTask = createOptimisticTask(correlatedPayload, mutationId);
     const optimisticMessage = message({
       operation: 'created', projectId: optimisticTask.projectId!, taskId: optimisticTask.id,
       mutationId, source: 'optimistic', task: optimisticTask,
     });
     applyTaskMutation(optimisticMessage);
 
-    const completion = request(payload).then((serverTask) => {
+    const completion = request(correlatedPayload).then((serverTask) => {
       const committed = message({
         operation: 'created', projectId: optimisticTask.projectId!, taskId: serverTask.id,
         replacesTaskId: optimisticTask.id, mutationId, source: 'http',

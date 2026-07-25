@@ -75,6 +75,11 @@ export interface RecurringTask {
   dueDate?: string | null;
 }
 
+export function createClientMutationId(): string {
+  const randomUuid = globalThis.crypto?.randomUUID?.();
+  return randomUuid ?? `mobile-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export const taskService = {
   listByProject: (projectId: number | string, params?: TaskListQueryParams): Promise<any> =>
     api.get(`/api/tasks/project/${projectId}`, { params }).then(r => r.data),
@@ -86,7 +91,10 @@ export const taskService = {
     api.get(`/api/tasks/${taskId}`).then(r => r.data),
 
   create: (payload: CreateTaskRequest): Promise<any> =>
-    api.post('/api/tasks', payload).then(r => r.data),
+    api.post('/api/tasks', {
+      ...payload,
+      clientMutationId: payload.clientMutationId ?? createClientMutationId(),
+    }).then(r => r.data),
 
   update: (taskId: number | string, payload: UpdateTaskRequest): Promise<any> =>
     api.put(`/api/tasks/${taskId}`, payload).then(r => r.data),

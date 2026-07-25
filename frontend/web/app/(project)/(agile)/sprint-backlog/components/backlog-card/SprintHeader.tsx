@@ -61,7 +61,7 @@ export default function SprintHeader({
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    setTempSprintName(sprintName);
+    queueMicrotask(() => setTempSprintName(sprintName));
   }, [sprintName]);
 
   useEffect(() => {

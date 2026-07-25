@@ -30,17 +30,27 @@ public class S3StorageService {
      * amounts of server RAM and bandwidth.
      */
     public String generatePresignedUploadUrl(String bucket, String objectKey, String contentType, Duration duration) {
+        return generatePresignedUploadUrl(bucket, objectKey, contentType, null, duration);
+    }
+
+    public String generatePresignedUploadUrl(String bucket,
+                                             String objectKey,
+                                             String contentType,
+                                             Long contentLength,
+                                             Duration duration) {
         // Step 1: Define exactly what the client is allowed to upload.
-        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+        PutObjectRequest.Builder putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(objectKey)
-                .contentType(contentType) // Forces the client to upload exactly this file type.
-                .build();
+                .contentType(contentType);
+        if (contentLength != null) {
+            putObjectRequest.contentLength(contentLength);
+        }
 
         // Step 2: Wrap it in a presign request with a strict expiration timer.
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
                 .signatureDuration(duration)
-                .putObjectRequest(putObjectRequest)
+                .putObjectRequest(putObjectRequest.build())
                 .build();
 
         // Step 3: Ask AWS to generate the signed URL string.

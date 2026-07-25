@@ -44,7 +44,7 @@ export default function RecurringSchedulesManager({ projectId }: RecurringSchedu
   }, [projectId]);
 
   useEffect(() => {
-    void fetchRecurringTasks();
+    queueMicrotask(() => void fetchRecurringTasks());
   }, [fetchRecurringTasks]);
 
   const handleToggleActive = async (task: Task) => {

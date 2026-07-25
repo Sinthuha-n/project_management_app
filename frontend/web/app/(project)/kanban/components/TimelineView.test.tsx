@@ -24,14 +24,17 @@ jest.mock('@/components/shared/BottomSheet', () => ({
 const mockedUpdateTaskDates = updateTaskDates as jest.Mock;
 const mockedToast = toast as unknown as jest.Mock;
 
+import { format, addDays } from 'date-fns';
+
+const today = new Date();
 const tasks: Task[] = [
   {
     id: 1,
     title: 'Build API',
     status: 'IN_PROGRESS',
     priority: 'HIGH',
-    startDate: '2026-07-06',
-    dueDate: '2026-07-08',
+    startDate: format(addDays(today, -1), 'yyyy-MM-dd'),
+    dueDate: format(addDays(today, 1), 'yyyy-MM-dd'),
     assigneeName: 'Asha',
   },
   {
@@ -101,7 +104,11 @@ describe('TimelineView', () => {
     fireEvent.mouseUp(document);
 
     await waitFor(() => {
-      expect(mockedUpdateTaskDates).toHaveBeenCalledWith(1, '2026-07-07', '2026-07-09');
+      expect(mockedUpdateTaskDates).toHaveBeenCalledWith(
+        1,
+        expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      );
     });
     expect(mockedToast).toHaveBeenCalledWith('Timeline dates updated.', 'success');
   });

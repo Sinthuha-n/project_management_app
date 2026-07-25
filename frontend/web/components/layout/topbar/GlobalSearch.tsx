@@ -62,7 +62,7 @@ export default function GlobalSearch({ projectId }: GlobalSearchProps = {}) {
   const [scope, setScope] = useState<'PROJECT' | 'GLOBAL'>('PROJECT');
 
   useEffect(() => {
-    setScope(projectId ? 'PROJECT' : 'GLOBAL');
+    queueMicrotask(() => setScope(projectId ? 'PROJECT' : 'GLOBAL'));
   }, [projectId]);
 
   const [results, setResults] = useState<GlobalSearchResult | null>(null);
@@ -86,7 +86,8 @@ export default function GlobalSearch({ projectId }: GlobalSearchProps = {}) {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          setRecentSearches(parsed.filter((item): item is string => typeof item === 'string').slice(0, RECENT_SEARCH_LIMIT));
+          const recent = parsed.filter((item): item is string => typeof item === 'string').slice(0, RECENT_SEARCH_LIMIT);
+          queueMicrotask(() => setRecentSearches(recent));
         }
       }
     } catch {
@@ -137,7 +138,7 @@ export default function GlobalSearch({ projectId }: GlobalSearchProps = {}) {
   }, []);
 
   useEffect(() => {
-    runSearch(query, scope, projectId);
+    queueMicrotask(() => runSearch(query, scope, projectId));
 
     return () => {
       if (debounceTimer.current) {

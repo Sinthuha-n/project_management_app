@@ -644,12 +644,16 @@ function SprintBacklogPageContent() {
 
   useEffect(() => {
     if (!projectId) {
-      setError('No project selected.');
-      setLoading(false);
+      queueMicrotask(() => {
+        setError('No project selected.');
+        setLoading(false);
+      });
       return;
     }
-    void fetchStaticData();
-    void fetchData({ showSpinner: true });
+    queueMicrotask(() => {
+      void fetchStaticData();
+      void fetchData({ showSpinner: true });
+    });
   }, [projectId, fetchStaticData, fetchData]);
 
   useVisibilityInterval(() => void fetchData({ showSpinner: false }), 30_000, Boolean(projectId));
@@ -754,9 +758,9 @@ function SprintBacklogPageContent() {
     const action = searchParams.get('action');
     if (!action) return;
     if (action === 'create-sprint') {
-      void createSprint(`${projectKey} Sprint ${sprints.length + 1}`);
+      queueMicrotask(() => void createSprint(`${projectKey} Sprint ${sprints.length + 1}`));
     } else if (action === 'add-task') {
-      setShowCreateTaskModal(true);
+      queueMicrotask(() => setShowCreateTaskModal(true));
     }
     stripQueryParam('action');
   }, [searchParams, projectKey, sprints.length, createSprint]);

@@ -141,7 +141,7 @@ export default function NotificationPreferencesPanel({
   };
 
   useEffect(() => {
-    void loadPreferences();
+    queueMicrotask(() => void loadPreferences());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
