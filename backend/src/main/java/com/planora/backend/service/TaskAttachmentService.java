@@ -3,6 +3,7 @@ package com.planora.backend.service;
 import com.planora.backend.dto.*;
 import com.planora.backend.exception.BadRequestException;
 import com.planora.backend.exception.ForbiddenException;
+import com.planora.backend.exception.DocumentUploadException;
 import com.planora.backend.model.*;
 import com.planora.backend.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -10,13 +11,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.persistence.EntityNotFoundException;
 import java.time.Duration;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
@@ -27,31 +28,15 @@ public class TaskAttachmentService {
 
     private static final Logger logger = LoggerFactory.getLogger(TaskAttachmentService.class);
 
-    // Hard limits to protect AWS billing and server health.
-    private static final long MAX_FILE_SIZE_BYTES = 25L * 1024 * 1024;
-
     // Presigned URLs expire quickly to minimize the attack window if a link is leaked.
     private static final Duration URL_DURATION = Duration.ofMinutes(15);
-
-    // Strict MIME-type whitelist to prevent malicious script/executable uploads.
-    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/vnd.ms-excel",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "text/plain",
-            "image/jpeg",
-            "image/png",
-            "image/gif",
-            "image/webp"
-    );
 
     private final TaskAttachmentRepository taskAttachmentRepository;
     private final TaskRepository taskRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final UserRepository userRepository;
     private final S3StorageService s3StorageService;
+    private final WorkAttachmentPolicy attachmentPolicy;
 
     // Distinct from the DMS bucket. Keeping task attachments in their own bucket
     // makes setting up AWS lifecycle rules (like auto-deleting after 1 year) much easier.
@@ -66,14 +51,15 @@ public class TaskAttachmentService {
         validateTeamMember(task, userId);
 
         // Step 2: Ensure the file isn't too big or a dangerous format.
-        validateFileRequest(request.getFileName(), request.getContentType(), request.getFileSize());
+        WorkAttachmentPolicy.ValidatedAttachment validated =
+                attachmentPolicy.validate(request.getFileName(), request.getContentType(), request.getFileSize());
 
         // Step 3: Construct the isolated S3 path.
-        String objectKey = buildObjectKey(taskId, request.getFileName());
+        String objectKey = buildObjectKey(taskId, validated.safeFileName());
 
         // Step 4: Ask our S3 adapter to mint the temporary upload URL.
         String uploadUrl = s3StorageService.generatePresignedUploadUrl(
-                taskBucket, objectKey, request.getContentType(), URL_DURATION);
+                taskBucket, objectKey, validated.contentType(), validated.fileSize(), URL_DURATION);
 
         return TaskAttachmentUploadInitResponseDTO.builder()
                 .uploadUrl(uploadUrl)
@@ -87,7 +73,8 @@ public class TaskAttachmentService {
         // Step 1: Standard security validations.
         Task task = getTask(taskId);
         validateTeamMember(task, userId);
-        validateFileRequest(request.getFileName(), request.getContentType(), request.getFileSize());
+        WorkAttachmentPolicy.ValidatedAttachment validated =
+                attachmentPolicy.validate(request.getFileName(), request.getContentType(), request.getFileSize());
 
         // Step 2: Ensure they aren't trying to attach a file from Task B into Task A.
         validateObjectKeyOwnership(taskId, request.getObjectKey());
@@ -96,11 +83,15 @@ public class TaskAttachmentService {
         // back by the client. This prevents a client from finalizing an oversized
         // or differently typed object after it has received an upload URL.
         HeadObjectResponse object = s3StorageService.headObject(taskBucket, request.getObjectKey());
-        String storedContentType = s3StorageService.resolveContentType(object.contentType(), request.getFileName());
+        String storedContentType = attachmentPolicy.normalizeStoredContentType(request.getFileName(), object.contentType());
         long storedSize = object.contentLength() == null ? -1L : object.contentLength();
-        validateFileRequest(request.getFileName(), storedContentType, storedSize);
-        if (!storedContentType.equals(request.getContentType()) || storedSize != request.getFileSize()) {
-            throw new BadRequestException("Uploaded object metadata does not match the upload request");
+        if (storedContentType == null
+                || !storedContentType.equals(validated.contentType())
+                || storedSize != validated.fileSize()) {
+            throw new DocumentUploadException(
+                    "UPLOAD_METADATA_MISMATCH",
+                    "Uploaded object metadata does not match the upload request",
+                    HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
         // Step 4: Idempotency. If the frontend had a network retry and sent this twice,
@@ -115,7 +106,7 @@ public class TaskAttachmentService {
         // Step 5: Save the definitive database record.
         TaskAttachment attachment = new TaskAttachment();
         attachment.setTask(task);
-        attachment.setFileName(normalizeFileName(request.getFileName()));
+        attachment.setFileName(validated.safeFileName());
         attachment.setContentType(storedContentType);
         attachment.setFileSize(storedSize);
         attachment.setObjectKey(request.getObjectKey());
@@ -133,29 +124,35 @@ public class TaskAttachmentService {
         validateTeamMember(task, userId);
 
         if (file == null || file.isEmpty()) {
-            throw new BadRequestException("File is required");
+            throw new DocumentUploadException(
+                    "INVALID_FILE_SIZE",
+                    "The file is empty.",
+                    HttpStatus.BAD_REQUEST);
         }
 
         // Step 2: Validate and sanitize the incoming file.
         String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload.bin";
-        String resolvedContentType = s3StorageService.resolveContentType(file.getContentType(), fileName);
-        validateFileRequest(fileName, resolvedContentType, file.getSize());
+        WorkAttachmentPolicy.ValidatedAttachment validated =
+                attachmentPolicy.validate(fileName, file.getContentType(), file.getSize());
 
-        String objectKey = buildObjectKey(taskId, fileName);
+        String objectKey = buildObjectKey(taskId, validated.safeFileName());
 
         // Step 3: Stream the bytes from Spring Boot to AWS S3.
         try {
-            s3StorageService.putObject(taskBucket, objectKey, resolvedContentType,
+            s3StorageService.putObject(taskBucket, objectKey, validated.contentType(),
                     file.getInputStream(), file.getSize());
         } catch (Exception e) {
-            throw new BadRequestException("Could not upload file to storage");
+            throw new DocumentUploadException(
+                    "STORAGE_UPLOAD_FAILED",
+                    "Could not upload file to storage",
+                    HttpStatus.BAD_GATEWAY);
         }
 
         // Step 4: Code Reuse trick. We build a fake request and pass it to Phase 2
         // so we don't have to duplicate the database save logic.
         TaskAttachmentUploadFinalizeRequestDTO finalizeRequest = new TaskAttachmentUploadFinalizeRequestDTO();
         finalizeRequest.setFileName(fileName);
-        finalizeRequest.setContentType(resolvedContentType);
+        finalizeRequest.setContentType(validated.contentType());
         finalizeRequest.setFileSize(file.getSize());
         finalizeRequest.setObjectKey(objectKey);
 
@@ -217,47 +214,25 @@ public class TaskAttachmentService {
                 .orElseThrow(() -> new ForbiddenException("User is not a member of this project team"));
     }
 
-    // Task-specific validation: enforces ALLOWED_CONTENT_TYPES and MAX_FILE_SIZE_BYTES.
-    private void validateFileRequest(String fileName, String contentType, Long fileSize) {
-        if (fileName == null || fileName.isBlank()) {
-            throw new BadRequestException("fileName is required");
-        }
-        if (contentType == null || contentType.isBlank()) {
-            throw new BadRequestException("contentType is required");
-        }
-        if (!ALLOWED_CONTENT_TYPES.contains(contentType)) {
-            throw new BadRequestException("Unsupported file type");
-        }
-        if (fileSize == null || fileSize <= 0 || fileSize > MAX_FILE_SIZE_BYTES) {
-            throw new BadRequestException("fileSize must be between 1 byte and 25MB");
-        }
-    }
-
     // Scopes the S3 key specifically to the Task ID to prevent cross-contamination.
-    private String buildObjectKey(Long taskId, String fileName) {
-        String safeName = normalizeFileName(fileName).replace(" ", "_");
-        return "task-" + taskId + "/" + UUID.randomUUID() + "-" + safeName;
-    }
-
-    // Prevents path traversal attacks (e.g., uploading "../../../etc/passwd").
-    private String normalizeFileName(String fileName) {
-        String trimmed = fileName.trim();
-        String withoutPath = trimmed.replace("\\", "/");
-        String nameOnly = withoutPath.substring(withoutPath.lastIndexOf("/") + 1);
-        if (nameOnly.isBlank()) {
-            throw new BadRequestException("Invalid file name");
-        }
-        return nameOnly;
+    private String buildObjectKey(Long taskId, String safeFileName) {
+        return "task-" + taskId + "/" + UUID.randomUUID() + "-" + safeFileName;
     }
 
     // Task-specific: ensures the objectKey belongs to this task's S3 prefix.
     private void validateObjectKeyOwnership(Long taskId, String objectKey) {
         if (objectKey == null || objectKey.isBlank()) {
-            throw new BadRequestException("objectKey is required");
+            throw new DocumentUploadException(
+                    "INVALID_OBJECT_KEY",
+                    "objectKey is required",
+                    HttpStatus.BAD_REQUEST);
         }
         String expectedPrefix = "task-" + taskId + "/";
         if (!objectKey.startsWith(expectedPrefix)) {
-            throw new BadRequestException("Invalid object key for this task");
+            throw new DocumentUploadException(
+                    "INVALID_OBJECT_KEY",
+                    "Invalid object key for this task",
+                    HttpStatus.FORBIDDEN);
         }
     }
 

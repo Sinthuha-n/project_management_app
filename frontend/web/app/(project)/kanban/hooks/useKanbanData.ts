@@ -46,8 +46,10 @@ export function useKanbanData(projectId: string | null) {
   useEffect(() => {
     if (!canonicalTasks.authoritative) return;
     const next = canonicalTasks.tasks as unknown as Task[];
-    setTasks(next);
-    tasksRef.current = next;
+    queueMicrotask(() => {
+      setTasks(next);
+      tasksRef.current = next;
+    });
   }, [canonicalTasks.authoritative, canonicalTasks.tasks]);
 
   // ── Local Task Helpers ──────────────────────────────────────────────────────
@@ -181,8 +183,10 @@ export function useKanbanData(projectId: string | null) {
 
   useEffect(() => {
     if (!projectId) return;
-    void fetchStaticData();
-    void fetchData({ showSpinner: true });
+    queueMicrotask(() => {
+      void fetchStaticData();
+      void fetchData({ showSpinner: true });
+    });
   }, [projectId, fetchStaticData, fetchData]);
 
   useVisibilityInterval(() => void fetchData({ showSpinner: false }), 30_000, Boolean(projectId));

@@ -55,9 +55,31 @@ body {
   }
 }
 
-:focus-visible {
+:where(
+  button,
+  a,
+  [role='button'],
+  [role='menuitem'],
+  [role='option'],
+  [tabindex]:not(input):not(textarea):not(select)
+):focus-visible {
   outline: 2px solid var(--cu-primary);
   outline-offset: 2px;
+}
+
+:where(
+  input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='color']):not([type='button']):not([type='submit']):not([type='reset']),
+  textarea,
+  select
+):focus-visible {
+  border-color: var(--cu-focus-border) !important;
+  box-shadow: 0 0 0 3px var(--cu-focus-ring) !important;
+  outline: none !important;
+}
+
+:where(input, textarea, select)[aria-invalid='true']:focus-visible {
+  border-color: var(--cu-danger) !important;
+  box-shadow: 0 0 0 3px var(--cu-focus-danger-ring) !important;
 }
 
 button:disabled,

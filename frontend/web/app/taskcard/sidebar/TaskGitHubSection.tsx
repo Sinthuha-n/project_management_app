@@ -255,9 +255,11 @@ const TaskGitHubSection: React.FC<TaskGitHubSectionProps> = ({
       const raw = window.localStorage.getItem(`planora:task-github:${taskId}`);
       if (!raw) return;
       const saved = JSON.parse(raw) as Record<string, boolean>;
-      if ('github'  in saved) setOpen(saved.github);
-      if ('prs'     in saved) setPrsOpen(saved.prs);
-      if ('commits' in saved) setCommitsOpen(saved.commits);
+      queueMicrotask(() => {
+        if ('github'  in saved) setOpen(saved.github);
+        if ('prs'     in saved) setPrsOpen(saved.prs);
+        if ('commits' in saved) setCommitsOpen(saved.commits);
+      });
     } catch { /* ignore malformed */ }
   }, [taskId]);
 
@@ -318,7 +320,7 @@ const TaskGitHubSection: React.FC<TaskGitHubSectionProps> = ({
     }
   }, [taskId, projectId]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { queueMicrotask(() => void fetchData()); }, [fetchData]);
 
   const handleCreateIssue = () => setIssueModalOpen(true);
 

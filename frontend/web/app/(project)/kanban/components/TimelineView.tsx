@@ -273,7 +273,7 @@ export default function TimelineView({
   const [zoom, setZoom] = useState<TimelineZoom>('day');
   const [groupBy, setGroupBy] = useState<TimelineGroupBy>('none');
   const [filters, setFilters] = useState<TimelineFilters>(DEFAULT_FILTERS);
-  const [localTasks, setLocalTasks] = useState<Task[]>([]);
+  const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
   const [manualRange, setManualRange] = useState<{ start: Date; end: Date } | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { motion, type PanInfo } from 'framer-motion';
@@ -99,7 +99,6 @@ function CalendarPageContent() {
     removeEvent,
     patchEventDate,
     refreshOneTask,
-    patchingTaskIdsRef,
   } = useCalendarEvents(projectId);
   const taskMutations = useTaskMutations(projectId);
 

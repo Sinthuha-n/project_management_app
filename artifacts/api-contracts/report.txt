@@ -1,14 +1,14 @@
 Planora API Contract Check
-Frontend call sites scanned: 442
-Backend routes scanned: 279
+Frontend call sites scanned: 448
+Backend routes scanned: 282
 
 Backend endpoints with no frontend/mobile usage: 40
-- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:394 GET /api/projects/:projectId/chat/search
-- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:425 GET /api/projects/:projectId/chat/webhooks
-- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:440 POST /api/projects/:projectId/chat/webhooks
-- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:454 DELETE /api/projects/:projectId/chat/webhooks/:webhookId
-- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:468 POST /api/projects/:projectId/chat/webhooks/test
-- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:662 PATCH /api/projects/:projectId/chat/rooms/:roomId/members/:memberUserId/role
+- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:424 GET /api/projects/:projectId/chat/search
+- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:455 GET /api/projects/:projectId/chat/webhooks
+- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:470 POST /api/projects/:projectId/chat/webhooks
+- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:484 DELETE /api/projects/:projectId/chat/webhooks/:webhookId
+- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:498 POST /api/projects/:projectId/chat/webhooks/test
+- backend/src/main/java/com/planora/backend/controller/ChatRestController.java:692 PATCH /api/projects/:projectId/chat/rooms/:roomId/members/:memberUserId/role
 - backend/src/main/java/com/planora/backend/controller/DocumentController.java:127 POST /api/projects/:projectId/documents/:documentId/versions/upload/init
 - backend/src/main/java/com/planora/backend/controller/DocumentController.java:142 POST /api/projects/:projectId/documents/:documentId/versions/upload/finalize
 - backend/src/main/java/com/planora/backend/controller/GitHubWebhookController.java:64 POST /api/github/webhook

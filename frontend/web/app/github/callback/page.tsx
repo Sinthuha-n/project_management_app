@@ -15,7 +15,7 @@ export default function GitHubCallbackPage() {
     const state = searchParams.get('state'); // projectId or profile
 
     if (!code) {
-      setError('No authorization code received from GitHub.');
+      queueMicrotask(() => setError('No authorization code received from GitHub.'));
       return;
     }
 
@@ -45,7 +45,7 @@ export default function GitHubCallbackPage() {
       }
     };
 
-    void exchangeToken();
+    queueMicrotask(() => void exchangeToken());
   }, [searchParams, router]);
   if (error) {
     return (

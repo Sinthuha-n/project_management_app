@@ -26,10 +26,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.mockito.ArgumentCaptor;
 
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -460,6 +463,55 @@ class TaskControllerTest {
     void assignUser_negativeTest_withoutSlash_returns404() throws Exception {
         mockMvc.perform(patch("/api/tasks1/assign/5").with(csrf()))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUserPrincipal
+    void createTaskEchoesClientMutationIdInWebSocketEnvelope() throws Exception {
+        when(service.createTask(any(TaskRequestDTO.class), eq(1L))).thenReturn(sampleTask);
+
+        mockMvc.perform(post("/api/tasks")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title":"Implement login",
+                                  "projectId":10,
+                                  "clientMutationId":"web-12345678"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(1L));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> eventCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/project/10/tasks"),
+                eventCaptor.capture());
+        assertEquals("TASK_CREATED", eventCaptor.getValue().get("type"));
+        assertEquals("web-12345678", eventCaptor.getValue().get("clientMutationId"));
+        assertEquals(sampleTask, eventCaptor.getValue().get("task"));
+    }
+
+    @Test
+    @WithMockUserPrincipal
+    void createTaskWithoutClientMutationIdRemainsBackwardCompatible() throws Exception {
+        when(service.createTask(any(TaskRequestDTO.class), eq(1L))).thenReturn(sampleTask);
+
+        mockMvc.perform(post("/api/tasks")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Implement login","projectId":10}
+                                """))
+                .andExpect(status().isCreated());
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> eventCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/project/10/tasks"),
+                eventCaptor.capture());
+        assertFalse(eventCaptor.getValue().containsKey("clientMutationId"));
     }
 
     @Test

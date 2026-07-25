@@ -133,11 +133,11 @@ export function useDmsWorkspace(mode: ViewMode) {
     useEffect(() => {
         if (typeof window === 'undefined') return;
         const raw = localStorage.getItem(FAVORITES_KEY);
-        if (!raw) { setFavoriteIds([]); return; }
+        if (!raw) { queueMicrotask(() => setFavoriteIds([])); return; }
         try {
             const parsed = JSON.parse(raw) as number[];
-            setFavoriteIds(Array.isArray(parsed) ? parsed : []);
-        } catch { setFavoriteIds([]); }
+            queueMicrotask(() => setFavoriteIds(Array.isArray(parsed) ? parsed : []));
+        } catch { queueMicrotask(() => setFavoriteIds([])); }
     }, []);
 
     useEffect(() => () => {
@@ -146,7 +146,7 @@ export function useDmsWorkspace(mode: ViewMode) {
     }, []);
 
     useEffect(() => {
-        if (!projectId) { setLoading(false); return; }
+        if (!projectId) { queueMicrotask(() => setLoading(false)); return; }
         const load = async () => {
             try {
                 setLoading(true); setError(null);
@@ -166,7 +166,7 @@ export function useDmsWorkspace(mode: ViewMode) {
             } catch { setError('Failed to load folder and document data.'); }
             finally { setLoading(false); }
         };
-        void load();
+        queueMicrotask(() => void load());
     }, [projectId, isTrashMode]);
 
     const folderNameMap = useMemo(() => {

@@ -368,9 +368,10 @@ export default function ProfileScreen() {
     try {
       const form = new FormData();
       form.append('file', { uri: asset.uri, type: 'image/jpeg', name: 'profile.jpg' } as unknown as Blob);
-      const res = await api.post<{ success: boolean; fileUrl: string | null }>('/api/user/profile/photo', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post<{ success: boolean; fileUrl: string | null }>(
+        '/api/user/profile/photo',
+        form,
+      );
       if (res.data.success && res.data.fileUrl) {
         setProfile(prev => prev ? { ...prev, profilePicUrl: res.data.fileUrl } : prev);
         setSuccessMsg('Profile photo updated.');

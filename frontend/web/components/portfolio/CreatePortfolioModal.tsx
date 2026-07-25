@@ -30,11 +30,13 @@ export default function CreatePortfolioModal({ onClose, onCreated }: Props) {
   const [projectsLoading, setProjectsLoading] = useState(false);
 
   useEffect(() => {
-    setProjectsLoading(true);
-    fetchAllProjects()
-      .then(setProjects)
-      .catch(() => {})
-      .finally(() => setProjectsLoading(false));
+    queueMicrotask(() => {
+      setProjectsLoading(true);
+      void fetchAllProjects()
+        .then(setProjects)
+        .catch(() => {})
+        .finally(() => setProjectsLoading(false));
+    });
   }, []);
 
   const filteredProjects = projects.filter(p =>

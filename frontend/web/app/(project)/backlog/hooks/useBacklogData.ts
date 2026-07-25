@@ -1,23 +1,18 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Task, Label, DateFilter } from '../../kanban/types';
 import {
-    fetchTasksByProject,
     fetchProjectLabels,
     fetchProject,
     fetchTeamMembers,
-    getArchivedTasks,
     TeamMemberOption,
 } from '../../kanban/api';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
 import { type CreateTaskData } from '@/components/shared/CreateTaskModal';
-import { buildSessionCacheKey, getSessionCache, setSessionCache, removeSessionCache } from '@/lib/session-cache';
 import { toast } from '@/components/ui';
-import { tasksApi } from '@/services/api-contract';
 import { normalizeTaskPriority } from '@/services/tasks-contract';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 import { useTaskMutations } from '@/hooks/useTaskMutations';
 import { useProjectTasks } from '@/hooks/useProjectTasks';
-import { useVisibilityInterval } from '@/hooks/useVisibilityInterval';
 import type { Task as CanonicalTask } from '@/types';
 
 type TaskWithAssignees = Task & {
@@ -26,21 +21,12 @@ type TaskWithAssignees = Task & {
 
 export function useBacklogData(projectId: string | null, showArchived = false) {
     const taskMutations = useTaskMutations(projectId);
-    const canonicalTasks = useProjectTasks(projectId, showArchived);
+    const activeTaskSource = useProjectTasks(projectId, false);
+    const archivedTaskSource = useProjectTasks(showArchived ? projectId : null, true);
 
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
-    const [archivedLoading, setArchivedLoading] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [selectedTaskIdForModal, setSelectedTaskIdForModal] = useState<number | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
-
-    useEffect(() => {
-        if (!canonicalTasks.authoritative) return;
-        setTasks(canonicalTasks.tasks as unknown as Task[]);
-    }, [canonicalTasks.authoritative, canonicalTasks.tasks]);
 
     // Filter & group state
     const [searchTerm, setSearchTerm] = useState('');
@@ -93,7 +79,7 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         return map;
     }, [teamMembers]);
 
-    const enrichTaskAvatars = useCallback((items: Task[]): Task[] => {
+    const enrichTaskAvatars = useCallback((items: readonly Task[]): Task[] => {
         return items.map((task) => {
             const taskWithAssignees = task as TaskWithAssignees;
             const assigneePhotoUrl =
@@ -114,126 +100,51 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         });
     }, [memberPhotoById]);
 
-    // ── Dynamic Data (Periodic Sync) ──
-    const fetchData = useCallback(async (options: { showSpinner?: boolean, forceNetwork?: boolean } = {}) => {
-        if (!projectId) return;
-        const { showSpinner = true, forceNetwork = false } = options;
-        const pid = parseInt(projectId, 10);
-        if (isNaN(pid)) return;
-
-        const cKey = buildSessionCacheKey('kanban-backlog', [projectId, showArchived.toString()]);
-        let hasCachedData = false;
-        if (cKey && !forceNetwork) {
-            const cached = getSessionCache<Task[]>(cKey, { allowStale: true });
-            if (cached.data) {
-                setTasks(cached.data);
-                setLoading(false);
-                hasCachedData = true;
-            }
-        }
-
-        if (showSpinner && !hasCachedData) setLoading(true);
-        setError(null);
-        try {
-            const fetched = await fetchTasksByProject(pid, { archived: showArchived });
-            const enriched = enrichTaskAvatars(fetched);
-            setTasks(enriched);
-            if (cKey) setSessionCache(cKey, enriched, 30 * 60_000);
-        } catch (err) {
-            console.error('Error loading backlog tasks:', err);
-            if (showSpinner) setError(err instanceof Error ? err.message : 'Failed to load tasks');
-        } finally {
-            if (showSpinner && !hasCachedData) setLoading(false);
-        }
-    }, [projectId, showArchived, enrichTaskAvatars]);
-
-    const fetchArchivedData = useCallback(async () => {
-        if (!projectId || !showArchived) {
-            setArchivedTasks([]);
-            setArchivedLoading(false);
-            return;
-        }
-        const pid = parseInt(projectId, 10);
-        if (isNaN(pid)) {
-            setArchivedLoading(false);
-            return;
-        }
-        setArchivedLoading(true);
-        try {
-            const data = await getArchivedTasks(pid);
-            setArchivedTasks(enrichTaskAvatars(data as Task[]));
-        } catch (err) {
-            console.error('Error loading archived backlog tasks:', err);
-            toast('Failed to load archived tasks', 'error');
-        } finally {
-            setArchivedLoading(false);
-        }
-    }, [projectId, showArchived, enrichTaskAvatars]);
-
-    const forceRefresh = useCallback(() => void fetchData({ showSpinner: false, forceNetwork: true }), [fetchData]);
+    const tasks = useMemo(
+        () => enrichTaskAvatars(activeTaskSource.tasks as unknown as Task[]),
+        [activeTaskSource.tasks, enrichTaskAvatars],
+    );
+    const archivedTasks = useMemo(
+        () => showArchived
+            ? enrichTaskAvatars(archivedTaskSource.tasks as unknown as Task[])
+            : [],
+        [archivedTaskSource.tasks, enrichTaskAvatars, showArchived],
+    );
+    const forceRefresh = useCallback(async () => {
+        await Promise.all([
+            activeTaskSource.revalidate(),
+            showArchived ? archivedTaskSource.revalidate() : Promise.resolve(),
+        ]);
+    }, [activeTaskSource, archivedTaskSource, showArchived]);
 
     useEffect(() => {
         if (!projectId) return;
-        void fetchStaticData();
-        void fetchData({ showSpinner: true });
-    }, [projectId, fetchStaticData, fetchData]);
+        queueMicrotask(() => void fetchStaticData());
+    }, [projectId, fetchStaticData]);
 
-    useVisibilityInterval(() => void fetchData({ showSpinner: false }), 30_000, Boolean(projectId));
-
-    useEffect(() => {
-        void fetchArchivedData();
-    }, [fetchArchivedData]);
-
-    useEffect(() => {
-        const onTaskUpdated = () => void fetchData({ showSpinner: false, forceNetwork: true });
-        window.addEventListener('planora:task-updated', onTaskUpdated);
-        return () => window.removeEventListener('planora:task-updated', onTaskUpdated);
-    }, [fetchData]);
-
-    useTaskWebSocket(projectId, useCallback((event) => {
-        if (event.type === 'TASK_CREATED' && event.task) {
-            if (!event.task.archived) {
-                setTasks(prev => enrichTaskAvatars([...prev.filter(x => x.id !== event.task!.id), event.task as Task]));
-            }
-        } else if (event.type === 'TASK_UPDATED' && event.task) {
-            if (event.task.archived) {
-                setTasks(prev => prev.filter(x => x.id !== event.task!.id));
-                if (showArchived) {
-                    setArchivedTasks(prev => [...prev.filter(x => x.id !== event.task!.id), event.task as Task]);
-                }
-            } else {
-                setTasks(prev => prev.some(x => x.id === event.task!.id)
-                    ? enrichTaskAvatars(prev.map(x => x.id === event.task!.id ? { ...x, ...event.task } as Task : x))
-                    : enrichTaskAvatars([...prev, event.task as Task]));
-                setArchivedTasks(prev => prev.filter(x => x.id !== event.task!.id));
-            }
-        } else if (event.type === 'TASK_DELETED' && event.taskId) {
-            setTasks(prev => prev.filter(x => x.id !== event.taskId));
-            setArchivedTasks(prev => prev.filter(x => x.id !== event.taskId));
-        }
-    }, [showArchived, enrichTaskAvatars]));
+    // The subscriber updates the canonical SWR cache. This UI renders that cache
+    // directly and must not apply the same event to a second local task array.
+    useTaskWebSocket(projectId, useCallback(() => undefined, []));
 
     const handleMarkDone = useCallback(async (id: number) => {
         const task = tasks.find(t => t.id === id);
         if (!task) return;
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'DONE' } : t));
         try {
             await taskMutations.update(id, { title: task.title, status: 'DONE' }, task as unknown as CanonicalTask);
         } catch {
-            forceRefresh();
+            void forceRefresh();
         }
     }, [tasks, forceRefresh, taskMutations]);
 
     const handleDelete = useCallback(async (id: number) => {
         const task = tasks.find(item => item.id === id);
         if (!task) return;
-        setTasks(prev => prev.filter(t => t.id !== id));
-        try { await taskMutations.delete(task as unknown as CanonicalTask); } catch { forceRefresh(); }
+        try { await taskMutations.delete(task as unknown as CanonicalTask); } catch { void forceRefresh(); }
     }, [forceRefresh, taskMutations, tasks]);
 
     const handleAddTask = useCallback((data: CreateTaskData) => {
         if (!projectId) return;
-        const result = taskMutations.create({
+        taskMutations.create({
                 projectId: parseInt(projectId, 10),
                 title: data.title,
                 priority: normalizeTaskPriority(data.priority),
@@ -241,105 +152,81 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
                 labelIds: data.labelIds,
                 dueDate: data.dueDate,
             });
-        setTasks(prev => [...prev, result.optimisticTask]);
-        void result.completion.then((serverTask) => {
-            setTasks(prev => prev
-                .filter(task => task.id !== serverTask.id)
-                .map(task => task.id === result.optimisticTask.id ? serverTask as Task : task));
-        }).catch(() => setTasks(prev => prev.filter(task => task.id !== result.optimisticTask.id)));
     }, [projectId, taskMutations]);
 
     const handleStatusChange = useCallback(async (id: number, status: string) => {
         const task = tasks.find(t => t.id === id);
         if (!task) return;
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
         try {
             await taskMutations.update(id, { title: task.title, status }, task as unknown as CanonicalTask);
         } catch {
-            forceRefresh();
+            void forceRefresh();
         }
     }, [tasks, forceRefresh, taskMutations]);
 
     const handleDateChange = useCallback(async (id: number, dueDate: string | null) => {
         const task = tasks.find(t => t.id === id);
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, dueDate: dueDate || undefined } : t));
+        if (!task) return;
         try {
-            await tasksApi.updateDates(id, { dueDate });
-            const cKey = buildSessionCacheKey('kanban-backlog', [projectId]);
-            if (cKey) removeSessionCache(cKey);
-            window.dispatchEvent(new CustomEvent('planora:task-updated'));
-        } catch (e: unknown) {
-            const errStatus = (e as { response?: { status?: number } })?.response?.status;
-            if ((errStatus === 401 || errStatus === 404) && task?.title) {
-                try {
-                    await tasksApi.update(id, { title: task.title, dueDate });
-                    const cKey = buildSessionCacheKey('kanban-backlog', [projectId]);
-                    if (cKey) removeSessionCache(cKey);
-                    window.dispatchEvent(new CustomEvent('planora:task-updated'));
-                    return;
-                } catch { /* fall through */ }
-            }
-            forceRefresh();
+            await taskMutations.update(
+                id,
+                { title: task.title, dueDate },
+                task as unknown as CanonicalTask,
+            );
+        } catch {
+            void forceRefresh();
         }
-    }, [tasks, projectId, forceRefresh]);
+    }, [tasks, forceRefresh, taskMutations]);
 
     const handleArchiveTask = useCallback(async (id: number) => {
         const archivedTask = tasks.find(t => t.id === id);
         if (!archivedTask) return;
-        setTasks(prev => prev.filter(t => t.id !== id));
         try {
-            const res = await taskMutations.archive(archivedTask as unknown as CanonicalTask);
-            if (showArchived) {
-                setArchivedTasks(prev => [...prev.filter(t => t.id !== id), res as Task]);
-            }
-            forceRefresh();
-            void fetchArchivedData();
+            await taskMutations.archive(archivedTask as unknown as CanonicalTask);
         } catch {
-            if (archivedTask) setTasks(prev => prev.some(t => t.id === id) ? prev : [...prev, archivedTask]);
             toast('Failed to archive task', 'error');
-            forceRefresh();
+            void forceRefresh();
         }
-    }, [tasks, showArchived, forceRefresh, fetchArchivedData, taskMutations]);
+    }, [tasks, forceRefresh, taskMutations]);
 
     const handleUnarchiveTask = useCallback(async (id: number) => {
         const task = archivedTasks.find(t => t.id === id);
         if (!task) return;
-        setArchivedTasks(prev => prev.filter(t => t.id !== id));
         try {
-            const res = await taskMutations.restore(task as unknown as CanonicalTask);
-            setTasks(prev => prev.some(t => t.id === id) ? prev : [...prev, res as Task]);
-            forceRefresh();
-            void fetchArchivedData();
+            await taskMutations.restore(task as unknown as CanonicalTask);
         } catch {
-            if (task) setArchivedTasks(prev => prev.some(t => t.id === id) ? prev : [...prev, task]);
             toast('Failed to unarchive task', 'error');
-            forceRefresh();
+            void forceRefresh();
         }
-    }, [archivedTasks, forceRefresh, fetchArchivedData, taskMutations]);
+    }, [archivedTasks, forceRefresh, taskMutations]);
 
     const handleBulkDelete = useCallback(async () => {
         const ids = [...selectedIds];
-        setTasks(prev => prev.filter(t => !ids.includes(t.id)));
         setSelectedIds(new Set());
-        try { await Promise.all(ids.map(id => tasksApi.delete(id))); forceRefresh(); } catch { forceRefresh(); }
-    }, [selectedIds, forceRefresh]);
+        const selectedTasks = tasks.filter(task => ids.includes(task.id));
+        try {
+            await Promise.all(selectedTasks.map(task =>
+                taskMutations.delete(task as unknown as CanonicalTask)));
+        } catch {
+            void forceRefresh();
+        }
+    }, [selectedIds, forceRefresh, taskMutations, tasks]);
 
     const handleBulkDone = useCallback(async () => {
         const ids = [...selectedIds];
-        setTasks(prev => prev.map(t => ids.includes(t.id) ? { ...t, status: 'DONE' } : t));
         setSelectedIds(new Set());
+        const tasksToUpdate = tasks.filter(task => ids.includes(task.id));
         try {
-            await tasksApi.bulkUpdateStatus({ taskIds: ids, status: 'DONE' });
-            forceRefresh();
+            await Promise.all(tasksToUpdate.map(task =>
+                taskMutations.update(
+                    task.id,
+                    { title: task.title, status: 'DONE' },
+                    task as unknown as CanonicalTask,
+                )));
         } catch {
-            // Fallback: update each task individually with PUT
-            try {
-                const tasksToUpdate = tasks.filter(t => ids.includes(t.id));
-                await Promise.all(tasksToUpdate.map(t => tasksApi.update(t.id, { title: t.title, status: 'DONE' })));
-                forceRefresh();
-            } catch { forceRefresh(); }
+            void forceRefresh();
         }
-    }, [tasks, selectedIds, forceRefresh]);
+    }, [tasks, selectedIds, forceRefresh, taskMutations]);
 
     const toggleSelect = useCallback((id: number) => {
         setSelectedIds(prev => {
@@ -390,7 +277,11 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
     }, [filteredTasks, groupBy]);
 
     return {
-        tasks, archivedTasks, archivedLoading, loading, error, collapsedGroups, toggleGroup,
+        tasks, archivedTasks,
+        archivedLoading: archivedTaskSource.loading,
+        loading: activeTaskSource.loading,
+        error: activeTaskSource.error instanceof Error ? activeTaskSource.error.message : activeTaskSource.error ? 'Failed to load tasks' : null,
+        collapsedGroups, toggleGroup,
         selectedTask, setSelectedTask,
         selectedTaskIdForModal, setSelectedTaskIdForModal,
         showCreateModal, setShowCreateModal,
@@ -407,6 +298,6 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         handleMarkDone, handleDelete, handleAddTask,
         handleStatusChange, handleBulkDelete, handleBulkDone,
         handleArchiveTask, handleUnarchiveTask,
-        toggleSelect, loadTasks: fetchData, handleDateChange, forceRefresh,
+        toggleSelect, loadTasks: forceRefresh, handleDateChange, forceRefresh,
     };
 }

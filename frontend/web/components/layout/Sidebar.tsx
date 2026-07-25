@@ -180,17 +180,7 @@ export default function Sidebar() {
   const [inboxSearch, setInboxSearch] = useState('');
   const [notifSearch, setNotifSearch] = useState('');
 
-  // Apply real browser state (window size + persisted preference) after hydration.
-  // Runs once on mount — the existing CSS transition (duration-300) smooths the
-  // visual shift from the SSR default (collapsed) to the persisted value.
-  useEffect(() => {
-    const mobile = window.innerWidth < 768;
-    setIsMobile(mobile);
-    setCollapsed(
-      mobile ? true : localStorage.getItem('planora:sidebar:collapsed') === 'true'
-    );
-  }, []);
-
+  // Apply real browser state after hydration and then keep it synchronized.
   useEffect(() => {
     let isCurrentlyMobile = window.innerWidth < 768;
     const frameId = window.requestAnimationFrame(() => {
@@ -266,7 +256,7 @@ export default function Sidebar() {
 
   /* -- effects -- */
   useEffect(() => {
-    void fetchInboxActivity();
+    queueMicrotask(() => void fetchInboxActivity());
   }, [pathname, fetchInboxActivity, recentProjects.length]);
 
   useEffect(() => {
@@ -288,7 +278,7 @@ export default function Sidebar() {
 
     latestSyncedNotificationRef.current = latest.id;
     if (typeof latest.link === 'string' && latest.link.includes('/chat')) {
-      refreshInboxCounts();
+      queueMicrotask(() => refreshInboxCounts());
     }
   }, [notifications, refreshInboxCounts]);
 

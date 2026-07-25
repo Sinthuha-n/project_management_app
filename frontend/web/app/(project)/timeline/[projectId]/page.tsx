@@ -163,13 +163,15 @@ export default function TimelinePage() {
       : { data: null };
 
     if (cached.data) {
-      setTasks(cached.data);
-      setLoading(false);
-      void loadTasks({ showSpinner: false });
+      queueMicrotask(() => {
+        setTasks(cached.data!);
+        setLoading(false);
+        void loadTasks({ showSpinner: false });
+      });
       return;
     }
 
-    void loadTasks({ showSpinner: true });
+    queueMicrotask(() => void loadTasks({ showSpinner: true }));
   }, [loadTasks, timelineCacheKey]);
 
   useTaskWebSocket(projectId, (event) => {
@@ -187,7 +189,7 @@ export default function TimelinePage() {
   });
 
   useEffect(() => {
-    void loadMilestones();
+    queueMicrotask(() => void loadMilestones());
   }, [loadMilestones]);
 
   useEffect(() => {

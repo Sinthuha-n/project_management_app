@@ -44,11 +44,13 @@ export default function CreateIssueFromTaskModal({
 
   useEffect(() => {
     if (!open) return;
-    setTitle(taskTitle);
-    setBody(taskDescription ?? '');
-    setLabels(taskLabels.map(normalizeLabel).filter(Boolean));
-    setLabelInput('');
-    setError(null);
+    queueMicrotask(() => {
+      setTitle(taskTitle);
+      setBody(taskDescription ?? '');
+      setLabels(taskLabels.map(normalizeLabel).filter(Boolean));
+      setLabelInput('');
+      setError(null);
+    });
   }, [open, taskTitle, taskDescription, taskLabels]);
 
   useEffect(() => {

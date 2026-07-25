@@ -93,4 +93,12 @@ public class TaskRequestDTO {
     private Integer recurrenceLimit;
 
     private Boolean archived;
+
+    /**
+     * Optional client-generated correlation token used to reconcile optimistic,
+     * HTTP, WebSocket, cross-tab, and offline task creation events.
+     */
+    @Size(min = 8, max = 128, message = "Client mutation ID must be between 8 and 128 characters")
+    @Pattern(regexp = "^[A-Za-z0-9._-]+$", message = "Client mutation ID contains invalid characters")
+    private String clientMutationId;
 }

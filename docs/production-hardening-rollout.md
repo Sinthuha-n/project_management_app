@@ -32,6 +32,33 @@ cannot be safely applied by application code alone.
 - Pin GitHub Actions by immutable commit SHA as part of the next CI maintenance
   change and retain image/dependency scanning in the release workflow.
 
+### Chat attachment rollout
+
+1. Apply the chat-bucket CORS policy documented in the root README before
+   enabling direct upload. Permit only the deployed Netlify origins, `PUT` and
+   `HEAD`, and the `Content-Type` header.
+2. Deploy the additive backend endpoints and confirm
+   `GET /api/projects/{projectId}/chat/attachments/upload-capabilities` reports
+   the 25 MB policy.
+3. Deploy web, then mobile. Keep
+   `CHAT_ATTACHMENTS_DIRECT_UPLOAD_ENABLED=true` after validation.
+4. Monitor structured upload error codes, 400/413/5xx rates, init/finalize
+   failures, and request IDs. Disable that flag to force the preserved
+   multipart route during rollback; no data migration is involved.
+
+The expected object prefix is
+`project-{projectId}/user-{numericUserId}/{uuid}-{safeFileName}`. Email
+addresses are never part of new storage keys. URL refresh accepts project-owned
+new keys and legacy `{projectId}/...` keys but rejects cross-project paths.
+
+### Canonical task state
+
+Task create clients send a stable 8–128 character `clientMutationId`. Mobile
+offline queue entries persist the same value across retries. Web task surfaces
+render canonical SWR cache keys, and reducers reconcile by authoritative task
+ID, temporary replacement ID, then mutation ID. Active and archived task caches
+remain independent.
+
 ## Rollout and rollback
 
 Deploy forward-only migrations first. Enable each wave for a small traffic

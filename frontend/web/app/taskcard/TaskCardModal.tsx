@@ -136,6 +136,10 @@ const toTaskData = (task: Task & {
   archived: task.archived ?? false,
 });
 
+function serializeTaskCacheEntry(response: object): string {
+  return JSON.stringify({ ...response, timestamp: Date.now() });
+}
+
 export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
   const [taskData, setTaskData] = useState<TaskData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -165,7 +169,7 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
         githubIssueNumber?: number | null;
         githubRepoFullName?: string | null;
       }));
-      localStorage.setItem(`planora:task:${taskId}`, JSON.stringify({ ...response, timestamp: Date.now() }));
+      localStorage.setItem(`planora:task:${taskId}`, serializeTaskCacheEntry(response));
       setError(null);
       if (response?.projectId) {
         void loadTaskMeta(response.projectId);
@@ -231,11 +235,14 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
     const cached = localStorage.getItem(`planora:task:${taskId}`);
     if (cached) {
       try {
-        setTaskData(toTaskData(JSON.parse(cached)));
-        setLoading(false);
+        const cachedTask = toTaskData(JSON.parse(cached));
+        queueMicrotask(() => {
+          setTaskData(cachedTask);
+          setLoading(false);
+        });
       } catch { /* ignore */ }
     }
-    fetchTaskData();
+    queueMicrotask(() => void fetchTaskData());
     return () => {
       const cached = localStorage.getItem(`planora:task:${taskId}`);
       if (cached) {

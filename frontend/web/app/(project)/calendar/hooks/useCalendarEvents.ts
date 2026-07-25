@@ -17,9 +17,21 @@ function updateCalendarSessionCache(projectId: string | null, events: CalendarEv
   if (key) setSessionCache(key, events, 30 * 60 * 1000);
 }
 
+function getInitialCalendarState(projectId: string | null): { events: CalendarEventItem[]; loading: boolean } {
+  if (!projectId) return { events: [], loading: false };
+  const cKey = buildSessionCacheKey('calendar-events', [projectId]);
+  if (cKey) {
+    const cached = getSessionCache<CalendarEventItem[]>(cKey, { allowStale: true });
+    if (cached.data) {
+      return { events: cached.data, loading: false };
+    }
+  }
+  return { events: [], loading: true };
+}
+
 export function useCalendarEvents(projectId: string | null) {
-  const [events, setEvents] = useState<CalendarEventItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [events, setEvents] = useState<CalendarEventItem[]>(() => getInitialCalendarState(projectId).events);
+  const [loading, setLoading] = useState<boolean>(() => getInitialCalendarState(projectId).loading);
   const [error, setError] = useState<string | null>(null);
   const patchingTaskIdsRef = useRef<Set<number>>(new Set());
   const canonicalTasks = useProjectTasks(projectId, false);
@@ -28,7 +40,7 @@ export function useCalendarEvents(projectId: string | null) {
   // Sprint events remain owned by the calendar endpoint.
   useEffect(() => {
     if (!canonicalTasks.authoritative) return;
-    setEvents((previous) => {
+    queueMicrotask(() => setEvents((previous) => {
       const sprints = previous.filter((event) => event.kind === 'sprint');
       const taskEvents = canonicalTasks.tasks
         .filter((task) => !task.archived && Boolean(task.startDate || task.dueDate))
@@ -36,7 +48,7 @@ export function useCalendarEvents(projectId: string | null) {
       const next = [...sprints, ...taskEvents];
       updateCalendarSessionCache(projectId, next);
       return next;
-    });
+    }));
   }, [canonicalTasks.authoritative, canonicalTasks.tasks, projectId]);
 
   // Background/Initial fetch
@@ -77,19 +89,14 @@ export function useCalendarEvents(projectId: string | null) {
     if (!projectId) return;
 
     const cKey = buildSessionCacheKey('calendar-events', [projectId]);
-    let hasLoadedFromCache = false;
-    if (cKey) {
-      const cached = getSessionCache<CalendarEventItem[]>(cKey, { allowStale: true });
-      if (cached.data) {
-        setEvents(cached.data);
-        hasLoadedFromCache = true;
-        // Background revalidate quietly
-        void revalidate({ showSpinner: false, forceNetwork: false });
-      }
-    }
-
-    if (!hasLoadedFromCache) {
-      void revalidate({ showSpinner: true });
+    const cached = cKey ? getSessionCache<CalendarEventItem[]>(cKey, { allowStale: true }) : { data: null };
+    if (cached.data) {
+      setEvents(cached.data);
+      setLoading(false);
+      queueMicrotask(() => void revalidate({ showSpinner: false, forceNetwork: false }));
+    } else {
+      setLoading(true);
+      queueMicrotask(() => void revalidate({ showSpinner: true }));
     }
   }, [projectId, revalidate]);
 

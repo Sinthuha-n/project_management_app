@@ -31,10 +31,11 @@ export function usePageContent(pageId: string, projectId: string | null) {
             const templateId = searchParams.get('template') || 'blank';
             const template = predefinedTemplates.find(t => t.id === templateId) ?? predefinedTemplates[0];
             const defaultTitle = template.id === 'blank' ? 'Untitled Page' : template.name;
-            // These set state from URL params (external source), not from other state — rule does not apply
-            setSelectedPage({ id: 'new', title: defaultTitle, content: template.content, isStarred: false });
-            setTitle(defaultTitle);
-            setVersions([]);
+            queueMicrotask(() => {
+                setSelectedPage({ id: 'new', title: defaultTitle, content: template.content, isStarred: false });
+                setTitle(defaultTitle);
+                setVersions([]);
+            });
             return;
         }
 
@@ -70,7 +71,7 @@ export function usePageContent(pageId: string, projectId: string | null) {
             }
         };
 
-        void fetchPageDetail();
+        queueMicrotask(() => void fetchPageDetail());
     }, [pageId, projectId, isDraft, searchParams]);
 
     return {

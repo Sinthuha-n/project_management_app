@@ -21,7 +21,7 @@ export function useProfileData() {
     const [position, setPosition] = useState('');
     const [bio, setBio] = useState('');
     const [profilePicUrl, setProfilePicUrl] = useState('');
-    const [imageKey, setImageKey] = useState(Date.now());
+    const [imageKey, setImageKey] = useState(0);
     const [lastActive, setLastActive] = useState<string | null>(null);
 
     const [isLoading, setIsLoading] = useState(true);

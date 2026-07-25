@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
@@ -32,6 +33,7 @@ class TaskAttachmentServiceTest {
     @Mock private TeamMemberRepository teamMemberRepository;
     @Mock private UserRepository userRepository;
     @Mock private S3StorageService s3StorageService;
+    @Spy private WorkAttachmentPolicy attachmentPolicy = new WorkAttachmentPolicy();
 
     @InjectMocks
     private TaskAttachmentService taskAttachmentService;
@@ -66,7 +68,8 @@ class TaskAttachmentServiceTest {
         TeamMember member = new TeamMember();
         when(taskRepository.findById(1L)).thenReturn(Optional.of(sampleTask));
         when(teamMemberRepository.findByTeamIdAndUserUserId(5L, 1L)).thenReturn(Optional.of(member));
-        when(s3StorageService.generatePresignedUploadUrl(anyString(), anyString(), anyString(), any()))
+        when(s3StorageService.generatePresignedUploadUrl(
+                anyString(), anyString(), anyString(), anyLong(), any()))
                 .thenReturn("https://s3.example.com/presigned");
 
         TaskAttachmentUploadInitRequestDTO req = new TaskAttachmentUploadInitRequestDTO();
@@ -127,7 +130,6 @@ class TaskAttachmentServiceTest {
         when(teamMemberRepository.findByTeamIdAndUserUserId(5L, 1L)).thenReturn(Optional.of(member));
         when(s3StorageService.headObject("test-task-bucket", "task-1/uuid-report.pdf"))
                 .thenReturn(HeadObjectResponse.builder().contentType("application/pdf").contentLength(1024L).build());
-        when(s3StorageService.resolveContentType("application/pdf", "report.pdf")).thenReturn("application/pdf");
         when(taskAttachmentRepository.findByObjectKey("task-1/uuid-report.pdf")).thenReturn(Optional.empty());
         when(userRepository.findById(1L)).thenReturn(Optional.of(sampleUser));
         when(taskAttachmentRepository.save(any(TaskAttachment.class))).thenAnswer(invocation -> {
@@ -156,8 +158,6 @@ class TaskAttachmentServiceTest {
         when(teamMemberRepository.findByTeamIdAndUserUserId(5L, 1L)).thenReturn(Optional.of(member));
         when(s3StorageService.headObject("test-task-bucket", "task-1/uuid-report.pdf"))
                 .thenReturn(HeadObjectResponse.builder().contentType("application/pdf").contentLength(2048L).build());
-        when(s3StorageService.resolveContentType("application/pdf", "report.pdf")).thenReturn("application/pdf");
-
         TaskAttachmentUploadFinalizeRequestDTO request = new TaskAttachmentUploadFinalizeRequestDTO();
         request.setFileName("report.pdf");
         request.setContentType("application/pdf");

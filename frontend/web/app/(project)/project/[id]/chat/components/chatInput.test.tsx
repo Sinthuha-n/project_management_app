@@ -131,7 +131,7 @@ describe('ChatInput', () => {
 
   it('notifies the user when file upload fails', async () => {
     const onSendMessage = jest.fn();
-    mockedUploadChatDocument.mockRejectedValueOnce(new Error('upload failed'));
+    mockedUploadChatDocument.mockRejectedValueOnce(new Error('Files must be 25 MB or smaller.'));
 
     render(<ChatInput onSendMessage={onSendMessage} />);
 
@@ -141,7 +141,7 @@ describe('ChatInput', () => {
     fireEvent.change(fileInput, { target: { files: [file] } });
 
     await waitFor(() => {
-      expect(mockedToast).toHaveBeenCalledWith("Couldn't upload file. Please try again.", 'error');
+      expect(mockedToast).toHaveBeenCalledWith('Files must be 25 MB or smaller.', 'error');
     });
 
     expect(onSendMessage).not.toHaveBeenCalled();

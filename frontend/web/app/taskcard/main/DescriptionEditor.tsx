@@ -14,7 +14,7 @@ const DescriptionEditor: React.FC<DescriptionEditorProps> = ({ description, onUp
 
   // Sync local edit buffer when the description changes from outside (e.g. parent re-fetch after another user edits)
   useEffect(() => {
-    setEdited(description);
+    queueMicrotask(() => setEdited(description));
   }, [description]);
 
   const handleSave = () => {

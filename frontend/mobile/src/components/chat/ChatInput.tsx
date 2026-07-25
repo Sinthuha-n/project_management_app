@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   LayoutChangeEvent,
   Pressable,
+  Alert,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -25,7 +26,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/src/constants/colors';
 import * as DocumentPicker from 'expo-document-picker';
-import { uploadChatDocument } from '../../services/chatService';
+import { CHAT_ATTACHMENT_MIME_TYPES, uploadChatDocument } from '../../services/chatService';
+import { apiErrorMessage } from '../../utils/apiError';
 
 interface ChatInputProps {
   onSendMessage: (msg: string) => void;
@@ -118,7 +120,7 @@ export function ChatInput(props: ChatInputProps) {
 
   const animatedInputBorder = useAnimatedStyle(() => ({
     borderColor: focusAnim.value === 1
-      ? Colors.primary
+      ? Colors.focusBorder
       : '#E5E7EB',
     borderWidth: interpolate(focusAnim.value, [0, 1], [1.2, 2]),
   }));
@@ -158,7 +160,7 @@ export function ChatInput(props: ChatInputProps) {
   const handleAttach = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
+        type: CHAT_ATTACHMENT_MIME_TYPES,
         copyToCacheDirectory: true,
       });
       if (!result.canceled && result.assets?.[0]) {
@@ -173,6 +175,7 @@ export function ChatInput(props: ChatInputProps) {
       }
     } catch (err) {
       console.error('File picker error:', err);
+      Alert.alert('File not uploaded', apiErrorMessage(err, 'Please choose a supported file and try again.'));
       setUploading(false);
     }
   };

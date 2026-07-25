@@ -32,6 +32,7 @@ interface TaskEvent {
   taskId?: number;
   status?: string;
   projectId?: number;
+  clientMutationId?: string;
 }
 
 export function useTaskWebSocket(
@@ -196,13 +197,21 @@ export function useTaskWebSocket(
               : event.type === 'TASK_DELETED'
                 ? 'deleted'
                 : 'updated';
+            const clientMutationId = event.clientMutationId;
+            const eventTask = event.task
+              ? {
+                  ...event.task,
+                  clientMutationId,
+                  syncState: 'synced' as const,
+                } as unknown as Task
+              : undefined;
             applyTaskMutation({
               operation,
               projectId: Number(event.task?.projectId ?? event.projectId ?? projectId),
               taskId,
-              mutationId: createMutationId(),
+              mutationId: clientMutationId ?? createMutationId(),
               source: 'websocket',
-              task: event.task ? event.task as unknown as Task : undefined,
+              task: eventTask,
               patch: event.status ? { status: event.status } : undefined,
               occurredAt: new Date().toISOString(),
             });

@@ -215,8 +215,10 @@ function GitHubAutoTransitionsCard({ projectId }: { projectId: number }) {
   }, [projectId]);
 
   useEffect(() => {
-    refreshConnection();
-    void refreshRules();
+    queueMicrotask(() => {
+      refreshConnection();
+      void refreshRules();
+    });
 
     const onStorage = () => refreshConnection();
     window.addEventListener('storage', onStorage);
@@ -639,7 +641,7 @@ export default function ProjectSettingsPage() {
     }
   }, [projectId]);
 
-  useEffect(() => { void fetchProject(); }, [fetchProject]);
+  useEffect(() => { queueMicrotask(() => void fetchProject()); }, [fetchProject]);
 
   const handleSaveGeneral = async () => {
     if (!project || !isDirtyGeneral) return;

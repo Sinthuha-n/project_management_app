@@ -118,7 +118,7 @@ export default function SprintCard({
       className={`
         rounded-xl border bg-cu-bg shadow-cu-sm
         hover:shadow-cu-md hover:border-cu-primary/30 transition-all duration-200 cursor-grab active:cursor-grabbing
-        focus-within:ring-2 focus-within:ring-cu-primary/20
+        focus-within:ring-2 focus-within:ring-[var(--cu-focus-ring)]
         ${dense ? 'p-2.5' : 'p-3'}
         ${selected ? 'border-cu-primary ring-2 ring-cu-primary/20' : 'border-cu-border'}
         ${isDragging ? 'ring-2 ring-cu-primary z-50 scale-[1.02]' : ''}

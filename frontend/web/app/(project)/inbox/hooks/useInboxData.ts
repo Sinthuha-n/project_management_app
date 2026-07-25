@@ -67,17 +67,19 @@ export function useInboxData() {
     if (inboxCacheKey) {
       const cached = getSessionCache<ChatInboxResponse>(inboxCacheKey, { allowStale: true });
       if (cached.data) {
-        setData(cached.data);
-        setLoading(false);
+        queueMicrotask(() => {
+          setData(cached.data!);
+          setLoading(false);
+        });
         restored = true;
 
         if (cached.isStale) {
-          void refreshInbox({ silent: true });
+          queueMicrotask(() => void refreshInbox({ silent: true }));
         }
       }
     }
 
-    void refreshInbox({ silent: restored });
+    queueMicrotask(() => void refreshInbox({ silent: restored }));
   }, [inboxCacheKey, refreshInbox]);
 
   // Listens for cross-tab or global events to invalidate and refresh the inbox.
@@ -166,7 +168,7 @@ export function useInboxData() {
   );
 
   useEffect(() => {
-    setVisibleProjectCount(PROJECT_BATCH_SIZE);
+    queueMicrotask(() => setVisibleProjectCount(PROJECT_BATCH_SIZE));
   }, [filter, groupedProjects.length]);
 
   // Limits the number of projects rendered at once to improve performance.

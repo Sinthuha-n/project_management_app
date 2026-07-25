@@ -176,6 +176,7 @@ cp .env.production.example .env.production
 | `AWS_DMS_BUCKET` | Document management bucket name | `your-document-storage-bucket` |
 | `AWS_CHAT_BUCKET` | Chat attachment bucket name | `your-chat-attachments-bucket` |
 | `AWS_TASK_STORAGE_BUCKET` | Task attachment bucket name | `your-task-attachments-bucket` |
+| `CHAT_ATTACHMENTS_DIRECT_UPLOAD_ENABLED` | Enables presigned chat PUT/finalize; set `false` to force the multipart fallback. | `true` |
 | `CORS_ALLOWED_ORIGINS` | Frontend origin(s) | `http://localhost:3000` |
 
 Optional Spring Cache TTL overrides are available via `APP_CACHE_REDIS_TTL_PROJECT_MEMBERSHIP`, `APP_CACHE_REDIS_TTL_PROJECT_TEAM_ID`, `APP_CACHE_REDIS_TTL_GITHUB_ISSUES`, `APP_CACHE_REDIS_TTL_GITHUB_ISSUE_COMMENTS`, `APP_CACHE_REDIS_TTL_USER_PROFILE`, `APP_CACHE_REDIS_TTL_USER_PHOTO_URLS`, `APP_CACHE_REDIS_TTL_PROJECT_RECENT`, and `APP_CACHE_REDIS_TTL_PROJECT_FAVORITES`.
@@ -196,6 +197,39 @@ For local Docker development, the values in `.env.example` are safe placeholders
 For manual local backend runs outside Docker, use host addresses instead of Docker service names. For example, set `SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/planora_db` and `REDIS_HOST=localhost`. If you do not have Redis running locally, set `APP_CACHE_REDIS_ENABLED=false` so Spring Cache uses local Caffeine, and set `NOTIFICATIONS_CACHE_REDIS_ENABLED=false` so notification unread counts go directly to the database. Auth/rate-limit Redis paths fail open when Redis is unavailable, but production should still point `REDIS_HOST` at a real Redis instance.
 
 For AWS S3 storage, create separate private buckets for profile photos, DMS documents, chat attachments, and task attachments. Set the four bucket environment variables differently in staging and production; the backend reads the bucket names at startup, so no code changes are needed between environments.
+
+Chat attachments use a 25 MB shared work-file policy and prefer a short-lived
+presigned PUT. Clients validate the capability response first and fall back to
+the existing multipart endpoint only when direct storage transfer is disabled
+or unavailable. Before enabling direct upload, apply this CORS policy to the
+private chat bucket, replacing the example origins with the exact production
+and preview origins:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "https://planora-pma.netlify.app",
+      "http://localhost:3000"
+    ],
+    "AllowedMethods": ["PUT", "HEAD"],
+    "AllowedHeaders": ["Content-Type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Task creation is reconciled through a single canonical client cache. Each new
+web or mobile mutation carries an optional `clientMutationId`, echoed by the
+`TASK_CREATED` WebSocket event, so optimistic, HTTP, reconnect, cross-tab, and
+offline results replace the same row without title-based deduplication. Zustand
+remains UI-only state; active and archived task collections use separate SWR
+keys.
+
+Upload and mutation failures include `X-Request-Id`. When troubleshooting,
+capture that response header together with the structured `errorCode`; never
+log presigned URLs, authorization headers, or file contents.
 
 Local MinIO is not currently wired into the backend because `S3Config` does not expose an S3 endpoint override or path-style access setting. Use AWS S3 for upload-flow testing until those options are added.
 

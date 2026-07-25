@@ -288,8 +288,17 @@ export const offlineSyncManager = {
 
   async addMutation(mutation: Omit<QueuedMutation, 'id' | 'timestamp' | 'status'>) {
     const id = Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+    const correlatedMutation = mutation.type === 'CREATE_TASK'
+      ? {
+          ...mutation,
+          payload: {
+            ...mutation.payload,
+            clientMutationId: mutation.payload?.clientMutationId ?? id,
+          },
+        }
+      : mutation;
     const newItem: QueuedMutation = {
-      ...mutation,
+      ...correlatedMutation,
       id,
       status: 'pending',
       timestamp: Date.now(),

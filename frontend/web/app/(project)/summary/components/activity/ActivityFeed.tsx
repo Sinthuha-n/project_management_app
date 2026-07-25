@@ -36,7 +36,7 @@ const ActivityItem = memo(({ task }: { task: Task }) => {
       
       {/* The timestamp positioned at the top right of the item. */}
       <span className="font-arimo text-[11px] text-cu-text-muted absolute top-0 right-0 bg-cu-bg/80 px-1 rounded">
-        {formatRelativeTime(task.updatedAt, Date.now() + minuteTick * 0)}
+        {minuteTick >= 0 ? formatRelativeTime(task.updatedAt) : ''}
       </span>
     </div>
   );

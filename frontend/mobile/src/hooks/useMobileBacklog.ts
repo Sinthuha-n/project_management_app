@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
-import { taskService, sprintService } from '../services/task-service';
+import { createClientMutationId, taskService, sprintService } from '../services/task-service';
 import { projectService } from '../services/project-service';
 import { apiErrorMessage } from '../utils/apiError';
 
@@ -243,6 +243,7 @@ export function useMobileBacklog(projectId: number) {
       await taskService.create({
         projectId,
         title: cleanTitle,
+        clientMutationId: createClientMutationId(),
         sprintId: sprintId ?? undefined,
         priority: 'MEDIUM',
         storyPoint: 0,

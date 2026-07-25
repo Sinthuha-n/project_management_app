@@ -20,6 +20,7 @@ export const Colors = {
   textSecondary: T.textSecondary,
   textMuted: T.textMuted,
   borderDefault: T.border,
+  focusBorder: T.focusBorder,
   cardBg: T.bg,
   pageBg: T.bgSecondary,
   chatBubbleMe: T.primary,

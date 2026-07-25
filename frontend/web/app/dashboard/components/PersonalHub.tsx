@@ -44,23 +44,23 @@ export default function PersonalHub({ userId }: { userId?: string }) {
 
   // --- Hydration Safe LocalStorage Load ---
   useEffect(() => {
-    setMounted(true);
-    const storageKey = userId ? `planora:focus:${userId}` : 'planora:focus:default';
-    const notesKey = userId ? `planora:notes:${userId}` : 'planora:notes:default';
+    queueMicrotask(() => {
+      setMounted(true);
+      const storageKey = userId ? `planora:focus:${userId}` : 'planora:focus:default';
+      const notesKey = userId ? `planora:notes:${userId}` : 'planora:notes:default';
 
-    const savedList = localStorage.getItem(storageKey);
-    const savedNotes = localStorage.getItem(notesKey);
+      const savedList = localStorage.getItem(storageKey);
+      const savedNotes = localStorage.getItem(notesKey);
 
-    if (savedList) {
-      try {
-        setFocusList(JSON.parse(savedList));
-      } catch (e) {
-        console.error('Failed to parse focus list', e);
+      if (savedList) {
+        try {
+          setFocusList(JSON.parse(savedList));
+        } catch (e) {
+          console.error('Failed to parse focus list', e);
+        }
       }
-    }
-    if (savedNotes) {
-      setScratchpadText(savedNotes);
-    }
+      if (savedNotes) setScratchpadText(savedNotes);
+    });
   }, [userId]);
 
   // --- Save Lists to LocalStorage ---
@@ -99,7 +99,7 @@ export default function PersonalHub({ userId }: { userId?: string }) {
     e.preventDefault();
     if (!newTodoText.trim()) return;
     const newItem: FocusItem = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       text: newTodoText.trim(),
       completed: false,
     };
@@ -224,7 +224,7 @@ export default function PersonalHub({ userId }: { userId?: string }) {
             <div className="p-1.5 bg-cu-primary/10 text-cu-primary rounded-lg">
               <ClipboardList size={16} />
             </div>
-            <h3 className="font-outfit text-[14px] font-bold text-cu-text-primary">My Day's Focus</h3>
+            <h3 className="font-outfit text-[14px] font-bold text-cu-text-primary">My Day&apos;s Focus</h3>
           </div>
           <span className="font-arimo text-[10px] font-semibold tracking-wider text-cu-text-muted uppercase min-w-[50px] text-right">
             {saveStatus === 'saving' && 'Saving...'}

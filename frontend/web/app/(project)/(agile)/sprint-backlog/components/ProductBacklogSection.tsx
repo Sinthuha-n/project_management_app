@@ -85,7 +85,7 @@ export default function ProductBacklogSection({
 
   useEffect(() => {
     if (externalShowCreateModal) {
-      setIsOpen(true);
+      queueMicrotask(() => setIsOpen(true));
     }
   }, [externalShowCreateModal]);
 
@@ -135,7 +135,7 @@ export default function ProductBacklogSection({
   }, [projectId]);
 
   useEffect(() => {
-    void fetchTeamMembers(false);
+    queueMicrotask(() => void fetchTeamMembers(false));
     return () => { memberRequestRef.current += 1; };
   }, [fetchTeamMembers]);
 

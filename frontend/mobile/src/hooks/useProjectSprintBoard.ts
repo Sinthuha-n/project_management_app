@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { taskService, sprintService, sprintboardService } from '../services/task-service';
+import { createClientMutationId, taskService, sprintService, sprintboardService } from '../services/task-service';
 
 export interface SprintSummary {
   id: number;
@@ -124,6 +124,7 @@ export function useProjectSprintBoard(projectId: number) {
       projectId,
       sprintId: selectedSprintId,
       title: cleanTitle,
+      clientMutationId: createClientMutationId(),
       status,
       priority: 'MEDIUM',
     });

@@ -99,7 +99,7 @@ export function useBacklogCardHandlers({
   // ── Sync local tasks from props ────────────────────────────────────────────
 
   useEffect(() => {
-    setLocalTasks((prev) => {
+    queueMicrotask(() => setLocalTasks((prev) => {
       const prevMap = new Map(prev.map((task) => [task.id, task]));
       const uniqueTasks = Array.from(new Map(sprint.tasks.map(t => [t.id, t])).values());
       return uniqueTasks.map((task) => {
@@ -120,7 +120,7 @@ export function useBacklogCardHandlers({
           labels: task.labels ?? existing?.labels ?? [],
         };
       });
-    });
+    }));
   }, [sprint.tasks]);
 
   // ── Team members ───────────────────────────────────────────────────────────
@@ -143,7 +143,7 @@ export function useBacklogCardHandlers({
   }, [projectId, loadingMembers]);
 
   useEffect(() => {
-    void fetchTeamMembers(false);
+    queueMicrotask(() => void fetchTeamMembers(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
