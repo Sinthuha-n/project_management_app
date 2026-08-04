@@ -43,13 +43,13 @@ const SubtaskList: React.FC<SubtaskListProps> = ({ subtasks: initialSubtasks, ta
 
   // Sync when parent subtasks change (e.g. after parent re-fetch)
   useEffect(() => {
-    setSubtasks(initialSubtasks);
+    queueMicrotask(() => setSubtasks(initialSubtasks));
   }, [initialSubtasks]);
 
   // Respond to addTrigger from parent (ActionButton click)
   useEffect(() => {
     if (!readOnly && addTrigger && addTrigger > 0) {
-      setIsAdding(true);
+      queueMicrotask(() => setIsAdding(true));
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [addTrigger, readOnly]);

@@ -57,12 +57,14 @@ export function useMembersData(projectId: string) {
 
   useEffect(() => {
     const user = getUserFromToken();
-    if (user?.email) {
-      setCurrentUserEmail(user.email.toLowerCase());
-    }
-    if (typeof user?.userId === 'number') {
-      setCurrentUserId(user.userId);
-    }
+    queueMicrotask(() => {
+      if (user?.email) {
+        setCurrentUserEmail(user.email.toLowerCase());
+      }
+      if (typeof user?.userId === 'number') {
+        setCurrentUserId(user.userId);
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -75,22 +77,27 @@ export function useMembersData(projectId: string) {
     if (membersCacheKey) {
       const cached = getSessionCache<MembersCachePayload>(membersCacheKey, { allowStale: true });
       if (cached.data) {
+        const cachedData = cached.data;
         if (Array.isArray(cached.data.members)) {
           cachedMembers = cached.data.members;
-          setMembers(cached.data.members);
           hasHydratedFromCache = true;
         }
         if (Array.isArray(cached.data.pending)) {
           cachedPending = cached.data.pending;
-          setPending(cached.data.pending);
           hasHydratedFromCache = true;
         }
         if (typeof cached.data.projectOwnerId === "number" || cached.data.projectOwnerId === null) {
           cachedProjectOwnerId = cached.data.projectOwnerId;
-          setProjectOwnerId(cached.data.projectOwnerId);
         }
+        queueMicrotask(() => {
+          if (Array.isArray(cachedData.members)) setMembers(cachedData.members);
+          if (Array.isArray(cachedData.pending)) setPending(cachedData.pending);
+          if (typeof cachedData.projectOwnerId === "number" || cachedData.projectOwnerId === null) {
+            setProjectOwnerId(cachedData.projectOwnerId);
+          }
+        });
         if (hasHydratedFromCache) {
-          setLoading(false);
+          queueMicrotask(() => setLoading(false));
         }
       }
     }
@@ -160,7 +167,7 @@ export function useMembersData(projectId: string) {
     if (projectId) {
       void fetchData();
     } else {
-      setLoading(false);
+      queueMicrotask(() => setLoading(false));
     }
 
     return () => {

@@ -48,6 +48,7 @@ import org.springframework.data.domain.Sort;
 
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.time.LocalDateTime;
 
@@ -90,9 +91,15 @@ public class TaskController {
         TaskResponseDTO task = service.createTask(request, currentUserId);
 
         // REAL-TIME PUSH: Tell everyone currently viewing this project's board that a new task appeared.
+        Map<String, Object> event = new LinkedHashMap<>();
+        event.put("type", "TASK_CREATED");
+        event.put("task", task);
+        if (request.getClientMutationId() != null && !request.getClientMutationId().isBlank()) {
+            event.put("clientMutationId", request.getClientMutationId());
+        }
         messagingTemplate.convertAndSend(
                 "/topic/project/" + task.getProjectId() + "/tasks",
-                Map.of("type", "TASK_CREATED", "task", task));
+                event);
         return new ResponseEntity<>(task, HttpStatus.CREATED);
     }
 

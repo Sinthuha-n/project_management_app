@@ -120,7 +120,7 @@ function WorkloadPageContent() {
         }
     }, [projectId]);
 
-    useEffect(() => { void loadData(); }, [loadData]);
+    useEffect(() => { queueMicrotask(() => void loadData()); }, [loadData]);
 
     if (!projectId) {
         return (

@@ -1,6 +1,7 @@
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import TaskPage from './page';
 import api from '@/lib/axios';
+import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
 
 // Mock components
 jest.mock('./TaskHeader', () => ({
@@ -62,12 +63,14 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
-let webSocketCallback: ((event: { type: string; taskId: number }) => void) | null = null;
+let webSocketCallback: ((event: { type: string; taskId?: number; task?: { id: number } }) => void) | null = null;
 jest.mock('@/hooks/useTaskWebSocket', () => ({
   useTaskWebSocket: jest.fn((projectId, cb) => {
     webSocketCallback = cb;
   }),
 }));
+
+const useTaskWebSocketMock = useTaskWebSocket as jest.Mock;
 
 describe('TaskPage cache and invalidation', () => {
   const mockTask = {
@@ -110,9 +113,13 @@ describe('TaskPage cache and invalidation', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    useTaskWebSocketMock.mockImplementation((projectId, cb) => {
+      webSocketCallback = cb;
+    });
     searchParamsGetMock.mockReturnValue('123');
     webSocketCallback = null;
+    apiPutMock.mockResolvedValue({ data: { success: true } });
     // Default implementation returns a slightly delayed promise to let React render intermediate state
     apiGetMock.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve({ data: mockTask }), 10)));
   });
@@ -238,8 +245,8 @@ describe('TaskPage cache and invalidation', () => {
 
     apiPutMock.mockResolvedValueOnce({ data: { success: true } });
     apiGetMock
-      .mockImplementationOnce(() => Promise.resolve({ data: mockTask }))
-      .mockImplementationOnce(() => Promise.resolve({ data: { ...mockTask, title: 'Updated API Title' } }));
+      .mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve({ data: mockTask }), 5)))
+      .mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve({ data: { ...mockTask, title: 'Updated API Title' } }), 5)));
 
     render(<TaskPage />);
 
@@ -274,8 +281,8 @@ describe('TaskPage cache and invalidation', () => {
     );
 
     apiGetMock
-      .mockImplementationOnce(() => Promise.resolve({ data: mockTask }))
-      .mockImplementationOnce(() => Promise.resolve({ data: { ...mockTask, title: 'Refetched Title' } }));
+      .mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve({ data: mockTask }), 5)))
+      .mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve({ data: { ...mockTask, title: 'Refetched Title' } }), 5)));
 
     render(<TaskPage />);
 
@@ -307,9 +314,7 @@ describe('TaskPage cache and invalidation', () => {
       })
     );
 
-    apiGetMock
-      .mockImplementationOnce(() => Promise.resolve({ data: mockTask }))
-      .mockImplementationOnce(() => Promise.resolve({ data: { ...mockTask, title: 'WS Updated Title' } }));
+    apiGetMock.mockImplementation(() => Promise.resolve({ data: mockTask }));
 
     render(<TaskPage />);
 
@@ -317,16 +322,17 @@ describe('TaskPage cache and invalidation', () => {
       expect(screen.getByTestId('task-main-content')).toHaveTextContent('Original Task Title');
     });
 
-    expect(webSocketCallback).toBeDefined();
+    expect(webSocketCallback).not.toBeNull();
+
+    apiGetMock.mockImplementation(() => Promise.resolve({ data: { ...mockTask, title: 'WS Updated Title' } }));
 
     // Trigger WebSocket event
-    act(() => {
-      if (webSocketCallback) {
-        webSocketCallback({
-          type: 'TASK_UPDATED',
-          taskId: 123,
-        });
-      }
+    await act(async () => {
+      webSocketCallback?.({
+        type: 'TASK_UPDATED',
+        taskId: 123,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
     await waitFor(() => {
@@ -343,7 +349,7 @@ describe('TaskPage cache and invalidation', () => {
       })
     );
 
-    apiGetMock.mockImplementationOnce(() => Promise.resolve({ data: mockTask }));
+    apiGetMock.mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve({ data: mockTask }), 5)));
 
     render(<TaskPage />);
 

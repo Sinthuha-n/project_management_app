@@ -87,24 +87,30 @@ function SpacesPageContent() {
 
     useEffect(() => {
         const filter = searchParams.get('filter');
-        if (filter === 'favorites') {
-            setFilterBy('starred');
-            setSortBy('favorites-first');
-        } else if (filter === 'recent') {
-            setFilterBy('all');
-            setSortBy('recent');
-        }
+        queueMicrotask(() => {
+            if (filter === 'favorites') {
+                setFilterBy('starred');
+                setSortBy('favorites-first');
+            } else if (filter === 'recent') {
+                setFilterBy('all');
+                setSortBy('recent');
+            }
+        });
     }, [searchParams]);
 
     useEffect(() => {
         const savedView = localStorage.getItem('spaces-view') ?? 'grid';
-        if (savedView === 'list' || savedView === 'grid') setViewMode(savedView);
+        if (savedView === 'list' || savedView === 'grid') {
+            queueMicrotask(() => setViewMode(savedView));
+        }
     }, []);
 
     useEffect(() => {
         const userData = getUserFromToken();
-        setUser(userData);
-        void fetchProjects({ checkCache: true });
+        queueMicrotask(() => {
+            setUser(userData);
+            void fetchProjects({ checkCache: true });
+        });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOnline]);
 

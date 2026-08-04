@@ -41,7 +41,7 @@ export function useTaskAttachments(taskId: number | undefined): UseTaskAttachmen
     }, [taskId]);
 
     useEffect(() => {
-        refresh();
+        queueMicrotask(() => void refresh());
     }, [refresh]);
 
     const uploadFile = useCallback(async (file: File) => {

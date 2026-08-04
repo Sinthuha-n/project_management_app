@@ -69,7 +69,7 @@ function BurndownContent() {
   }, [projectId]);
 
   useEffect(() => {
-    void loadSprints();
+    queueMicrotask(() => void loadSprints());
   }, [loadSprints]);
 
   const fetchBurndown = useCallback(async () => {
@@ -97,7 +97,7 @@ function BurndownContent() {
   }, [selectedSprintId, filterFrom, filterTo, sprints]);
 
   useEffect(() => {
-    void fetchBurndown();
+    queueMicrotask(() => void fetchBurndown());
   }, [fetchBurndown]);
 
   const summary = useMemo(() => {

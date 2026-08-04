@@ -14,7 +14,7 @@ describe('taskService payload mapping', () => {
     jest.clearAllMocks();
   });
 
-  test('passes create task payload through without network calls', async () => {
+  test('adds one stable correlation id to the create payload', async () => {
     const payload = {
       title: 'Draft test plan',
       projectId: 42,
@@ -31,7 +31,13 @@ describe('taskService payload mapping', () => {
 
     await expect(taskService.create(payload)).resolves.toMatchObject({ id: 100 });
 
-    expect(api.post).toHaveBeenCalledWith('/api/tasks', payload);
+    expect(api.post).toHaveBeenCalledWith(
+      '/api/tasks',
+      expect.objectContaining({
+        ...payload,
+        clientMutationId: expect.stringMatching(/^(mobile-|[0-9a-f]{8}-)/),
+      }),
+    );
   });
 
   test('maps status and date updates to backend payload shapes', async () => {

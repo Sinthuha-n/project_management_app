@@ -16,6 +16,16 @@ import type {
   RoomChatSummary,
   TeamChatSummary,
 } from '@/app/(project)/project/[id]/chat/components/chat';
+import type { components } from '@planora/contracts';
+
+export type ChatAttachmentCapabilities =
+  components['schemas']['ChatAttachmentUploadCapabilitiesDTO'];
+export type ChatAttachmentUploadInitRequest =
+  components['schemas']['ChatAttachmentUploadInitRequestDTO'];
+export type ChatAttachmentUploadInitResponse =
+  components['schemas']['ChatAttachmentUploadInitResponseDTO'];
+export type ChatAttachmentUploadFinalizeRequest =
+  components['schemas']['ChatAttachmentUploadFinalizeRequestDTO'];
 
 export interface ChatSummaries {
   directSummaries: DirectChatSummary[];
@@ -147,6 +157,45 @@ export const pagesApi = {
 };
 
 export const chatApi = {
+  getAttachmentUploadCapabilities: async (
+    projectId: number | string,
+  ): Promise<ChatAttachmentCapabilities> => {
+    const { data } = await api.get(
+      `/api/projects/${projectId}/chat/attachments/upload-capabilities`,
+    );
+    return data;
+  },
+  initAttachmentUpload: async (
+    projectId: number | string,
+    payload: ChatAttachmentUploadInitRequest,
+  ): Promise<ChatAttachmentUploadInitResponse> => {
+    const { data } = await api.post(
+      `/api/projects/${projectId}/chat/attachments/upload/init`,
+      payload,
+    );
+    return data;
+  },
+  finalizeAttachmentUpload: async (
+    projectId: number | string,
+    payload: ChatAttachmentUploadFinalizeRequest,
+  ): Promise<string> => {
+    const { data } = await api.post<{ downloadUrl?: string }>(
+      `/api/projects/${projectId}/chat/attachments/upload/finalize`,
+      payload,
+    );
+    if (!data.downloadUrl) throw new Error('The upload response did not include a download URL.');
+    return data.downloadUrl;
+  },
+  uploadAttachmentFallback: async (
+    projectId: number | string,
+    formData: FormData,
+  ): Promise<string> => {
+    const { data } = await api.post<string>(
+      `/api/projects/${projectId}/chat/messages/upload-document`,
+      formData,
+    );
+    return data;
+  },
   getSummaries: async (projectId: number | string): Promise<ChatSummaries> => {
     const { data } = await api.get(`/api/projects/${projectId}/chat/summaries`);
     return data;

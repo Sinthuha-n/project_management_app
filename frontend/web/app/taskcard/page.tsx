@@ -115,7 +115,7 @@ function TaskPageContent() {
       return;
     }
 
-    fetchTaskData();
+    void fetchTaskData();
   }, [taskId, mounted, fetchTaskData]);
 
   // Listen to planora:task-updated CustomEvent to invalidate cache and refetch

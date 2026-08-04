@@ -1352,6 +1352,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{projectId}/chat/attachments/upload-capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getChatAttachmentUploadCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{projectId}/chat/attachments/upload/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["finalizeChatAttachmentUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{projectId}/chat/attachments/upload/init": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["initChatAttachmentUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{projectId}/chat/direct/read": {
         parameters: {
             query?: never;
@@ -3796,6 +3844,38 @@ export interface components {
             /** Format: int64 */
             userId?: number;
         };
+        ChatAttachmentUploadCapabilitiesDTO: {
+            allowedExtensions?: string[];
+            directUploadEnabled?: boolean;
+            /** Format: int64 */
+            maxFileSizeBytes?: number;
+            mimeTypesByExtension?: {
+                [key: string]: string[];
+            };
+        };
+        ChatAttachmentUploadFinalizeRequestDTO: {
+            contentType?: string;
+            fileName: string;
+            /** Format: int64 */
+            fileSize: number;
+            objectKey: string;
+        };
+        ChatAttachmentUploadInitRequestDTO: {
+            contentType?: string;
+            fileName: string;
+            /** Format: int64 */
+            fileSize: number;
+        };
+        ChatAttachmentUploadInitResponseDTO: {
+            contentType?: string;
+            /** Format: int64 */
+            expiresInSeconds?: number;
+            objectKey?: string;
+            uploadUrl?: string;
+        };
+        ChatAttachmentUploadResponseDTO: {
+            downloadUrl?: string;
+        };
         ChatInboxActivity: {
             activityStatus?: string;
             chatType?: string;
@@ -5389,6 +5469,7 @@ export interface components {
             /** Format: int64 */
             assigneeId?: number;
             assigneeIds?: number[];
+            clientMutationId?: string;
             /** Format: int32 */
             customInterval?: number;
             description?: string;
@@ -8053,6 +8134,80 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["GithubAutomationLog"][];
+                };
+            };
+        };
+    };
+    getChatAttachmentUploadCapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ChatAttachmentUploadCapabilitiesDTO"];
+                };
+            };
+        };
+    };
+    finalizeChatAttachmentUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatAttachmentUploadFinalizeRequestDTO"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ChatAttachmentUploadResponseDTO"];
+                };
+            };
+        };
+    };
+    initChatAttachmentUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatAttachmentUploadInitRequestDTO"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ChatAttachmentUploadInitResponseDTO"];
                 };
             };
         };

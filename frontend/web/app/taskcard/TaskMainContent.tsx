@@ -166,7 +166,7 @@ const TaskMainContent: React.FC<TaskMainContentProps> = ({
   const { attachments, isUploading, uploadState, error: attachError, uploadFile, removeFile } = useTaskAttachments(taskId);
 
   useEffect(() => {
-    setEditedTitle(title);
+    queueMicrotask(() => setEditedTitle(title));
   }, [title]);
 
   const handleTitleSave = () => {

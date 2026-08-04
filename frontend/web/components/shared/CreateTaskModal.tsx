@@ -62,7 +62,7 @@ export default function CreateTaskModal({
 
   useEffect(() => {
     if (statuses.length > 0 && status === 'TODO') {
-      setStatus(statuses[0].status);
+      queueMicrotask(() => setStatus(statuses[0].status));
     }
   }, [statuses, status]);
 

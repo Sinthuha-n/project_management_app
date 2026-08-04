@@ -69,68 +69,71 @@ const CreateIssueModal: React.FC<CreateIssueModalProps> = ({
   useEffect(() => {
     if (!open) return;
 
-    setTitle(defaultTitle);
-    setBody('');
-    setFieldErrors({});
-    setApiError(null);
-    setSuccess(null);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setTitle(defaultTitle);
+      setBody('');
+      setFieldErrors({});
+      setApiError(null);
+      setSuccess(null);
 
-    const connected  = projectId != null ? getProjectGitHubRepo(projectId) : null;
-    const isConnected = hasConnectedGitHubAccount();
-    const connRepo   = connected?.repoFullName ?? '';
+      const connected  = projectId != null ? getProjectGitHubRepo(projectId) : null;
+      const isConnected = hasConnectedGitHubAccount();
+      const connRepo   = connected?.repoFullName ?? '';
 
-    setRepoFullName(connRepo);
+      setRepoFullName(connRepo);
 
-    const connOption: RepoOption[] = connected
-      ? [{ value: connected.repoFullName, label: `${connected.repoFullName} (connected)` }]
-      : [];
+      const connOption: RepoOption[] = connected
+        ? [{ value: connected.repoFullName, label: `${connected.repoFullName} (connected)` }]
+        : [];
 
     // No linked GitHub account and no connected repo → free-text input
-    if (!isConnected && connOption.length === 0) {
-      setRepoInputMode('text');
-      setRepoOptions([]);
-      setLoadingRepos(false);
-      return;
-    }
+      if (!isConnected && connOption.length === 0) {
+        setRepoInputMode('text');
+        setRepoOptions([]);
+        setLoadingRepos(false);
+        return;
+      }
 
     // No linked GitHub account but has connected repo → single-option select
-    if (!isConnected) {
-      setRepoOptions(connOption);
-      setRepoInputMode('select');
-      setLoadingRepos(false);
-      return;
-    }
-
-    // Has a linked account → fetch the user's repos through the backend
-    let cancelled = false;
-    setLoadingRepos(true);
-
-    fetchRepositories()
-      .then(ghRepos => {
-        if (cancelled) return;
-        const seen  = new Set(connOption.map(o => o.value));
-        const extra = ghRepos
-          .filter(r => !seen.has(r.full_name))
-          .map(r => ({ value: r.full_name, label: r.full_name }));
-        const all = [...connOption, ...extra];
-        setRepoOptions(all);
+      if (!isConnected) {
+        setRepoOptions(connOption);
         setRepoInputMode('select');
-        if (!connRepo && all[0]) setRepoFullName(all[0].value);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        // Graceful fallback: use connected repo if present, otherwise text input
-        if (connOption.length > 0) {
-          setRepoOptions(connOption);
+        setLoadingRepos(false);
+        return;
+      }
+
+      // Has a linked account → fetch the user's repos through the backend
+      setLoadingRepos(true);
+
+      void fetchRepositories()
+        .then(ghRepos => {
+          if (cancelled) return;
+          const seen  = new Set(connOption.map(o => o.value));
+          const extra = ghRepos
+            .filter(r => !seen.has(r.full_name))
+            .map(r => ({ value: r.full_name, label: r.full_name }));
+          const all = [...connOption, ...extra];
+          setRepoOptions(all);
           setRepoInputMode('select');
-        } else {
-          setRepoInputMode('text');
-          setRepoOptions([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingRepos(false);
-      });
+          if (!connRepo && all[0]) setRepoFullName(all[0].value);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          // Graceful fallback: use connected repo if present, otherwise text input
+          if (connOption.length > 0) {
+            setRepoOptions(connOption);
+            setRepoInputMode('select');
+          } else {
+            setRepoInputMode('text');
+            setRepoOptions([]);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingRepos(false);
+        });
+    });
 
     return () => { cancelled = true; };
   }, [open, projectId, defaultTitle]);

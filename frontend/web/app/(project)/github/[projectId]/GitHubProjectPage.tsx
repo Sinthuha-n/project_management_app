@@ -2172,12 +2172,12 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
   }, [projectId, resolveBackendConnectionAfterConflict]);
 
   useEffect(() => {
-    void initializeGitHubView();
+    queueMicrotask(() => void initializeGitHubView());
   }, [initializeGitHubView]);
 
   useEffect(() => {
     localStorage.removeItem('github_force_relogin');
-    setSavedAccounts(getSavedGitHubAccounts());
+    queueMicrotask(() => setSavedAccounts(getSavedGitHubAccounts()));
   }, []);
 
   useEffect(() => {
@@ -2192,7 +2192,7 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
       .catch(() => { });
   }, [projectId]);
 
-  const loadData = useCallback(async (conn: ProjectGitHubConnection) => {
+  const loadData = useCallback(async (_conn: ProjectGitHubConnection) => {
     setLoading(true);
     setPRError(null);
     setCommitError(null);
@@ -2243,7 +2243,7 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
     setLoading(false);
   }, [projectId]);
 
-  const loadIssues = useCallback(async (conn: ProjectGitHubConnection) => {
+  const loadIssues = useCallback(async (_conn: ProjectGitHubConnection) => {
     let isGitHubConnected = false;
     try {
       const status = await fetchGitHubConnectionStatus();
@@ -2268,7 +2268,7 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
   }, [projectId]);
 
   useEffect(() => {
-    if (connection) void loadData(connection);
+    if (connection) queueMicrotask(() => void loadData(connection));
   }, [connection, loadData]);
 
   const loadAutomationRules = useCallback(async () => {
@@ -2305,13 +2305,17 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
 
   useEffect(() => {
     if (connection) {
-      void loadAutomationRules();
-      void loadAutomationLogs();
+      queueMicrotask(() => {
+        void loadAutomationRules();
+        void loadAutomationLogs();
+      });
     } else {
-      setAutomationRules([]);
-      setAutomationLogs([]);
-      setAutomationRulesError(null);
-      setAutomationLogsError(null);
+      queueMicrotask(() => {
+        setAutomationRules([]);
+        setAutomationLogs([]);
+        setAutomationRulesError(null);
+        setAutomationLogsError(null);
+      });
     }
   }, [connection, loadAutomationLogs, loadAutomationRules]);
 
@@ -2337,8 +2341,10 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
   useEffect(() => {
     if (searchParams.get('select_repo') !== '1') return;
     router.replace(`/github/${projectId}`);
-    setShowModal(true);
-    void loadRepos();
+    queueMicrotask(() => {
+      setShowModal(true);
+      void loadRepos();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

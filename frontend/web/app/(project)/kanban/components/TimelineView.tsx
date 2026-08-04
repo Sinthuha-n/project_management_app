@@ -273,12 +273,16 @@ export default function TimelineView({
   const [zoom, setZoom] = useState<TimelineZoom>('day');
   const [groupBy, setGroupBy] = useState<TimelineGroupBy>('none');
   const [filters, setFilters] = useState<TimelineFilters>(DEFAULT_FILTERS);
-  const [localTasks, setLocalTasks] = useState<Task[]>([]);
+  const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
   const [manualRange, setManualRange] = useState<{ start: Date; end: Date } | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setLocalTasks(tasks); }, [tasks]);
+  const [prevTasks, setPrevTasks] = useState<Task[]>(tasks);
+  if (prevTasks !== tasks) {
+    setPrevTasks(tasks);
+    setLocalTasks(tasks);
+  }
 
   const insights = useMemo(() => getTimelineInsights(localTasks, milestones), [localTasks, milestones]);
   const filteredTasks = useMemo(() => filterTimelineTasks(localTasks, filters), [localTasks, filters]);

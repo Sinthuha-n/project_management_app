@@ -28,7 +28,7 @@ export default function CreateSprintModal({
 
   React.useEffect(() => {
     if (isOpen) {
-      setName(defaultName);
+      queueMicrotask(() => setName(defaultName));
       setTimeout(() => {
         if (nameInputRef.current) {
           nameInputRef.current.focus();

@@ -56,7 +56,7 @@ export default function PortfoliosPage() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { queueMicrotask(() => void load()); }, [load]);
 
   const handleCreated = (p: Portfolio) => {
     setPortfolios(prev => [p, ...prev]);

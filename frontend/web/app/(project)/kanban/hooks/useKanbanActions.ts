@@ -9,7 +9,6 @@ import {
   reorderKanbanColumns,
 } from '../api';
 import { toast } from '@/components/ui';
-import { buildSessionCacheKey, setSessionCache } from '@/lib/session-cache';
 import { useTaskMutations } from '@/hooks/useTaskMutations';
 import type { Task as CanonicalTask } from '@/types';
 

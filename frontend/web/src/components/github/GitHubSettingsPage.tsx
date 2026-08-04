@@ -26,7 +26,7 @@ const GitHubSettingsPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    void loadRepositories();
+    queueMicrotask(() => void loadRepositories());
   }, [loadRepositories]);
 
   return (

@@ -84,7 +84,9 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ taskId }) => {
             </div>
             <div className="flex items-baseline gap-2 mb-0.5 flex-wrap">
               <span className="text-sm font-semibold text-cu-text-primary">{activity.actorName}</span>
-              <span className="text-xs text-cu-text-muted">{formatRelativeTime(activity.createdAt, Date.now() + minuteTick * 0)}</span>
+              <span className="text-xs text-cu-text-muted">
+                {minuteTick >= 0 ? formatRelativeTime(activity.createdAt) : ''}
+              </span>
             </div>
             <p className="text-sm text-cu-text-secondary bg-cu-bg-secondary rounded px-3 py-1.5 border border-cu-border">
               {activity.description}

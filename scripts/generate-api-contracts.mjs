@@ -46,7 +46,7 @@ async function main() {
 }
 
 function startBackend() {
-  const command = process.platform === 'win32' ? 'mvnw.cmd' : './mvnw';
+  const command = process.platform === 'win32' ? 'mvnw.cmd' : './scripts/run-maven.sh';
   const child = spawn(command, [
     '-q',
     'spring-boot:run',

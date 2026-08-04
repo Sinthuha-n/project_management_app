@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState, useRef, useCallback, ChangeEvent }
 import { Paperclip, Send, Smile, Loader2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { EmojiStyle, Theme } from 'emoji-picker-react';
-import { uploadChatDocument } from './uploadChatDocument';
+import { CHAT_ATTACHMENT_ACCEPT, uploadChatDocument } from './uploadChatDocument';
 import { useParams } from 'next/navigation';
 import { toast } from '@/components/ui';
 
@@ -51,8 +51,11 @@ export const ChatInput = ({
       // Uploaded S3 URLs are the chat attachment contract: isFileDocument renders
       // them with attachment chrome in messages, threads, and conversation previews.
       onSendMessage(url);
-    } catch {
-      toast("Couldn't upload file. Please try again.", 'error');
+    } catch (error) {
+      toast(
+        error instanceof Error ? error.message : "Couldn't upload file. Please try again.",
+        'error',
+      );
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -187,7 +190,7 @@ export const ChatInput = ({
 
       {/* Input row */}
       <div className={`flex items-center gap-2 bg-cu-bg-secondary border rounded-2xl px-3 py-2.5 sm:py-2 transition-all
-        ${disabled ? 'opacity-60 cursor-not-allowed' : 'focus-within:bg-cu-bg-tertiary focus-within:border-cu-primary/40 focus-within:ring-2 focus-within:ring-cu-primary/10'}
+        ${disabled ? 'opacity-60 cursor-not-allowed' : 'focus-within:bg-cu-bg-tertiary focus-within:border-[var(--cu-focus-border)] focus-within:ring-2 focus-within:ring-[var(--cu-focus-ring)]'}
         border-cu-border shadow-cu-sm`}>
 
         <div ref={emojiPickerRef} className="relative flex-shrink-0">
@@ -231,6 +234,7 @@ export const ChatInput = ({
         <input
           ref={fileInputRef}
           type="file"
+          accept={CHAT_ATTACHMENT_ACCEPT}
           className="hidden"
           onChange={handleFileChange}
           disabled={disabled || uploading}

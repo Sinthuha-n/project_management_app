@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<configuration>
+  <context>
+    <name>Planora isolated CI API</name>
+    <desc>Exclude only endpoints that cannot be meaningfully exercised in the isolated scheduled environment.</desc>
+    <inscope>true</inscope>
+    <incregexes>http://localhost:8080.*</incregexes>
+    <!-- GitHub synchronization is deliberately disabled in CI, so these routes
+         deterministically return 503 without reaching integration behavior. -->
+    <excregexes>http://localhost:8080/api/github/webhooks?.*</excregexes>
+    <!-- Tomcat rejects malformed query strings at the authenticated root before
+         Spring can produce the API's JSON error envelope. The root 401 contract
+         is asserted explicitly by the startup step. -->
+    <excregexes>http://localhost:8080\?.*</excregexes>
+  </context>
+</configuration>

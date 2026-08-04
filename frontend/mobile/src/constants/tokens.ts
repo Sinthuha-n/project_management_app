@@ -17,6 +17,8 @@ export const T = {
   // Borders
   border:         '#E8E8ED',
   borderLight:    '#F0F0F5',
+  focusBorder:    '#64748B',
+  focusShadow:    'rgba(100, 116, 139, 0.22)',
 
   // Text
   textPrimary:    '#1A1A2E',

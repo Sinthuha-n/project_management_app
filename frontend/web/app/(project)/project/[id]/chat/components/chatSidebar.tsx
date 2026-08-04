@@ -161,7 +161,7 @@ export const ChatSidebar = ({
 
       {/* Search */}
       <div className="px-3 pt-3 pb-2">
-        <div className="flex items-center gap-2 rounded-xl border border-cu-border bg-cu-bg-secondary px-3 py-2.5 transition-all focus-within:border-cu-primary/40 focus-within:bg-cu-bg focus-within:ring-2 focus-within:ring-cu-primary/15">
+        <div className="flex items-center gap-2 rounded-xl border border-cu-border bg-cu-bg-secondary px-3 py-2.5 transition-all focus-within:border-[var(--cu-focus-border)] focus-within:bg-cu-bg focus-within:ring-2 focus-within:ring-[var(--cu-focus-ring)]">
           <Search size={14} className="flex-shrink-0 text-cu-text-muted" strokeWidth={2.5} />
           <input
             type="text"

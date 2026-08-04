@@ -46,7 +46,7 @@ export function ChatSearchPanel({
           className="overflow-hidden border-b border-cu-border bg-cu-bg"
         >
           <div className="px-5 py-3 flex items-center gap-2">
-            <div className="flex-1 flex items-center gap-2 bg-cu-bg-secondary border border-cu-border rounded-xl px-3 py-2 focus-within:border-cu-primary/40 focus-within:ring-2 focus-within:ring-cu-primary/10 transition-all">
+            <div className="flex-1 flex items-center gap-2 bg-cu-bg-secondary border border-cu-border rounded-xl px-3 py-2 focus-within:border-[var(--cu-focus-border)] focus-within:ring-2 focus-within:ring-[var(--cu-focus-ring)] transition-all">
               <Search size={14} className="text-cu-text-muted flex-shrink-0" strokeWidth={2.5} />
               <input
                 type="text"

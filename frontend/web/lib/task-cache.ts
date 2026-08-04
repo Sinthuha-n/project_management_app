@@ -81,12 +81,19 @@ export function createOptimisticTask(payload: CreateTaskRequest, mutationId: str
 
 export function applyTaskMutationToList(tasks: Task[] | undefined, message: TaskMutationMessage, archived: boolean): Task[] {
   const current = Array.isArray(tasks) ? tasks : [];
-  const removeIds = new Set([message.taskId, message.replacesTaskId].filter((id): id is number => id != null));
-  const withoutCurrent = current.filter((task) => !removeIds.has(task.id));
+  const matchingClientMutationId = message.task?.clientMutationId
+    ?? (message.operation === 'created' ? message.mutationId : undefined);
+  const matches = (task: Task) => task.id === message.taskId
+    || task.id === message.replacesTaskId
+    || Boolean(
+      matchingClientMutationId
+      && task.clientMutationId === matchingClientMutationId,
+    );
+  const existingIndex = current.findIndex(matches);
+  const existing = existingIndex >= 0 ? current[existingIndex] : undefined;
 
-  if (message.operation === 'deleted') return withoutCurrent;
+  if (message.operation === 'deleted') return current.filter((task) => !matches(task));
 
-  const existing = current.find((task) => task.id === message.taskId || task.id === message.replacesTaskId);
   const nextTask = message.task
     ? { ...existing, ...message.task }
     : existing
@@ -95,7 +102,20 @@ export function applyTaskMutationToList(tasks: Task[] | undefined, message: Task
   if (!nextTask) return current;
 
   const belongsInCache = archived ? Boolean(nextTask.archived) : !nextTask.archived;
-  return belongsInCache ? [...withoutCurrent, nextTask] : withoutCurrent;
+  const reconciled: Task[] = [];
+  let inserted = false;
+  for (const task of current) {
+    if (!matches(task)) {
+      reconciled.push(task);
+      continue;
+    }
+    if (belongsInCache && !inserted) {
+      reconciled.push(nextTask);
+      inserted = true;
+    }
+  }
+  if (belongsInCache && !inserted) reconciled.push(nextTask);
+  return reconciled;
 }
 
 function persistedKey(projectId: number, archived: boolean): string | null {

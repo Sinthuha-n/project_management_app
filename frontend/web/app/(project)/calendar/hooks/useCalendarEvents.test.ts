@@ -1,10 +1,27 @@
 import { act, renderHook } from '@testing-library/react';
 import { useCalendarEvents } from './useCalendarEvents';
-import { fetchCalendarEvents, patchTaskDates, mapTaskToCalendarEvent } from '../api';
+import { fetchCalendarEvents, patchTaskDates } from '../api';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
-import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
+import { getSessionCache, setSessionCache } from '@/lib/session-cache';
 import { tasksApi } from '@/services/tasks-contract';
 import type { Task } from '@/types';
+
+type TaskSocketEvent = Parameters<Parameters<typeof useTaskWebSocket>[1]>[0];
+type TaskSocketPayload = NonNullable<TaskSocketEvent['task']>;
+
+const socketTask = (overrides: Partial<TaskSocketPayload>): TaskSocketPayload => ({
+  id: 1,
+  title: 'Task',
+  storyPoint: 0,
+  status: 'TODO',
+  priority: 'MEDIUM',
+  sprintId: null,
+  assigneeName: null,
+  assigneePhotoUrl: null,
+  startDate: null,
+  dueDate: null,
+  ...overrides,
+});
 
 // Mock dependencies
 jest.mock('../api', () => ({
@@ -46,7 +63,7 @@ describe('useCalendarEvents Hook', () => {
   const setSessionCacheMock = setSessionCache as jest.Mock;
   const tasksApiGetMock = tasksApi.get as jest.Mock;
 
-  let wsCallback: (event: any) => void;
+  let wsCallback: Parameters<typeof useTaskWebSocket>[1];
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -65,7 +82,7 @@ describe('useCalendarEvents Hook', () => {
       { id: 'task-2', taskId: 2, title: 'Network Task', kind: 'task' as const },
     ]);
 
-    let hookResult: any;
+    let hookResult!: { current: ReturnType<typeof useCalendarEvents> };
     await act(async () => {
       const { result } = renderHook(() => useCalendarEvents('123'));
       hookResult = result;
@@ -144,13 +161,13 @@ describe('useCalendarEvents Hook', () => {
     });
 
     // Simulate failure
-    let resolveApiCall: any;
+    let rejectApiCall: (() => void) | undefined;
     const apiPromise = new Promise((_, reject) => {
-      resolveApiCall = () => reject(new Error('Network error'));
+      rejectApiCall = () => reject(new Error('Network error'));
     });
     patchTaskDatesMock.mockReturnValue(apiPromise);
 
-    let promise: any;
+    let promise: Promise<void> | undefined;
     act(() => {
       promise = result.current.patchEventDate('task-1', new Date(2026, 6, 15)); // 2026-07-15
     });
@@ -160,7 +177,7 @@ describe('useCalendarEvents Hook', () => {
 
     // Trigger API failure and await hook resolution
     await act(async () => {
-      resolveApiCall();
+      rejectApiCall?.();
       try {
         await promise;
       } catch {
@@ -207,7 +224,7 @@ describe('useCalendarEvents Hook', () => {
     act(() => {
       wsCallback({
         type: 'TASK_CREATED',
-        task: { id: 5, title: 'WS Task', startDate: '2026-07-05', archived: false },
+        task: socketTask({ id: 5, title: 'WS Task', startDate: '2026-07-05', archived: false }),
       });
     });
 
@@ -229,7 +246,7 @@ describe('useCalendarEvents Hook', () => {
     act(() => {
       wsCallback({
         type: 'TASK_UPDATED',
-        task: { id: 1, title: 'Task 1 Modified', startDate: '2026-07-11', archived: false },
+        task: socketTask({ id: 1, title: 'Task 1 Modified', startDate: '2026-07-11', archived: false }),
       });
     });
     expect(result.current.events.find((e) => e.taskId === 1)?.title).toBe('Task 1 Modified');
@@ -238,7 +255,7 @@ describe('useCalendarEvents Hook', () => {
     act(() => {
       wsCallback({
         type: 'TASK_UPDATED',
-        task: { id: 1, title: 'Task 1 Modified', startDate: '2026-07-11', archived: true },
+        task: socketTask({ id: 1, title: 'Task 1 Modified', startDate: '2026-07-11', archived: true }),
       });
     });
     expect(result.current.events.some((e) => e.taskId === 1)).toBe(false);

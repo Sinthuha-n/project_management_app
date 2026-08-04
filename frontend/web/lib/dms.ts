@@ -201,7 +201,7 @@ export async function uploadReservedDocument(
         const response = await api.post<DocumentItem>(
             `/api/projects/${projectId}/documents/uploads/${reservation.uploadId}`,
             formData,
-            { headers: { 'Content-Type': 'multipart/form-data' }, signal }
+            { signal }
         );
         return response.data;
     }
@@ -314,11 +314,10 @@ async function uploadViaBackend(projectId: number, file: File, folderId?: number
     }
 
     try {
-        const response = await api.post<DocumentItem>(`/api/projects/${projectId}/documents/upload`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-        });
+        const response = await api.post<DocumentItem>(
+            `/api/projects/${projectId}/documents/upload`,
+            formData,
+        );
 
         return response.data;
     } catch (error) {

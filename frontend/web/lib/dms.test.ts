@@ -108,7 +108,6 @@ describe('DMS API contract', () => {
             2,
             '/api/projects/12/documents/upload',
             expect.any(FormData),
-            { headers: { 'Content-Type': 'multipart/form-data' } }
         );
     });
 

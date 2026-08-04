@@ -262,8 +262,8 @@ export function useListTasks() {
     }
   }, [projectId]);
 
-  useEffect(() => { void loadTasks(); }, [loadTasks]);
-  useEffect(() => { void loadRowEditDependencies(); }, [loadRowEditDependencies]);
+  useEffect(() => { queueMicrotask(() => void loadTasks()); }, [loadTasks]);
+  useEffect(() => { queueMicrotask(() => void loadRowEditDependencies()); }, [loadRowEditDependencies]);
 
   useEffect(() => {
     const onTaskUpdated = (e: Event) => {

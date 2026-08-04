@@ -183,6 +183,8 @@ export const ChatMessages = ({
 
   const visibleMessages = messages.filter((msg) => msg.type !== 'JOIN' && !msg.parentMessageId);
 
+  // TanStack Virtual intentionally exposes mutable measurement functions that React Compiler cannot memoize.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
     count: visibleMessages.length,
     getScrollElement: () => scrollRef.current,

@@ -597,7 +597,7 @@ function MilestonesPageContent() {
   }, [projectId, cacheKey]);
 
   useEffect(() => {
-    void loadData();
+    queueMicrotask(() => void loadData());
   }, [loadData]);
 
   useEffect(() => {

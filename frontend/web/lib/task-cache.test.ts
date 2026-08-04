@@ -20,12 +20,96 @@ describe('task cache reducer', () => {
   });
 
   it('replaces an optimistic task with the authoritative server task', () => {
-    const optimistic = { id: -1, projectId: 7, title: 'Draft', status: 'TODO', syncState: 'pending' } as Task;
-    const server = { id: 10, projectId: 7, title: 'Saved', status: 'TODO', syncState: 'synced' } as Task;
+    const optimistic = {
+      id: -1,
+      projectId: 7,
+      title: 'Draft',
+      status: 'TODO',
+      clientMutationId: 'mutation-1',
+      syncState: 'pending',
+    } as Task;
+    const server = {
+      id: 10,
+      projectId: 7,
+      title: 'Saved',
+      status: 'TODO',
+      clientMutationId: 'mutation-1',
+      syncState: 'synced',
+    } as Task;
     const result = applyTaskMutationToList([optimistic], baseMessage({
       operation: 'created', taskId: 10, replacesTaskId: -1, task: server,
     }), false);
     expect(result).toEqual([server]);
+  });
+
+  it.each([
+    ['websocket then http', ['websocket', 'http']],
+    ['http then websocket', ['http', 'websocket']],
+    ['duplicate websocket broadcast', ['websocket', 'websocket']],
+  ])('reconciles optimistic creation once when %s', (_label, order) => {
+    const before = { id: 5, projectId: 7, title: 'Before', status: 'TODO' } as Task;
+    const optimistic = {
+      id: -1,
+      projectId: 7,
+      title: 'New task',
+      status: 'TODO',
+      clientMutationId: 'client-12345678',
+      syncState: 'pending',
+    } as Task;
+    const server = {
+      id: 10,
+      projectId: 7,
+      title: 'New task',
+      status: 'TODO',
+      clientMutationId: 'client-12345678',
+      syncState: 'synced',
+    } as Task;
+    let tasks = [before, optimistic];
+
+    for (const source of order) {
+      tasks = applyTaskMutationToList(tasks, baseMessage({
+        operation: 'created',
+        taskId: 10,
+        replacesTaskId: source === 'http' ? -1 : undefined,
+        mutationId: 'client-12345678',
+        source: source as 'http' | 'websocket',
+        task: server,
+      }), false);
+    }
+
+    expect(tasks.map((task) => task.id)).toEqual([5, 10]);
+  });
+
+  it('keeps simultaneous same-title creations separate by mutation id', () => {
+    const first = {
+      id: -1,
+      projectId: 7,
+      title: 'Same title',
+      status: 'TODO',
+      clientMutationId: 'client-first',
+    } as Task;
+    const second = {
+      id: -2,
+      projectId: 7,
+      title: 'Same title',
+      status: 'TODO',
+      clientMutationId: 'client-second',
+    } as Task;
+    const serverSecond = {
+      ...second,
+      id: 22,
+      syncState: 'synced' as const,
+    };
+
+    const result = applyTaskMutationToList([first, second], baseMessage({
+      operation: 'created',
+      taskId: 22,
+      mutationId: 'client-second',
+      source: 'websocket',
+      task: serverSecond,
+    }), false);
+
+    expect(result.map((task) => task.id)).toEqual([-1, 22]);
   });
 
   it('moves archived tasks between active and archived caches', () => {

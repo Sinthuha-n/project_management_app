@@ -92,24 +92,26 @@ export function usePersistedData<T>({
   useEffect(() => {
     requestGenerationRef.current += 1;
     hasDataRef.current = false;
-    setData(null);
-    setError(null);
-    if (skip) { setLoading(false); return; }
+    queueMicrotask(() => {
+      setData(null);
+      setError(null);
+      if (skip) { setLoading(false); return; }
 
-    const key = getKey();
-    if (!key) { setLoading(false); return; }
-    setLoading(true);
+      const key = getKey();
+      if (!key) { setLoading(false); return; }
+      setLoading(true);
 
-    const cached = getSessionCache<T>(key, { allowStale: true });
-    if (cached.data !== null) {
-      hasDataRef.current = true;
-      setData(cached.data);
-      setLoading(false);
-      // Revalidate silently if stale
-      if (cached.isStale) void fetchAndCache(false);
-    } else {
-      void fetchAndCache(true);
-    }
+      const cached = getSessionCache<T>(key, { allowStale: true });
+      if (cached.data !== null) {
+        hasDataRef.current = true;
+        setData(cached.data);
+        setLoading(false);
+        // Revalidate silently if stale
+        if (cached.isStale) void fetchAndCache(false);
+      } else {
+        void fetchAndCache(true);
+      }
+    });
   }, [skip, getKey, fetchAndCache]);
 
   // Background sync
