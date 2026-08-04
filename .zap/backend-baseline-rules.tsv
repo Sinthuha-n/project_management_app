@@ -1,4 +1,0 @@
-# The API root, robots.txt, and sitemap.xml deliberately require authentication.
-# ZAP reports their 401 responses as non-storable content; retaining the 401 is
-# the security requirement, so ignore this single informational cache alert.
-10049	IGNORE	(Non-Storable Content)

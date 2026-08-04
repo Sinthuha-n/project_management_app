@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -119,5 +120,16 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.status").value(405))
                 .andExpect(jsonPath("$.errorCode").value("METHOD_NOT_ALLOWED"))
                 .andExpect(jsonPath("$.path").value("/api/auth/refresh"));
+    }
+
+    @Test
+    @WithMockUserPrincipal
+    void whenPathVariableHasWrongType_thenReturnBadRequest() throws Exception {
+        mockMvc.perform(get("/api/auth/users/not-a-number/photo"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.errorCode").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.message").value("Invalid request parameter"))
+                .andExpect(jsonPath("$.path").value("/api/auth/users/not-a-number/photo"));
     }
 }
