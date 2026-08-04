@@ -1,13 +1,14 @@
 'use client';
 
 // Displays real-time user notifications and handles dropdown interactions for reading/deleting them.
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent as ReactMouseEvent } from 'react';
 import Link from 'next/link';
 import { Bell, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGlobalNotifications } from '@/components/providers/GlobalNotificationProvider';
 import { toast } from '@/components/ui/Toast';
 import { Notification } from '@/services/notifications-service';
+import { formatDate, parseInstant } from '@/lib/date-time';
 
 type NotificationListItem = {
   rowKey: string;
@@ -79,6 +80,7 @@ function getChatDescriptor(notification: Notification): ChatDescriptor | null {
 }
 
 function buildNotificationListItems(notifications: Notification[]): NotificationListItem[] {
+  if (!Array.isArray(notifications)) return [];
   const grouped = new Map<string, { ids: number[]; unreadIds: number[]; link: string; createdAt: string; chatName: string }>();
   const rows: NotificationListItem[] = [];
 
@@ -116,7 +118,7 @@ function buildNotificationListItems(notifications: Notification[]): Notification
       existing.unreadIds.push(notification.id);
     }
 
-    if (new Date(notification.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
+    if ((parseInstant(notification.createdAt)?.getTime() ?? 0) > (parseInstant(existing.createdAt)?.getTime() ?? 0)) {
       existing.createdAt = notification.createdAt;
       existing.link = link;
     }
@@ -135,11 +137,17 @@ function buildNotificationListItems(notifications: Notification[]): Notification
     });
   });
 
-  return rows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return rows.sort((a, b) => (parseInstant(b.createdAt)?.getTime() ?? 0) - (parseInstant(a.createdAt)?.getTime() ?? 0));
 }
 
 export function NotificationBell() {
-  const [hasMounted, setHasMounted] = useState(false);
+  // Keep server and first-client markup aligned while allowing the unread badge
+  // to appear immediately after hydration without an effect-driven state sync.
+  const hasMounted = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
   const [showDropdown, setShowDropdown] = useState(false);
   const [pendingReadIds, setPendingReadIds] = useState<number[]>([]);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<number[]>([]);
@@ -156,10 +164,6 @@ export function NotificationBell() {
   } = useGlobalNotifications();
 
   const listItems = useMemo(() => buildNotificationListItems(notifications), [notifications]);
-
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!showDropdown) {
@@ -276,6 +280,9 @@ export function NotificationBell() {
       <button
         onClick={() => setShowDropdown(!showDropdown)}
         className="relative inline-flex h-8 w-8 items-center justify-center rounded-full text-cu-text-secondary hover:text-cu-text-primary hover:bg-cu-hover transition-colors max-sm:h-9 max-sm:w-9"
+        aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
+        aria-expanded={showDropdown}
+        aria-haspopup="dialog"
       >
         <span className="relative inline-flex items-center justify-center leading-none">
           <Bell size={20} strokeWidth={2.2} className="block text-current" />
@@ -298,6 +305,8 @@ export function NotificationBell() {
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="absolute right-0 mt-3 w-80 bg-cu-bg border border-cu-border shadow-cu-xl rounded-2xl overflow-hidden z-[var(--cu-z-dropdown)] origin-top-right transition-all"
+            role="dialog"
+            aria-label="Notifications"
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-cu-border bg-cu-bg/80">
               <span className="font-bold text-cu-text-primary text-[14px] font-outfit">Notifications</span>
@@ -352,7 +361,7 @@ export function NotificationBell() {
                             {item.displayMessage}
                           </p>
                           <span className="text-[10px] text-cu-text-muted mt-1.5 block font-bold uppercase tracking-wider font-outfit">
-                            {new Date(item.createdAt).toLocaleDateString()}
+                            {formatDate(item.createdAt)}
                           </span>
                         </div>
                       </div>

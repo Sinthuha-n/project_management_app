@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.Duration;
 
 /**
  * Automated database maintenance service (Garbage Collection).
@@ -25,9 +26,11 @@ public class TokenCleanupScheduler {
     private static final Logger logger = LoggerFactory.getLogger(TokenCleanupScheduler.class);
 
     private final TokenRepository tokenRepository;
+    private final ScheduledJobLockService scheduledJobLockService;
 
-    public TokenCleanupScheduler(TokenRepository tokenRepository) {
+    public TokenCleanupScheduler(TokenRepository tokenRepository, ScheduledJobLockService scheduledJobLockService) {
         this.tokenRepository = tokenRepository;
+        this.scheduledJobLockService = scheduledJobLockService;
     }
 
     /**
@@ -42,6 +45,10 @@ public class TokenCleanupScheduler {
     // deletion either completely succeeds or completely rolls back if the DB crashes mid-way.
     @Transactional
     public void cleanUpExpiredAndUsedTokens() {
+        if (!scheduledJobLockService.tryAcquire("token-cleanup", Duration.ofMinutes(30))) {
+            logger.debug("Token cleanup is already running on another instance.");
+            return;
+        }
         // Step 1. Log the start of the job so DevOps/Admins can trace background activity.
         logger.info("Running scheduled token cleanup…");
         try {
@@ -57,6 +64,8 @@ public class TokenCleanupScheduler {
             // Catching this prevents the entire Spring Scheduler thread from crashing
             // and failing to run other scheduled tasks.
             logger.error("Token cleanup failed: {}", e.getMessage(), e);
+        } finally {
+            scheduledJobLockService.release("token-cleanup");
         }
     }
 }

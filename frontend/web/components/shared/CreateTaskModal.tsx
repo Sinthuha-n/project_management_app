@@ -21,7 +21,7 @@ export interface CreateTaskData {
 interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateTask: (taskData: CreateTaskData) => Promise<void>;
+  onCreateTask: (taskData: CreateTaskData) => Promise<void> | void;
   projectId: number;
   initialDueDate?: string;
 }
@@ -62,7 +62,7 @@ export default function CreateTaskModal({
 
   useEffect(() => {
     if (statuses.length > 0 && status === 'TODO') {
-      setStatus(statuses[0].status);
+      queueMicrotask(() => setStatus(statuses[0].status));
     }
   }, [statuses, status]);
 
@@ -90,7 +90,7 @@ export default function CreateTaskModal({
 
     setSubmitting(true);
     try {
-      await onCreateTask({
+      const result = onCreateTask({
         title: title.trim(),
         status,
         priority,
@@ -99,6 +99,9 @@ export default function CreateTaskModal({
         labelIds: selectedLabels.map((l) => l.id),
         dueDate: dueDate || undefined,
       });
+      // Optimistic coordinators return immediately and own remote error
+      // reporting. Legacy async callbacks are still supported.
+      if (result && typeof result.then === 'function') await result;
       resetForm();
       onClose();
     } catch {

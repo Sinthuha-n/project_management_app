@@ -13,6 +13,8 @@ import {
 import { tasksApi } from '@/services/api-contract';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
 import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
+import { useProjectTasks } from '@/hooks/useProjectTasks';
+import { useVisibilityInterval } from '@/hooks/useVisibilityInterval';
 
 export const DEFAULT_COLUMN_CONFIGS: KanbanColumnConfig[] = [
   { id: 0, status: 'TODO', title: 'To Do', color: '', wipLimit: 0 },
@@ -22,6 +24,7 @@ export const DEFAULT_COLUMN_CONFIGS: KanbanColumnConfig[] = [
 ];
 
 export function useKanbanData(projectId: string | null) {
+  const canonicalTasks = useProjectTasks(projectId, false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +42,15 @@ export function useKanbanData(projectId: string | null) {
   useEffect(() => { columnConfigsRef.current = columnConfigs; }, [columnConfigs]);
   const kanbanIdRef = useRef<number | null>(kanbanId);
   useEffect(() => { kanbanIdRef.current = kanbanId; }, [kanbanId]);
+
+  useEffect(() => {
+    if (!canonicalTasks.authoritative) return;
+    const next = canonicalTasks.tasks as unknown as Task[];
+    queueMicrotask(() => {
+      setTasks(next);
+      tasksRef.current = next;
+    });
+  }, [canonicalTasks.authoritative, canonicalTasks.tasks]);
 
   // ── Local Task Helpers ──────────────────────────────────────────────────────
 
@@ -137,7 +149,6 @@ export function useKanbanData(projectId: string | null) {
         if (cached.data.tasks) setTasks(cached.data.tasks);
         if (cached.data.kanbanId) setKanbanId(cached.data.kanbanId);
         setLoading(false);
-        if (!cached.isStale) return; // Fresh cache — skip network fetch
       }
     }
 
@@ -172,11 +183,13 @@ export function useKanbanData(projectId: string | null) {
 
   useEffect(() => {
     if (!projectId) return;
-    void fetchStaticData();
-    void fetchData({ showSpinner: true });
-    const id = setInterval(() => void fetchData({ showSpinner: false }), 30_000);
-    return () => clearInterval(id);
+    queueMicrotask(() => {
+      void fetchStaticData();
+      void fetchData({ showSpinner: true });
+    });
   }, [projectId, fetchStaticData, fetchData]);
+
+  useVisibilityInterval(() => void fetchData({ showSpinner: false }), 30_000, Boolean(projectId));
 
   // ── WebSocket real-time task updates ──────────────────────────────────────
 

@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 
 import java.time.Instant;
 
@@ -17,6 +19,11 @@ public interface TokenRepository extends JpaRepository<VerificationToken, Long> 
     VerificationToken findByToken(String token);
 
     VerificationToken findByUserAndTokenType(User user, VerificationToken.TokenType tokenType);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select token from VerificationToken token where token.user = :user and token.tokenType = :tokenType")
+    VerificationToken findByUserAndTokenTypeForUpdate(@Param("user") User user,
+            @Param("tokenType") VerificationToken.TokenType tokenType);
 
     @Modifying(flushAutomatically = true)
     @Query("delete from VerificationToken token where token.user = :user and token.tokenType = :tokenType")

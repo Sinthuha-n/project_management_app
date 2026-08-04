@@ -21,6 +21,7 @@ export default function LoginPage() {
     isLoading,
     isCheckingSession,
     error,
+    cooldown,
     handleLogin,
   } = useLoginForm();
 
@@ -101,7 +102,7 @@ export default function LoginPage() {
                             autoCorrect="off"
                             inputMode="email"
                             // The text-[16px] prevents iOS Safari from auto-zooming
-                            className="w-full px-4 py-3 rounded-xl border border-cu-border bg-cu-bg text-cu-text-primary placeholder:text-cu-text-muted focus:border-cu-primary focus:ring-4 focus:ring-cu-primary/10 outline-none transition-all text-[16px] sm:text-sm"
+                            className="w-full px-4 py-3 rounded-xl border border-cu-border bg-cu-bg text-cu-text-primary placeholder:text-cu-text-muted focus:border-[var(--cu-focus-border)] focus:ring-4 focus:ring-[var(--cu-focus-ring)] outline-none transition-all text-[16px] sm:text-sm"
                             placeholder="Enter your email"
                             value={email}
                             // Data Normalization: Force lowercase immediately to prevent case-sensitive login bugs later.
@@ -120,7 +121,7 @@ export default function LoginPage() {
                                 id="login-password"
                                 type={showPassword ? 'text' : 'password'}
                                 autoComplete="current-password"
-                                className="w-full px-4 py-3 pr-11 rounded-xl border border-cu-border bg-cu-bg text-cu-text-primary placeholder:text-cu-text-muted focus:border-cu-primary focus:ring-4 focus:ring-cu-primary/10 outline-none transition-all text-[16px] sm:text-sm"
+                                className="w-full px-4 py-3 pr-11 rounded-xl border border-cu-border bg-cu-bg text-cu-text-primary placeholder:text-cu-text-muted focus:border-[var(--cu-focus-border)] focus:ring-4 focus:ring-[var(--cu-focus-ring)] outline-none transition-all text-[16px] sm:text-sm"
                                 placeholder="Enter your password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
@@ -162,10 +163,10 @@ export default function LoginPage() {
                      {/* Accessibility: The button's disabled state is managed by the isLoading flag to prevent multiple submissions */}
                     <button
                         type="submit"
-                        disabled={isLoading}
+                            disabled={isLoading || cooldown > 0}
                         className="w-full rounded-lg bg-[#155DFC] py-2 min-h-[44px] font-bold text-white shadow-sm transition-colors hover:bg-[#0C4DDA] disabled:cursor-not-allowed disabled:bg-[#155DFC] disabled:text-white disabled:opacity-60"
                     >
-                        {isLoading ? 'Signing in...' : 'Sign In'}
+                            {isLoading ? 'Signing in...' : cooldown > 0 ? `Try again in ${cooldown}s` : 'Sign In'}
                     </button>
                 </form>
 

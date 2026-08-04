@@ -11,10 +11,7 @@ public class DocumentUploadInitRequestDTO {
     private String fileName;
 
     @NotBlank(message = "contentType is required")
-    @Pattern(
-        regexp = "^(application/pdf|application/msword|application/vnd\\.openxmlformats-officedocument\\.wordprocessingml\\.document|application/vnd\\.ms-excel|application/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet|text/plain|image/jpeg|image/png|image/gif|image/webp)$",
-        message = "Unsupported content type"
-    )
+    @Size(max = 255, message = "Content type must be 255 characters or fewer")
     private String contentType;
 
     @NotNull(message = "fileSize is required")

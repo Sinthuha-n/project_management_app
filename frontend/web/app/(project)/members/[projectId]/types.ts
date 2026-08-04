@@ -1,6 +1,9 @@
+export type TeamRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
+export type AssignableTeamRole = Exclude<TeamRole, 'OWNER'>;
+
 export interface Member {
   id: number;
-  role: string;
+  role: TeamRole;
   user: {
     userId: number;
     username: string;
@@ -18,7 +21,7 @@ export interface PendingInvite {
   email: string;
   invitedAt: string;
   status: string;
-  role: string;
+  role: AssignableTeamRole;
 }
 
 export type MemberCombined = Member & { invitedAt?: string };

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -14,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import api from '@/src/api/axios';
 import { T } from '@/src/constants/tokens';
+import { StateView } from '@/src/components/ui/StateView';
 
 type ChatInboxActivity = {
   projectId: number;
@@ -82,6 +82,8 @@ function InboxRow({ activity }: { activity: ChatInboxActivity }) {
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${getActivityTitle(activity)} in ${activity.projectName}${activity.unread ? `, ${activity.unseenCount} unread` : ''}`}
       onPress={() => router.push(buildChatRoute(activity) as never)}
       style={({ pressed }) => [styles.row, activity.unread && styles.rowUnread, pressed && styles.rowPressed]}
     >
@@ -165,25 +167,15 @@ export default function InboxScreen() {
         }
       >
         {loading && activities.length === 0 ? (
-          <View style={styles.centerState}>
-            <ActivityIndicator color={T.primary} />
-          </View>
+          <StateView loading title="Loading inbox" />
         ) : error ? (
-          <Pressable onPress={() => loadInbox()} style={styles.emptyState}>
-            <Ionicons name="warning-outline" size={28} color="#EF4444" />
-            <Text style={styles.emptyTitle}>{error}</Text>
-            <Text style={styles.emptyText}>Tap to retry.</Text>
-          </Pressable>
+          <StateView title="Inbox unavailable" message={error} icon="warning-outline" actionLabel="Try again" onAction={loadInbox} />
         ) : activities.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="mail-open-outline" size={28} color="#94A3B8" />
-            <Text style={styles.emptyTitle}>No messages yet</Text>
-            <Text style={styles.emptyText}>Team, room, and direct chat activity will appear here.</Text>
-          </View>
+          <StateView title="No messages yet" message="Team, room, and direct chat activity will appear here." icon="mail-open-outline" />
         ) : (
-          activities.map((activity, index) => (
+          activities.map((activity) => (
             <InboxRow
-              key={`${activity.projectId}-${activity.chatType}-${activity.roomId || activity.username || 'team'}-${index}`}
+              key={`${activity.projectId}-${activity.chatType}-${activity.roomId || activity.username || 'team'}`}
               activity={activity}
             />
           ))

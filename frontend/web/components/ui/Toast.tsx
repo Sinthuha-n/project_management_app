@@ -79,7 +79,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
-      <div className="fixed bottom-4 right-4 z-[var(--cu-z-toast)] flex flex-col gap-2 max-w-sm">
+      <div className="fixed bottom-4 right-4 z-[var(--cu-z-toast)] flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-2 sm:w-auto" aria-live="polite" aria-relevant="additions">
         <AnimatePresence>
           {toasts.map((t) => (
             <ToastItem key={t.id} toast={t} onDismiss={removeToast} />
@@ -109,6 +109,7 @@ function ToastItem({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 8, scale: 0.95 }}
       transition={{ duration: 0.2 }}
+      role={t.type === 'error' ? 'alert' : 'status'}
       className={`flex items-start gap-2.5 px-4 py-3 rounded-cu-lg border shadow-cu-md ${bgMap[t.type]}`}
     >
       <span className="mt-0.5 shrink-0">{iconMap[t.type]}</span>
@@ -126,7 +127,8 @@ function ToastItem({
           </button>
           <button
             onClick={() => onDismiss(t.id)}
-            className="shrink-0 text-cu-text-tertiary hover:text-cu-text-primary transition-colors"
+            aria-label="Dismiss notification"
+            className="shrink-0 text-cu-text-tertiary hover:text-cu-text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cu-primary"
           >
             <X size={14} />
           </button>
@@ -134,7 +136,8 @@ function ToastItem({
       ) : (
         <button
           onClick={() => onDismiss(t.id)}
-          className="shrink-0 text-cu-text-tertiary hover:text-cu-text-primary transition-colors"
+          aria-label="Dismiss notification"
+          className="shrink-0 text-cu-text-tertiary hover:text-cu-text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cu-primary"
         >
           <X size={14} />
         </button>

@@ -1,4 +1,4 @@
-import type { Member, MemberCombined, PendingInvite } from './types';
+import type { AssignableTeamRole, Member, MemberCombined, PendingInvite, TeamRole } from './types';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 
 const MEMBERS_CACHE_KEY_PREFIX = 'planora:members:';
@@ -25,7 +25,8 @@ export function buildCombinedMembers(members: Member[], pending: PendingInvite[]
   return [
     ...members,
     ...pending.map((invite) => {
-      const role = typeof invite.role === 'string' && invite.role.length > 0 ? invite.role.toUpperCase() : 'MEMBER';
+      const normalizedRole = normalizeTeamRole(invite.role);
+      const role: AssignableTeamRole = normalizedRole && normalizedRole !== 'OWNER' ? normalizedRole : 'MEMBER';
       return {
         id: invite.id,
         role,
@@ -55,7 +56,7 @@ export function applyProjectOwnerRole(members: Member[], projectOwnerId?: number
     }
 
     changed = true;
-    return { ...member, role: 'OWNER' };
+    return { ...member, role: 'OWNER' as const };
   });
 
   return changed ? normalizedMembers : members;
@@ -92,19 +93,53 @@ export function resolveProjectOwnerId(project: unknown): number | null {
   return null;
 }
 
-export function canManageMember(
-  currentUserRole: string | null,
+export function normalizeTeamRole(role?: string | null): TeamRole | null {
+  const normalized = role?.trim().toUpperCase();
+  if (normalized === 'OWNER' || normalized === 'ADMIN' || normalized === 'MEMBER' || normalized === 'VIEWER') {
+    return normalized;
+  }
+  return null;
+}
+
+function isCurrentUser(
+  currentUserId: number | null,
   currentUserEmail: string | null,
   targetMember: MemberCombined,
 ): boolean {
-  if (!currentUserRole) return false;
+  if (currentUserId !== null && targetMember.user.userId === currentUserId) return true;
+  return Boolean(currentUserEmail && targetMember.user.email?.toLowerCase() === currentUserEmail);
+}
 
-  const currentRole = String(currentUserRole).toUpperCase().trim();
-  const targetRole = String(targetMember.role).toUpperCase().trim();
+export function getAllowedRoleOptions(
+  currentUserRole: string | null,
+  currentUserId: number | null,
+  currentUserEmail: string | null,
+  targetMember: MemberCombined,
+): AssignableTeamRole[] {
+  const currentRole = normalizeTeamRole(currentUserRole);
+  const targetRole = normalizeTeamRole(targetMember.role);
 
-  if (targetMember.status === 'Pending') return false;
-  if (targetRole === 'OWNER') return false;
-  if (currentUserEmail && targetMember.user.email?.toLowerCase() === currentUserEmail) return false;
+  if (targetMember.status === 'Pending' || !targetRole || targetRole === 'OWNER') return [];
+  if (isCurrentUser(currentUserId, currentUserEmail, targetMember)) return [];
+  if (currentRole === 'OWNER') return ['ADMIN', 'MEMBER', 'VIEWER'];
+  if (currentRole === 'ADMIN' && (targetRole === 'MEMBER' || targetRole === 'VIEWER')) {
+    return ['MEMBER', 'VIEWER'];
+  }
+
+  return [];
+}
+
+export function canRemoveMember(
+  currentUserRole: string | null,
+  currentUserId: number | null,
+  currentUserEmail: string | null,
+  targetMember: MemberCombined,
+): boolean {
+  const currentRole = normalizeTeamRole(currentUserRole);
+  const targetRole = normalizeTeamRole(targetMember.role);
+
+  if (targetMember.status === 'Pending' || !targetRole || targetRole === 'OWNER') return false;
+  if (isCurrentUser(currentUserId, currentUserEmail, targetMember)) return false;
   if (currentRole === 'OWNER') return true;
   if (currentRole === 'ADMIN') return targetRole === 'MEMBER' || targetRole === 'VIEWER';
 

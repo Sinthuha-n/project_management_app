@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planora.backend.dto.NotificationFeedResponseDTO;
 import com.planora.backend.dto.NotificationResponseDTO;
+import com.planora.backend.exception.ForbiddenException;
 import com.planora.backend.model.Notification;
 import com.planora.backend.model.NotificationChannel;
 import com.planora.backend.model.NotificationEventType;
@@ -58,10 +59,8 @@ public class NotificationService {
 
     private final TaskRepository taskRepository;
 
-        private final ObjectMapper objectMapper = new ObjectMapper();
-        private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(5))
-            .build();
+    private final ObjectMapper objectMapper;
+    private final HttpClient httpClient;
 
     private static final Duration UNREAD_COUNT_TTL = Duration.ofSeconds(30);
     private static final String UNREAD_COUNT_KEY_PREFIX = "notifications:unread-count:";
@@ -265,7 +264,7 @@ public class NotificationService {
                 .orElseThrow(() -> new EntityNotFoundException("Notification not found"));
         
         if (!notification.getRecipient().getUserId().equals(userId)) {
-            throw new RuntimeException("Unauthorized");
+            throw new ForbiddenException("You cannot modify this notification");
         }
         
         notification.setRead(true);
@@ -293,10 +292,14 @@ public class NotificationService {
 
     // Deletes a notification by its ID.
     @Transactional
-    public void deleteNotification(Long id) {
+    public void deleteNotification(Long id, Long userId) {
         Notification notification = notificationRepository.findById(id).orElse(null);
         if (notification == null) {
             return;
+        }
+
+        if (!notification.getRecipient().getUserId().equals(userId)) {
+            throw new ForbiddenException("You cannot delete this notification");
         }
 
         User recipient = notification.getRecipient();

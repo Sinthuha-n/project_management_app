@@ -4,6 +4,8 @@ import { DayPicker } from 'react-day-picker';
 import { format, parseISO } from 'date-fns';
 import { CalendarIcon, X } from 'lucide-react';
 import 'react-day-picker/dist/style.css';
+import { formatDateTime } from '@/lib/date-time';
+import { useTimeZone } from '@/components/providers/TimeZoneProvider';
 
 interface DateSectionProps {
   dates: {
@@ -17,6 +19,7 @@ interface DateSectionProps {
 }
 
 const DateSection: React.FC<DateSectionProps> = ({ dates, onUpdateDueDate, onUpdateStartDate }) => {
+  const { timeZone } = useTimeZone();
   const [open, setOpen] = useState(false);
   const [startOpen, setStartOpen] = useState(false);
 
@@ -135,13 +138,13 @@ const DateSection: React.FC<DateSectionProps> = ({ dates, onUpdateDueDate, onUpd
         {dates.created && (
           <div className="flex flex-col gap-1">
             <span className="text-xs text-cu-text-secondary font-medium">Created</span>
-            <span className="text-xs text-cu-text-primary">{new Date(dates.created).toLocaleString()}</span>
+            <span className="text-xs text-cu-text-primary">{formatDateTime(dates.created, {}, timeZone)}</span>
           </div>
         )}
         {dates.updated && (
           <div className="flex flex-col gap-1">
             <span className="text-xs text-cu-text-secondary font-medium">Updated</span>
-            <span className="text-xs text-cu-text-primary">{new Date(dates.updated).toLocaleString()}</span>
+            <span className="text-xs text-cu-text-primary">{formatDateTime(dates.updated, {}, timeZone)}</span>
           </div>
         )}
     </div>

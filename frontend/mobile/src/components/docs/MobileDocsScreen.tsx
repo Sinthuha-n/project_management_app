@@ -557,9 +557,10 @@ export default function MobileDocsScreen({ projectId, projectName, topOffset = 0
         type: asset.mimeType ?? 'application/octet-stream',
       } as unknown as Blob);
       if (activeFolderId !== null) formData.append('folderId', String(activeFolderId));
-      await api.post<{ id: number; title: string; content?: string }>(`/api/projects/${projectId}/documents/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await api.post<{ id: number; title: string; content?: string }>(
+        `/api/projects/${projectId}/documents/upload`,
+        formData,
+      );
       setDocuments(await fetchDocuments(activeFolderId));
     } catch (err: unknown) {
       if ((err as { canceled?: boolean })?.canceled) return;

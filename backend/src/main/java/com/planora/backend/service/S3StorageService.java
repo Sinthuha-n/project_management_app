@@ -30,17 +30,27 @@ public class S3StorageService {
      * amounts of server RAM and bandwidth.
      */
     public String generatePresignedUploadUrl(String bucket, String objectKey, String contentType, Duration duration) {
+        return generatePresignedUploadUrl(bucket, objectKey, contentType, null, duration);
+    }
+
+    public String generatePresignedUploadUrl(String bucket,
+                                             String objectKey,
+                                             String contentType,
+                                             Long contentLength,
+                                             Duration duration) {
         // Step 1: Define exactly what the client is allowed to upload.
-        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+        PutObjectRequest.Builder putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(objectKey)
-                .contentType(contentType) // Forces the client to upload exactly this file type.
-                .build();
+                .contentType(contentType);
+        if (contentLength != null) {
+            putObjectRequest.contentLength(contentLength);
+        }
 
         // Step 2: Wrap it in a presign request with a strict expiration timer.
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
                 .signatureDuration(duration)
-                .putObjectRequest(putObjectRequest)
+                .putObjectRequest(putObjectRequest.build())
                 .build();
 
         // Step 3: Ask AWS to generate the signed URL string.
@@ -52,14 +62,18 @@ public class S3StorageService {
      * Keeps our bucket completely locked down from the public internet.
      */
     public String generatePresignedDownloadUrl(String bucket, String objectKey, Duration duration) {
-        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+        return generatePresignedDownloadUrl(bucket, objectKey, duration, false);
+    }
+
+    public String generatePresignedDownloadUrl(String bucket, String objectKey, Duration duration, boolean forceAttachment) {
+        GetObjectRequest.Builder getObjectRequest = GetObjectRequest.builder()
                 .bucket(bucket)
-                .key(objectKey)
-                .build();
+                .key(objectKey);
+        if (forceAttachment) getObjectRequest.responseContentDisposition("attachment");
 
         GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
                 .signatureDuration(duration)
-                .getObjectRequest(getObjectRequest)
+                .getObjectRequest(getObjectRequest.build())
                 .build();
 
         return s3Presigner.presignGetObject(presignRequest).url().toString();
@@ -70,7 +84,7 @@ public class S3StorageService {
      * OPTIMIZATION: We use "HeadObject" instead of "GetObject". HeadObject only downloads
      * the file's metadata (a few bytes), saving us money and time compared to downloading the whole file.
      */
-    public void verifyObjectExists(String bucket, String objectKey) {
+    public HeadObjectResponse headObject(String bucket, String objectKey) {
         try {
             HeadObjectRequest headObjectRequest = HeadObjectRequest.builder()
                     .bucket(bucket)
@@ -78,7 +92,7 @@ public class S3StorageService {
                     .build();
 
             // If the key exists, this returns silently. If not, it throws an exception.
-            s3Client.headObject(headObjectRequest);
+            return s3Client.headObject(headObjectRequest);
         } catch (NoSuchKeyException ex) {
             throw new ResourceNotFoundException("Uploaded object not found in storage");
         } catch (S3Exception ex) {
@@ -88,6 +102,14 @@ public class S3StorageService {
             }
             throw new RuntimeException("Failed to verify uploaded object");
         }
+    }
+
+    public void verifyObjectExists(String bucket, String objectKey) {
+        headObject(bucket, objectKey);
+    }
+
+    public InputStream getObjectStream(String bucket, String objectKey) {
+        return s3Client.getObject(GetObjectRequest.builder().bucket(bucket).key(objectKey).build());
     }
 
     // Issues a hard delete command to S3.

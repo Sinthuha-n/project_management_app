@@ -39,7 +39,7 @@ interface KanbanColumnProps {
   color?: string;
   wipLimit?: number;
   onDeleteTask?: (taskId: number) => void;
-  onCreateTask?: (title: string, status: string) => Promise<void>;
+  onCreateTask?: (title: string, status: string) => Promise<void> | void;
   onOpenTask?: (taskId: number) => void;
   onInlineUpdate?: (taskId: number, updates: Partial<Task>) => Promise<void>;
   usersMap?: Record<string, string | null>;

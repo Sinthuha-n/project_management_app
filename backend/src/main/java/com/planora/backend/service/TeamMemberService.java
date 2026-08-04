@@ -3,6 +3,7 @@ package com.planora.backend.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,7 @@ import com.planora.backend.model.Team;
 import com.planora.backend.model.TeamMember;
 import com.planora.backend.model.TeamRole;
 import com.planora.backend.model.User;
+import com.planora.backend.exception.BadRequestException;
 import com.planora.backend.repository.TeamMemberRepository;
 import com.planora.backend.repository.TeamRepository;
 import com.planora.backend.repository.UserRepository;
@@ -39,34 +41,28 @@ public class TeamMemberService {
                                 .findByTeamIdAndUserUserId(teamId, targetUserId)
                                 .orElseThrow(() -> new RuntimeException("User is not a member of this team"));
 
-                TeamRole newRole;
-                // Reject the request if the incoming role string is not a valid TeamRole value.
-                try {
-                        newRole = TeamRole.valueOf(newRoleStr.toUpperCase());
-                } catch (Exception e) {
-                        throw new IllegalArgumentException("Invalid role");
-                }
+                TeamRole newRole = parseTeamRole(newRoleStr);
 
-                // Enforce that only the project creator can hold (or be assigned) the OWNER role.
-                if (newRole == TeamRole.OWNER && !targetUserId.equals(projectOwnerUserId)) {
-                        throw new AccessDeniedException("Only the project creator can be assigned OWNER role");
+                if (targetUserId.equals(currentUserId)) {
+                        throw new AccessDeniedException("Members cannot change their own role");
                 }
-                if (targetUserId.equals(projectOwnerUserId) && newRole != TeamRole.OWNER) {
-                        throw new AccessDeniedException("Project creator must remain OWNER");
+                // The project creator is the sole OWNER; ownership cannot be transferred or edited here.
+                if (targetUserId.equals(projectOwnerUserId) || targetMember.getRole() == TeamRole.OWNER) {
+                        throw new AccessDeniedException("Project OWNER role cannot be changed");
+                }
+                if (newRole == TeamRole.OWNER) {
+                        throw new AccessDeniedException("OWNER role cannot be assigned");
                 }
 
                 if (currentMember.getRole() == TeamRole.OWNER) {
-                        // Owner can change anyone's role (except their own)
-                        if (targetMember.getUser().getUserId().equals(currentUserId)) {
-                                throw new IllegalArgumentException("Owner cannot change their own role");
-                        }
+                        // OWNER can assign any non-owner role to any other non-owner member.
                 } else if (currentMember.getRole() == TeamRole.ADMIN) {
-                        // Admin can only change MEMBER or VIEWER, and not promote to OWNER or ADMIN
-                        if (targetMember.getRole() == TeamRole.OWNER || targetMember.getRole() == TeamRole.ADMIN) {
+                        // ADMIN can only switch MEMBER and VIEWER users between those same two roles.
+                        if (targetMember.getRole() != TeamRole.MEMBER && targetMember.getRole() != TeamRole.VIEWER) {
                                 throw new AccessDeniedException("Admin can only change roles of MEMBER or VIEWER");
                         }
-                        if (newRole == TeamRole.OWNER || newRole == TeamRole.ADMIN) {
-                                throw new AccessDeniedException("Admin cannot promote to OWNER or ADMIN");
+                        if (newRole != TeamRole.MEMBER && newRole != TeamRole.VIEWER) {
+                                throw new AccessDeniedException("Admin can only assign MEMBER or VIEWER roles");
                         }
                 } else {
                         throw new AccessDeniedException("Only OWNER or ADMIN can change roles");
@@ -104,6 +100,17 @@ public class TeamMemberService {
                 }
 
                 return updated;
+        }
+
+        private TeamRole parseTeamRole(String role) {
+                if (role == null || role.isBlank()) {
+                        throw new BadRequestException("Invalid role");
+                }
+                try {
+                        return TeamRole.valueOf(role.trim().toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException ex) {
+                        throw new BadRequestException("Invalid role");
+                }
         }
 
         // =====================================================

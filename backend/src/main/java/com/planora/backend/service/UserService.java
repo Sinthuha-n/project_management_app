@@ -7,7 +7,6 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.UUID;
 
 import org.apache.tika.Tika;
@@ -55,6 +54,8 @@ public class UserService {
 
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
     private static final Duration REFRESH_TOKEN_RETRY_GRACE = Duration.ofSeconds(10);
+    private static final SecureRandom OTP_RANDOM = new SecureRandom();
+    private static final String HASHED_OTP_PREFIX = "v2:";
     private final UserRepository userRepository;
     private final JWTService jwtService;
 
@@ -75,6 +76,10 @@ public class UserService {
 
     @Value("${aws.region}")
     private String region;
+
+    /** Defaults to the JWT secret in deployed profiles; a separate rotated secret may be supplied. */
+    @Value("${app.security.otp-pepper:${jwt.secret}}")
+    private String otpPepper;
 
     @Autowired
     @Lazy
@@ -142,12 +147,12 @@ public class UserService {
         }
 
         // Step 3. Generate a random 6-digit number (100000 to 999999)
-        String otp = String.valueOf(new Random().nextInt(900000) + 100000);
+        String otp = generateOtp();
 
         // Step 4. Build the token entity linking the OTP to the user.
         VerificationToken verificationToken = new VerificationToken();
         verificationToken.setUser(user);
-        verificationToken.setToken(otp);
+        verificationToken.setToken(hashOtp(otp));
         verificationToken.setTokenType(VerificationToken.TokenType.VERIFICATION);
         verificationToken.setExpiry(Instant.now().plus(Duration.ofMinutes(10)));
 
@@ -187,7 +192,7 @@ public class UserService {
         }
 
         // Step 5. Compare the provided OTP against the stored token.
-        if (verificationToken.getToken().equals(otp)) {
+        if (tokenMatches(verificationToken.getToken(), otp)) {
             // Step 5a. Success. Update user status and burn the token.
             user.setVerified(true);
             verificationToken.setUsed(true);
@@ -372,7 +377,7 @@ public class UserService {
         }
 
         // Look up the expected JTI in our database for this user.
-        VerificationToken storedToken = tokenRepository.findByUserAndTokenType(user, VerificationToken.TokenType.REFRESH_TOKEN);
+        VerificationToken storedToken = tokenRepository.findByUserAndTokenTypeForUpdate(user, VerificationToken.TokenType.REFRESH_TOKEN);
 
         if (storedToken == null || storedToken.isUsed() || storedToken.isExpired()) {
             logger.warn("Refresh token JTI not found or already used for user: {}", email);
@@ -462,12 +467,12 @@ public class UserService {
         tokenRepository.flush();
 
         // Step 3. Generate a fresh 6-digit OTP.
-        String otp = String.valueOf(new Random().nextInt(900000) + 100000);
+        String otp = generateOtp();
 
         // Step 4. Save the new token entity.
         VerificationToken verificationToken = new VerificationToken();
         verificationToken.setUser(user);
-        verificationToken.setToken(otp);
+        verificationToken.setToken(hashOtp(otp));
         verificationToken.setTokenType(VerificationToken.TokenType.VERIFICATION);
         verificationToken.setExpiry(Instant.now().plus(Duration.ofMinutes(10)));
         tokenRepository.save(verificationToken);
@@ -507,10 +512,10 @@ public class UserService {
         tokenRepository.flush();
 
         // Step 4. Generate and save the new reset OTP.
-        String otp = String.valueOf(new Random().nextInt(900000) + 100000);
+        String otp = generateOtp();
         VerificationToken verificationToken = new VerificationToken();
         verificationToken.setUser(user);
-        verificationToken.setToken(hashToken(otp));
+        verificationToken.setToken(hashOtp(otp));
         verificationToken.setTokenType(VerificationToken.TokenType.PASSWORD_RESET);
         verificationToken.setExpiry(Instant.now().plus(Duration.ofMinutes(10)));
         tokenRepository.save(verificationToken);
@@ -557,8 +562,7 @@ public class UserService {
         }
 
         // Step 5. Check if the provided OTP matches the stored token hash.
-        String hashedInputToken = hashToken(token);
-        if (!verificationToken.getToken().equals(hashedInputToken)) {
+        if (!tokenMatches(verificationToken.getToken(), token)) {
             int newAttempts = verificationToken.getAttempts() + 1;
             verificationToken.setAttempts(newAttempts);
             if (newAttempts >= 5) {
@@ -576,6 +580,8 @@ public class UserService {
         verificationToken.setUsedAt(Instant.now());
         userRepository.save(user);
         tokenRepository.save(verificationToken);
+        tokenRepository.deleteByUserAndTokenType(user, VerificationToken.TokenType.REFRESH_TOKEN);
+        clearLoginAttemptRecord(normalizeEmail(email));
         return true;
     }
 
@@ -809,6 +815,16 @@ public class UserService {
             throw new IllegalArgumentException("Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed");
         }
 
+        // Browser-provided MIME types are not authoritative. Detect the bytes
+        // before they are persisted to the private bucket.
+        try {
+            if (!isValidImageByMagicBytes(file)) {
+                throw new IllegalArgumentException("Image content does not match an allowed image format");
+            }
+        } catch (IOException ex) {
+            throw new IllegalArgumentException("Could not validate image content");
+        }
+
         try {
             // Step 4. Check if user already has an avatar. If yes, issue delete command to S3.
             String oldKey = user.getProfilePicUrl();
@@ -959,6 +975,46 @@ public class UserService {
         } catch (java.security.NoSuchAlgorithmException e) {
             throw new RuntimeException("SHA-256 algorithm not found", e);
         }
+    }
+
+    private String generateOtp() {
+        return String.format("%06d", OTP_RANDOM.nextInt(1_000_000));
+    }
+
+    /** Hashes newly issued OTPs; legacy plaintext and SHA-256 values remain valid until their expiry. */
+    private String hashOtp(String rawToken) {
+        return HASHED_OTP_PREFIX + hmacToken(rawToken);
+    }
+
+    private boolean tokenMatches(String storedToken, String rawToken) {
+        if (storedToken == null || rawToken == null) {
+            return false;
+        }
+        String expected = storedToken.startsWith(HASHED_OTP_PREFIX)
+                ? HASHED_OTP_PREFIX + hmacToken(rawToken)
+                : storedToken.matches("[0-9a-f]{64}") ? hashToken(rawToken) : rawToken;
+        return java.security.MessageDigest.isEqual(
+                storedToken.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                expected.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    private String hmacToken(String rawToken) {
+        if (otpPepper == null || otpPepper.isBlank()) {
+            // Unit-test compatibility only; production configuration supplies a non-empty pepper.
+            return hashToken(rawToken);
+        }
+        try {
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            mac.init(new javax.crypto.spec.SecretKeySpec(
+                    otpPepper.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256"));
+            return java.util.HexFormat.of().formatHex(mac.doFinal(rawToken.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.GeneralSecurityException ex) {
+            throw new IllegalStateException("Could not hash verification token", ex);
+        }
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
     /*

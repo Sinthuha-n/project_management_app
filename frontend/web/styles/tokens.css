@@ -52,6 +52,9 @@
   --cu-hover: #F5F7FA;
   --cu-border: #E8E8ED;
   --cu-border-light: #F0F0F5;
+  --cu-focus-border: #64748B;
+  --cu-focus-ring: rgba(100, 116, 139, 0.22);
+  --cu-focus-danger-ring: rgba(255, 92, 92, 0.22);
 
   /* ── Text colors ── */
   --cu-text-primary: #1A1A2E;
@@ -154,6 +157,9 @@ html.dark {
   /* Border */
   --cu-border: #273449;
   --cu-border-light: #1C2638;
+  --cu-focus-border: #94A3B8;
+  --cu-focus-ring: rgba(148, 163, 184, 0.25);
+  --cu-focus-danger-ring: rgba(255, 92, 92, 0.3);
 
   /* Text */
   --cu-text-primary: #F8FAFC;

@@ -19,7 +19,7 @@ function FadeSlideIn({ children, delay = 0 }: { children: React.ReactNode; delay
       Animated.timing(opacity, { toValue: 1, duration: 350, delay, useNativeDriver: true }),
       Animated.spring(translateY, { toValue: 0, delay, useNativeDriver: true, tension: 160, friction: 18 }),
     ]).start();
-  }, []);
+  }, [delay, opacity, translateY]);
   return <Animated.View style={{ opacity, transform: [{ translateY }] }}>{children}</Animated.View>;
 }
 
@@ -48,7 +48,7 @@ function CreateSheet({ visible, onClose, onCreate }: {
       friction: 30,
     }).start();
     if (!visible) { setName(''); setDescription(''); setColor(ACCENT_COLORS[0]); setEmoji(''); }
-  }, [visible]);
+  }, [translateY, visible]);
 
   const submit = async () => {
     if (!name.trim()) return;

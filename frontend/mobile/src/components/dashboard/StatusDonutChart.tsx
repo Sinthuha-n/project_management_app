@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
-import Svg, { Circle, G } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 
 const RADIUS = 48;
 const STROKE_WIDTH = 12;
@@ -63,7 +63,7 @@ export default function StatusDonutChart({ items }: { items: { status?: string |
         useNativeDriver: true,
       })
     ).start();
-  }, [items]);
+  }, [entranceAnim, items, rotationAnim]);
 
   const spin = rotationAnim.interpolate({
     inputRange: [0, 1],

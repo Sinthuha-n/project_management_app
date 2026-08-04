@@ -250,7 +250,7 @@ export default function AutomationRuleBuilder({ projectId, onCreated, onClose }:
 
   useEffect(() => {
     if (!allowedActions.includes(action)) {
-      setAction(allowedActions[0]);
+      queueMicrotask(() => setAction(allowedActions[0]));
     }
   }, [allowedActions, action]);
 
@@ -275,11 +275,11 @@ export default function AutomationRuleBuilder({ projectId, onCreated, onClose }:
 
   useEffect(() => {
     if (trigger === 'CI_FAILED' && action === 'CREATE_TASK' && !taskTitle) {
-      setTaskTitle('CI failed: {workflowName} on {branch}');
+      queueMicrotask(() => setTaskTitle('CI failed: {workflowName} on {branch}'));
     }
 
     if (trigger === 'ISSUE_OPENED' && action === 'CREATE_TASK' && !taskTitle) {
-      setTaskTitle('Issue: {issueTitle}');
+      queueMicrotask(() => setTaskTitle('Issue: {issueTitle}'));
     }
   }, [action, taskTitle, trigger]);
 
@@ -289,7 +289,7 @@ export default function AutomationRuleBuilder({ projectId, onCreated, onClose }:
     }
 
     if (!columnName && columns.length > 0) {
-      setColumnName(columns[0].title);
+      queueMicrotask(() => setColumnName(columns[0].title));
     }
   }, [action, columnName, columns]);
 

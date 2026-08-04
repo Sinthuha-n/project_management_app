@@ -70,14 +70,6 @@ function PeopleIcon() {
   );
 }
 
-function SkipIcon() {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M13 5l7 7-7 7M5 5l7 7-7 7" stroke={T.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 // ─── Role Selector ────────────────────────────────────────────────────────────
 
 const ROLE_CONFIG: Record<InviteRole, { label: string; color: string; desc: string }> = {
@@ -278,7 +270,7 @@ export default function InviteMembersScreen() {
       Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, tension: 160, friction: 18, useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim]);
 
   const goToProject = () => {
     if (projectId) {

@@ -6,6 +6,7 @@ import com.planora.backend.model.CiStatus;
 import com.planora.backend.service.CiStatusResolver;
 import com.planora.backend.service.GithubNotificationService;
 import com.planora.backend.service.TaskGithubService;
+import com.planora.backend.service.GithubWebhookDeliveryService;
 import com.planora.backend.util.GithubWebhookSignatureVerifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +51,7 @@ public class GitHubWebhookController {
     private final ObjectMapper objectMapper;
 
     private final GithubWebhookSignatureVerifier signatureVerifier;
+    private final GithubWebhookDeliveryService webhookDeliveryService;
 
     /**
      * Main webhook receiver. Reads the body as a raw string so the exact bytes
@@ -63,6 +65,7 @@ public class GitHubWebhookController {
     public ResponseEntity<String> handleWebhook(
             @RequestHeader(value = "X-GitHub-Event",      defaultValue = "") String eventType,
             @RequestHeader(value = "X-Hub-Signature-256", defaultValue = "") String signature,
+            @RequestHeader(value = "X-GitHub-Delivery", required = false) String deliveryId,
             @RequestBody String rawBody) {
 
         if (!signatureVerifier.isConfigured()) {
@@ -72,6 +75,10 @@ public class GitHubWebhookController {
         if (!signatureVerifier.isValid(rawBody, signature)) {
             log.warn("GitHub webhook rejected: invalid signature for event '{}'", eventType);
             return ResponseEntity.status(401).body("Invalid signature");
+        }
+        if (!webhookDeliveryService.registerIfNew(deliveryId, eventType)) {
+            log.info("Ignoring duplicate GitHub webhook delivery {}", deliveryId);
+            return ResponseEntity.ok("duplicate");
         }
         JsonNode body;
         try {

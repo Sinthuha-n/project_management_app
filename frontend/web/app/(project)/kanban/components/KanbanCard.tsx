@@ -64,8 +64,10 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
 
   useEffect(() => {
     if (isEditing) {
-      setEditTitle(task.title);
-      setEditPriority(task.priority || 'MEDIUM');
+      queueMicrotask(() => {
+        setEditTitle(task.title);
+        setEditPriority(task.priority || 'MEDIUM');
+      });
       setTimeout(() => titleInputRef.current?.focus(), 50);
     }
   }, [isEditing, task.title, task.priority]);

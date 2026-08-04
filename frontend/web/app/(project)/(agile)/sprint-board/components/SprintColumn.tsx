@@ -16,7 +16,7 @@ import { SprintTeamMemberOption } from '../api';
 
 interface SprintColumnProps {
   column: Sprintcolumn;
-  onInlineCreate?: (title: string, status: string) => Promise<void>;
+  onInlineCreate?: (title: string, status: string) => Promise<void> | void;
   onOpenTask?: (id: number) => void;
   dense?: boolean;
   compactEmpty?: boolean;

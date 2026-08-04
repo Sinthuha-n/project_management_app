@@ -8,7 +8,7 @@
  * same device never share data. clearAllSessionCacheData() is called on logout.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   buildSessionCacheKey,
   getSessionCache,
@@ -49,57 +49,88 @@ export function usePersistedData<T>({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
+  const requestGenerationRef = useRef(0);
+  const hasDataRef = useRef(false);
+  const isDocumentVisible = useCallback(
+    () => typeof document === 'undefined' || document.visibilityState === 'visible',
+    [],
+  );
+
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+  }, [fetcher]);
+
+  const scopeKey = useMemo(() => JSON.stringify(scope), [scope]);
 
   const getKey = useCallback(() => {
-    return buildSessionCacheKey(cacheKey, scope);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cacheKey, ...scope]);
+    return buildSessionCacheKey(cacheKey, JSON.parse(scopeKey) as typeof scope);
+  }, [cacheKey, scopeKey]);
 
   const fetchAndCache = useCallback(async (showLoading = false) => {
     const key = getKey();
     if (!key) return;
+    const requestGeneration = ++requestGenerationRef.current;
     if (showLoading) setLoading(true);
     try {
       const fresh = await fetcherRef.current();
+      if (requestGeneration !== requestGenerationRef.current) return;
+      hasDataRef.current = true;
       setData(fresh);
       setError(null);
       setSessionCache(key, fresh, ttlMs);
     } catch (err) {
+      if (requestGeneration !== requestGenerationRef.current) return;
       const msg = err instanceof Error ? err.message : 'Failed to load data';
       // Only surface the error if we have nothing cached yet
-      setError((prev) => (data === null ? msg : prev));
+      if (!hasDataRef.current) setError(msg);
     } finally {
-      if (showLoading) setLoading(false);
+      if (showLoading && requestGeneration === requestGenerationRef.current) setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getKey, ttlMs]);
 
   // Initial load: serve cache instantly, then revalidate
   useEffect(() => {
-    if (skip) { setLoading(false); return; }
+    requestGenerationRef.current += 1;
+    hasDataRef.current = false;
+    queueMicrotask(() => {
+      setData(null);
+      setError(null);
+      if (skip) { setLoading(false); return; }
 
-    const key = getKey();
-    if (!key) { setLoading(false); return; }
+      const key = getKey();
+      if (!key) { setLoading(false); return; }
+      setLoading(true);
 
-    const cached = getSessionCache<T>(key, { allowStale: true });
-    if (cached.data !== null) {
-      setData(cached.data);
-      setLoading(false);
-      // Revalidate silently if stale
-      if (cached.isStale) void fetchAndCache(false);
-    } else {
-      void fetchAndCache(true);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [skip, getKey]);
+      const cached = getSessionCache<T>(key, { allowStale: true });
+      if (cached.data !== null) {
+        hasDataRef.current = true;
+        setData(cached.data);
+        setLoading(false);
+        // Revalidate silently if stale
+        if (cached.isStale) void fetchAndCache(false);
+      } else {
+        void fetchAndCache(true);
+      }
+    });
+  }, [skip, getKey, fetchAndCache]);
 
   // Background sync
   useEffect(() => {
     if (skip || syncIntervalMs <= 0) return;
-    const id = setInterval(() => void fetchAndCache(false), syncIntervalMs);
-    return () => clearInterval(id);
-  }, [skip, syncIntervalMs, fetchAndCache]);
+    const sync = () => {
+      if (isDocumentVisible()) void fetchAndCache(false);
+    };
+    const handleVisibilityChange = () => {
+      // Refresh once on return, rather than keeping hidden tabs active.
+      if (isDocumentVisible()) sync();
+    };
+    const id = window.setInterval(sync, syncIntervalMs);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [skip, syncIntervalMs, fetchAndCache, isDocumentVisible]);
 
   const refresh = useCallback(() => fetchAndCache(true), [fetchAndCache]);
 

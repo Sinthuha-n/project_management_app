@@ -14,13 +14,10 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-
 jobs:
   changes:
     name: Detect Changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     outputs:
@@ -30,9 +27,9 @@ jobs:
       contracts: ${{ steps.filter.outputs.contracts }}
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     - name: Check path changes
-      uses: dorny/paths-filter@v3
+      uses: dorny/paths-filter@v4
       id: filter
       with:
         filters: |
@@ -57,12 +54,12 @@ jobs:
 
   security-scan:
     name: Security Scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
     - name: Run Gitleaks Scan
@@ -73,26 +70,30 @@ jobs:
         chmod +x ./gitleaks
         ./gitleaks detect --source=. -v --redact
     - name: Run Trivy Security Scan (Backend)
-      uses: aquasecurity/trivy-action@v0.36.0
-      with:
-        scan-type: 'fs'
-        scan-ref: './backend'
-        exit-code: '1'
-        severity: 'CRITICAL,HIGH'
-        vuln-type: 'library'
+      run: |
+        docker run --rm \
+          --volume "${GITHUB_WORKSPACE}:/workspace:ro" \
+          --volume "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
+          aquasec/trivy:0.70.0 fs \
+          --exit-code 1 \
+          --severity CRITICAL,HIGH \
+          --vuln-type library \
+          /workspace/backend
 
   backend-build:
     name: Build Backend
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: ./backend
 
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
+    - name: Verify Docker is available for integration tests
+      run: docker info
       
     - name: Check for Empty Flyway Migrations
       run: |
@@ -104,26 +105,49 @@ jobs:
         fi
         echo "No empty Flyway migration files found."
     - name: Set up JDK 21
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       with:
         java-version: '21'
         distribution: 'temurin'
         cache: maven
+        cache-dependency-path: backend/pom.xml
         
     - name: Ensure mvnw is executable
-      run: chmod +x mvnw
-        
-    - name: Run Unit Tests
-      run: ./mvnw -B test --file pom.xml
-        
-    - name: Run Integration Tests
-      run: ./mvnw -B failsafe:integration-test failsafe:verify --file pom.xml
+      run: chmod +x mvnw scripts/run-maven.sh
+
+    - name: Run Backend Verification
+      env:
+        CI: true
+      run: ./scripts/run-maven.sh -B verify --file pom.xml
+
+    - name: Require executed integration tests
+      run: |
+        REPORT=target/failsafe-reports/failsafe-summary.xml
+        test -f "$REPORT"
+        COMPLETED=$(sed -n 's:.*<completed>\([0-9][0-9]*\)</completed>.*:\1:p' "$REPORT")
+        test "${COMPLETED:-0}" -gt 0
+        grep -q '<errors>0</errors>' "$REPORT"
+        grep -q '<failures>0</failures>' "$REPORT"
+        grep -q '<skipped>0</skipped>' "$REPORT"
+
+    - name: Publish Backend Test and Coverage Reports
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: backend-quality-reports
+        if-no-files-found: warn
+        path: |
+          backend/target/surefire-reports/**
+          backend/target/failsafe-reports/**
+          backend/target/site/jacoco-unit/**
+          backend/target/site/jacoco-integration/**
+          backend/target/dependency-check-report.*
       
   frontend-build:
     name: Build Frontend
     needs: changes
     if: ${{ needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       CI: true
     defaults:
@@ -132,17 +156,17 @@ jobs:
 
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       
     - name: Set up Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version-file: 'frontend/web/.nvmrc'
         cache: 'npm'
         cache-dependency-path: './frontend/web/package-lock.json'
 
     - name: Cache Next.js Build
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ github.workspace }}/frontend/web/.next/cache
         key: ${{ runner.os }}-nextjs-${{ hashFiles('frontend/web/package-lock.json') }}-${{ hashFiles('frontend/web/**/*.js', 'frontend/web/**/*.jsx', 'frontend/web/**/*.ts', 'frontend/web/**/*.tsx') }}
@@ -196,27 +220,52 @@ jobs:
     - name: Validate PWA Assets
       run: npm run pwa:check
 
+    - name: Cache Playwright Browsers
+      uses: actions/cache@v5
+      id: playwright-cache
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.os }}-playwright-${{ hashFiles('frontend/web/package-lock.json') }}
+
+    - name: Install Browser Test Runtime
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      timeout-minutes: 2
+      run: npx playwright install chromium
+
+    - name: Run Production-Fix Browser Tests
+      timeout-minutes: 2
+      run: npm run test:e2e
+
+    - name: Upload Browser Test Report
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: frontend-playwright-report
+        path: frontend/web/playwright-report/**
+        if-no-files-found: ignore
+
   api-contracts:
     name: Validate API Contracts
     needs: [changes, backend-build, frontend-build, mobile-build]
     if: ${{ always() && !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.contracts == 'true') && (needs.backend-build.result == 'success' || needs.backend-build.result == 'skipped') && (needs.frontend-build.result == 'success' || needs.frontend-build.result == 'skipped') && (needs.mobile-build.result == 'success' || needs.mobile-build.result == 'skipped') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       API_CONTRACT_MAX_CRITICAL_ISSUES: 0
 
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Set up JDK 21
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       with:
         java-version: '21'
         distribution: 'temurin'
         cache: maven
+        cache-dependency-path: backend/pom.xml
 
     - name: Set up Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version-file: 'frontend/web/.nvmrc'
         cache: 'npm'
@@ -234,7 +283,7 @@ jobs:
 
     - name: Upload API Contract Report
       if: ${{ failure() }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: api-contract-report
         path: artifacts/api-contracts/report.txt
@@ -243,7 +292,7 @@ jobs:
     name: Build Mobile
     needs: changes
     if: ${{ needs.changes.outputs.mobile == 'true' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       CI: true
     defaults:
@@ -252,10 +301,10 @@ jobs:
 
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       
     - name: Set up Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version-file: 'frontend/mobile/.nvmrc'
         cache: 'npm'
@@ -272,7 +321,7 @@ jobs:
       run: npm run lint
 
     - name: TypeScript Check
-      run: npx tsc --noEmit
+      run: npm run typecheck
 
     - name: Run Mobile Tests
       run: npm run test

@@ -1,0 +1,15 @@
+# Protected and state-changing API responses deliberately use no-store semantics,
+# and the API root requires authentication. ZAP's informational non-storable
+# alert describes that intended security behavior rather than a vulnerability.
+10049	IGNORE	(Non-Storable Content)
+# The backend is a Spring Boot/JVM service and has no PHP-CGI runtime. Disable
+# the PHP-CGI CVE-2012-1823 probe, which otherwise sends PHP source with a form
+# content type and turns Spring's unsupported-media response into a generic 500.
+20018	IGNORE	(Remote Code Execution - CVE-2012-1823)
+# These endpoints return credentialed JSON through an explicit CORS policy, not
+# embeddable no-cors resources. CORP therefore does not add a browser boundary.
+90004	IGNORE	(Cross-Origin-Resource-Policy Header Missing or Invalid)
+# Active scan payloads intentionally include malformed encoded paths. Tomcat
+# rejects those requests before Spring MVC with a small text/html 400 response;
+# this is a container boundary response, not HTML returned by an API operation.
+100001	IGNORE	(Unexpected Content-Type was returned)

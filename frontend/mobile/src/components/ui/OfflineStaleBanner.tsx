@@ -34,7 +34,11 @@ function OfflineStaleBanner({ isOnline, isStale }: Props) {
     : 'Showing cached data. Pull down to refresh.';
 
   return (
-    <Animated.View style={[animatedStyle, { backgroundColor: bgColor, borderBottomColor: borderColor, borderBottomWidth: 1 }]}>
+    <Animated.View
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+      style={[animatedStyle, { backgroundColor: bgColor, borderBottomColor: borderColor, borderBottomWidth: 1 }]}
+    >
       <View style={styles.banner}>
         <Ionicons name={iconName} size={14} color={textColor} />
         <Text style={[styles.message, { color: textColor }]} numberOfLines={1}>
@@ -55,7 +59,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   message: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
   },
 });

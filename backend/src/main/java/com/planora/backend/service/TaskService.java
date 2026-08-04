@@ -131,7 +131,10 @@ public class TaskService {
         task.setProject(project);
 
         // Step 4. Generate a human-readable task ID (e.g., PLAN-124).
-        // This queries the max number currently in the project and increments by 1.
+        // Serialize the MAX + 1 allocation per project. Without this lock, two
+        // concurrent requests can both observe the same maximum and one loses at
+        // the database unique constraint instead of receiving the next number.
+        projectRepository.findByIdWithLock(project.getId());
         task.setProjectTaskNumber(taskRepository.findMaxProjectTaskNumberByProjectId(project.getId()) + 1L);
 
         task.setStoryPoint(request.getStoryPoint() != null ? request.getStoryPoint() : 0);
@@ -236,6 +239,7 @@ public class TaskService {
         task.setTitle(title);
         task.setDescription(description);
         task.setProject(project);
+        projectRepository.findByIdWithLock(project.getId());
         task.setProjectTaskNumber(taskRepository.findMaxProjectTaskNumberByProjectId(project.getId()) + 1L);
         task.setStoryPoint(0);
         task.setPriority(priority != null ? priority : Priority.HIGH);

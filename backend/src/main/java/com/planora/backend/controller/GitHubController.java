@@ -40,13 +40,19 @@ public class GitHubController {
     }
 
     @GetMapping("/status")
-    public ResponseEntity<Map<String, Boolean>> getStatus(
+    public ResponseEntity<Map<String, Object>> getStatus(
             @AuthenticationPrincipal UserPrincipal currentUser) {
         if (currentUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         String token = githubTokenService.getToken(currentUser.getUserId());
-        return ResponseEntity.ok(Map.of("connected", token != null && !token.isBlank()));
+        Map<String, Object> status = new java.util.LinkedHashMap<>();
+        status.put("connected", token != null && !token.isBlank());
+        String username = gitHubIntegrationService.getConnectedUsername(currentUser.getUserId());
+        if (token != null && !token.isBlank() && username != null) {
+            status.put("username", username);
+        }
+        return ResponseEntity.ok(status);
     }
 
     @GetMapping("/repositories")

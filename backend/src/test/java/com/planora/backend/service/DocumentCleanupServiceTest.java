@@ -31,12 +31,16 @@ class DocumentCleanupServiceTest {
     @Mock
     private S3StorageService s3StorageService;
 
+    @Mock
+    private ScheduledJobLockService scheduledJobLockService;
+
     @InjectMocks
     private DocumentCleanupScheduler documentCleanupScheduler;
 
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(documentCleanupScheduler, "dmsBucket", "test-dms-bucket");
+        when(scheduledJobLockService.tryAcquire(anyString(), any())).thenReturn(true);
     }
 
     @Test

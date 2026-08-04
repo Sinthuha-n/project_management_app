@@ -108,7 +108,7 @@ function KanbanPageContent() {
 
           <div className="flex items-center gap-2">
             {/* Search */}
-            <div className="hidden sm:flex items-center rounded-lg bg-cu-bg/80 px-3 py-1.5 border border-cu-primary/20 focus-within:border-cu-primary focus-within:bg-cu-bg transition-all shadow-sm">
+            <div className="hidden sm:flex items-center rounded-lg bg-cu-bg/80 px-3 py-1.5 border border-cu-border focus-within:border-[var(--cu-focus-border)] focus-within:bg-cu-bg transition-all shadow-sm">
               <svg className="text-cu-text-muted" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
               <input
                 type="text"
@@ -137,7 +137,7 @@ function KanbanPageContent() {
 
         {/* Mobile search */}
         <div className="sm:hidden mt-2">
-          <div className="flex items-center rounded-lg bg-cu-bg/80 px-3 py-2 border border-cu-primary/20 focus-within:border-cu-primary focus-within:bg-cu-bg transition-all shadow-sm">
+          <div className="flex items-center rounded-lg bg-cu-bg/80 px-3 py-2 border border-cu-border focus-within:border-[var(--cu-focus-border)] focus-within:bg-cu-bg transition-all shadow-sm">
             <svg className="text-cu-text-muted" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
             <input
               type="text"

@@ -62,7 +62,7 @@ export default function GlobalSearch({ projectId }: GlobalSearchProps = {}) {
   const [scope, setScope] = useState<'PROJECT' | 'GLOBAL'>('PROJECT');
 
   useEffect(() => {
-    setScope(projectId ? 'PROJECT' : 'GLOBAL');
+    queueMicrotask(() => setScope(projectId ? 'PROJECT' : 'GLOBAL'));
   }, [projectId]);
 
   const [results, setResults] = useState<GlobalSearchResult | null>(null);
@@ -86,7 +86,8 @@ export default function GlobalSearch({ projectId }: GlobalSearchProps = {}) {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          setRecentSearches(parsed.filter((item): item is string => typeof item === 'string').slice(0, RECENT_SEARCH_LIMIT));
+          const recent = parsed.filter((item): item is string => typeof item === 'string').slice(0, RECENT_SEARCH_LIMIT);
+          queueMicrotask(() => setRecentSearches(recent));
         }
       }
     } catch {
@@ -137,7 +138,7 @@ export default function GlobalSearch({ projectId }: GlobalSearchProps = {}) {
   }, []);
 
   useEffect(() => {
-    runSearch(query, scope, projectId);
+    queueMicrotask(() => runSearch(query, scope, projectId));
 
     return () => {
       if (debounceTimer.current) {
@@ -319,7 +320,8 @@ export default function GlobalSearch({ projectId }: GlobalSearchProps = {}) {
           <motion.div
             animate={{ x: ['-100%', '200%'] }}
             transition={{ duration: 2, repeat: Infinity, repeatDelay: 5, ease: 'linear' }}
-            className="absolute top-0 bottom-0 w-12 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[-20deg] pointer-events-none"
+            aria-hidden="true"
+            className="absolute top-0 bottom-0 w-12 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[-20deg] pointer-events-none motion-reduce:hidden"
           />
         )}
       </div>
@@ -336,8 +338,9 @@ export default function GlobalSearch({ projectId }: GlobalSearchProps = {}) {
               <div className="bg-cu-bg-secondary/80 border-b border-cu-border px-4 py-2.5 flex items-center gap-6">
                  <button
                     onClick={() => setScope('PROJECT')}
-                    className="flex items-center gap-2 cursor-pointer group focus:outline-none"
+                    className="flex items-center gap-2 cursor-pointer group rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cu-primary"
                     type="button"
+                    aria-pressed={scope === 'PROJECT'}
                  >
                     <div className={`flex items-center justify-center w-4 h-4 rounded-full border-2 transition-all shadow-sm ${scope === 'PROJECT' ? 'border-cu-primary bg-cu-primary' : 'border-cu-border bg-cu-bg'}`}>
                        {scope === 'PROJECT' && <div className="w-1.5 h-1.5 rounded-full bg-white"></div>}
@@ -347,8 +350,9 @@ export default function GlobalSearch({ projectId }: GlobalSearchProps = {}) {
 
                  <button
                     onClick={() => setScope('GLOBAL')}
-                    className="flex items-center gap-2 cursor-pointer group focus:outline-none"
+                    className="flex items-center gap-2 cursor-pointer group rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cu-primary"
                     type="button"
+                    aria-pressed={scope === 'GLOBAL'}
                  >
                     <div className={`flex items-center justify-center w-4 h-4 rounded-full border-2 transition-all shadow-sm ${scope === 'GLOBAL' ? 'border-cu-primary bg-cu-primary' : 'border-cu-border bg-cu-bg'}`}>
                        {scope === 'GLOBAL' && <div className="w-1.5 h-1.5 rounded-full bg-white"></div>}

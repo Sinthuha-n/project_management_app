@@ -17,6 +17,7 @@ export default function RegisterPage() {
     password, setPassword,
     confirmPassword, setConfirmPassword,
     isLoading,
+    cooldown,
     error,
     strength,
     handleRegister,
@@ -128,8 +129,8 @@ export default function RegisterPage() {
             autoComplete="new-password"
           />
 
-          <Button type="submit" isLoading={isLoading}>
-            {isLoading ? 'Creating Account...' : 'Create Account'}
+          <Button type="submit" isLoading={isLoading} disabled={cooldown > 0}>
+            {isLoading ? 'Creating Account...' : cooldown > 0 ? `Try again in ${cooldown}s` : 'Create Account'}
           </Button>
         </form>
 

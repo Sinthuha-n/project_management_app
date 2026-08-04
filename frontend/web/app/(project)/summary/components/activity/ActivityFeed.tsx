@@ -3,21 +3,13 @@
 // Displays a timeline of the most recently updated tasks for quick team visibility.
 import React, { useMemo, memo } from 'react';
 import { Task } from '@/types';
+import { formatRelativeTime } from '@/lib/date-time';
+import { useTimeZone } from '@/components/providers/TimeZoneProvider';
 
 // Formats the timestamp into a human-readable 'time ago' string (e.g., '5m ago').
-function formatTimeAgo(dateString?: string | Date) {
-  if (!dateString) return 'recently';
-  const diffInMins = Math.floor((new Date().getTime() - new Date(dateString).getTime()) / 60000);
-  
-  if (diffInMins < 1) return 'just now';
-  if (diffInMins < 60) return `${diffInMins}m ago`;
-  if (diffInMins < 1440) return `${Math.floor(diffInMins / 60)}h ago`;
-  if (diffInMins < 10080) return `${Math.floor(diffInMins / 1440)}d ago`;
-  return new Date(dateString).toLocaleDateString();
-}
-
 // Individual timeline item component to render a single task's activity efficiently.
 const ActivityItem = memo(({ task }: { task: Task }) => {
+  const { minuteTick } = useTimeZone();
   const isDone = task.status === 'DONE' || task.status === 'COMPLETED';
   const colorClass = isDone ? 'bg-cu-success' : 'bg-cu-primary';
   const actionText = isDone ? 'completed' : 'updated';
@@ -44,7 +36,7 @@ const ActivityItem = memo(({ task }: { task: Task }) => {
       
       {/* The timestamp positioned at the top right of the item. */}
       <span className="font-arimo text-[11px] text-cu-text-muted absolute top-0 right-0 bg-cu-bg/80 px-1 rounded">
-        {formatTimeAgo(task.updatedAt)}
+        {minuteTick >= 0 ? formatRelativeTime(task.updatedAt) : ''}
       </span>
     </div>
   );

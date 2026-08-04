@@ -5,6 +5,7 @@ import { MessageCircle, X, Send } from 'lucide-react';
 import { ChatMessage, ChatReactionSummary } from './chat';
 import { isFileDocument } from './chatMessage';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
+import { formatTime as formatInstantTime } from '@/lib/date-time';
 
 interface ThreadPanelProps {
   rootMessage: ChatMessage | null;
@@ -33,8 +34,7 @@ const avatarColor = (name: string) =>
   AVATAR_COLORS[(name.charCodeAt(0) % AVATAR_COLORS.length)];
 
 function formatTime(timestamp?: string | null): string {
-  if (!timestamp) return '';
-  return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return formatInstantTime(timestamp);
 }
 
 export const ThreadPanel = ({
@@ -209,7 +209,7 @@ export const ThreadPanel = ({
 
       {/* Reply input */}
       <div className="flex-shrink-0 border-t border-cu-border bg-cu-bg p-3">
-        <div className="flex items-center gap-2 bg-cu-bg-secondary border border-cu-border rounded-xl px-2 py-1.5 focus-within:bg-cu-bg-tertiary focus-within:border-cu-primary/40 focus-within:ring-2 focus-within:ring-cu-primary/10 transition-all">
+        <div className="flex items-center gap-2 bg-cu-bg-secondary border border-cu-border rounded-xl px-2 py-1.5 focus-within:bg-cu-bg-tertiary focus-within:border-[var(--cu-focus-border)] focus-within:ring-2 focus-within:ring-[var(--cu-focus-ring)] transition-all">
           <input
             type="text"
             placeholder="Reply in thread..."

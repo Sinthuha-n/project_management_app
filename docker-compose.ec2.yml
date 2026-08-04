@@ -16,6 +16,8 @@ services:
       APP_CACHE_REDIS_FAIL_OPEN: ${APP_CACHE_REDIS_FAIL_OPEN:-true}
       NOTIFICATIONS_CACHE_REDIS_ENABLED: ${NOTIFICATIONS_CACHE_REDIS_ENABLED:-true}
       JAVA_OPTS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError}
+      DMS_CLAMAV_ENABLED: ${DMS_CLAMAV_ENABLED:-false}
+      DMS_CLAMAV_HOST: clamav
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     depends_on:

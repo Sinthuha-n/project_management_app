@@ -162,7 +162,7 @@ export function usePages(projectId: string | number | null): UsePagesReturn {
 
   // Fetch pages on mount or when projectId changes
   useEffect(() => {
-    fetchPages();
+    queueMicrotask(() => void fetchPages());
   }, [projectId, fetchPages]);
 
   const fetchRecentPages = useCallback(async () => {
@@ -178,7 +178,7 @@ export function usePages(projectId: string | number | null): UsePagesReturn {
 
   useEffect(() => {
     if (activeTab === 'recent') {
-      void fetchRecentPages();
+      queueMicrotask(() => void fetchRecentPages());
     }
   }, [activeTab, fetchRecentPages]);
 

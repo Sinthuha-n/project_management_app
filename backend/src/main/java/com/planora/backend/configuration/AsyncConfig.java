@@ -1,6 +1,7 @@
 package com.planora.backend.configuration;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,24 +12,30 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @EnableAsync
 public class AsyncConfig {
 
+    @Bean(name = "taskExecutor")
+    public Executor taskExecutor() {
+        return boundedExecutor("Async-", 4, 16, 500);
+    }
+
     @Bean(name = "chatTaskExecutor")
     public Executor chatTaskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(5);
-        executor.setMaxPoolSize(20);
-        executor.setQueueCapacity(1000);
-        executor.setThreadNamePrefix("ChatAsync-");
-        executor.initialize();
-        return executor;
+        return boundedExecutor("ChatAsync-", 5, 20, 500);
     }
 
     @Bean(name = "emailTaskExecutor")
     public Executor emailTaskExecutor() {
+        return boundedExecutor("EmailAsync-", 2, 5, 100);
+    }
+
+    private ThreadPoolTaskExecutor boundedExecutor(String prefix, int core, int max, int queueCapacity) {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(2);
-        executor.setMaxPoolSize(5);
-        executor.setQueueCapacity(100);
-        executor.setThreadNamePrefix("EmailAsync-");
+        executor.setCorePoolSize(core);
+        executor.setMaxPoolSize(max);
+        executor.setQueueCapacity(queueCapacity);
+        executor.setThreadNamePrefix(prefix);
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(20);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();
         return executor;
     }

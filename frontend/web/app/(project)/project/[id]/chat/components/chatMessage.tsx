@@ -9,6 +9,7 @@ import { useVirtualizer, Virtualizer } from '@tanstack/react-virtual';
 import api from '@/lib/axios';
 import { avatarColor } from '@/hooks/chat/chat-utils';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
+import { formatDate, formatTime as formatInstantTime, parseInstant } from '@/lib/date-time';
 
 interface ChatMessagesProps {
   projectId: string;
@@ -45,33 +46,33 @@ const QUICK_REACTIONS = ['👍', '❤️', '🔥', '✅', '😂', '🎉'];
 
 
 function formatTime(timestamp?: string | null): string {
-  if (!timestamp) return '';
-  return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return formatInstantTime(timestamp);
 }
 
 function formatDateSeparator(timestamp?: string | null): string {
   if (!timestamp) return '';
-  const date = new Date(timestamp);
+  const date = parseInstant(timestamp);
+  if (!date) return '';
   const today = new Date();
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
 
   if (date.toDateString() === today.toDateString()) return 'Today';
   if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+  return formatDate(timestamp, { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
 function shouldShowDateSeparator(current: ChatMessage, previous?: ChatMessage): boolean {
   if (!previous) return true;
-  const currentDate = new Date(current.timestamp || '').toDateString();
-  const prevDate = new Date(previous.timestamp || '').toDateString();
+  const currentDate = parseInstant(current.timestamp)?.toDateString();
+  const prevDate = parseInstant(previous.timestamp)?.toDateString();
   return currentDate !== prevDate;
 }
 
 function isGrouped(current: ChatMessage, previous?: ChatMessage): boolean {
   if (!previous) return false;
   if (current.sender !== previous.sender) return false;
-  const diff = new Date(current.timestamp || '').getTime() - new Date(previous.timestamp || '').getTime();
+  const diff = (parseInstant(current.timestamp)?.getTime() ?? 0) - (parseInstant(previous.timestamp)?.getTime() ?? 0);
   return diff < 120000; // 2 minutes
 }
 
@@ -182,6 +183,8 @@ export const ChatMessages = ({
 
   const visibleMessages = messages.filter((msg) => msg.type !== 'JOIN' && !msg.parentMessageId);
 
+  // TanStack Virtual intentionally exposes mutable measurement functions that React Compiler cannot memoize.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
     count: visibleMessages.length,
     getScrollElement: () => scrollRef.current,

@@ -49,11 +49,18 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     // -------------------------------------------------------------------------
     // Limits
     // -------------------------------------------------------------------------
-    private static final int MAX_REQUESTS_PER_MINUTE  = 5;
-    private static final int MAX_INVITATIONS_PER_HOUR = 10;
-    private static final int MAX_RESETS_PER_15_MIN    = 5;
-    /** OTP-issuance endpoints: forgot / resend / resend-otp */
-    private static final int MAX_OTP_PER_10_MIN       = 5;
+    @Value("${app.security.rate-limit.auth-per-minute:5}")
+    private int maxRequestsPerMinute = 5;
+    @Value("${app.security.rate-limit.invitation-per-hour:10}")
+    private int maxInvitationsPerHour = 10;
+    @Value("${app.security.rate-limit.reset-per-15-minutes:5}")
+    private int maxResetsPer15Minutes = 5;
+    @Value("${app.security.rate-limit.otp-per-10-minutes:5}")
+    private int maxOtpPer10Minutes = 5;
+    @Value("${app.security.rate-limit.expensive-per-minute:30}")
+    private int maxExpensiveRequestsPerMinute = 30;
+    @Value("${app.security.rate-limit.fail-open:true}")
+    private boolean failOpen = true;
 
     // -------------------------------------------------------------------------
     // TTLs matching the limits above
@@ -67,9 +74,21 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     // Path matching
     // -------------------------------------------------------------------------
     private static final Pattern PROJECT_INVITE_PATH = Pattern.compile("^/api/projects/(\\d+)/invitations$");
+    private static final List<Pattern> EXPENSIVE_PATHS = List.of(
+            Pattern.compile("^/api/auth/refresh$"),
+            Pattern.compile("^/api/github/webhooks?$") ,
+            Pattern.compile("^/api/projects/\\d+/documents/(?:upload|uploads)(?:/.*)?$"),
+            Pattern.compile("^/api/tasks/\\d+/attachments/upload(?:/.*)?$"),
+            Pattern.compile("^/api/reports(?:/.*)?$"),
+            Pattern.compile("^/api/scheduled-reports(?:/.*)?$"),
+            Pattern.compile("^/api/search(?:/.*)?$"),
+            Pattern.compile("^/api/tasks/(?:bulk(?:/.*)?|kanban/move|reorder)$")
+    );
 
     private static final List<String> RATE_LIMITED_PATHS = List.of(
             "/api/auth/login",
+            "/api/auth/register",
+            "/api/auth/reg/verify",
             "/api/auth/forgot",
             "/api/auth/resend",
             "/api/auth/resend-otp",
@@ -126,7 +145,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         if (isProjectInviteRequest(request)) {
             return false;
         }
-        return RATE_LIMITED_PATHS.stream().noneMatch(path::equals);
+        return RATE_LIMITED_PATHS.stream().noneMatch(path::equals) && !isExpensiveRequest(request);
     }
 
     @Override
@@ -146,10 +165,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             requestToProcess = wrapped;
             String email = extractEmailFromBody(wrapped.getCachedBody());
             rateLimitKey = "reset:" + resolveClientIp(wrapped) + ":" + email;
-            limit = MAX_RESETS_PER_15_MIN;
+            limit = maxResetsPer15Minutes;
 
             if (isRateLimited(rateLimitKey, limit, TTL_RESET)) {
-                rejectWithTooManyRequests(response, request,
+                rejectWithTooManyRequests(response, request, TTL_RESET,
                         "Too many password reset attempts. Please try again in 15 minutes.");
                 return;
             }
@@ -162,10 +181,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             requestToProcess = wrapped;
             String email = extractEmailFromBody(wrapped.getCachedBody());
             rateLimitKey = "otp:" + resolveClientIp(wrapped) + ":" + email;
-            limit = MAX_OTP_PER_10_MIN;
+            limit = maxOtpPer10Minutes;
 
             if (isRateLimited(rateLimitKey, limit, TTL_OTP)) {
-                rejectWithTooManyRequests(response, request,
+                rejectWithTooManyRequests(response, request, TTL_OTP,
                         "Too many OTP requests. Please try again in 10 minutes.");
                 return;
             }
@@ -177,10 +196,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             Matcher m = PROJECT_INVITE_PATH.matcher(request.getServletPath());
             String projectId = m.find() ? m.group(1) : "unknown";
             rateLimitKey = "invite:" + projectId + ":" + resolveClientIp(request);
-            limit = MAX_INVITATIONS_PER_HOUR;
+            limit = maxInvitationsPerHour;
 
             if (isRateLimited(rateLimitKey, limit, TTL_INVITATION)) {
-                rejectWithTooManyRequests(response, request,
+                rejectWithTooManyRequests(response, request, TTL_INVITATION,
                         "Too many invitations sent, try again in 1 hour");
                 return;
             }
@@ -189,11 +208,12 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             // -----------------------------------------------------------------
             // Generic auth paths  →  key: auth:{ip}:{path}
             // -----------------------------------------------------------------
-            rateLimitKey = "auth:" + resolveClientIp(request) + ":" + request.getServletPath();
-            limit = MAX_REQUESTS_PER_MINUTE;
+            boolean expensive = isExpensiveRequest(request);
+            rateLimitKey = (expensive ? "expensive:" : "auth:") + resolveClientIp(request) + ":" + request.getServletPath();
+            limit = expensive ? maxExpensiveRequestsPerMinute : maxRequestsPerMinute;
 
             if (isRateLimited(rateLimitKey, limit, TTL_GENERIC)) {
-                rejectWithTooManyRequests(response, request,
+                rejectWithTooManyRequests(response, request, TTL_GENERIC,
                         "Too many requests. Please try again later.");
                 return;
             }
@@ -217,13 +237,13 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         if (stringRedisTemplate == null) {
             // No Redis wired (e.g. unit-test context without a mock) — allow through.
             log.debug("StringRedisTemplate not available; rate-limit check skipped for key={}", key);
-            return false;
+            return unavailable(key, null);
         }
         try {
             Long count = stringRedisTemplate.opsForValue().increment(key);
             if (count == null) {
                 log.warn("Redis INCR returned null for key={}; allowing request", key);
-                return false;
+                return unavailable(key, null);
             }
             if (count == 1L) {
                 // First increment — set expiry so the key self-cleans after the window.
@@ -235,10 +255,18 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             }
             return false;
         } catch (RuntimeException ex) {
-            // Redis is unavailable — fail open, matching NotificationService convention.
-            log.warn("Redis unavailable during rate-limit check for key={}; allowing request: {}", key, ex.getMessage());
+            return unavailable(key, ex);
+        }
+    }
+
+    private boolean unavailable(String key, RuntimeException exception) {
+        String detail = exception == null ? "StringRedisTemplate not available" : exception.getMessage();
+        if (failOpen) {
+            log.warn("Rate-limit backend unavailable for key={}; allowing request: {}", key, detail);
             return false;
         }
+        log.error("Rate-limit backend unavailable for key={}; rejecting sensitive request: {}", key, detail);
+        return true;
     }
 
     // -------------------------------------------------------------------------
@@ -262,6 +290,16 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             return false;
         }
         return PROJECT_INVITE_PATH.matcher(request.getServletPath()).matches();
+    }
+
+    private boolean isExpensiveRequest(HttpServletRequest request) {
+        String method = request.getMethod();
+        if (!("POST".equalsIgnoreCase(method) || "PUT".equalsIgnoreCase(method)
+                || "PATCH".equalsIgnoreCase(method) || "DELETE".equalsIgnoreCase(method)
+                || "GET".equalsIgnoreCase(method))) {
+            return false;
+        }
+        return EXPENSIVE_PATHS.stream().anyMatch(pattern -> pattern.matcher(request.getServletPath()).matches());
     }
 
     // -------------------------------------------------------------------------
@@ -295,9 +333,11 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
     private void rejectWithTooManyRequests(HttpServletResponse response,
                                            HttpServletRequest request,
+                                           Duration ttl,
                                            String message) throws IOException {
         log.warn("Rate limit exceeded: uri={}", request.getRequestURI());
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+        response.setHeader("Retry-After", Long.toString(Math.max(1, ttl.toSeconds())));
         response.setContentType("application/json");
         com.planora.backend.dto.ApiErrorResponse errorResponse = new com.planora.backend.dto.ApiErrorResponse(
                 java.time.LocalDateTime.now().toString(),

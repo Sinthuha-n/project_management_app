@@ -117,12 +117,12 @@ const TaskSidebar: React.FC<TaskSidebarProps> = ({
   }, [projectId]);
 
   React.useEffect(() => {
-    setSelectedLabelIds((prev) => {
+    queueMicrotask(() => setSelectedLabelIds((prev) => {
       if (prev.length === labelIds.length && prev.every((id, idx) => id === labelIds[idx])) {
         return prev;
       }
       return labelIds;
-    });
+    }));
   }, [labelIds]);
 
   React.useEffect(() => {
@@ -131,7 +131,10 @@ const TaskSidebar: React.FC<TaskSidebarProps> = ({
     if (!raw) return;
     try {
       // Restore per-task collapsed/expanded sidebar preferences set in a previous session
-      setSections((prev) => ({ ...prev, ...(JSON.parse(raw) as Record<string, boolean>) }));
+      queueMicrotask(() => setSections((prev) => ({
+        ...prev,
+        ...(JSON.parse(raw) as Record<string, boolean>),
+      })));
     } catch {
       // ignore malformed preferences
     }

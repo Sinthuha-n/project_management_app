@@ -28,11 +28,13 @@ const DependencyPicker: React.FC<DependencyPickerProps> = ({
   const [linking, setLinking] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
-    api.get<ProjectTask[]>(`/api/tasks/project/${projectId}/all`)
-      .then((r) => setTasks(r.data))
-      .catch(() => setTasks([]))
-      .finally(() => setLoading(false));
+    queueMicrotask(() => {
+      setLoading(true);
+      void api.get<ProjectTask[]>(`/api/tasks/project/${projectId}/all`)
+        .then((r) => setTasks(r.data))
+        .catch(() => setTasks([]))
+        .finally(() => setLoading(false));
+    });
   }, [projectId]);
 
   // Exclude the task itself and already-linked tasks so the picker only shows valid new targets

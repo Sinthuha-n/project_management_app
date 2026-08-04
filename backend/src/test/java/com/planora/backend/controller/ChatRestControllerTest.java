@@ -22,6 +22,8 @@ import com.planora.backend.service.JWTService;
 import com.planora.backend.service.NotificationService;
 import com.planora.backend.service.ProjectMembershipService;
 import com.planora.backend.service.UserCacheService;
+import com.planora.backend.dto.ChatAttachmentUploadCapabilitiesDTO;
+import com.planora.backend.dto.ChatAttachmentUploadInitResponseDTO;
 import com.planora.backend.dto.ChatMessageDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,9 +34,11 @@ import org.springframework.http.MediaType;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -112,6 +116,65 @@ class ChatRestControllerTest {
         when(userCacheService.resolveUserByEmailOrUsername("alice@example.com")).thenReturn(alice);
         when(teamMemberRepository.findByTeamIdAndUserUserId(7L, 10L)).thenReturn(Optional.of(member));
         when(teamMemberRepository.findByTeamId(7L)).thenReturn(List.of(member));
+    }
+
+    @Test
+    @WithMockUserPrincipal(email = "alice@example.com")
+    void uploadDocumentUsesResolvedNumericUserIdForEmailPrincipal() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "Quarterly Résumé 2026.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                new byte[]{1, 2, 3});
+        when(chatDocumentService.uploadChatDocument(any(), eq(5L), eq(10L)))
+                .thenReturn("https://download.example/document");
+
+        mockMvc.perform(multipart("/api/projects/5/chat/messages/upload-document")
+                        .file(file)
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string("https://download.example/document"));
+
+        verify(chatDocumentService).uploadChatDocument(any(), eq(5L), eq(10L));
+    }
+
+    @Test
+    @WithMockUserPrincipal(email = "alice@example.com")
+    void attachmentCapabilitiesDescribeDirectUploadPolicy() throws Exception {
+        when(chatDocumentService.capabilities(true)).thenReturn(
+                new ChatAttachmentUploadCapabilitiesDTO(
+                        25L * 1024 * 1024,
+                        List.of("pdf", "xlsx"),
+                        Map.of("pdf", List.of("application/pdf")),
+                        true));
+
+        mockMvc.perform(get("/api/projects/5/chat/attachments/upload-capabilities"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.maxFileSizeBytes").value(25L * 1024 * 1024))
+                .andExpect(jsonPath("$.allowedExtensions[0]").value("pdf"))
+                .andExpect(jsonPath("$.directUploadEnabled").value(true));
+    }
+
+    @Test
+    @WithMockUserPrincipal(email = "alice@example.com")
+    void initAttachmentUploadReturnsPresignedContract() throws Exception {
+        when(chatDocumentService.initUpload(eq(5L), eq(10L), any())).thenReturn(
+                new ChatAttachmentUploadInitResponseDTO(
+                        "https://upload.example/presigned",
+                        "project-5/user-10/id-report.pdf",
+                        "application/pdf",
+                        600L));
+
+        mockMvc.perform(post("/api/projects/5/chat/attachments/upload/init")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fileName":"report.pdf","contentType":"application/pdf","fileSize":512}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.uploadUrl").value("https://upload.example/presigned"))
+                .andExpect(jsonPath("$.objectKey").value("project-5/user-10/id-report.pdf"))
+                .andExpect(jsonPath("$.contentType").value("application/pdf"));
     }
 
     @Test

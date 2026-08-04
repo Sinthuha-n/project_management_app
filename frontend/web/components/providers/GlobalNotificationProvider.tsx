@@ -123,16 +123,17 @@ export function GlobalNotificationProvider({ children }: { children: React.React
   const loadInitialData = useCallback(async () => {
     try {
       const feed = await notificationsApi.fetchNotifications();
-      setNotifications(feed.notifications);
-      setUnreadCount(feed.unreadCount);
-      seenNotificationIdsRef.current = new Set(feed.notifications.map((notif) => notif.id));
+      const notifs = Array.isArray(feed?.notifications) ? feed.notifications : [];
+      setNotifications(notifs);
+      setUnreadCount(feed?.unreadCount ?? 0);
+      seenNotificationIdsRef.current = new Set(notifs.map((notif) => notif.id));
       const cacheKey = notificationsCacheKeyRef.current;
       if (cacheKey) {
         setSessionCache<NotificationsCachePayload>(
           cacheKey,
           {
-            notifications: feed.notifications,
-            unreadCount: feed.unreadCount,
+            notifications: notifs,
+            unreadCount: feed?.unreadCount ?? 0,
           },
           NOTIFICATIONS_CACHE_TTL_MS,
         );

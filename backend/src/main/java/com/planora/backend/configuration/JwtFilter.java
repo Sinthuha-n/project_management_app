@@ -29,13 +29,15 @@ public class JwtFilter extends OncePerRequestFilter {
 
     private final JWTService jwtService;
     private final UserDetailsService userDetailsService;
+    private final ObjectMapper objectMapper;
     private static final Logger logger = LoggerFactory.getLogger(JwtFilter.class);
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
     // Single source of truth — see PublicEndpoints for the canonical list.
 
-    public JwtFilter(JWTService jwtService,UserDetailsService userDetailsService) {
+    public JwtFilter(JWTService jwtService, UserDetailsService userDetailsService, ObjectMapper objectMapper) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -83,7 +85,7 @@ public class JwtFilter extends OncePerRequestFilter {
                         request.getRequestURI(),
                         null
                     );
-                    response.getWriter().write(new ObjectMapper().writeValueAsString(errorResponse));
+                    response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
                     return;
                 }
 
@@ -99,7 +101,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
         filterChain.doFilter(request, response);
         } catch (UsernameNotFoundException e) {
-            logger.info("User not found for token: {}", e.getMessage());
+            logger.info("JWT references a user that no longer exists");
             sendErrorResponse(request, response, "User not found");
         } catch (ExpiredJwtException e) {
             logger.debug("JWT expired for request: {}", request.getRequestURI());
@@ -108,7 +110,7 @@ public class JwtFilter extends OncePerRequestFilter {
             logger.debug("Malformed JWT on request: {}", request.getRequestURI());
             sendErrorResponse(request, response, "Invalid token format");
         } catch (JwtException | IllegalArgumentException e) {
-            logger.error("JWT Error: {}", e.getMessage());
+            logger.debug("JWT validation failed for request: {}", request.getRequestURI());
             sendErrorResponse(request, response, "Invalid or expired token");
         }
 
@@ -126,6 +128,6 @@ public class JwtFilter extends OncePerRequestFilter {
             request.getRequestURI(),
             null
         );
-        response.getWriter().write(new ObjectMapper().writeValueAsString(errorResponse));
+        response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
     }
 }

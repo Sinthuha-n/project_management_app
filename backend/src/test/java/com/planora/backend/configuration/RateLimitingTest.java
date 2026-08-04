@@ -77,6 +77,41 @@ class RateLimitingTest {
     }
 
     @Test
+    void shouldNotFilter_rateLimitsRegistrationAndVerification() {
+        MockHttpServletRequest register = new MockHttpServletRequest("POST", "/api/auth/register");
+        register.setServletPath("/api/auth/register");
+        MockHttpServletRequest verify = new MockHttpServletRequest("POST", "/api/auth/reg/verify");
+        verify.setServletPath("/api/auth/reg/verify");
+        assertFalse(rateLimitingFilter.shouldNotFilter(register));
+        assertFalse(rateLimitingFilter.shouldNotFilter(verify));
+    }
+
+    @Test
+    void shouldNotFilter_rateLimitsRefreshWebhooksUploadsAndBulkMutations() {
+        String[] paths = {
+                "/api/auth/refresh",
+                "/api/github/webhook",
+                "/api/projects/10/documents/uploads/abc/finalize",
+                "/api/tasks/10/attachments/upload/finalize",
+                "/api/reports/project/10",
+                "/api/search",
+                "/api/tasks/bulk/status"
+        };
+        for (String path : paths) {
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", path);
+            request.setServletPath(path);
+            assertFalse(rateLimitingFilter.shouldNotFilter(request), path);
+        }
+    }
+
+    @Test
+    void failsClosedWhenConfiguredAndRedisIsUnavailable() {
+        ReflectionTestUtils.setField(rateLimitingFilter, "failOpen", false);
+        when(mockRedisTemplate.opsForValue()).thenThrow(new IllegalStateException("Redis down"));
+        assertTrue(rateLimitingFilter.isRateLimited("auth:example", 5, Duration.ofMinutes(1)));
+    }
+
+    @Test
     void shouldNotFilter_returnsFalseForProjectInvitePath() {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/projects/10/invitations");
         request.setServletPath("/api/projects/10/invitations");

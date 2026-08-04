@@ -27,6 +27,7 @@ import {
 import type { SprintboardFullResponse } from './types';
 import { useSprintBoardStore } from './hooks/useSprintBoardStore';
 import { useSprintBoardActions } from './hooks/useSprintBoardActions';
+import { useVisibilityInterval } from '@/hooks/useVisibilityInterval';
 
 type SprintSummary = { id: number; status: string; sprintName?: string };
 type SprintBoardCache = { activeList: SprintSummary[]; boards: SprintboardFullResponse[] };
@@ -126,7 +127,7 @@ function SprintBoardPageContent() {
     if (cKey) {
       const cached = getSessionCache<import('./api').SprintTeamMemberOption[]>(cKey);
       if (cached.data) {
-        setTeamMembers(cached.data);
+        queueMicrotask(() => setTeamMembers(cached.data!));
         hasCache = true;
       }
     }
@@ -208,9 +209,11 @@ function SprintBoardPageContent() {
     if (cKey) {
       const cached = getSessionCache<{ isAgile: boolean; teamId: number | null; projectKey: string }>(cKey);
       if (cached.data) {
-        setIsAgile(cached.data.isAgile);
-        setTeamId(cached.data.teamId);
-        setProjectKey(cached.data.projectKey);
+        queueMicrotask(() => {
+          setIsAgile(cached.data!.isAgile);
+          setTeamId(cached.data!.teamId);
+          setProjectKey(cached.data!.projectKey);
+        });
       }
     }
 
@@ -218,22 +221,24 @@ function SprintBoardPageContent() {
     const q = params.get('q') ?? '';
     const rawSwimlane = params.get('swimlane');
     const swimlane: 'none' | 'assignee' | 'priority' = (rawSwimlane === 'assignee' || rawSwimlane === 'priority') ? rawSwimlane : 'none';
-    updateFilters({ search: q, swimlane });
-
     const tab = params.get('sprintTab');
-    setSelectedIdx(tab ? parseInt(tab, 10) || 0 : 0);
-
     const dense = params.get('dense');
-    setDenseMode(dense !== '0');
+    queueMicrotask(() => {
+      updateFilters({ search: q, swimlane });
+      setSelectedIdx(tab ? parseInt(tab, 10) || 0 : 0);
+      setDenseMode(dense !== '0');
+    });
   }, [projectIdStr, searchParams, updateFilters]);
 
   useEffect(() => { 
     if (!projectIdStr) return; 
-    void fetchProjectInfo(); 
-    void fetchData({ showSpinner: true }); 
-    const sync = setInterval(() => void fetchData({ showSpinner: false }), 30_000); 
-    return () => clearInterval(sync); 
+    queueMicrotask(() => {
+      void fetchProjectInfo();
+      void fetchData({ showSpinner: true });
+    });
   }, [projectIdStr, fetchProjectInfo, fetchData]);
+
+  useVisibilityInterval(() => void fetchData({ showSpinner: false }), 30_000, Boolean(projectIdStr));
 
   useEffect(() => { 
     const onTaskUpdated = () => void fetchData({ showSpinner: false, forceNetwork: true }); 

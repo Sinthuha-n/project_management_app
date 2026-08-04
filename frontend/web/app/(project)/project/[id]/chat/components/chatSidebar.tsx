@@ -7,6 +7,7 @@ import { isFileDocument } from './chatMessage';
 import { CreateChannelModal, EditChannelModal, ConfirmDeleteModal } from './chatModals';
 import { avatarColor } from '@/hooks/chat/chat-utils';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
+import { formatDate, formatRelativeTime, formatTime as formatInstantTime, parseInstant } from '@/lib/date-time';
 
 interface ChatSidebarProps {
   currentUser: string;
@@ -43,13 +44,13 @@ interface ChatSidebarProps {
 
 function formatTime(timestamp?: string | null): string {
   if (!timestamp) return '';
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
+  const date = parseInstant(timestamp);
+  if (!date) return '';
+  const diff = Date.now() - date.getTime();
   if (diff < 60000) return 'now';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
-  if (diff < 86400000) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  if (diff < 3600000) return formatRelativeTime(timestamp);
+  if (diff < 86400000) return formatInstantTime(timestamp);
+  return formatDate(timestamp, { month: 'short', day: 'numeric' });
 }
 
 function UnreadBadge({ count }: { count: number }) {
@@ -160,7 +161,7 @@ export const ChatSidebar = ({
 
       {/* Search */}
       <div className="px-3 pt-3 pb-2">
-        <div className="flex items-center gap-2 rounded-xl border border-cu-border bg-cu-bg-secondary px-3 py-2.5 transition-all focus-within:border-cu-primary/40 focus-within:bg-cu-bg focus-within:ring-2 focus-within:ring-cu-primary/15">
+        <div className="flex items-center gap-2 rounded-xl border border-cu-border bg-cu-bg-secondary px-3 py-2.5 transition-all focus-within:border-[var(--cu-focus-border)] focus-within:bg-cu-bg focus-within:ring-2 focus-within:ring-[var(--cu-focus-ring)]">
           <Search size={14} className="flex-shrink-0 text-cu-text-muted" strokeWidth={2.5} />
           <input
             type="text"

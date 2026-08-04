@@ -1,6 +1,7 @@
 package com.planora.backend.service;
 
 import java.time.LocalDateTime;
+import java.net.http.HttpClient;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,6 +20,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -31,7 +33,9 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.planora.backend.dto.NotificationFeedResponseDTO;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planora.backend.dto.NotificationResponseDTO;
+import com.planora.backend.exception.ForbiddenException;
 import com.planora.backend.model.Notification;
 import com.planora.backend.model.NotificationChannel;
 import com.planora.backend.model.User;
@@ -60,6 +64,12 @@ class NotificationServiceTest {
 
     @Mock
     private TaskRepository taskRepository;
+
+    @Mock
+    private HttpClient httpClient;
+
+    @Spy
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     @InjectMocks
     private NotificationService notificationService;
@@ -304,10 +314,35 @@ class NotificationServiceTest {
 
         when(notificationRepository.findById(81L)).thenReturn(Optional.of(notification));
 
-        RuntimeException ex = assertThrows(RuntimeException.class,
+        ForbiddenException ex = assertThrows(ForbiddenException.class,
                 () -> notificationService.markAsRead(81L, 99L));
-        assertEquals("Unauthorized", ex.getMessage());
+        assertEquals("You cannot modify this notification", ex.getMessage());
         verify(notificationRepository, never()).save(any(Notification.class));
+    }
+
+    @Test
+    void deleteNotification_deletesOnlyWhenOwnedByUser() {
+        Notification notification = new Notification();
+        notification.setId(82L);
+        notification.setRecipient(recipient);
+        when(notificationRepository.findById(82L)).thenReturn(Optional.of(notification));
+        when(notificationRepository.countByRecipientUserIdAndIsReadFalse(15L)).thenReturn(0L);
+
+        notificationService.deleteNotification(82L, 15L);
+
+        verify(notificationRepository).delete(notification);
+    }
+
+    @Test
+    void deleteNotification_rejectsAnotherUsersNotification() {
+        Notification notification = new Notification();
+        notification.setId(83L);
+        notification.setRecipient(recipient);
+        when(notificationRepository.findById(83L)).thenReturn(Optional.of(notification));
+
+        assertThrows(ForbiddenException.class,
+                () -> notificationService.deleteNotification(83L, 99L));
+        verify(notificationRepository, never()).delete(any(Notification.class));
     }
 
     @Test

@@ -81,22 +81,24 @@ export default function useCommandPalette() {
     // Reset state and fetch role when palette opens
     useEffect(() => {
         if (!open) return;
-        setQuery('');
-        setTaskResults([]);
-        setHighlighted(0);
-        requestAnimationFrame(() => inputRef.current?.focus());
+        queueMicrotask(() => {
+            setQuery('');
+            setTaskResults([]);
+            setHighlighted(0);
+            requestAnimationFrame(() => inputRef.current?.focus());
 
-        const projectId = getScopedId();
-        if (projectId && projectId !== 'null') {
-            const cached = roleCache.current[projectId];
-            if (cached) {
-                setUserRole(cached);
+            const projectId = getScopedId();
+            if (projectId && projectId !== 'null') {
+                const cached = roleCache.current[projectId];
+                if (cached) {
+                    setUserRole(cached);
+                } else {
+                    void fetchUserRole(projectId);
+                }
             } else {
-                void fetchUserRole(projectId);
+                setUserRole(null);
             }
-        } else {
-            setUserRole(null);
-        }
+        });
     }, [open, fetchUserRole]);
 
     const search = useCallback(async (q: string) => {
@@ -138,7 +140,7 @@ export default function useCommandPalette() {
         if (query.length >= 2) {
             searchTimer.current = setTimeout(() => { void search(query); }, 300);
         } else {
-            setTaskResults([]);
+            queueMicrotask(() => setTaskResults([]));
         }
         return () => {
             if (searchTimer.current) clearTimeout(searchTimer.current);

@@ -1,4 +1,4 @@
-import { offlineSyncManager, QueuedMutation, SyncEvent } from '../offlineSyncManager';
+import { offlineSyncManager, SyncEvent } from '../offlineSyncManager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../api/axios';
 
@@ -68,6 +68,7 @@ describe('OfflineSyncManager tests', () => {
     expect(queue).toHaveLength(1);
     expect(queue[0].type).toBe('CREATE_TASK');
     expect(queue[0].payload.title).toBe('Test Offline Task');
+    expect(queue[0].payload.clientMutationId).toBe(queue[0].id);
     expect(queue[0].status).toBe('pending');
 
     // Connection changed to offline event should be in emittedEvents
@@ -97,7 +98,12 @@ describe('OfflineSyncManager tests', () => {
     // Wait a brief tick for async sync queue execution
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    expect(api.post).toHaveBeenCalledWith('/api/tasks', createPayload);
+    const queuedRequest = (api.post as jest.Mock).mock.calls[0][1];
+    expect(api.post).toHaveBeenCalledWith(
+      '/api/tasks',
+      expect.objectContaining(createPayload),
+    );
+    expect(queuedRequest.clientMutationId).toEqual(expect.any(String));
     expect(offlineSyncManager.getQueue()).toHaveLength(0);
 
     // Verify TASK_CREATED was emitted

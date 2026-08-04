@@ -65,7 +65,7 @@ export function useProfile() {
     const [profilePicUrl, setProfilePicUrl] = useState('');
     const [githubUsername, setGithubUsername] = useState<string | null>(null);
     const [githubEmail, setGithubEmail] = useState<string | null>(null);
-    const [imageKey, setImageKey] = useState(Date.now());
+    const [imageKey, setImageKey] = useState(0);
     const [lastActive, setLastActive] = useState<string | null>(null);
     const [loadedProfile, setLoadedProfile] = useState<EditableProfileFields | null>(null);
 
@@ -257,9 +257,7 @@ export function useProfile() {
         formData.append('file', file);
         try {
             setIsUploadingPhoto(true);
-            const response = await api.post<PhotoUploadResponse>('/api/user/profile/photo', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
+            const response = await api.post<PhotoUploadResponse>('/api/user/profile/photo', formData);
             if (!response.data.success) {
                 setErrorMessage(response.data.message || 'Failed to upload profile picture.');
                 return;

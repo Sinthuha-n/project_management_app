@@ -41,8 +41,7 @@ export default function FullLayout({ children, showTopBar = true }: FullLayoutPr
 
             <Sidebar />
             <div
-                className={`flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden transition-[filter] duration-300 ease-out z-10 ${contentInteractionClass}`}
-                style={{ transition: 'all 300ms cubic-bezier(0.4,0,0.2,1)' }}
+                className={`flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden transition-[filter] duration-300 ease-out motion-reduce:transition-none z-10 ${contentInteractionClass}`}
             >
                 <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden main-content-area">
                     {showTopBar && (

@@ -5,11 +5,13 @@ import { fetchProjectDetails } from "@/services/projects-service";
 import { getUserFromToken } from "@/lib/auth";
 import { getOrFetchUserMap, upsertUserMapEntry } from "@/app/taskcard/sidebar/userMapCache";
 import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
-import type { Member, MemberCombined, MembersCachePayload, PendingInvite } from "./types";
+import type { AssignableTeamRole, Member, MemberCombined, MembersCachePayload, PendingInvite } from "./types";
 import {
   applyProjectOwnerRole,
   buildCombinedMembers,
-  canManageMember,
+  canRemoveMember as canRemoveMemberByPermission,
+  getAllowedRoleOptions,
+  normalizeTeamRole,
   resolveProjectOwnerId,
   resolveProfilePicUrl as resolveProfilePicUrlValue,
   timeAgo,
@@ -51,12 +53,18 @@ export function useMembersData(projectId: string) {
   const [removeSuccess, setRemoveSuccess] = useState("");
 
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   useEffect(() => {
     const user = getUserFromToken();
-    if (user?.email) {
-      setCurrentUserEmail(user.email.toLowerCase());
-    }
+    queueMicrotask(() => {
+      if (user?.email) {
+        setCurrentUserEmail(user.email.toLowerCase());
+      }
+      if (typeof user?.userId === 'number') {
+        setCurrentUserId(user.userId);
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -69,22 +77,27 @@ export function useMembersData(projectId: string) {
     if (membersCacheKey) {
       const cached = getSessionCache<MembersCachePayload>(membersCacheKey, { allowStale: true });
       if (cached.data) {
+        const cachedData = cached.data;
         if (Array.isArray(cached.data.members)) {
           cachedMembers = cached.data.members;
-          setMembers(cached.data.members);
           hasHydratedFromCache = true;
         }
         if (Array.isArray(cached.data.pending)) {
           cachedPending = cached.data.pending;
-          setPending(cached.data.pending);
           hasHydratedFromCache = true;
         }
         if (typeof cached.data.projectOwnerId === "number" || cached.data.projectOwnerId === null) {
           cachedProjectOwnerId = cached.data.projectOwnerId;
-          setProjectOwnerId(cached.data.projectOwnerId);
         }
+        queueMicrotask(() => {
+          if (Array.isArray(cachedData.members)) setMembers(cachedData.members);
+          if (Array.isArray(cachedData.pending)) setPending(cachedData.pending);
+          if (typeof cachedData.projectOwnerId === "number" || cachedData.projectOwnerId === null) {
+            setProjectOwnerId(cachedData.projectOwnerId);
+          }
+        });
         if (hasHydratedFromCache) {
-          setLoading(false);
+          queueMicrotask(() => setLoading(false));
         }
       }
     }
@@ -154,7 +167,7 @@ export function useMembersData(projectId: string) {
     if (projectId) {
       void fetchData();
     } else {
-      setLoading(false);
+      queueMicrotask(() => setLoading(false));
     }
 
     return () => {
@@ -176,14 +189,16 @@ export function useMembersData(projectId: string) {
 
   // Real-time sync via STOMP
   const handleRoleChangedLive = useCallback((userId: number, newRole: string) => {
+    const normalizedRole = normalizeTeamRole(newRole);
+    if (!normalizedRole) return;
     setMembers(prev => {
       let changed = false;
       const next = prev.map(member => {
-        if (member.user.userId !== userId || member.role === newRole) {
+        if (member.user.userId !== userId || member.role === normalizedRole) {
           return member;
         }
         changed = true;
-        return { ...member, role: newRole };
+        return { ...member, role: normalizedRole };
       });
       return changed ? next : prev;
     });
@@ -194,13 +209,14 @@ export function useMembersData(projectId: string) {
   }, []);
 
   const handleMemberJoinedLive = useCallback((payload: MemberPayload) => {
+    const role = normalizeTeamRole(payload.role) || 'MEMBER';
     setMembers(prev => {
       if (prev.some(m => m.user.userId === payload.userId)) return prev;
       return [
         ...prev,
         {
           id: payload.userId,
-          role: payload.role,
+          role,
           user: {
             userId: payload.userId,
             username: payload.username,
@@ -268,28 +284,26 @@ export function useMembersData(projectId: string) {
 
   const currentUserRole = useMemo(() => {
     let found = null;
-    const tokenUser = getUserFromToken() as { userId?: number; email?: string } | null;
-    if (tokenUser?.userId) {
-      found = normalizedMembers.find(m => String(m.user.userId) === String(tokenUser.userId));
+    if (currentUserId !== null) {
+      found = normalizedMembers.find(m => m.user.userId === currentUserId);
     }
     if (!found && currentUserEmail) {
       found = normalizedMembers.find(m => m.user.email?.toLowerCase() === currentUserEmail);
     }
     return found?.role || null;
-  }, [normalizedMembers, currentUserEmail]);
+  }, [normalizedMembers, currentUserEmail, currentUserId]);
 
   const canChangeRole = useCallback((targetMember: MemberCombined) => {
-    return canManageMember(currentUserRole, currentUserEmail, targetMember);
-  }, [currentUserRole, currentUserEmail]);
+    return getAllowedRoleOptions(currentUserRole, currentUserId, currentUserEmail, targetMember).length > 0;
+  }, [currentUserRole, currentUserEmail, currentUserId]);
 
   const canRemoveMember = useCallback((targetMember: MemberCombined) => {
-    return canManageMember(currentUserRole, currentUserEmail, targetMember);
-  }, [currentUserRole, currentUserEmail]);
+    return canRemoveMemberByPermission(currentUserRole, currentUserId, currentUserEmail, targetMember);
+  }, [currentUserRole, currentUserEmail, currentUserId]);
 
-  const getAvailableOptions = useCallback(() => {
-    if (currentUserRole?.toUpperCase() === "ADMIN") return ["MEMBER", "VIEWER"];
-    return ["ADMIN", "MEMBER", "VIEWER"];
-  }, [currentUserRole]);
+  const getAvailableOptions = useCallback((targetMember: MemberCombined) => (
+    getAllowedRoleOptions(currentUserRole, currentUserId, currentUserEmail, targetMember)
+  ), [currentUserRole, currentUserEmail, currentUserId]);
 
   const resolveProfilePicUrl = useCallback(
     (profilePicUrl?: string) => resolveProfilePicUrlValue(profilePicUrl),
@@ -309,7 +323,7 @@ export function useMembersData(projectId: string) {
     return candidates;
   }, [userProfilePics]);
 
-  const handleRoleChange = async (userId: number, newRole: string) => {
+  const handleRoleChange = async (userId: number, newRole: AssignableTeamRole) => {
     setRoleChangeError("");
     setRoleChangeSuccess("");
     setChangingRoleId(userId);

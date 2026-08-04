@@ -82,14 +82,14 @@ export default function DmsModals({
             folderPermissions.forEach(p => {
                 initialPerms[p.teamRole] = p.permissions;
             });
-            setPermsState(initialPerms);
+            queueMicrotask(() => setPermsState(initialPerms));
         } else if (selectedPermsFolder) {
             // Seed defaults if empty
-            setPermsState({
+            queueMicrotask(() => setPermsState({
                 ADMIN: ['READ', 'WRITE', 'MANAGE'],
                 MEMBER: ['READ', 'WRITE'],
                 VIEWER: ['READ']
-            });
+            }));
         }
     }, [selectedPermsFolder, folderPermissions]);
 
@@ -140,7 +140,7 @@ export default function DmsModals({
 
     useEffect(() => {
         if (!previewDoc || !previewDoc.downloadUrl) {
-            setPreviewContent(null);
+            queueMicrotask(() => setPreviewContent(null));
             return;
         }
 
@@ -167,9 +167,9 @@ export default function DmsModals({
                     setLoadingPreview(false);
                 }
             };
-            void fetchText();
+            queueMicrotask(() => void fetchText());
         } else {
-            setPreviewContent(null);
+            queueMicrotask(() => setPreviewContent(null));
         }
     }, [previewDoc]);
 
@@ -213,8 +213,10 @@ export default function DmsModals({
 
     useEffect(() => {
         if (!isComparing || !compareLeftVersion || !compareRightVersion) {
-            setLeftTextContent(null);
-            setRightTextContent(null);
+            queueMicrotask(() => {
+                setLeftTextContent(null);
+                setRightTextContent(null);
+            });
             return;
         }
 

@@ -31,8 +31,9 @@ public class TaskTemplateService {
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
 
-    // Jackson ObjectMapper used for serializing Java Lists into JSON strings for database storage.
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    // Use the application mapper so database JSON follows the same modules and
+    // serialization policy as API payloads.
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public List<TaskTemplateDTO> getTemplates(Long projectId) {

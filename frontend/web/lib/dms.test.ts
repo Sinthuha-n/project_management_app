@@ -11,6 +11,9 @@ import {
     listFolders,
     updateFolderPermissions,
     uploadDocument,
+    getDocumentUploadCapabilities,
+    initDocumentUploadBatch,
+    uploadReservedDocument,
 } from './dms';
 
 jest.mock('@/lib/axios', () => ({
@@ -105,7 +108,6 @@ describe('DMS API contract', () => {
             2,
             '/api/projects/12/documents/upload',
             expect.any(FormData),
-            { headers: { 'Content-Type': 'multipart/form-data' } }
         );
     });
 
@@ -141,5 +143,32 @@ describe('DMS API contract', () => {
             kind: 'QUOTA_EXCEEDED',
             message: 'Project storage quota exceeded.',
         } satisfies Partial<DmsError>);
+    });
+
+    it('uses capabilities and batch reservation endpoints for multi-file uploads', async () => {
+        mockedApi.get.mockResolvedValueOnce({ data: { acceptedExtensions: ['pdf'], maxBatchFiles: 25 } });
+        mockedApi.post.mockResolvedValueOnce({ data: { batchId: 'batch', files: [] } });
+
+        await getDocumentUploadCapabilities(12);
+        await initDocumentUploadBatch(12, 34, [{ clientId: 'one', fileName: 'spec.pdf', contentType: 'application/pdf', fileSize: 5 }]);
+
+        expect(mockedApi.get).toHaveBeenCalledWith('/api/projects/12/documents/upload-capabilities');
+        expect(mockedApi.post).toHaveBeenCalledWith('/api/projects/12/documents/uploads/init', {
+            folderId: 34,
+            files: [{ clientId: 'one', fileName: 'spec.pdf', contentType: 'application/pdf', fileSize: 5 }],
+        });
+    });
+
+    it('uploads a reserved file and finalizes the same reservation', async () => {
+        const file = new File(['hello'], 'spec.pdf', { type: 'application/pdf' });
+        mockedAxios.put.mockResolvedValueOnce({});
+        mockedApi.post.mockResolvedValueOnce({ data: { id: 77, name: 'spec.pdf' } });
+
+        await uploadReservedDocument(12, file, {
+            clientId: 'one', accepted: true, uploadId: 'upload-1', uploadUrl: 'https://storage/upload', contentType: 'application/pdf',
+        });
+
+        expect(mockedAxios.put).toHaveBeenCalledWith('https://storage/upload', file, expect.objectContaining({ headers: { 'Content-Type': 'application/pdf' } }));
+        expect(mockedApi.post).toHaveBeenCalledWith('/api/projects/12/documents/uploads/upload-1/finalize', undefined, { signal: undefined });
     });
 });

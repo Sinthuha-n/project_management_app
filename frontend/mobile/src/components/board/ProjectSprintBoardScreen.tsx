@@ -20,6 +20,7 @@ import { BlurView } from 'expo-blur';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { T, STATUS_MAP, StatusKey } from '../../constants/tokens';
 import { SprintboardTask, Sprintcolumn, SprintSummary, useProjectSprintBoard } from '../../hooks/useProjectSprintBoard';
+import { GitHubTaskBadges } from '../github/GitHubTaskBadges';
 
 const PRIORITY_STYLES: Record<string, { dot: string; text: string; bg: string }> = {
   URGENT: { dot: '#EF4444', text: '#B91C1C', bg: '#FEF2F2' },
@@ -184,6 +185,7 @@ function TaskCard({ task, onEdit, onDelete }: { task: SprintboardTask; onEdit: (
         </View>
       )}
       <Text style={taskStyles.title} numberOfLines={3}>{task.title}</Text>
+      <GitHubTaskBadges task={task} />
       <View style={taskStyles.metaRow}>
         {task.projectTaskNumber != null && (
           <View style={taskStyles.codePill}>

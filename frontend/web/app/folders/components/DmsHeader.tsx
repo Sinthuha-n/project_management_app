@@ -6,9 +6,12 @@ interface DmsHeaderProps {
     title: string;
     isTrashMode: boolean;
     onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    accept?: string;
+    initializing?: boolean;
+    uploadEnabled?: boolean;
 }
 
-export default function DmsHeader({ title, isTrashMode, onUpload }: DmsHeaderProps) {
+export default function DmsHeader({ title, isTrashMode, onUpload, accept, initializing = false, uploadEnabled = true }: DmsHeaderProps) {
     return (
         <div className="flex flex-col gap-3 border-b border-cu-border bg-cu-bg px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div className="flex min-w-0 items-center gap-3">
@@ -22,10 +25,10 @@ export default function DmsHeader({ title, isTrashMode, onUpload }: DmsHeaderPro
             </div>
             <div className="flex items-center gap-2">
                 {!isTrashMode && (
-                    <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-cu-md bg-cu-primary px-4 py-2 text-sm font-semibold text-white shadow-cu-sm transition-colors hover:bg-cu-primary-hover">
+                    <label className={`inline-flex min-h-10 items-center gap-2 rounded-cu-md bg-cu-primary px-4 py-2 text-sm font-semibold text-white shadow-cu-sm transition-colors ${initializing || !uploadEnabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-cu-primary-hover'}`} title={uploadEnabled ? 'Up to 25 files, 100 MB each, 500 MB total' : 'Multi-file uploads are temporarily disabled'}>
                         <Upload size={16} />
-                        Upload
-                        <input type="file" className="hidden" onChange={onUpload} />
+                        {initializing ? 'Preparing…' : 'Upload files'}
+                        <input type="file" multiple accept={accept} disabled={initializing || !uploadEnabled} className="hidden" onChange={onUpload} />
                     </label>
                 )}
             </div>

@@ -112,8 +112,10 @@ export default function InviteMembersPage() {
     // Keep project context in sync when URL query params change.
     useEffect(() => {
         const { projectId: resolvedProjectId, projectKey: resolvedProjectKey } = resolveProjectContext(searchParams);
-        setProjectId(resolvedProjectId);
-        setProjectKey(resolvedProjectKey);
+        queueMicrotask(() => {
+            setProjectId(resolvedProjectId);
+            setProjectKey(resolvedProjectKey);
+        });
 
         // No project yet means we are in the deferred (new-team) flow: load the draft.
         if (!resolvedProjectId && typeof window !== 'undefined') {
@@ -121,10 +123,12 @@ export default function InviteMembersPage() {
             if (raw) {
                 try {
                     const parsed = JSON.parse(raw) as ProjectDraft;
-                    setDraft(parsed);
-                    setProjectKey(parsed.projectKey ?? null);
+                    queueMicrotask(() => {
+                        setDraft(parsed);
+                        setProjectKey(parsed.projectKey ?? null);
+                    });
                 } catch {
-                    setDraft(null);
+                    queueMicrotask(() => setDraft(null));
                 }
             }
         }

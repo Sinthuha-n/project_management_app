@@ -42,6 +42,59 @@ body {
   @apply bg-cu-bg text-cu-text-primary text-base font-inter;
 }
 
+/* Shared accessibility and interaction contract. Component-specific motion can
+   opt in, but users who request less motion should never receive decorative UI. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:where(
+  button,
+  a,
+  [role='button'],
+  [role='menuitem'],
+  [role='option'],
+  [tabindex]:not(input):not(textarea):not(select)
+):focus-visible {
+  outline: 2px solid var(--cu-primary);
+  outline-offset: 2px;
+}
+
+:where(
+  input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='color']):not([type='button']):not([type='submit']):not([type='reset']),
+  textarea,
+  select
+):focus-visible {
+  border-color: var(--cu-focus-border) !important;
+  box-shadow: 0 0 0 3px var(--cu-focus-ring) !important;
+  outline: none !important;
+}
+
+:where(input, textarea, select)[aria-invalid='true']:focus-visible {
+  border-color: var(--cu-danger) !important;
+  box-shadow: 0 0 0 3px var(--cu-focus-danger-ring) !important;
+}
+
+button:disabled,
+[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 h1 {
   @apply text-2xl font-bold tracking-tight;
 }

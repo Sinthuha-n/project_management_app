@@ -91,6 +91,8 @@ export interface Task {
   customInterval?: number;
   recurrenceLimit?: number;
   recurrenceCount?: number;
+  clientMutationId?: string;
+  syncState?: 'pending' | 'synced' | 'failed';
 }
 
 export interface TaskActivity {

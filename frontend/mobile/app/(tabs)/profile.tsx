@@ -15,6 +15,18 @@ import PasswordInput from '@/src/components/ui/PasswordInput';
 import { validatePassword, getPasswordStrength } from '@/src/lib/validation';
 import PasswordStrengthBar from '@/src/components/ui/PasswordStrengthBar';
 import {
+  clearGitHubAccountCache,
+  fetchGitHubConnectionStatus,
+  fetchGitHubUser,
+  getSavedGitHubAccounts,
+  saveGitHubAccount,
+  type SavedGitHubAccount,
+} from '@/src/services/githubMobileService';
+import { connectGitHub, githubOAuthErrorMessage } from '@/src/services/githubOAuthCoordinator';
+import { AccountPicker } from '@/src/components/github/GitHubModals';
+import { routes } from '@/src/navigation/routes';
+import { mobileApiFailure, reportMobileFailure } from '@/src/utils/apiError';
+import {
   buildForgotPasswordRequest,
   buildResetPasswordRequest,
   forgotPassword as forgotPasswordBuilder,
@@ -104,6 +116,8 @@ function Field({
     <View style={field.wrap}>
       <Text style={field.label}>{label}</Text>
       <TextInput
+        accessibilityLabel={label}
+        accessibilityState={{ disabled }}
         style={[field.input, disabled && field.disabled, multiline && field.multi]}
         value={value}
         onChangeText={onChange}
@@ -280,9 +294,10 @@ export default function ProfileScreen() {
   const [notifyDueDateReminders, setNotifyDueDateReminders] = useState(false);
 
   // GitHub actions states
-  const [githubInput, setGithubInput] = useState('');
   const [githubLinking, setGithubLinking] = useState(false);
   const [githubUnlinking, setGithubUnlinking] = useState(false);
+  const [githubAccounts, setGithubAccounts] = useState<SavedGitHubAccount[]>([]);
+  const [githubAccountPicker, setGithubAccountPicker] = useState(false);
   const [loggingOutAll, setLoggingOutAll] = useState(false);
 
   // ── Load — mirrors web: GET /api/user/profile ─────────────────────────────
@@ -302,7 +317,9 @@ export default function ProfileScreen() {
       setBio(p.bio ?? '');
       setPhone(p.contactNumber ?? '');
       setCountryCode(p.countryCode ?? '');
-      setGithubUsername(p.githubUsername ?? null);
+      const githubStatus = await fetchGitHubConnectionStatus().catch(() => ({ connected: false, username: undefined }));
+      setGithubUsername(githubStatus.connected ? (githubStatus.username ?? p.githubUsername ?? null) : null);
+      setGithubAccounts(await getSavedGitHubAccounts());
       setNotifyDueDateReminders(p.notifyDueDateReminders ?? false);
     } catch { setErrMsg('Failed to load profile.'); }
     finally { setLoading(false); }
@@ -351,14 +368,19 @@ export default function ProfileScreen() {
     try {
       const form = new FormData();
       form.append('file', { uri: asset.uri, type: 'image/jpeg', name: 'profile.jpg' } as unknown as Blob);
-      const res = await api.post<{ success: boolean; fileUrl: string | null }>('/api/user/profile/photo', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post<{ success: boolean; fileUrl: string | null }>(
+        '/api/user/profile/photo',
+        form,
+      );
       if (res.data.success && res.data.fileUrl) {
         setProfile(prev => prev ? { ...prev, profilePicUrl: res.data.fileUrl } : prev);
         setSuccessMsg('Profile photo updated.');
       }
-    } catch { setErrMsg('Failed to upload photo.'); }
+    } catch (error) {
+      const failure = mobileApiFailure(error, 'Failed to upload photo.');
+      setErrMsg(failure.message);
+      reportMobileFailure({ screen: 'profile', operation: 'upload', status: failure.status, code: failure.code, requestId: failure.requestId, retryAfterSeconds: failure.retryAfterSeconds });
+    }
     finally { setUploading(false); }
   };
 
@@ -369,24 +391,25 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const handleLinkGithub = async () => {
-    if (!githubInput.trim()) {
-      Alert.alert('Error', 'GitHub username cannot be empty');
-      return;
-    }
+  const handleLinkGithub = async (loginHint?: string) => {
+    setGithubAccountPicker(false);
     setGithubLinking(true);
     setErrMsg(''); setSuccessMsg('');
     try {
-      const res = await api.put<UserProfile>('/api/users/me/github-username', {
-        githubUsername: githubInput.trim()
-      });
-      setProfile(res.data);
-      setGithubUsername(res.data.githubUsername);
-      setGithubInput('');
-      setSuccessMsg('GitHub account linked successfully.');
-    } catch (err: any) {
-      const msg = err.response?.data;
-      setErrMsg(typeof msg === 'string' && msg ? msg : 'Failed to link GitHub account.');
+      const outcome = await connectGitHub({ destination: 'PROFILE', loginHint });
+      if (outcome.type === 'success') {
+        const status = await fetchGitHubConnectionStatus();
+        setGithubUsername(status.connected ? (status.username ?? null) : null);
+        const githubUser = await fetchGitHubUser();
+        await saveGitHubAccount(githubUser);
+        setGithubAccounts(await getSavedGitHubAccounts());
+        await loadProfile();
+        setSuccessMsg('GitHub account connected successfully.');
+      } else if (outcome.type === 'error') {
+        setErrMsg(githubOAuthErrorMessage(outcome.code));
+      }
+    } catch {
+      setErrMsg('Failed to connect GitHub account.');
     } finally {
       setGithubLinking(false);
     }
@@ -399,9 +422,10 @@ export default function ProfileScreen() {
         setGithubUnlinking(true);
         setErrMsg(''); setSuccessMsg('');
         try {
-          const res = await api.delete<UserProfile>('/api/users/me/github-username');
-          setProfile(res.data);
-          setGithubUsername(res.data.githubUsername);
+          await api.post('/api/github/revoke');
+          await clearGitHubAccountCache();
+          setGithubUsername(null);
+          await loadProfile();
           setSuccessMsg('GitHub account unlinked successfully.');
         } catch {
           setErrMsg('Failed to unlink GitHub account.');
@@ -421,7 +445,7 @@ export default function ProfileScreen() {
           await api.post('/api/user/me/logout-all');
           await clearTokens();
           router.replace('/(auth)/login');
-        } catch (err) {
+        } catch {
           Alert.alert('Error', 'Failed to log out of all sessions. Please try again.');
         } finally {
           setLoggingOutAll(false);
@@ -574,6 +598,12 @@ export default function ProfileScreen() {
                   <Text style={s.githubConnectedTxt}>Connected as </Text>
                   <Text style={s.githubUsernameTxt}>@{githubUsername}</Text>
                 </View>
+                <TouchableOpacity style={s.githubBtn} onPress={() => router.push(routes.githubSettings)}>
+                  <Text style={s.githubBtnTxt}>Browse GitHub Repositories</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.githubBtn} onPress={() => githubAccounts.length ? setGithubAccountPicker(true) : void handleLinkGithub()} disabled={githubLinking}>
+                  <Text style={s.githubBtnTxt}>{githubLinking ? 'Connecting…' : 'Switch GitHub Account'}</Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={[s.githubBtn, s.githubBtnUnlink]}
                   onPress={handleUnlinkGithub}
@@ -584,15 +614,12 @@ export default function ProfileScreen() {
               </View>
             ) : (
               <View style={{ gap: 10 }}>
-                <Field
-                  label="GitHub Username"
-                  value={githubInput}
-                  onChange={setGithubInput}
-                  placeholder="Enter your GitHub username"
-                />
+                <Text style={s.preferenceDesc}>
+                  Authorize Planora to access your repositories and verify your GitHub identity.
+                </Text>
                 <TouchableOpacity
                   style={s.githubBtn}
-                  onPress={handleLinkGithub}
+                  onPress={() => void handleLinkGithub()}
                   disabled={githubLinking}
                 >
                   <Text style={s.githubBtnTxt}>{githubLinking ? 'Linking…' : 'Link GitHub Account'}</Text>
@@ -629,6 +656,13 @@ export default function ProfileScreen() {
 
         <View style={{ height: 110 }} />
       </ScrollView>
+      <AccountPicker
+        visible={githubAccountPicker}
+        accounts={githubAccounts}
+        onClose={() => setGithubAccountPicker(false)}
+        onSelect={login => void handleLinkGithub(login)}
+        onAdd={() => void handleLinkGithub('')}
+      />
     </SafeAreaView>
   );
 }

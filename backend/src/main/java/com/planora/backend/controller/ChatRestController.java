@@ -5,6 +5,8 @@ import java.util.Objects;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -12,7 +14,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.validation.Valid;
 
+import com.planora.backend.dto.ChatAttachmentUploadCapabilitiesDTO;
+import com.planora.backend.dto.ChatAttachmentUploadFinalizeRequestDTO;
+import com.planora.backend.dto.ChatAttachmentUploadInitRequestDTO;
+import com.planora.backend.dto.ChatAttachmentUploadInitResponseDTO;
+import com.planora.backend.dto.ChatAttachmentUploadResponseDTO;
 import com.planora.backend.dto.ChatMessageDTO;
 import com.planora.backend.model.ChatMessage;
 import com.planora.backend.model.ChatRoom;
@@ -27,9 +35,9 @@ import com.planora.backend.service.UserCacheService;
 import com.planora.backend.service.ChatDocumentService;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:3000")
 @RequestMapping("/api/projects/{projectId}/chat")
 public class ChatRestController {
+    private static final Logger log = LoggerFactory.getLogger(ChatRestController.class);
     public static record ChatRoomResponse(Long id,
                                           String name,
                                           Long projectId,
@@ -122,15 +130,41 @@ public class ChatRestController {
             @RequestPart("file") MultipartFile file,
             Authentication authentication
     ) {
-        String username = authentication.getName();
-        resolveValidatedTeamId(projectId, username);
-        if (file == null || file.isEmpty()) {
-            return ResponseEntity.badRequest().body("File is required");
-        }
-        // Use a unique key for S3 (e.g., projectId/username/timestamp_filename)
-        String key = String.format("%d/%s/%d_%s", projectId, username, System.currentTimeMillis(), file.getOriginalFilename());
-        String url = chatDocumentService.uploadChatDocument(file, key);
+        resolveValidatedTeamId(projectId, authentication.getName());
+        var user = resolveAuthenticatedUser(authentication);
+        String url = chatDocumentService.uploadChatDocument(file, projectId, user.getUserId());
         return ResponseEntity.ok(url);
+    }
+
+    @GetMapping("/attachments/upload-capabilities")
+    public ResponseEntity<ChatAttachmentUploadCapabilitiesDTO> getChatAttachmentUploadCapabilities(
+            @PathVariable Long projectId,
+            Authentication authentication
+    ) {
+        resolveValidatedTeamId(projectId, authentication.getName());
+        return ResponseEntity.ok(chatDocumentService.capabilities(directUploadEnabled));
+    }
+
+    @PostMapping("/attachments/upload/init")
+    public ResponseEntity<ChatAttachmentUploadInitResponseDTO> initChatAttachmentUpload(
+            @PathVariable Long projectId,
+            @Valid @RequestBody ChatAttachmentUploadInitRequestDTO request,
+            Authentication authentication
+    ) {
+        resolveValidatedTeamId(projectId, authentication.getName());
+        var user = resolveAuthenticatedUser(authentication);
+        return ResponseEntity.ok(chatDocumentService.initUpload(projectId, user.getUserId(), request));
+    }
+
+    @PostMapping("/attachments/upload/finalize")
+    public ResponseEntity<ChatAttachmentUploadResponseDTO> finalizeChatAttachmentUpload(
+            @PathVariable Long projectId,
+            @Valid @RequestBody ChatAttachmentUploadFinalizeRequestDTO request,
+            Authentication authentication
+    ) {
+        resolveValidatedTeamId(projectId, authentication.getName());
+        var user = resolveAuthenticatedUser(authentication);
+        return ResponseEntity.ok(chatDocumentService.finalizeUpload(projectId, user.getUserId(), request));
     }
 
     /**
@@ -149,13 +183,11 @@ public class ChatRestController {
             return ResponseEntity.badRequest().body("URL is required");
         }
         
-        try {
-            String freshUrl = chatDocumentService.refreshPresignedUrl(expiredUrl);
-            return ResponseEntity.ok(freshUrl);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to refresh URL");
-        }
+        return ResponseEntity.ok(chatDocumentService.refreshPresignedUrl(expiredUrl, projectId));
     }
+
+    @Value("${chat.attachments.direct-upload-enabled:true}")
+    private boolean directUploadEnabled;
 
     @Value("${chat.features.phase-d-enabled:true}")
     private boolean phaseDEnabled;
@@ -486,11 +518,10 @@ public class ChatRestController {
             return new ResponseEntity<>(HttpStatus.ACCEPTED);
         }
 
-        System.out.println("chat_telemetry project=" + projectId
-                + " user=" + username
-                + " event=" + request.eventName()
-                + " scope=" + request.scope()
-                + " metadata=" + request.metadata());
+        // Deliberately omit arbitrary client metadata: it can contain message text,
+        // tokens, or other user-controlled sensitive values.
+        log.info("event=chat_telemetry projectId={} user={} name={} scope={}",
+                projectId, username, request.eventName(), request.scope());
         return new ResponseEntity<>(HttpStatus.ACCEPTED);
     }
 

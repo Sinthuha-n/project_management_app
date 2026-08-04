@@ -4,6 +4,8 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import com.planora.backend.model.User;
+import com.planora.backend.exception.ForbiddenException;
+import com.planora.backend.exception.ResourceNotFoundException;
 import com.planora.backend.repository.ProjectRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -42,7 +44,7 @@ public class ProjectMembershipService {
 
         // Fail-fast if the project doesn't exist, preventing downstream NullPointerExceptions.
         if (teamId == null) {
-            throw new RuntimeException("Project not found");
+            throw new ResourceNotFoundException("Project not found");
         }
         return teamId;
     }
@@ -52,21 +54,21 @@ public class ProjectMembershipService {
     public void assertProjectMembership(Long projectId, User user) {
         // Step 1: Catch edge cases where authentication context is broken.
         if (user == null || user.getUserId() == null) {
-            throw new RuntimeException("User is not found");
+            throw new ForbiddenException("Authentication is required");
         }
 
         // Step 2: Perform the actual (cached) check. Throw exception to halt execution if false.
         if (!isProjectMember(projectId, user.getUserId())) {
-            throw new RuntimeException("User is not a member of the project");
+            throw new ForbiddenException("User is not a member of the project");
         }
     }
 
     public void assertTeamMembership(Long teamId, User user) {
         if (user == null || user.getUserId() == null) {
-            throw new RuntimeException("User is not found");
+            throw new ForbiddenException("Authentication is required");
         }
         if (teamId == null || teamMembershipLookupService.getTeamMember(teamId, user.getUserId()) == null) {
-            throw new RuntimeException("User is not a member of the project");
+            throw new ForbiddenException("User is not a member of the project");
         }
     }
 }

@@ -35,7 +35,7 @@ export function ProjectNote({ projectId, defaultNote = '' }: { projectId: number
   const authorName = currentUser?.fullName || currentUser?.username || 'Team Member';
 
   useEffect(() => {
-    if (!isEditing) setNote(parseNote(defaultNote).text);
+    if (!isEditing) queueMicrotask(() => setNote(parseNote(defaultNote).text));
   }, [defaultNote, isEditing]);
 
   const handleSave = async () => {

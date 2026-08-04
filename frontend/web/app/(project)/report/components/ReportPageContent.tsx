@@ -19,6 +19,7 @@ import {
 } from '@/services/report-schedule-service';
 import KpiStrip from './analytics/KpiStrip';
 import { useTheme } from '@/components/providers/ThemeProvider';
+import { formatDateTime } from '@/lib/date-time';
 
 interface Props {
   projectId:  number;
@@ -110,7 +111,7 @@ function ScheduleRow({
         </div>
         <p className="text-[10px] mt-0.5 truncate" style={{ color: isDark ? '#64748B' : '#9CA3AF' }}>
           To: {sr.recipientsTo.join(', ')}
-          {sr.nextSendAt && ` · Next: ${new Date(sr.nextSendAt).toLocaleString()}`}
+          {sr.nextSendAt && ` · Next: ${formatDateTime(sr.nextSendAt)}`}
           {` · Sent: ${sr.sendCount}×`}
         </p>
       </div>

@@ -322,7 +322,7 @@ export default function ProfilePage() {
                         >
                             <div>
                                 <label className={labelCls}>Phone number</label>
-                                <div className="profile-phone-input rounded-lg border border-cu-border bg-cu-bg shadow-cu-sm transition-colors focus-within:border-cu-primary focus-within:ring-2 focus-within:ring-cu-primary/20">
+                                <div className="profile-phone-input rounded-lg border border-cu-border bg-cu-bg shadow-cu-sm transition-colors focus-within:border-[var(--cu-focus-border)] focus-within:ring-2 focus-within:ring-[var(--cu-focus-ring)]">
                                     <PhoneInput
                                         defaultCountry="us"
                                         value={`${countryCode}${contactNumber}`}

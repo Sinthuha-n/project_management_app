@@ -32,7 +32,7 @@ export function Popover({
           sideOffset={4}
           className={[
             'z-[var(--cu-z-dropdown)] bg-cu-bg rounded-cu-lg shadow-cu-lg border border-cu-border',
-            'animate-fade-in p-2',
+            'animate-fade-in motion-reduce:animate-none p-2',
             'focus:outline-none',
             className,
           ].join(' ')}

@@ -5,6 +5,8 @@ import { CompatClient, Stomp } from '@stomp/stompjs';
 import { AUTH_TOKEN_CHANGED_EVENT, ensureValidToken } from '@/lib/auth';
 import { resolveWebSocketBaseUrl } from '@/lib/realtime-url';
 import { getApiBaseUrl } from '@/lib/api-base-url';
+import { applyTaskMutation, createMutationId, type TaskMutationOperation } from '@/lib/task-cache';
+import type { Task } from '@/types';
 
 interface TaskEvent {
   type: 'TASK_CREATED' | 'TASK_UPDATED' | 'TASK_DELETED' | 'TASK_STATUS_CHANGED';
@@ -30,6 +32,7 @@ interface TaskEvent {
   taskId?: number;
   status?: string;
   projectId?: number;
+  clientMutationId?: string;
 }
 
 export function useTaskWebSocket(
@@ -187,6 +190,32 @@ export function useTaskWebSocket(
       (message) => {
         try {
           const event = JSON.parse(message.body) as TaskEvent;
+          const taskId = event.task?.id ?? event.taskId;
+          if (taskId != null) {
+            const operation: TaskMutationOperation = event.type === 'TASK_CREATED'
+              ? 'created'
+              : event.type === 'TASK_DELETED'
+                ? 'deleted'
+                : 'updated';
+            const clientMutationId = event.clientMutationId;
+            const eventTask = event.task
+              ? {
+                  ...event.task,
+                  clientMutationId,
+                  syncState: 'synced' as const,
+                } as unknown as Task
+              : undefined;
+            applyTaskMutation({
+              operation,
+              projectId: Number(event.task?.projectId ?? event.projectId ?? projectId),
+              taskId,
+              mutationId: clientMutationId ?? createMutationId(),
+              source: 'websocket',
+              task: eventTask,
+              patch: event.status ? { status: event.status } : undefined,
+              occurredAt: new Date().toISOString(),
+            });
+          }
           onEventRef.current(event);
         } catch {
           // ignore parse errors

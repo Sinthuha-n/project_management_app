@@ -191,7 +191,7 @@ export default function SprintBoardHeader({
               </>
             )}
           </div>
-          <div className="hidden sm:flex items-center bg-cu-bg-secondary rounded-lg px-3 py-1.5 border border-transparent focus-within:border-cu-primary/40 focus-within:bg-cu-bg transition-all">
+          <div className="hidden sm:flex items-center bg-cu-bg-secondary rounded-lg px-3 py-1.5 border border-transparent focus-within:border-[var(--cu-focus-border)] focus-within:bg-cu-bg transition-all">
             <Search size={14} className="text-cu-text-muted" />
             <input
               type="text"

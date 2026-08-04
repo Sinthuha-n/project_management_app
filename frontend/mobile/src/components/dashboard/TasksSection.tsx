@@ -6,18 +6,12 @@ import {
 import { useRouter } from 'expo-router';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 import StatusDonutChart from './StatusDonutChart';
-import { T, STATUS_MAP, STATUS_LABELS, StatusKey } from '../../constants/tokens';
+import { STATUS_MAP, STATUS_LABELS, StatusKey } from '../../constants/tokens';
 import type { DashboardItem, TabItemsByKey, TabKey, TabLoadingByKey } from '../../hooks/useDashboard';
 
 // ─── Tab definitions ────────────────────────────────────────────────────────────
 
-const TABS: { id: TabKey; label: string }[] = [
-  { id: 'worked-on',      label: 'Worked on'     },
-  { id: 'viewed',         label: 'Viewed'         },
-  { id: 'assigned-to-me', label: 'Assigned to me' },
-  { id: 'favorites',      label: 'Favorites'      },
-  { id: 'boards',         label: 'Boards'         },
-];
+type DashboardTab = { id: TabKey; label: string };
 
 const EMPTY_MESSAGES: Record<string, string> = {
   'worked-on':      "You haven't modified any tasks recently.",
@@ -38,7 +32,7 @@ function SkeletonRow() {
         Animated.timing(anim, { toValue: 0.4, duration: 750, useNativeDriver: true }),
       ])
     ).start();
-  }, []);
+  }, [anim]);
 
   return (
     <Animated.View style={[rowStyles.row, { opacity: anim }]}>
@@ -224,7 +218,7 @@ function AnimatedRow({ children, index }: { children: React.ReactNode; index: nu
         friction: 22,
       }),
     ]).start();
-  }, []);
+  }, [index, opacity, translateX]);
 
   return (
     <Animated.View style={{ opacity, transform: [{ translateX }] }}>
@@ -260,7 +254,7 @@ function DashboardSection({
   items, loading, searchQuery,
 }: {
   title: string;
-  tabs: typeof TABS;
+  tabs: DashboardTab[];
   activeTab: TabKey;
   onTabChange: (t: TabKey) => void;
   assignedCount?: number;

@@ -6,13 +6,11 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { Task, KanbanColumnConfig } from '../types';
 import {
   moveKanbanTask,
-  deleteTask,
-  createTask,
-  updateTask,
   reorderKanbanColumns,
 } from '../api';
 import { toast } from '@/components/ui';
-import { buildSessionCacheKey, setSessionCache } from '@/lib/session-cache';
+import { useTaskMutations } from '@/hooks/useTaskMutations';
+import type { Task as CanonicalTask } from '@/types';
 
 // Helper exported for unit testing: performs optimistic update and reverts on failure
 export async function optimisticUpdateTaskStatusHelper(
@@ -46,6 +44,7 @@ export function useKanbanActions(
   removeTask: (id: number) => void,
   syncCache: (tasks: Task[]) => void,
 ) {
+  const taskMutations = useTaskMutations(projectId);
   const [updatingTaskId, setUpdatingTaskId] = useState<number | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedColumnStatus, setSelectedColumnStatus] = useState<string>('TODO');
@@ -126,12 +125,12 @@ export function useKanbanActions(
 
     const attempt = async () => {
       try {
-        const updatedTask = await moveKanbanTask({
-          projectId: Number(projectId),
+        const updatedTask = await taskMutations.move(
           taskId,
-          status: newStatus,
-          orderedTaskIds,
-        });
+          { status: newStatus },
+          () => moveKanbanTask({ projectId: Number(projectId), taskId, status: newStatus, orderedTaskIds }),
+          task as unknown as CanonicalTask,
+        );
         // Merge server-enriched fields (e.g. completedAt) into local state
         upsertTask(updatedTask);
         // Persist the updated order to the session cache
@@ -146,12 +145,12 @@ export function useKanbanActions(
         const retryFn = async () => {
           setUpdatingTaskId(taskId);
           try {
-            const updatedTask = await moveKanbanTask({
-              projectId: Number(projectId),
+            const updatedTask = await taskMutations.move(
               taskId,
-              status: newStatus,
-              orderedTaskIds,
-            });
+              { status: newStatus },
+              () => moveKanbanTask({ projectId: Number(projectId), taskId, status: newStatus, orderedTaskIds }),
+              task as unknown as CanonicalTask,
+            );
             upsertTask(updatedTask);
             setTasks(current => { syncCache(current); return current; });
           } catch (e) {
@@ -170,7 +169,7 @@ export function useKanbanActions(
     };
 
     void attempt();
-  }, [tasks, columnConfigs, setTasks, projectId, upsertTask, syncCache]);
+  }, [tasks, columnConfigs, setTasks, projectId, upsertTask, syncCache, taskMutations]);
 
   // ── Column reorder ────────────────────────────────────────────────────────
 
@@ -202,71 +201,68 @@ export function useKanbanActions(
 
   // ── Create task via the board-local modal ─────────────────────────────────
 
-  const handleCreateTask = useCallback(async (data: Partial<Task>) => {
+  const handleCreateTask = useCallback((data: Partial<Task>) => {
     const title = data.title?.trim();
     if (!projectId || !title) return;
-    try {
-      const newTask = await createTask({
+    const result = taskMutations.create({
         projectId: Number(projectId),
         title,
         status: selectedColumnStatus,
         priority: data.priority,
-      } as Partial<Task> & { projectId: number; title: string; status: string });
-      // Deduplicate: WebSocket may have already added this task
-      setTasks(prev => {
-        const next = prev.some(t => t.id === newTask.id) ? prev : [...prev, newTask];
-        syncCache(next);
-        return next;
-      });
-      setIsCreateModalOpen(false);
-    } catch (err) {
-      console.error('Error creating task:', err);
-    }
-  }, [projectId, selectedColumnStatus, setTasks, syncCache]);
+    });
+    const optimistic = result.optimisticTask as unknown as Task;
+    setTasks(prev => { const next = [...prev, optimistic]; syncCache(next); return next; });
+    setIsCreateModalOpen(false);
+    void result.completion.then((serverTask) => setTasks(prev => {
+      const next = prev.map(task => task.id === optimistic.id ? serverTask as Task : task);
+      syncCache(next); return next;
+    })).catch(() => setTasks(prev => prev.filter(task => task.id !== optimistic.id)));
+  }, [projectId, selectedColumnStatus, setTasks, syncCache, taskMutations]);
 
   // ── Inline create from column header ─────────────────────────────────────
 
-  const handleAddTask = useCallback(async (title: string, status: string) => {
+  const handleAddTask = useCallback((title: string, status: string) => {
     if (!projectId || !title.trim()) return;
-    try {
-      const newTask = await createTask({
+    const result = taskMutations.create({
         projectId: Number(projectId),
         title: title.trim(),
         status,
-      } as Partial<Task> & { projectId: number; title: string; status: string });
-      setTasks(prev => {
-        const next = prev.some(t => t.id === newTask.id) ? prev : [...prev, newTask];
-        syncCache(next);
-        return next;
-      });
-    } catch (err) {
-      console.error('Error creating task:', err);
-    }
-  }, [projectId, setTasks, syncCache]);
+    });
+    const optimistic = result.optimisticTask as unknown as Task;
+    setTasks(prev => { const next = [...prev, optimistic]; syncCache(next); return next; });
+    void result.completion.then((serverTask) => setTasks(prev => {
+      const next = prev.map(task => task.id === optimistic.id ? serverTask as Task : task);
+      syncCache(next); return next;
+    })).catch(() => setTasks(prev => prev.filter(task => task.id !== optimistic.id)));
+  }, [projectId, setTasks, syncCache, taskMutations]);
 
   // ── Inline update — used by KanbanCard's inline edit mode ────────────────
 
   const handleInlineUpdate = useCallback(async (taskId: number, updates: Partial<Task>) => {
+    const currentTask = tasks.find((task) => task.id === taskId);
+    if (!currentTask) return;
     // Optimistic update
     patchTask(taskId, updates);
     try {
-      await updateTask(taskId, updates);
+      await taskMutations.update(taskId, updates, currentTask as unknown as CanonicalTask);
       setTasks(current => { syncCache(current); return current; });
     } catch (err) {
       console.error('Error inline updating task:', err);
       // Revert the optimistic patch by forcing a refresh on error
       forceRefresh();
     }
-  }, [patchTask, setTasks, syncCache, forceRefresh]);
+  }, [patchTask, setTasks, syncCache, forceRefresh, taskMutations, tasks]);
 
   // ── Delete task ───────────────────────────────────────────────────────────
 
   const handleDeleteTask = useCallback(async (taskId: number) => {
     // Optimistic removal
     const previousTasks = tasks;
+    const task = tasks.find((item) => item.id === taskId);
+    if (!task) return;
     removeTask(taskId);
     try {
-      await deleteTask(taskId);
+      await taskMutations.delete(task as unknown as CanonicalTask);
       setTasks(current => { syncCache(current); return current; });
     } catch (err: unknown) {
       console.error('Error deleting task:', err);
@@ -280,7 +276,7 @@ export function useKanbanActions(
       }
       setTimeout(() => setToastMessage(null), 4000);
     }
-  }, [tasks, removeTask, setTasks, syncCache]);
+  }, [tasks, removeTask, setTasks, syncCache, taskMutations]);
 
   // ── Complete all tasks ────────────────────────────────────────────────────
 

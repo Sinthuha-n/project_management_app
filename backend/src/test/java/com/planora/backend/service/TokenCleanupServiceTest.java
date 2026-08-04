@@ -19,11 +19,15 @@ class TokenCleanupServiceTest {
     @Mock
     private TokenRepository tokenRepository;
 
+    @Mock
+    private ScheduledJobLockService scheduledJobLockService;
+
     @InjectMocks
     private TokenCleanupScheduler tokenCleanupScheduler;
 
     @Test
     void cleanUpExpiredAndUsedTokens_callsRepositoryDeleteMethod() {
+        when(scheduledJobLockService.tryAcquire(anyString(), any())).thenReturn(true);
         doNothing().when(tokenRepository).deleteByExpiryBeforeOrUsedTrue(any(Instant.class));
 
         tokenCleanupScheduler.cleanUpExpiredAndUsedTokens();
@@ -33,6 +37,7 @@ class TokenCleanupServiceTest {
 
     @Test
     void cleanUpExpiredAndUsedTokens_doesNotThrow_whenRepositoryThrows() {
+        when(scheduledJobLockService.tryAcquire(anyString(), any())).thenReturn(true);
         doThrow(new RuntimeException("DB error"))
                 .when(tokenRepository).deleteByExpiryBeforeOrUsedTrue(any(Instant.class));
 

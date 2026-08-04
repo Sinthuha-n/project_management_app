@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.Duration;
 import java.util.List;
 
 import lombok.RequiredArgsConstructor;
@@ -27,10 +28,16 @@ public class RecurringTaskScheduler {
 
     private final TaskRepository taskRepository;
     private final TaskActivityService taskActivityService;
+    private final ScheduledJobLockService scheduledJobLockService;
 
     @Scheduled(cron = "0 0 0 * * *")   // every day at midnight UTC
     @Transactional
     public void spawnDueRecurrences() {
+        if (!scheduledJobLockService.tryAcquire("recurring-task-spawn", Duration.ofHours(2))) {
+            log.debug("Recurring task spawn is already running on another instance.");
+            return;
+        }
+        try {
         LocalDate today = LocalDate.now();
         List<Task> due = taskRepository.findByNextOccurrenceBeforeOrEqualWithAssociations(today);
 
@@ -117,6 +124,9 @@ public class RecurringTaskScheduler {
             } catch (Exception e) {
                 log.error("Failed to spawn recurrence for task {}: {}", template.getId(), e.getMessage());
             }
+        }
+        } finally {
+            scheduledJobLockService.release("recurring-task-spawn");
         }
     }
 

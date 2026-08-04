@@ -65,7 +65,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ taskId, onFetchRef, pro
   useEffect(() => {
     const user = getUserFromToken();
     if (user) {
-      setCurrentUser(user);
+      queueMicrotask(() => setCurrentUser(user));
 
       let isActive = true;
 
@@ -130,7 +130,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ taskId, onFetchRef, pro
 
   useEffect(() => {
     if (taskId) {
-      void fetchComments();
+      queueMicrotask(() => void fetchComments());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId]);

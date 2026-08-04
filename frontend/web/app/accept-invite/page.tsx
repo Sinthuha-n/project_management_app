@@ -29,11 +29,11 @@ function AcceptInviteContent() {
         const inviteToken = fromUrl || fromPending;
 
         if (inviteToken) {
-            setToken(inviteToken);
+            queueMicrotask(() => setToken(inviteToken));
             return;
         }
 
-        setMsg({ type: 'error', text: 'Invalid or missing invitation link.' });
+        queueMicrotask(() => setMsg({ type: 'error', text: 'Invalid or missing invitation link.' }));
     }, [searchParams]);
 
     const acceptInvitation = useCallback(async ({ redirectToLogin }: { redirectToLogin: boolean }) => {

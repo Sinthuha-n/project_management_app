@@ -17,11 +17,25 @@ export const T = {
   // Borders
   border:         '#E8E8ED',
   borderLight:    '#F0F0F5',
+  focusBorder:    '#64748B',
+  focusShadow:    'rgba(100, 116, 139, 0.22)',
 
   // Text
   textPrimary:    '#1A1A2E',
   textSecondary:  '#6B6F7B',
   textMuted:      '#9CA3AF',
+  textInverse:    '#FFFFFF',
+
+  // Semantic feedback
+  danger:         '#DC2626',
+  dangerBg:       '#FEF2F2',
+  dangerBorder:   '#FECACA',
+  success:        '#15803D',
+  successBg:      '#F0FDF4',
+  successBorder:  '#BBF7D0',
+  warning:        '#92400E',
+  warningBg:      '#FFFBEB',
+  warningBorder:  '#FDE68A',
 
   // Status
   statusTodo:     { bg: '#F3F4F6', text: '#374151', dot: '#9CA3AF', border: '#E5E7EB' },
@@ -41,8 +55,43 @@ export const T = {
   radiusXl:  12,
   radius2xl: 16,
 
+  // Spacing and touch geometry
+  space1: 4,
+  space2: 8,
+  space3: 12,
+  space4: 16,
+  space5: 20,
+  space6: 24,
+  space8: 32,
+  touchMin: 44,
+  touchComfortable: 48,
+
+  // Typography scale (captions remain at least 12sp)
+  fontCaption: 12,
+  fontBody: 14,
+  fontBodyLarge: 16,
+  fontTitle: 20,
+  fontDisplay: 28,
+
   // Stripe colors (for project cards)
   stripes: ['#06B6D4', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444'],
+} as const;
+
+export const NativeShadow = {
+  card: {
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  floating: {
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
+  },
 } as const;
 
 export type StatusKey = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE';

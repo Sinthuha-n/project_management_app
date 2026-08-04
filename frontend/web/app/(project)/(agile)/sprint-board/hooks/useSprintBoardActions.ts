@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
-import { sprintsApi, tasksApi } from '@/services/api-contract';
+import { sprintsApi } from '@/services/api-contract';
 import { toast } from '@/components/ui';
 import { normalizeApiError } from '@/lib/api-error';
 import { buildSessionCacheKey, removeSessionCache } from '@/lib/session-cache';
@@ -18,6 +18,7 @@ import {
 import type { SprintboardTask, SprintboardFullResponse, Sprintboard } from '../types';
 import type { SprintTeamMemberOption } from '../api';
 import type { AvailableDestSprint } from '../components/CompleteSprintModal';
+import { useTaskMutations } from '@/hooks/useTaskMutations';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,7 @@ export function useSprintBoardActions({
   selectedTaskIds,
   clearSelection,
 }: UseSprintBoardActionsArgs) {
+  const taskMutations = useTaskMutations(projectIdStr);
   const [isUpdating, setIsUpdating] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
@@ -146,25 +148,34 @@ export function useSprintBoardActions({
     } catch { forceRefresh(); }
   };
 
-  const handleInlineCreateTask = useCallback(async (title: string, status: string) => {
+  const handleInlineCreateTask = useCallback((title: string, status: string) => {
     if (!projectIdStr || !activeSprint) return;
-    try {
-      const res = await tasksApi.create({ title, status, projectId: parseInt(projectIdStr, 10), sprintId: activeSprint.id, storyPoint: 0, priority: 'MEDIUM' });
-      const newTask: SprintboardTask = {
-        taskId: res.id, projectTaskNumber: res.projectTaskNumber ?? res.id,
-        title: res.title, storyPoint: res.storyPoint ?? 0, status,
-        priority: res.priority ?? 'MEDIUM', assigneeName: res.assigneeName,
-        assigneePhotoUrl: res.assigneePhotoUrl ?? undefined, updatedAt: res.updatedAt,
+    const result = taskMutations.create({ title, status, projectId: parseInt(projectIdStr, 10), sprintId: activeSprint.id, storyPoint: 0, priority: 'MEDIUM' });
+    const toBoardTask = (task: typeof result.optimisticTask): SprintboardTask => ({
+        taskId: task.id, projectTaskNumber: task.projectTaskNumber ?? task.id,
+        title: task.title, storyPoint: task.storyPoint ?? 0, status: task.status,
+        priority: task.priority ?? 'MEDIUM', assigneeName: task.assigneeName,
+        assigneePhotoUrl: task.assigneePhotoUrl ?? undefined, updatedAt: task.updatedAt,
         attachmentCount: 0, commentCount: 0,
-      };
-      setAllBoards((prev) => prev.map((entry, idx) => idx === selectedIdx
-        ? { ...entry, columns: entry.columns.map((col) => col.columnStatus === status ? { ...col, tasks: [...col.tasks, newTask] } : col) }
+    });
+    const optimistic = toBoardTask(result.optimisticTask);
+    setAllBoards((prev) => prev.map((entry, idx) => idx === selectedIdx
+        ? { ...entry, columns: entry.columns.map((col) => col.columnStatus === status ? { ...col, tasks: [...col.tasks, optimistic] } : col) }
         : entry));
-      forceRefresh();
-    } catch (err: unknown) {
-      toast(normalizeApiError(err, 'Failed to create task.'), 'error');
-    }
-  }, [projectIdStr, activeSprint, selectedIdx, forceRefresh, setAllBoards]);
+    void result.completion.then((serverTask) => {
+      const committed = toBoardTask(serverTask);
+      setAllBoards((prev) => prev.map((entry, idx) => idx !== selectedIdx ? entry : {
+        ...entry,
+        columns: entry.columns.map((column) => ({
+          ...column,
+          tasks: column.tasks.map((task) => task.taskId === optimistic.taskId ? committed : task),
+        })),
+      }));
+    }).catch(() => setAllBoards((prev) => prev.map((entry, idx) => idx !== selectedIdx ? entry : {
+      ...entry,
+      columns: entry.columns.map((column) => ({ ...column, tasks: column.tasks.filter((task) => task.taskId !== optimistic.taskId) })),
+    })));
+  }, [projectIdStr, activeSprint, selectedIdx, setAllBoards, taskMutations]);
 
   const handleInlineDueDateChange = useCallback(async (taskId: number, dueDate: string | null) => {
     try {

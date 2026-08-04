@@ -15,6 +15,7 @@ import RecentProjectCard from '../dashboard/components/recentspaces/RecentProjec
 import Link from 'next/link';
 import { LayoutGrid, List } from 'lucide-react';
 import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
+import { formatDate } from '@/lib/date-time';
 
 const SPACES_PROJECTS_CACHE_TTL = 2 * 60_000;
 
@@ -86,24 +87,30 @@ function SpacesPageContent() {
 
     useEffect(() => {
         const filter = searchParams.get('filter');
-        if (filter === 'favorites') {
-            setFilterBy('starred');
-            setSortBy('favorites-first');
-        } else if (filter === 'recent') {
-            setFilterBy('all');
-            setSortBy('recent');
-        }
+        queueMicrotask(() => {
+            if (filter === 'favorites') {
+                setFilterBy('starred');
+                setSortBy('favorites-first');
+            } else if (filter === 'recent') {
+                setFilterBy('all');
+                setSortBy('recent');
+            }
+        });
     }, [searchParams]);
 
     useEffect(() => {
         const savedView = localStorage.getItem('spaces-view') ?? 'grid';
-        if (savedView === 'list' || savedView === 'grid') setViewMode(savedView);
+        if (savedView === 'list' || savedView === 'grid') {
+            queueMicrotask(() => setViewMode(savedView));
+        }
     }, []);
 
     useEffect(() => {
         const userData = getUserFromToken();
-        setUser(userData);
-        void fetchProjects({ checkCache: true });
+        queueMicrotask(() => {
+            setUser(userData);
+            void fetchProjects({ checkCache: true });
+        });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOnline]);
 
@@ -373,7 +380,7 @@ function SpacesPageContent() {
                                         </td>
                                         <td className="px-4 py-3 text-cu-text-secondary hidden md:table-cell">{project.memberCount ?? '-'}</td>
                                         <td className="px-4 py-3 text-cu-text-secondary hidden md:table-cell">
-                                            {project.updatedAt ? new Date(project.updatedAt).toLocaleDateString() : '-'}
+                                            {project.updatedAt ? formatDate(project.updatedAt) : '-'}
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-2">

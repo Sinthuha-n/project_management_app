@@ -18,6 +18,8 @@ type Props = {
   loading?: boolean;
   disabled?: boolean;
   variant?: 'primary' | 'outline';
+  accessibilityHint?: string;
+  testID?: string;
 };
 
 export default function PrimaryButton({
@@ -26,6 +28,8 @@ export default function PrimaryButton({
   loading = false,
   disabled = false,
   variant = 'primary',
+  accessibilityHint,
+  testID,
 }: Props) {
   const pressAnim = useRef(new Animated.Value(1)).current;
 
@@ -69,6 +73,11 @@ export default function PrimaryButton({
           style={styles.base}
         >
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityHint={accessibilityHint}
+            accessibilityState={{ disabled: isDisabled, busy: loading }}
+            testID={testID}
             onPress={handlePress}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
@@ -84,6 +93,11 @@ export default function PrimaryButton({
         </LinearGradient>
       ) : (
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          accessibilityHint={accessibilityHint}
+          accessibilityState={{ disabled: isDisabled, busy: loading }}
+          testID={testID}
           onPress={handlePress}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
@@ -118,7 +132,7 @@ const styles = StyleSheet.create({
     }),
   },
   base: {
-    height: 56,
+    minHeight: 56,
     borderRadius: 16,
     overflow: 'hidden',
     alignItems: 'center',

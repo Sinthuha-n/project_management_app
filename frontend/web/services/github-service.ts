@@ -1,5 +1,6 @@
 import { gitHubApi, tasksApi } from './api-contract';
 import api from '@/lib/axios';
+import { getApiErrorStatus } from '@/lib/api-error';
 import type {
   GithubRepository as BackendGithubRepository,
   GithubPr as BackendGithubPr,
@@ -504,11 +505,29 @@ export async function persistProjectGitHubConnection(
   projectId: string | number,
   repoFullName: string,
 ): Promise<ProjectGitHubConnection> {
-  const linkedRepository = await linkRepository({
-    projectId: Number(projectId),
-    repositoryFullName: repoFullName,
-  });
-  return backendRepositoryToProjectConnection(linkedRepository);
+  const numericProjectId = Number(projectId);
+  try {
+    const linkedRepository = await linkRepository({
+      projectId: numericProjectId,
+      repositoryFullName: repoFullName,
+    });
+    return backendRepositoryToProjectConnection(linkedRepository);
+  } catch (error) {
+    if (getApiErrorStatus(error) !== 409) {
+      throw error;
+    }
+
+    const linkedRepositories = await getLinkedRepositories(numericProjectId);
+    const existingRepository = linkedRepositories.find(
+      (repository) => repository.repositoryFullName.toLowerCase() === repoFullName.toLowerCase(),
+    );
+
+    if (!existingRepository) {
+      throw error;
+    }
+
+    return backendRepositoryToProjectConnection(existingRepository);
+  }
 }
 
 export async function fetchProjectPullRequests(projectId: string | number): Promise<GitHubPullRequest[]> {

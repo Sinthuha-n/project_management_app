@@ -41,7 +41,7 @@ export default function RecentProjectCard({
 
     // Sync local state when initial prop changes
     useEffect(() => {
-        setIsFavorite(initialIsFavorite);
+        queueMicrotask(() => setIsFavorite(initialIsFavorite));
     }, [initialIsFavorite]);
 
     // Save or remove project from favorites
@@ -250,4 +250,3 @@ export default function RecentProjectCard({
         </div>
     );
 }
-
