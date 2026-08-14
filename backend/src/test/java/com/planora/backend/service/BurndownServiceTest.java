@@ -69,6 +69,8 @@ class BurndownServiceTest {
         assertTrue(response.summary().actualBurnRate() > response.summary().requiredBurnRate());
         assertEquals(2, response.breakdown().byStatus().size());
         assertTrue(response.insights().stream().anyMatch(message -> message.contains("pts/day required")));
+        assertTrue(response.insights().stream().noneMatch(message ->
+                message.contains("ideal remaining line") || message.contains("above the ideal") || message.contains("ahead of the ideal")));
     }
 
     @Test

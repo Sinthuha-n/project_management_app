@@ -268,7 +268,6 @@ function buildFallbackSummary(burndown: BurndownResponse): BurndownSummary {
     daysElapsed: burndown.dataPoints.length,
     daysRemaining: 0,
     idealRemainingPoints: ideal,
-    variancePoints: remaining - ideal,
     actualBurnRate: 0,
     requiredBurnRate: 0,
     projectedCompletionDate: null,

@@ -17,7 +17,6 @@ export interface BurndownPoint {
   idealPoints: number;
   completedPoints?: number;
   dailyBurn?: number;
-  variancePoints?: number;
   isToday?: boolean;
 }
 
@@ -38,8 +37,6 @@ export default function BurndownChart({ sprintName, dataPoints, totalStoryPoints
 
   const todayPoint = dataPoints.find((point) => point.isToday);
   const maxY = Math.max(totalStoryPoints, ...dataPoints.map((point) => point.remainingPoints), 1);
-  const current = dataPoints.find((point) => point.isToday) ?? dataPoints[dataPoints.length - 1];
-  const varianceTone = (current.variancePoints ?? 0) > 0 ? 'text-red-500' : (current.variancePoints ?? 0) < 0 ? 'text-emerald-500' : 'text-cu-text-secondary';
 
   return (
     <section className="rounded-lg border border-cu-border bg-cu-bg p-4 shadow-cu-sm">
@@ -51,7 +48,6 @@ export default function BurndownChart({ sprintName, dataPoints, totalStoryPoints
         <div className="flex flex-wrap items-center gap-3 text-[12px] text-cu-text-secondary">
           <LegendSwatch className="bg-cu-primary" label="Actual remaining" />
           <LegendSwatch className="border border-dashed border-cu-text-muted" label="Ideal" />
-          <span className={varianceTone}>Variance {signed(current.variancePoints ?? 0)} pts</span>
         </div>
       </div>
 
@@ -112,7 +108,6 @@ export default function BurndownChart({ sprintName, dataPoints, totalStoryPoints
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ payload: BurndownPoint }>; label?: string }) {
   if (!active || !payload?.length) return null;
   const point = payload[0].payload;
-  const variance = point.variancePoints ?? point.remainingPoints - point.idealPoints;
   return (
     <div className="min-w-[190px] rounded-lg border border-cu-border bg-cu-bg px-3 py-2.5 shadow-cu-lg">
       <p className="mb-2 text-[12px] font-bold text-cu-text-primary">{formatFullDate(String(label))}</p>
@@ -120,13 +115,12 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
       <TooltipRow label="Ideal" value={`${point.idealPoints} pts`} />
       <TooltipRow label="Completed" value={`${point.completedPoints ?? 0} pts`} />
       <TooltipRow label="Daily burn" value={`${point.dailyBurn ?? 0} pts`} />
-      <TooltipRow label="Variance" value={`${signed(variance)} pts`} tone={variance > 0 ? 'bad' : variance < 0 ? 'good' : 'neutral'} />
     </div>
   );
 }
 
-function TooltipRow({ label, value, strong, tone = 'neutral' }: { label: string; value: string; strong?: boolean; tone?: 'good' | 'bad' | 'neutral' }) {
-  const color = tone === 'good' ? 'text-emerald-500' : tone === 'bad' ? 'text-red-500' : strong ? 'text-cu-primary' : 'text-cu-text-secondary';
+function TooltipRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  const color = strong ? 'text-cu-primary' : 'text-cu-text-secondary';
   return (
     <div className="flex items-center justify-between gap-4 text-[12px]">
       <span className="text-cu-text-muted">{label}</span>
@@ -150,9 +144,4 @@ function formatTick(value: string) {
 
 function formatFullDate(value: string) {
   return new Date(`${value}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function signed(value: number) {
-  if (value > 0) return `+${value}`;
-  return String(value);
 }
