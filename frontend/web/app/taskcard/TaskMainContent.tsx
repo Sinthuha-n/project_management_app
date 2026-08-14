@@ -159,6 +159,7 @@ const TaskMainContent: React.FC<TaskMainContentProps> = ({
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(title);
+  const titleCommitStartedRef = useRef(false);
   const [subtaskAddTrigger, setSubtaskAddTrigger] = useState(0);
   const [showDependencyPicker, setShowDependencyPicker] = useState(false);
   const attachInputRef = useRef<HTMLInputElement>(null);
@@ -170,6 +171,8 @@ const TaskMainContent: React.FC<TaskMainContentProps> = ({
   }, [title]);
 
   const handleTitleSave = () => {
+    if (titleCommitStartedRef.current) return;
+    titleCommitStartedRef.current = true;
     if (editedTitle.trim() && editedTitle !== title) {
       onUpdateTitle?.(editedTitle.trim());
     }
@@ -188,8 +191,12 @@ const TaskMainContent: React.FC<TaskMainContentProps> = ({
             onChange={(e) => setEditedTitle(e.target.value)}
             onBlur={handleTitleSave}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleTitleSave();
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.currentTarget.blur();
+              }
               if (e.key === 'Escape') {
+                titleCommitStartedRef.current = true;
                 setEditedTitle(title);
                 setIsEditingTitle(false);
               }
@@ -199,7 +206,11 @@ const TaskMainContent: React.FC<TaskMainContentProps> = ({
           />
         ) : (
           <h1 
-            onClick={() => !readOnly && setIsEditingTitle(true)}
+            onClick={() => {
+              if (readOnly) return;
+              titleCommitStartedRef.current = false;
+              setIsEditingTitle(true);
+            }}
             className={`text-[22px] font-bold text-cu-text-primary tracking-tight px-2 py-1 rounded-lg -ml-2 transition-colors font-outfit ${readOnly ? '' : 'hover:bg-cu-hover cursor-text'}`}
           >
             {title}

@@ -2,6 +2,9 @@ package com.planora.backend.configuration;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +54,16 @@ class CacheConfigurationTest {
         Cache cache = cacheManager.getCache("userProfile");
         org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
                 cacheErrorHandler.handleCacheGetError(new RuntimeException("Redis down"), cache, "alice@example.com"));
+    }
+
+    @Test
+    void cacheErrorHandler_evictsUnreadableEntryAfterFailedGet() {
+        Cache cache = mock(Cache.class);
+        when(cache.getName()).thenReturn("project-favorites");
+
+        cacheErrorHandler.handleCacheGetError(new RuntimeException("legacy timestamp"), cache, 1L);
+
+        verify(cache).evict(1L);
     }
 
     @Test

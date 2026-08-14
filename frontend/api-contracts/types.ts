@@ -5256,13 +5256,20 @@ export interface components {
             status?: string;
         };
         SprintVelocityDTO: {
+            commitmentCaptured?: boolean;
             /** Format: int32 */
             committedPoints?: number;
+            /** Format: date-time */
+            completedAt?: string;
             /** Format: int32 */
             completedPoints?: number;
+            /** Format: date */
+            endDate?: string;
             /** Format: int64 */
             sprintId?: number;
             sprintName?: string;
+            /** Format: date */
+            startDate?: string;
         };
         StartSprintRequest: {
             /** Format: date */

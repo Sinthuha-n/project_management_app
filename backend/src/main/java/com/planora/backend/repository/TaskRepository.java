@@ -8,12 +8,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.planora.backend.model.Task;
+
+import jakarta.persistence.LockModeType;
 
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
@@ -146,6 +149,14 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
            "LEFT JOIN FETCH p.team pt " +
            "WHERE t.id = :taskId")
     java.util.Optional<Task> findByIdWithProjectTeam(@Param("taskId") Long taskId);
+
+    /**
+     * Serializes partial task updates so independent fields changed at nearly the
+     * same time are applied to the latest row version instead of racing on @Version.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM Task t WHERE t.id = :taskId")
+    java.util.Optional<Task> findByIdForUpdate(@Param("taskId") Long taskId);
 
     @Query("""
            SELECT DISTINCT t FROM Task t

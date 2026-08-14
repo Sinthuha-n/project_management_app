@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import SidebarField from './SidebarField';
 
 interface StoryPointSectionProps {
@@ -10,6 +10,7 @@ interface StoryPointSectionProps {
 const StoryPointSection: React.FC<StoryPointSectionProps> = ({ storyPoint, onUpdateStoryPoint }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [edited, setEdited] = useState(storyPoint);
+  const commitStartedRef = useRef(false);
 
   useEffect(() => {
     queueMicrotask(() => setEdited(storyPoint));
@@ -19,6 +20,8 @@ const StoryPointSection: React.FC<StoryPointSectionProps> = ({ storyPoint, onUpd
   if (storyPoint <= 0) return null;
 
   const handleSave = () => {
+    if (commitStartedRef.current) return;
+    commitStartedRef.current = true;
     if (edited !== storyPoint && edited >= 0) {
       onUpdateStoryPoint?.(edited);
     }
@@ -37,8 +40,15 @@ const StoryPointSection: React.FC<StoryPointSectionProps> = ({ storyPoint, onUpd
             onChange={(e) => setEdited(parseInt(e.target.value) || 0)}
             onBlur={handleSave}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSave();
-              if (e.key === 'Escape') { setEdited(storyPoint); setIsEditing(false); }
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.currentTarget.blur();
+              }
+              if (e.key === 'Escape') {
+                commitStartedRef.current = true;
+                setEdited(storyPoint);
+                setIsEditing(false);
+              }
             }}
             autoFocus
             className="w-20 bg-cu-bg-secondary text-cu-text-primary text-xs font-bold px-2 py-1 rounded-full border-2 border-cu-primary focus:outline-none"
@@ -46,7 +56,11 @@ const StoryPointSection: React.FC<StoryPointSectionProps> = ({ storyPoint, onUpd
         </div>
       ) : (
         <span
-          onClick={() => onUpdateStoryPoint && setIsEditing(true)}
+          onClick={() => {
+            if (!onUpdateStoryPoint) return;
+            commitStartedRef.current = false;
+            setIsEditing(true);
+          }}
           className={`bg-cu-bg-secondary text-cu-text-primary text-xs font-bold px-2 py-1 rounded-full inline-block transition-colors ${onUpdateStoryPoint ? 'cursor-pointer hover:bg-cu-bg-tertiary' : 'cursor-not-allowed opacity-70'}`}
         >
           {storyPoint}

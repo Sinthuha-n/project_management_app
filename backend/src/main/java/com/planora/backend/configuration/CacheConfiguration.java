@@ -249,6 +249,16 @@ public class CacheConfiguration implements CachingConfigurer {
         @Override
         public void handleCacheGetError(RuntimeException exception, Cache cache, Object key) {
             handle(exception, cache, key, "get");
+            if (failOpen && cache != null && key != null) {
+                try {
+                    // A payload written by an older serializer should fail open once,
+                    // then be removed so the backing method can repopulate it.
+                    cache.evict(key);
+                } catch (RuntimeException evictionException) {
+                    log.debug("Could not evict unreadable cache entry cache={} key={}: {}",
+                            cache.getName(), key, evictionException.getMessage());
+                }
+            }
         }
 
         @Override
