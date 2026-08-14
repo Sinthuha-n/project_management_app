@@ -160,9 +160,14 @@ export interface SprintStartRequest {
 }
 
 export interface SprintVelocityPoint {
+  sprintId: number;
   sprintName: string;
+  startDate: string | null;
+  endDate: string | null;
+  completedAt: string | null;
   committedPoints: number;
   completedPoints: number;
+  commitmentCaptured: boolean;
 }
 
 /**

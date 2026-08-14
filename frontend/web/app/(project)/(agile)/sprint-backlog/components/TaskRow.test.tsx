@@ -1,4 +1,5 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import TaskRow, { type TaskRowTask, type TaskRowTeamMember } from './TaskRow';
 
 const mockTask: TaskRowTask = {
@@ -92,5 +93,19 @@ describe('TaskRow', () => {
     render(<TaskRow {...defaultProps} canDelete={false} />);
     const deleteBtn = screen.getByTitle('Viewers cannot delete tasks');
     expect(deleteBtn).toBeDisabled();
+  });
+
+  it('submits an inline rename only once when Enter also blurs the input', async () => {
+    const user = userEvent.setup();
+    const onRenameTask = jest.fn().mockResolvedValue(undefined);
+    render(<TaskRow {...defaultProps} onRenameTask={onRenameTask} />);
+
+    await user.dblClick(screen.getByText('Test task title'));
+    const input = screen.getByRole('textbox');
+    await user.clear(input);
+    await user.type(input, 'Renamed task{Enter}');
+
+    await waitFor(() => expect(onRenameTask).toHaveBeenCalledTimes(1));
+    expect(onRenameTask).toHaveBeenCalledWith(1, 'Renamed task');
   });
 });

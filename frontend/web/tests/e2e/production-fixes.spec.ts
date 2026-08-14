@@ -49,6 +49,21 @@ async function mockPlanoraApi(page: Page, fixture: ApiFixture) {
     if (path === '/api/tasks/project/3/all' && method === 'GET') {
       return json(route, url.searchParams.get('archived') === 'true' ? [] : fixture.tasks);
     }
+    if (path === '/api/sprints/project/3' && method === 'GET') {
+      return json(route, []);
+    }
+    if (path === '/api/burndown/project/3/velocity' && method === 'GET') {
+      return json(route, Array.from({ length: 6 }, (_, index) => ({
+        sprintId: index + 1,
+        sprintName: `Sprint ${index + 1}`,
+        startDate: '2026-07-01',
+        endDate: '2026-07-14',
+        completedAt: '2026-07-14T12:00:00',
+        committedPoints: 18 + index,
+        completedPoints: 16 + index,
+        commitmentCaptured: true,
+      })));
+    }
     if (path === '/api/tasks' && method === 'POST') {
       const payload = request.postDataJSON() as Record<string, unknown>;
       const created = {
@@ -213,4 +228,42 @@ test('text fields use the neutral focus token in light and dark modes', async ({
   });
   expect(darkFocus.borderColor).toBe(darkFocus.tokenColor);
   expect(darkFocus.boxShadow).not.toBe('none');
+});
+
+test('sprint velocity renders tightly grouped plan and actual bars in light and dark modes', async ({ page }, testInfo) => {
+  const fixture: ApiFixture = { tasks: [], sentChatMessages: [] };
+  await authenticate(page);
+  await page.addInitScript(() => {
+    localStorage.setItem('currentProjectType', 'AGILE');
+    localStorage.setItem('planora-theme', 'light');
+  });
+  await mockPlanoraApi(page, fixture);
+
+  await page.goto('/sprint-backlog?projectId=3');
+  await page.getByRole('button', { name: 'Show sprint velocity' }).click();
+  const chart = page.getByRole('img', { name: 'Sprint velocity chart for 6 completed sprints' });
+  await expect(chart).toBeVisible();
+  await expect(page.getByText('Committed (plan)')).toBeVisible();
+  await expect(page.getByText('Delivered (actual)')).toBeVisible();
+
+  const bars = chart.locator('.recharts-bar-rectangle path');
+  await expect(bars).toHaveCount(12);
+  await page.waitForTimeout(800);
+  const boxes = await bars.evaluateAll((elements) => elements.map((element) => {
+    const rect = element.getBoundingClientRect();
+    return { x: rect.x, width: rect.width };
+  }));
+  const sprintCount = 6;
+  const pairGap = boxes[sprintCount].x - (boxes[0].x + boxes[0].width);
+  const groupGap = boxes[1].x - (boxes[sprintCount].x + boxes[sprintCount].width);
+  expect(pairGap).toBeLessThanOrEqual(12);
+  expect(groupGap).toBeGreaterThan(pairGap);
+
+  await page.screenshot({ path: testInfo.outputPath('velocity-light.png'), fullPage: true });
+  await page.evaluate(() => {
+    localStorage.setItem('planora-theme', 'dark');
+    document.documentElement.classList.add('dark');
+  });
+  await expect(chart).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('velocity-dark.png'), fullPage: true });
 });

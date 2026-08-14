@@ -28,11 +28,11 @@ export default function MobileTaskRow(props: TaskRowProps) {
     lastTapRef,
     statusOpen, setStatusOpen,
     assignOpen, setAssignOpen,
-    renaming, setRenaming,
+    renaming,
     renameValue, setRenameValue,
     statusPosition, assignPosition,
     onTouchStartInternal, onTouchEndInternal, onTouchMoveInternal,
-    startRename, updateLastTap, commitRename,
+    startRename, updateLastTap, commitRename, cancelRename,
     openStatus, openAssign, openDatePicker,
     displayLabel, displayStyle, dueClass, statusBorderColor, priorityKey, priorityStyle,
   } = useTaskRowState(task, {
@@ -70,8 +70,8 @@ export default function MobileTaskRow(props: TaskRowProps) {
                 value={renameValue}
                 onChange={(e) => setRenameValue(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') void commitRename();
-                  if (e.key === 'Escape') setRenaming(false);
+                  if (e.key === 'Enter') { e.preventDefault(); void commitRename(); }
+                  if (e.key === 'Escape') cancelRename();
                 }}
                 onBlur={() => void commitRename()}
                 autoFocus

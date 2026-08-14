@@ -225,13 +225,6 @@ class TaskServiceTest {
             saved.setId(999L);
             return saved;
         });
-        when(taskRepository.findByIdFullyFetched(999L)).thenAnswer(invocation -> {
-            Task t = buildTask(999L);
-            t.setAssignee(assignee);
-            t.setReporter(creator);
-            return Optional.of(t);
-        });
-
         TaskResponseDTO result = taskService.createTask(request, 100L);
 
         assertEquals(999L, result.getId());
@@ -244,6 +237,7 @@ class TaskServiceTest {
                 "You were assigned to a new task: Build tests",
                 "/taskcard?taskId=999"
         );
+        verify(taskRepository, never()).findByIdFullyFetched(999L);
     }
 
     @Test
@@ -366,7 +360,7 @@ class TaskServiceTest {
         request.setStatus("DONE");
 
         when(taskRepository.findById(50L)).thenReturn(Optional.of(task));
-        when(taskRepository.findByIdWithProjectTeam(50L)).thenReturn(Optional.of(task));
+        when(taskRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(userRepository.findById(500L)).thenReturn(Optional.of(actorUser));
         when(userRepository.findAllById(any())).thenReturn(List.of(creatorUser, assigneeUser));
@@ -375,6 +369,7 @@ class TaskServiceTest {
         TaskResponseDTO result = taskService.updateTask(50L, request, 500L);
 
         assertEquals("DONE", result.getStatus());
+        verify(taskRepository).findByIdForUpdate(50L);
         verify(taskActivityService).logActivity(eq(50L), any(), eq("actor"), contains("Status changed from TODO to DONE"));
         verify(notificationService, times(2)).createNotification(any(User.class), contains("changed task status"), eq("/taskcard?taskId=50"));
     }
@@ -591,15 +586,10 @@ class TaskServiceTest {
             saved.setId(1001L);
             return saved;
         });
-        when(taskRepository.findByIdFullyFetched(1001L)).thenAnswer(invocation -> {
-            Task t = buildTask(1001L);
-            t.setReporter(creator);
-            return Optional.of(t);
-        });
-
         TaskResponseDTO result = taskService.createTask(request, 100L);
 
         assertEquals("creator", result.getReporterName());
+        verify(taskRepository, never()).findByIdFullyFetched(1001L);
     }
 
     @Test
@@ -800,7 +790,7 @@ class TaskServiceTest {
         TaskRequestDTO request = new TaskRequestDTO();
         request.setStatus("DONE");
 
-        when(taskRepository.findByIdWithProjectTeam(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(task));
         when(taskRepository.findByIdFullyFetched(1L)).thenReturn(Optional.of(task));
         when(userRepository.findById(500L)).thenReturn(Optional.of(actorUser));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -819,7 +809,7 @@ class TaskServiceTest {
         TaskRequestDTO request = new TaskRequestDTO();
         request.setStatus("IN_PROGRESS");
 
-        when(taskRepository.findByIdWithProjectTeam(2L)).thenReturn(Optional.of(task));
+        when(taskRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(task));
         when(taskRepository.findByIdFullyFetched(2L)).thenReturn(Optional.of(task));
         when(userRepository.findById(500L)).thenReturn(Optional.of(actorUser));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -886,16 +876,11 @@ class TaskServiceTest {
             saved.setId(1200L);
             return saved;
         });
-        when(taskRepository.findByIdFullyFetched(1200L)).thenAnswer(invocation -> {
-            Task task = buildTask(1200L);
-            task.setMilestone(milestone);
-            return Optional.of(task);
-        });
-
         TaskResponseDTO response = taskService.createTask(request, 100L);
 
         assertEquals(77L, response.getMilestoneId());
         verify(taskRepository).save(argThat(task -> task.getMilestone() != null && task.getMilestone().getId().equals(77L)));
+        verify(taskRepository, never()).findByIdFullyFetched(1200L);
     }
 
     @Test
@@ -909,7 +894,7 @@ class TaskServiceTest {
         TaskRequestDTO request = new TaskRequestDTO();
         request.setMilestoneId(null);
 
-        when(taskRepository.findByIdWithProjectTeam(1300L)).thenReturn(Optional.of(task));
+        when(taskRepository.findByIdForUpdate(1300L)).thenReturn(Optional.of(task));
         when(userRepository.findById(500L)).thenReturn(Optional.of(actorUser));
         when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(taskRepository.findByIdFullyFetched(1300L)).thenReturn(Optional.of(task));

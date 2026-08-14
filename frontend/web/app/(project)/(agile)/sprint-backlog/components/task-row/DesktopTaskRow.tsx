@@ -26,13 +26,13 @@ export default function DesktopTaskRow(props: TaskRowProps) {
     statusOpen, setStatusOpen,
     assignOpen, setAssignOpen,
     labelOpen, setLabelOpen,
-    renaming, setRenaming,
+    renaming,
     renameValue, setRenameValue,
     labelInput, setLabelInput,
     creatingLabel,
     statusPosition, assignPosition, labelPosition,
     onTouchStartInternal, onTouchEndInternal, onTouchMoveInternal,
-    startRename, updateLastTap, commitRename,
+    startRename, updateLastTap, commitRename, cancelRename,
     taskLabelIds, openLabel, handleLabelToggle, handleCreateLabelFromInput,
     openStatus, openAssign, openDatePicker,
     displayLabel, displayStyle, dueClass, statusBorderColor, priorityKey, priorityStyle,
@@ -94,7 +94,10 @@ export default function DesktopTaskRow(props: TaskRowProps) {
               type="text" value={renameValue}
               maxLength={255}
               onChange={(e) => setRenameValue(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') void commitRename(); if (e.key === 'Escape') setRenaming(false); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); void commitRename(); }
+                if (e.key === 'Escape') cancelRename();
+              }}
               onBlur={() => void commitRename()}
               autoFocus
               className="w-full border-b-2 border-cu-primary bg-transparent text-[12px] font-semibold text-cu-text-primary outline-none"

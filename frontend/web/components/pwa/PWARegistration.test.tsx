@@ -1,6 +1,7 @@
 import { act, render, waitFor } from '@testing-library/react';
 import PWARegistration, {
   applyStandaloneMarker,
+  cleanupDevelopmentPwa,
   PWA_UPDATE_CHECK_INTERVAL_MS,
   shouldRegisterServiceWorker,
 } from './PWARegistration';
@@ -32,6 +33,39 @@ describe('PWARegistration', () => {
       protocol: 'https:',
       hostname: 'planora.example',
     })).toBe(false);
+    expect(shouldRegisterServiceWorker({
+      hasServiceWorker: true,
+      protocol: 'http:',
+      hostname: 'localhost',
+      environment: 'development',
+    })).toBe(false);
+  });
+
+  it('removes stale Planora service workers and caches from local development', async () => {
+    const unregister = jest.fn().mockResolvedValue(true);
+    Object.defineProperty(window.navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        getRegistrations: jest.fn().mockResolvedValue([
+          { scope: `${window.location.origin}/`, unregister },
+          { scope: 'https://unrelated.example/', unregister: jest.fn() },
+        ]),
+      },
+    });
+    const deleteCache = jest.fn().mockResolvedValue(true);
+    Object.defineProperty(window, 'caches', {
+      configurable: true,
+      value: {
+        keys: jest.fn().mockResolvedValue(['planora-pwa-v1-static', 'unrelated-cache']),
+        delete: deleteCache,
+      },
+    });
+
+    await cleanupDevelopmentPwa();
+
+    expect(unregister).toHaveBeenCalledTimes(1);
+    expect(deleteCache).toHaveBeenCalledWith('planora-pwa-v1-static');
+    expect(deleteCache).toHaveBeenCalledTimes(1);
   });
 
   it('registers the service worker after window load', async () => {

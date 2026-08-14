@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -172,11 +173,7 @@ public class SprintService {
         if (request.getEndDate() != null) existing.setEndDate(request.getEndDate());
         if (request.getGoal() != null) existing.setGoal(request.getGoal());
         if (request.getStatus() != null) {
-            try {
-                existing.setStatus(SprintStatus.valueOf(request.getStatus()));
-            } catch (IllegalArgumentException ignored) {
-                // keep existing status if unknown value
-            }
+            throw new IllegalArgumentException("Use the sprint start and complete endpoints to change status");
         }
 
         if (existing.getStartDate() != null && existing.getEndDate() != null
@@ -228,6 +225,12 @@ public class SprintService {
         sprint.setEndDate(endDate);
         sprint.setStatus(SprintStatus.ACTIVE);
 
+        int committedPoints = taskRepository.findBySprintIdWithScalars(sprintId).stream()
+                .mapToInt(Task::getStoryPoint)
+                .sum();
+        sprint.setCommittedPoints(committedPoints);
+        sprint.setCommitmentCaptured(true);
+
         Sprint savedSprint = sprintRepository.save(sprint);
 
         try {
@@ -250,11 +253,18 @@ public class SprintService {
 
         requireConfigureBoard(sprint.getProId(), currentUserId);
 
+        List<Task> sprintTasks = taskRepository.findBySprintIdWithScalars(id);
+        int completedPoints = sprintTasks.stream()
+                .filter(t -> "DONE".equalsIgnoreCase(t.getStatus()))
+                .mapToInt(Task::getStoryPoint)
+                .sum();
+
         sprint.setStatus(SprintStatus.COMPLETED);
+        sprint.setCompletedPoints(completedPoints);
+        sprint.setCompletedAt(LocalDateTime.now());
         sprintRepository.save(sprint);
 
-        List<Task> incomplete = taskRepository.findBySprintIdWithScalars(id)
-                .stream()
+        List<Task> incomplete = sprintTasks.stream()
                 .filter(t -> !"DONE".equalsIgnoreCase(t.getStatus()))
                 .collect(Collectors.toList());
 
@@ -269,5 +279,12 @@ public class SprintService {
         }
 
         return toDTO(sprint);
+    }
+
+    /** Internal read model for analytics that also performs the project membership check. */
+    @Transactional(readOnly = true)
+    public List<Sprint> getSprintEntitiesByProject(Long projectId, Long currentUserId) {
+        requireViewBoard(projectId, currentUserId);
+        return sprintRepository.findByProject_Id(projectId);
     }
 }

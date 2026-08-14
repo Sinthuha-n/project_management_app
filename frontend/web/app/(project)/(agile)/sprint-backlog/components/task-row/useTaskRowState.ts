@@ -66,6 +66,7 @@ export function useTaskRowState(task: TaskRowTask, props: Pick<TaskRowProps, 'ca
   // Touch logic
   const lastTapRef = useRef<number>(0);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const renameCommitStartedRef = useRef(false);
 
   // Responsive
   useEffect(() => {
@@ -96,6 +97,7 @@ export function useTaskRowState(task: TaskRowTask, props: Pick<TaskRowProps, 'ca
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
       e.preventDefault();
+      renameCommitStartedRef.current = false;
       setRenameValue(task.title);
       setRenaming(true);
       lastTapRef.current = 0;
@@ -114,6 +116,7 @@ export function useTaskRowState(task: TaskRowTask, props: Pick<TaskRowProps, 'ca
 
   const startRename = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    renameCommitStartedRef.current = false;
     setRenameValue(task.title);
     setRenaming(true);
   }, [task.title]);
@@ -123,11 +126,18 @@ export function useTaskRowState(task: TaskRowTask, props: Pick<TaskRowProps, 'ca
   }, []);
 
   const commitRename = useCallback(async () => {
+    if (renameCommitStartedRef.current) return;
+    renameCommitStartedRef.current = true;
     const trimmed = renameValue.trim();
     if (!trimmed || trimmed === task.title) { setRenaming(false); return; }
     setRenaming(false);
     try { await onRenameTask(task.id, trimmed); } catch (error) { console.error('Failed to rename task:', error); }
   }, [renameValue, task.id, task.title, onRenameTask]);
+
+  const cancelRename = useCallback(() => {
+    renameCommitStartedRef.current = true;
+    setRenaming(false);
+  }, []);
 
   const taskLabelIds = useMemo(() => new Set((task.labels ?? []).map((l) => l.id)), [task.labels]);
 
@@ -200,7 +210,7 @@ export function useTaskRowState(task: TaskRowTask, props: Pick<TaskRowProps, 'ca
     lastTapRef,
     // Handlers
     onTouchStartInternal, onTouchEndInternal, onTouchMoveInternal,
-    startRename, updateLastTap, commitRename,
+    startRename, updateLastTap, commitRename, cancelRename,
     taskLabelIds, openLabel, handleLabelToggle, handleCreateLabelFromInput,
     openStatus, openAssign, openDatePicker,
     // Derived

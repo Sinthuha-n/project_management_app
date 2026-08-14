@@ -4249,19 +4249,34 @@
       },
       "SprintVelocityDTO": {
         "properties": {
+          "commitmentCaptured": {
+            "type": "boolean"
+          },
           "committedPoints": {
             "format": "int32",
             "type": "integer"
           },
+          "completedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
           "completedPoints": {
             "format": "int32",
             "type": "integer"
+          },
+          "endDate": {
+            "format": "date",
+            "type": "string"
           },
           "sprintId": {
             "format": "int64",
             "type": "integer"
           },
           "sprintName": {
+            "type": "string"
+          },
+          "startDate": {
+            "format": "date",
             "type": "string"
           }
         },

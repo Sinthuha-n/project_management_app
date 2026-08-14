@@ -1,203 +1,329 @@
 'use client';
 
-import { useMemo, useRef, useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ReferenceLine,
+  Tooltip,
+  XAxis,
+  YAxis,
+  type TooltipContentProps,
+} from 'recharts';
+import {
+  AlertCircle,
+  ArrowDownRight,
+  ArrowUpRight,
+  BarChart3,
+  Gauge,
+  RefreshCw,
+  Table2,
+  Trophy,
+  X,
+} from 'lucide-react';
+import { SafeChartFrame } from '@/components/shared/SafeChartFrame';
+import type { SprintVelocityPoint } from '@/services/tasks-contract';
+import type { SprintVelocityStatus } from '../hooks/useSprintVelocity';
+import {
+  calculateVelocityMetrics,
+  selectVelocityRange,
+  type VelocityRange,
+} from './velocity-model';
 
-export interface SprintVelocityPoint {
-  sprintId: number;
-  sprintName: string;
-  committedPoints: number;
-  completedPoints: number;
-}
+export type { SprintVelocityPoint } from '@/services/tasks-contract';
 
 interface VelocityChartProps {
   sprints: SprintVelocityPoint[];
+  status?: SprintVelocityStatus;
+  error?: string | null;
+  onRetry?: () => void;
+  onClose?: () => void;
 }
 
-export default function VelocityChart({ sprints }: VelocityChartProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(600);
+type ChartDatum = SprintVelocityPoint & {
+  axisName: string;
+  committed: number | null;
+  delivered: number;
+};
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
-    ro.observe(containerRef.current);
-    return () => ro.disconnect();
-  }, []);
+export const VELOCITY_CHART_LAYOUT = {
+  barGap: 2,
+  barCategoryGap: '28%',
+  maxBarSize: 30,
+} as const;
 
-  const data = useMemo(() => {
-    return sprints.slice(-8).map((s, index) => ({
-      key: `${s.sprintId}-${index}`,
-      name: s.sprintName,
-      committed: s.committedPoints,
-      completed: s.completedPoints,
-    }));
-  }, [sprints]);
+const ranges: VelocityRange[] = [6, 12, 'all'];
+const dateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' });
 
-  if (data.length === 0) {
-    return (
-      <div className="rounded-xl border border-cu-border bg-cu-bg-secondary p-6 text-center text-[13px] text-cu-text-secondary">
-        No sprint data available for velocity chart.
-      </div>
-    );
-  }
+const formatPoints = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(1);
 
-  const maxVal = Math.max(...data.flatMap((d) => [d.committed, d.completed]), 1);
-  const padding = { top: 30, right: 20, bottom: 50, left: 50 };
-  const chartW = width - padding.left - padding.right;
-  const chartH = 200;
-  const barGroupW = Math.min(80, chartW / data.length);
-  const barW = barGroupW * 0.35;
-  const gap = barGroupW * 0.1;
+const formatDateRange = (sprint: SprintVelocityPoint) => {
+  if (!sprint.startDate && !sprint.endDate) return 'Dates unavailable';
+  const start = sprint.startDate ? dateFormatter.format(new Date(`${sprint.startDate}T00:00:00`)) : 'Unknown';
+  const end = sprint.endDate ? dateFormatter.format(new Date(`${sprint.endDate}T00:00:00`)) : 'Unknown';
+  return `${start} – ${end}`;
+};
 
-  const avgCommitted = data.length > 0 ? Math.round(data.reduce((a, d) => a + d.committed, 0) / data.length) : 0;
-  const avgCompleted = data.length > 0 ? Math.round(data.reduce((a, d) => a + d.completed, 0) / data.length) : 0;
+function VelocityTooltip({ active, payload }: TooltipContentProps) {
+  if (!active || !payload.length) return null;
+  const sprint = payload[0]?.payload as ChartDatum | undefined;
+  if (!sprint) return null;
 
-  const tickCount = 5;
-  const ticks = Array.from({ length: tickCount + 1 }, (_, i) => Math.round((maxVal / tickCount) * i));
+  const deliveryRate = sprint.commitmentCaptured && sprint.committedPoints > 0
+    ? Math.round((sprint.completedPoints / sprint.committedPoints) * 100)
+    : null;
+  const difference = sprint.completedPoints - sprint.committedPoints;
 
   return (
-    <div className="rounded-xl border border-cu-border bg-cu-bg-secondary p-5 shadow-cu-sm">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[16px] font-bold text-cu-text-primary">Sprint Velocity</h3>
-        <div className="flex items-center gap-4 text-[12px]">
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-sm bg-cu-primary-muted" />
-            <span className="text-cu-text-secondary">Committed</span>
+    <div className="min-w-[220px] rounded-xl border border-cu-border bg-cu-bg p-3 text-[12px] shadow-cu-xl">
+      <p className="font-bold text-cu-text-primary">{sprint.sprintName}</p>
+      <p className="mt-0.5 text-[10px] text-cu-text-muted">{formatDateRange(sprint)}</p>
+      <div className="mt-3 space-y-1.5">
+        {sprint.commitmentCaptured ? (
+          <div className="flex justify-between gap-5 text-cu-text-secondary">
+            <span>Committed</span><strong className="text-cu-text-primary">{sprint.committedPoints} pts</strong>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-sm bg-cu-primary" />
-            <span className="text-cu-text-secondary">Completed</span>
-          </div>
+        ) : null}
+        <div className="flex justify-between gap-5 text-cu-text-secondary">
+          <span>Delivered</span><strong className="text-cu-success">{sprint.completedPoints} pts</strong>
         </div>
-      </div>
-
-      {/* Stats row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <div className="rounded-lg border border-cu-border bg-cu-bg px-3 py-2 text-center">
-          <p className="text-[10px] font-medium text-cu-text-secondary uppercase">Avg Committed</p>
-          <p className="text-[18px] font-bold text-cu-text-primary">{avgCommitted}</p>
-        </div>
-        <div className="rounded-lg border border-cu-border bg-cu-bg px-3 py-2 text-center">
-          <p className="text-[10px] font-medium text-cu-text-secondary uppercase">Avg Completed</p>
-          <p className="text-[18px] font-bold text-cu-primary">{avgCompleted}</p>
-        </div>
-        <div className="rounded-lg border border-cu-border bg-cu-bg px-3 py-2 text-center">
-          <p className="text-[10px] font-medium text-cu-text-secondary uppercase">Best Sprint</p>
-          <p className="text-[18px] font-bold text-cu-success">
-            {data.length > 0 ? Math.max(...data.map((d) => d.completed)) : 0}
+        {deliveryRate !== null ? (
+          <>
+            <div className="flex justify-between gap-5 text-cu-text-secondary">
+              <span>Predictability</span><strong className="text-cu-text-primary">{deliveryRate}%</strong>
+            </div>
+            <div className="flex justify-between gap-5 text-cu-text-secondary">
+              <span>Difference</span>
+              <strong className={difference >= 0 ? 'text-cu-success' : 'text-cu-warning'}>
+                {difference > 0 ? '+' : ''}{difference} pts
+              </strong>
+            </div>
+          </>
+        ) : (
+          <p className="rounded-lg bg-cu-warning-light px-2 py-1.5 text-[10px] text-cu-warning">
+            Commitment baseline was not captured for this historical sprint.
           </p>
-        </div>
-        <div className="rounded-lg border border-cu-border bg-cu-bg px-3 py-2 text-center">
-          <p className="text-[10px] font-medium text-cu-text-secondary uppercase">Total Sprints</p>
-          <p className="text-[18px] font-bold text-cu-text-primary">{data.length}</p>
-        </div>
-      </div>
-
-      <div ref={containerRef} className="w-full overflow-x-auto">
-        <svg width={width} height={chartH + padding.top + padding.bottom} className="min-w-[300px]">
-          {/* Y-axis grid lines and labels */}
-          {ticks.map((tick, i) => {
-            const y = padding.top + chartH - (tick / maxVal) * chartH;
-            return (
-              <g key={`tick-${i}`}>
-                <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="var(--cu-border)" strokeWidth={1} />
-                <text x={padding.left - 8} y={y + 4} textAnchor="end" className="text-[10px] fill-cu-text-muted">
-                  {tick}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Average line */}
-          {avgCompleted > 0 && (
-            <>
-              <line
-                x1={padding.left}
-                x2={width - padding.right}
-                y1={padding.top + chartH - (avgCompleted / maxVal) * chartH}
-                y2={padding.top + chartH - (avgCompleted / maxVal) * chartH}
-                stroke="var(--cu-primary)"
-                strokeWidth={1}
-                strokeDasharray="4 4"
-                opacity={0.5}
-              />
-              <text
-                x={width - padding.right - 4}
-                y={padding.top + chartH - (avgCompleted / maxVal) * chartH - 4}
-                textAnchor="end"
-                className="text-[9px] fill-cu-primary"
-                opacity={0.7}
-              >
-                avg: {avgCompleted}
-              </text>
-            </>
-          )}
-
-          {/* Bars */}
-          {data.map((d, i) => {
-            const groupX = padding.left + (chartW / data.length) * i + (chartW / data.length - barGroupW) / 2;
-            const committedH = (d.committed / maxVal) * chartH;
-            const completedH = (d.completed / maxVal) * chartH;
-            return (
-              <g key={d.key}>
-                {/* Committed bar */}
-                <rect
-                  x={groupX}
-                  y={padding.top + chartH - committedH}
-                  width={barW}
-                  height={committedH}
-                  rx={3}
-                  fill="var(--cu-primary-muted)"
-                  className="transition-all duration-300"
-                />
-                {/* Completed bar */}
-                <rect
-                  x={groupX + barW + gap}
-                  y={padding.top + chartH - completedH}
-                  width={barW}
-                  height={completedH}
-                  rx={3}
-                  fill="var(--cu-primary)"
-                  className="transition-all duration-300"
-                />
-                {/* Value labels */}
-                {committedH > 14 && (
-                  <text
-                    x={groupX + barW / 2}
-                    y={padding.top + chartH - committedH + 12}
-                    textAnchor="middle"
-                    className="text-[9px] fill-cu-primary font-bold"
-                  >
-                    {d.committed}
-                  </text>
-                )}
-                {completedH > 14 && (
-                  <text
-                    x={groupX + barW + gap + barW / 2}
-                    y={padding.top + chartH - completedH + 12}
-                    textAnchor="middle"
-                    className="text-[9px] fill-white font-bold"
-                  >
-                    {d.completed}
-                  </text>
-                )}
-                {/* X-axis label */}
-                <text
-                  x={groupX + barGroupW / 2}
-                  y={padding.top + chartH + 20}
-                  textAnchor="middle"
-                  className="text-[10px] fill-cu-text-secondary"
-                >
-                  {(d.name ?? '').length > 12 ? d.name.slice(0, 10) + '…' : (d.name ?? '')}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* X-axis line */}
-          <line x1={padding.left} x2={width - padding.right} y1={padding.top + chartH} y2={padding.top + chartH} stroke="var(--cu-border)" strokeWidth={1} />
-        </svg>
+        )}
       </div>
     </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="space-y-5" aria-label="Loading sprint velocity">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-cu-border lg:grid-cols-4">
+        {[1, 2, 3, 4].map((item) => <div key={item} className="h-20 animate-pulse bg-cu-bg-secondary motion-reduce:animate-none" />)}
+      </div>
+      <div className="h-[300px] animate-pulse rounded-xl bg-cu-bg-secondary motion-reduce:animate-none" />
+    </div>
+  );
+}
+
+export default function VelocityChart({
+  sprints,
+  status = 'success',
+  error,
+  onRetry,
+  onClose,
+}: VelocityChartProps) {
+  const [range, setRange] = useState<VelocityRange>(() => (
+    typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(max-width: 639px)').matches
+      ? 6
+      : 12
+  ));
+  const [showTable, setShowTable] = useState(false);
+
+  const displayedSprints = useMemo(() => selectVelocityRange(sprints, range), [range, sprints]);
+  const metrics = useMemo(() => calculateVelocityMetrics(displayedSprints), [displayedSprints]);
+  const hasLegacyData = displayedSprints.some((sprint) => !sprint.commitmentCaptured);
+  const chartData = useMemo<ChartDatum[]>(() => displayedSprints.map((sprint) => ({
+    ...sprint,
+    axisName: sprint.sprintName.length > 12 ? `${sprint.sprintName.slice(0, 11)}…` : sprint.sprintName,
+    committed: sprint.commitmentCaptured ? sprint.committedPoints : null,
+    delivered: sprint.completedPoints,
+  })), [displayedSprints]);
+  const chartMinWidth = Math.max(640, chartData.length * 92);
+
+  return (
+    <section
+      id="sprint-velocity-panel"
+      aria-labelledby="sprint-velocity-title"
+      className="overflow-hidden rounded-2xl border border-cu-border bg-cu-bg shadow-cu-sm"
+    >
+      <header className="flex flex-col gap-3 border-b border-cu-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cu-primary-light text-cu-primary">
+            <BarChart3 size={19} aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <h2 id="sprint-velocity-title" className="text-[16px] font-bold text-cu-text-primary">Sprint velocity</h2>
+            <p className="mt-0.5 text-[12px] text-cu-text-secondary">Committed versus delivered story points across completed sprints.</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-2 sm:justify-end">
+          <div className="flex rounded-lg border border-cu-border bg-cu-bg-secondary p-1" aria-label="Velocity range">
+            {ranges.map((option) => {
+              const unavailable = (option === 12 && sprints.length <= 6)
+                || (option === 'all' && sprints.length <= 12);
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={range === option}
+                  disabled={unavailable && range !== option}
+                  onClick={() => setRange(option)}
+                  className={`min-h-8 rounded-md px-3 text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                    range === option ? 'bg-cu-bg text-cu-primary shadow-cu-sm' : 'text-cu-text-secondary hover:text-cu-text-primary'
+                  }`}
+                >
+                  {option === 'all' ? 'All' : option}
+                </button>
+              );
+            })}
+          </div>
+          {onClose ? (
+            <button type="button" onClick={onClose} aria-label="Hide sprint velocity" className="flex h-9 w-9 items-center justify-center rounded-lg text-cu-text-muted transition-colors hover:bg-cu-hover hover:text-cu-text-primary">
+              <X size={17} aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
+      </header>
+
+      <div className="p-4 sm:p-5">
+        {status === 'loading' || status === 'idle' ? <LoadingState /> : null}
+
+        {status === 'error' ? (
+          <div className="flex min-h-[280px] flex-col items-center justify-center rounded-xl border border-dashed border-cu-border bg-cu-bg-secondary px-6 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cu-danger-light text-cu-danger"><AlertCircle size={22} /></div>
+            <h3 className="mt-4 text-[15px] font-bold text-cu-text-primary">Velocity couldn’t be loaded</h3>
+            <p className="mt-1 max-w-sm text-[12px] text-cu-text-secondary">{error || 'Check your connection and try again.'}</p>
+            {onRetry ? (
+              <button type="button" onClick={onRetry} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg bg-cu-primary px-4 text-[12px] font-bold text-white shadow-cu-sm hover:bg-cu-primary-hover">
+                <RefreshCw size={14} /> Retry
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {status === 'success' && chartData.length === 0 ? (
+          <div className="flex min-h-[280px] flex-col items-center justify-center rounded-xl border border-dashed border-cu-border bg-cu-bg-secondary px-6 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cu-primary-light text-cu-primary"><BarChart3 size={22} /></div>
+            <h3 className="mt-4 text-[15px] font-bold text-cu-text-primary">Complete a sprint to unlock velocity</h3>
+            <p className="mt-1 max-w-md text-[12px] leading-5 text-cu-text-secondary">Velocity starts building after your first completed sprint. Add story points before starting a sprint for a useful commitment comparison.</p>
+          </div>
+        ) : null}
+
+        {status === 'success' && metrics ? (
+          <>
+            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-cu-border bg-cu-border lg:grid-cols-4">
+              <div className="bg-cu-bg-secondary px-4 py-3">
+                <div className="flex items-center gap-1.5 text-cu-text-secondary"><BarChart3 size={13} /><span className="text-[10px] font-bold uppercase tracking-wide">Avg delivered</span></div>
+                <p className="mt-1 text-[20px] font-black text-cu-text-primary">{formatPoints(metrics.averageDelivered)} <span className="text-[11px] font-semibold text-cu-text-muted">pts</span></p>
+              </div>
+              <div className="bg-cu-bg-secondary px-4 py-3">
+                <div className="flex items-center gap-1.5 text-cu-text-secondary"><Gauge size={13} /><span className="text-[10px] font-bold uppercase tracking-wide">Predictability</span></div>
+                <p className="mt-1 text-[20px] font-black text-cu-text-primary">{metrics.predictability === null ? '—' : `${metrics.predictability}%`}</p>
+              </div>
+              <div className="bg-cu-bg-secondary px-4 py-3">
+                <div className="flex items-center gap-1.5 text-cu-text-secondary"><ArrowUpRight size={13} /><span className="truncate text-[10px] font-bold uppercase tracking-wide">Latest · {metrics.latest.sprintName}</span></div>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <p className="text-[20px] font-black text-cu-text-primary">{metrics.latest.completedPoints} <span className="text-[11px] font-semibold text-cu-text-muted">pts</span></p>
+                  {metrics.latestDelta !== null ? (
+                    <span className={`inline-flex items-center text-[10px] font-bold ${metrics.latestDelta >= 0 ? 'text-cu-success' : 'text-cu-warning'}`}>
+                      {metrics.latestDelta >= 0 ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
+                      {Math.abs(metrics.latestDelta)}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <div className="bg-cu-bg-secondary px-4 py-3">
+                <div className="flex items-center gap-1.5 text-cu-text-secondary"><Trophy size={13} /><span className="truncate text-[10px] font-bold uppercase tracking-wide">Best · {metrics.best.sprintName}</span></div>
+                <p className="mt-1 text-[20px] font-black text-cu-success">{metrics.best.completedPoints} <span className="text-[11px] font-semibold text-cu-text-muted">pts</span></p>
+              </div>
+            </div>
+
+            <div className="mt-5 overflow-x-auto pb-2 custom-scrollbar">
+              <div
+                style={{ minWidth: chartMinWidth }}
+                role="img"
+                aria-label={`Sprint velocity chart for ${displayedSprints.length} completed sprint${displayedSprints.length === 1 ? '' : 's'}`}
+              >
+                <div className="h-[300px]">
+                  <SafeChartFrame minHeight="300px">
+                    {({ width, height }) => (
+                      <BarChart
+                        width={width}
+                        height={height}
+                        data={chartData}
+                        margin={{ top: 18, right: 18, bottom: 8, left: -12 }}
+                        barGap={VELOCITY_CHART_LAYOUT.barGap}
+                        barCategoryGap={VELOCITY_CHART_LAYOUT.barCategoryGap}
+                        accessibilityLayer
+                      >
+                        <CartesianGrid vertical={false} stroke="var(--cu-border)" strokeDasharray="3 4" />
+                        <XAxis dataKey="axisName" tick={{ fontSize: 10, fill: 'var(--cu-text-secondary)' }} tickLine={false} axisLine={false} interval={0} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--cu-text-muted)' }} tickLine={false} axisLine={false} width={42} />
+                        <Tooltip content={VelocityTooltip} cursor={{ fill: 'var(--cu-hover)' }} />
+                        <ReferenceLine y={metrics.averageDelivered} stroke="var(--cu-text-tertiary)" strokeDasharray="5 4" label={{ value: `Avg ${formatPoints(metrics.averageDelivered)}`, position: 'insideTopRight', fill: 'var(--cu-text-muted)', fontSize: 10 }} />
+                        <Bar dataKey="committed" name="Committed" fill="var(--cu-primary-muted)" radius={[5, 5, 0, 0]} maxBarSize={VELOCITY_CHART_LAYOUT.maxBarSize} />
+                        <Bar dataKey="delivered" name="Delivered" fill="var(--cu-success)" radius={[5, 5, 0, 0]} maxBarSize={VELOCITY_CHART_LAYOUT.maxBarSize} />
+                      </BarChart>
+                    )}
+                  </SafeChartFrame>
+                </div>
+              </div>
+            </div>
+
+            <footer className="mt-3 flex flex-col gap-3 border-t border-cu-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-cu-text-secondary">
+                <span>{displayedSprints.length} completed sprint{displayedSprints.length === 1 ? '' : 's'}</span>
+                <span className="inline-flex items-center gap-1.5"><i aria-hidden="true" className="h-2.5 w-2.5 rounded-sm bg-cu-primary-muted" />Committed (plan)</span>
+                <span className="inline-flex items-center gap-1.5"><i aria-hidden="true" className="h-2.5 w-2.5 rounded-sm bg-cu-success" />Delivered (actual)</span>
+                <span className="inline-flex items-center gap-1.5"><i aria-hidden="true" className="w-4 border-t border-dashed border-cu-text-tertiary" />Average</span>
+              </div>
+              <button type="button" onClick={() => setShowTable((current) => !current)} aria-expanded={showTable} className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-cu-border px-3 text-[11px] font-bold text-cu-text-secondary transition-colors hover:bg-cu-hover hover:text-cu-text-primary">
+                <Table2 size={14} /> {showTable ? 'Hide data table' : 'View data table'}
+              </button>
+            </footer>
+
+            {hasLegacyData ? (
+              <p className="mt-3 flex items-start gap-2 rounded-lg bg-cu-warning-light px-3 py-2 text-[11px] leading-5 text-cu-warning">
+                <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                Historical sprints without a captured commitment show delivered velocity only. New sprint commitments are snapshotted when the sprint starts.
+              </p>
+            ) : null}
+
+            <div className={showTable ? 'mt-4 overflow-x-auto rounded-xl border border-cu-border' : 'sr-only'}>
+              <table className="w-full min-w-[620px] border-collapse text-left text-[12px]">
+                <caption className="sr-only">Sprint velocity data</caption>
+                <thead className="bg-cu-bg-secondary text-cu-text-secondary">
+                  <tr><th className="px-3 py-2.5 font-bold">Sprint</th><th className="px-3 py-2.5 font-bold">Dates</th><th className="px-3 py-2.5 text-right font-bold">Committed</th><th className="px-3 py-2.5 text-right font-bold">Delivered</th><th className="px-3 py-2.5 text-right font-bold">Predictability</th></tr>
+                </thead>
+                <tbody>
+                  {displayedSprints.map((sprint) => {
+                    const predictability = sprint.commitmentCaptured && sprint.committedPoints > 0
+                      ? Math.round((sprint.completedPoints / sprint.committedPoints) * 100)
+                      : null;
+                    return (
+                      <tr key={sprint.sprintId} className="border-t border-cu-border text-cu-text-primary">
+                        <td className="px-3 py-2.5 font-semibold">{sprint.sprintName}</td>
+                        <td className="px-3 py-2.5 text-cu-text-secondary">{formatDateRange(sprint)}</td>
+                        <td className="px-3 py-2.5 text-right">{sprint.commitmentCaptured ? `${sprint.committedPoints} pts` : 'Unavailable'}</td>
+                        <td className="px-3 py-2.5 text-right font-bold text-cu-success">{sprint.completedPoints} pts</td>
+                        <td className="px-3 py-2.5 text-right">{predictability === null ? '—' : `${predictability}%`}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </section>
   );
 }
