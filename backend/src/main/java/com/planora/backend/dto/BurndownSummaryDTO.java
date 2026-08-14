@@ -11,7 +11,6 @@ public record BurndownSummaryDTO(
         long daysElapsed,
         long daysRemaining,
         int idealRemainingPoints,
-        int variancePoints,
         double actualBurnRate,
         double requiredBurnRate,
         String projectedCompletionDate,

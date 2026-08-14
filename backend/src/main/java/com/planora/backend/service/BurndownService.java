@@ -136,15 +136,12 @@ public class BurndownService {
 
             int remaining = Math.max(0, total - completedPoints);
             int dailyBurn = Math.max(0, previousRemaining - remaining);
-            int variance = remaining - ideal;
-
             points.add(new BurndownDataPointDTO(
                     current.format(fmt),
                     remaining,
                     ideal,
                     completedPoints,
                     dailyBurn,
-                    variance,
                     current.isEqual(today)
             ));
             previousRemaining = remaining;
@@ -155,7 +152,6 @@ public class BurndownService {
         int completed = summaryPoint != null ? total - summaryPoint.remainingPoints() : 0;
         int remaining = summaryPoint != null ? summaryPoint.remainingPoints() : total;
         int idealRemaining = summaryPoint != null ? summaryPoint.idealPoints() : total;
-        int variance = remaining - idealRemaining;
         int totalTasks = allTasks.size();
         int completedTasks = doneTasks.size();
         int remainingTasks = Math.max(0, totalTasks - completedTasks);
@@ -165,7 +161,7 @@ public class BurndownService {
         double actualBurnRate = elapsedDays > 0 ? completed / (double) elapsedDays : 0.0;
         double requiredBurnRate = remainingDays > 0 ? remaining / (double) remainingDays : remaining;
         String projectedCompletion = projectedCompletionDate(today, sprintEnd, remaining, actualBurnRate, fmt);
-        String health = healthStatus(total, remaining, sprintEnd, today, variance, actualBurnRate, requiredBurnRate);
+        String health = healthStatus(total, remaining, idealRemaining, sprintEnd, today, actualBurnRate, requiredBurnRate);
 
         BurndownSummaryDTO summary = new BurndownSummaryDTO(
                 total,
@@ -178,7 +174,6 @@ public class BurndownService {
                 elapsedDays,
                 remainingDays,
                 idealRemaining,
-                variance,
                 roundOne(actualBurnRate),
                 roundOne(requiredBurnRate),
                 projectedCompletion,
@@ -233,9 +228,9 @@ public class BurndownService {
 
     private String healthStatus(int total,
                                 int remaining,
+                                int idealRemaining,
                                 LocalDate sprintEnd,
                                 LocalDate today,
-                                int variance,
                                 double actualBurnRate,
                                 double requiredBurnRate) {
         if (total == 0) {
@@ -250,7 +245,7 @@ public class BurndownService {
         if (actualBurnRate == 0.0 && remaining > 0 && !today.isBefore(sprintEnd)) {
             return "OFF_TRACK";
         }
-        if (variance <= 0) {
+        if (remaining <= idealRemaining) {
             return "ON_TRACK";
         }
         if (requiredBurnRate > 0 && actualBurnRate >= requiredBurnRate * 0.75) {
@@ -311,11 +306,6 @@ public class BurndownService {
             } else {
                 messages.add("Projected to finish within the sprint window.");
             }
-        }
-        if (summary.variancePoints() > 0) {
-            messages.add(summary.variancePoints() + " pts above the ideal remaining line.");
-        } else if (summary.variancePoints() < 0) {
-            messages.add(Math.abs(summary.variancePoints()) + " pts ahead of the ideal remaining line.");
         }
         if (today.isAfter(sprintEnd) && summary.remainingStoryPoints() > 0) {
             messages.add("Sprint end date has passed with unfinished scope.");

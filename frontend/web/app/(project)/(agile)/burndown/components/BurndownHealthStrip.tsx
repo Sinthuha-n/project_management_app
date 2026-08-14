@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, CalendarClock, Flame, Gauge, Target, TrendingDown } from 'lucide-react';
+import { CalendarClock, Flame, Gauge, Target, TrendingDown } from 'lucide-react';
 import type { BurndownSummary } from '@/types';
 
 interface BurndownHealthStripProps {
@@ -29,7 +29,6 @@ export default function BurndownHealthStrip({ summary }: BurndownHealthStripProp
   const metrics = [
     { label: 'Progress', value: `${summary.progressPercent}%`, detail: `${summary.completedStoryPoints}/${summary.totalStoryPoints} pts`, icon: Gauge },
     { label: 'Remaining', value: summary.remainingStoryPoints, detail: `${summary.remainingTasks} tasks`, icon: Target },
-    { label: 'Variance', value: signed(summary.variancePoints), detail: 'vs ideal', icon: Activity },
     { label: 'Projected', value: formatDate(summary.projectedCompletionDate), detail: `${summary.daysRemaining} days left`, icon: CalendarClock },
     { label: 'Actual burn', value: `${summary.actualBurnRate.toFixed(1)}`, detail: 'pts/day', icon: TrendingDown },
     { label: 'Required burn', value: `${summary.requiredBurnRate.toFixed(1)}`, detail: 'pts/day', icon: Flame },
@@ -57,11 +56,6 @@ export default function BurndownHealthStrip({ summary }: BurndownHealthStripProp
       })}
     </div>
   );
-}
-
-function signed(value: number) {
-  if (value > 0) return `+${value}`;
-  return String(value);
 }
 
 function formatDate(value?: string | null) {

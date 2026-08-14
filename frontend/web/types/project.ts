@@ -74,7 +74,6 @@ export interface BurndownPoint {
   idealPoints: number;
   completedPoints?: number;
   dailyBurn?: number;
-  variancePoints?: number;
   isToday?: boolean;
 }
 
@@ -91,7 +90,6 @@ export interface BurndownSummary {
   daysElapsed: number;
   daysRemaining: number;
   idealRemainingPoints: number;
-  variancePoints: number;
   actualBurnRate: number;
   requiredBurnRate: number;
   projectedCompletionDate?: string | null;
