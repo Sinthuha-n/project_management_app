@@ -1,7 +1,7 @@
 package com.planora.backend.service;
 
 import com.planora.backend.dto.ProjectDTO;
-import com.planora.backend.dto.ProjectResponseDTO; 
+import com.planora.backend.dto.ProjectResponseDTO;
 import com.planora.backend.dto.UpdateProjectDTO;
 import com.planora.backend.dto.ProjectMetricsDTO;
 import com.planora.backend.exception.ConflictException;
@@ -35,7 +35,8 @@ import org.springframework.data.domain.Pageable;
 
 @Service
 @RequiredArgsConstructor
-// Handles project creation, listing, updates, favorites, access tracking, and metrics.
+// Handles project creation, listing, updates, favorites, access tracking, and
+// metrics.
 public class ProjectService {
 
     private final ProjectRepository projectRepository;
@@ -54,9 +55,10 @@ public class ProjectService {
         return projectRepository.existsByProjectKey(key);
     }
 
-    // Creates a project, links it to a team, and assigns the logged-in user as owner.
+    // Creates a project, links it to a team, and assigns the logged-in user as
+    // owner.
     @Transactional
-    @CacheEvict(cacheNames = {"project-recent", "project-favorites"}, allEntries = true)
+    @CacheEvict(cacheNames = { "project-recent", "project-favorites" }, allEntries = true)
     public ProjectResponseDTO createProject(ProjectDTO dto) {
         Project project = new Project();
         project.setName(dto.getName());
@@ -95,13 +97,13 @@ public class ProjectService {
                 teamMemberRepository.save(member);
             }
 
-            //new team 
+            // new team
         } else if ("NEW".equalsIgnoreCase(dto.getTeamOption())) {
-            //team name required check
+            // team name required check
             if (dto.getTeamName() == null || dto.getTeamName().trim().isEmpty()) {
                 throw new RuntimeException("Team name is required for new team");
             }
-            //team name uniqueness check
+            // team name uniqueness check
             if (teamRepository.findByName(dto.getTeamName().trim()).isPresent()) {
                 throw new RuntimeException("Team name already in use");
             }
@@ -163,43 +165,44 @@ public class ProjectService {
         Comparator<ProjectResponseDTO> comparator;
         if ("name".equalsIgnoreCase(normalizedSort)) {
             comparator = Comparator.comparing(
-                dto -> dto.getName() == null ? "" : dto.getName(),
-                String.CASE_INSENSITIVE_ORDER);
+                    dto -> dto.getName() == null ? "" : dto.getName(),
+                    String.CASE_INSENSITIVE_ORDER);
         } else if ("updatedAt".equalsIgnoreCase(normalizedSort)) {
             comparator = Comparator.comparing(
-                dto -> dto.getUpdatedAt() == null ? LocalDateTime.MIN : dto.getUpdatedAt());
+                    dto -> dto.getUpdatedAt() == null ? LocalDateTime.MIN : dto.getUpdatedAt());
         } else if ("type".equalsIgnoreCase(normalizedSort)) {
             comparator = Comparator.comparing(
-                dto -> dto.getType() == null ? "" : dto.getType().name(),
-                String.CASE_INSENSITIVE_ORDER);
+                    dto -> dto.getType() == null ? "" : dto.getType().name(),
+                    String.CASE_INSENSITIVE_ORDER);
         } else {
             comparator = Comparator.comparing(
-                dto -> dto.getLastAccessedAt() == null ? LocalDateTime.MIN : dto.getLastAccessedAt());
+                    dto -> dto.getLastAccessedAt() == null ? LocalDateTime.MIN : dto.getLastAccessedAt());
         }
 
         if (!asc) {
             comparator = comparator.reversed();
         }
 
-        
         // Load related data once to avoid repeated database calls.
         User userRef = userRepository.getReferenceById(userId);
 
         java.util.Map<Long, LocalDateTime> teamJoinedMap = memberships.stream()
-            .collect(Collectors.toMap(m -> m.getTeam().getId(), TeamMember::getJoinedAt, (a, b) -> a));
-            
-        java.util.Map<Long, LocalDateTime> accessMap = projectAccessRepository.findByUser_UserIdOrderByLastAccessedAtDesc(userId, Pageable.unpaged()).stream()
-            .collect(Collectors.toMap(a -> a.getProject().getId(), ProjectAccess::getLastAccessedAt, (a, b) -> a));
-            
-        java.util.Map<Long, LocalDateTime> favoriteMap = projectFavoriteRepository.findByUserOrderByCreatedAtDesc(userRef).stream()
-            .collect(Collectors.toMap(f -> f.getProject().getId(), ProjectFavorite::getCreatedAt, (a, b) -> a));
+                .collect(Collectors.toMap(m -> m.getTeam().getId(), TeamMember::getJoinedAt, (a, b) -> a));
+
+        java.util.Map<Long, LocalDateTime> accessMap = projectAccessRepository
+                .findByUser_UserIdOrderByLastAccessedAtDesc(userId, Pageable.unpaged()).stream()
+                .collect(Collectors.toMap(a -> a.getProject().getId(), ProjectAccess::getLastAccessedAt, (a, b) -> a));
+
+        java.util.Map<Long, LocalDateTime> favoriteMap = projectFavoriteRepository
+                .findByUserOrderByCreatedAtDesc(userRef).stream()
+                .collect(Collectors.toMap(f -> f.getProject().getId(), ProjectFavorite::getCreatedAt, (a, b) -> a));
 
         return userProjects.stream()
-            .map(p -> convertToResponseDTO(p, userId, teamJoinedMap, accessMap, favoriteMap))
-            .filter(dto -> normalizedType == null || normalizedType.isEmpty() ||
-                (dto.getType() != null && dto.getType().name().equalsIgnoreCase(normalizedType)))
-            .sorted(comparator)
-            .collect(Collectors.toList());
+                .map(p -> convertToResponseDTO(p, userId, teamJoinedMap, accessMap, favoriteMap))
+                .filter(dto -> normalizedType == null || normalizedType.isEmpty() ||
+                        (dto.getType() != null && dto.getType().name().equalsIgnoreCase(normalizedType)))
+                .sorted(comparator)
+                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -222,14 +225,13 @@ public class ProjectService {
 
         projectFavoriteRepository.findByUserAndProject(user, project)
                 .ifPresentOrElse(
-                    projectFavoriteRepository::delete,
-                    () -> {
-                        ProjectFavorite favorite = new ProjectFavorite();
-                        favorite.setProject(project);
-                        favorite.setUser(user);
-                        projectFavoriteRepository.save(favorite);
-                    }
-                );
+                        projectFavoriteRepository::delete,
+                        () -> {
+                            ProjectFavorite favorite = new ProjectFavorite();
+                            favorite.setProject(project);
+                            favorite.setUser(user);
+                            projectFavoriteRepository.save(favorite);
+                        });
         evictUserProjectCaches(userId);
     }
 
@@ -240,19 +242,20 @@ public class ProjectService {
         int safeLimit = Math.max(1, Math.min(limit, 50));
         List<ProjectAccess> recentAccesses = projectAccessRepository.findAccessibleRecentForUser(
                 userId,
-                PageRequest.of(0, safeLimit)
-        );
-        if (recentAccesses.isEmpty()) return java.util.Collections.emptyList();
+                PageRequest.of(0, safeLimit));
+        if (recentAccesses.isEmpty())
+            return java.util.Collections.emptyList();
 
         List<TeamMember> memberships = teamMemberRepository.findByUserUserId(userId);
         java.util.Map<Long, LocalDateTime> teamJoinedMap = memberships.stream()
-            .collect(Collectors.toMap(m -> m.getTeam().getId(), TeamMember::getJoinedAt, (a, b) -> a));
+                .collect(Collectors.toMap(m -> m.getTeam().getId(), TeamMember::getJoinedAt, (a, b) -> a));
 
         java.util.Map<Long, LocalDateTime> accessMap = recentAccesses.stream()
-            .collect(Collectors.toMap(a -> a.getProject().getId(), ProjectAccess::getLastAccessedAt, (a, b) -> a));
+                .collect(Collectors.toMap(a -> a.getProject().getId(), ProjectAccess::getLastAccessedAt, (a, b) -> a));
 
-        java.util.Map<Long, LocalDateTime> favoriteMap = projectFavoriteRepository.findAccessibleFavoritesForUser(userId, Pageable.unpaged()).stream()
-            .collect(Collectors.toMap(f -> f.getProject().getId(), ProjectFavorite::getCreatedAt, (a, b) -> a));
+        java.util.Map<Long, LocalDateTime> favoriteMap = projectFavoriteRepository
+                .findAccessibleFavoritesForUser(userId, Pageable.unpaged()).stream()
+                .collect(Collectors.toMap(f -> f.getProject().getId(), ProjectFavorite::getCreatedAt, (a, b) -> a));
 
         return recentAccesses.stream()
                 .map(ProjectAccess::getProject)
@@ -265,18 +268,21 @@ public class ProjectService {
     @Cacheable(cacheNames = "project-favorites", key = "#userId")
     public List<ProjectResponseDTO> getFavoriteProjectsForUser(Long userId) {
         List<TeamMember> memberships = teamMemberRepository.findByUserUserId(userId);
-        if (memberships.isEmpty()) return java.util.Collections.emptyList();
+        if (memberships.isEmpty())
+            return java.util.Collections.emptyList();
 
         // Load access timestamps once for efficient DTO mapping.
         java.util.Map<Long, LocalDateTime> teamJoinedMap = memberships.stream()
-            .collect(Collectors.toMap(m -> m.getTeam().getId(), TeamMember::getJoinedAt, (a, b) -> a));
-            
-        java.util.Map<Long, LocalDateTime> accessMap = projectAccessRepository.findByUser_UserIdOrderByLastAccessedAtDesc(userId, Pageable.unpaged()).stream()
-            .collect(Collectors.toMap(a -> a.getProject().getId(), ProjectAccess::getLastAccessedAt, (a, b) -> a));
+                .collect(Collectors.toMap(m -> m.getTeam().getId(), TeamMember::getJoinedAt, (a, b) -> a));
 
-        List<ProjectFavorite> favorites = projectFavoriteRepository.findAccessibleFavoritesForUser(userId, Pageable.unpaged());
+        java.util.Map<Long, LocalDateTime> accessMap = projectAccessRepository
+                .findByUser_UserIdOrderByLastAccessedAtDesc(userId, Pageable.unpaged()).stream()
+                .collect(Collectors.toMap(a -> a.getProject().getId(), ProjectAccess::getLastAccessedAt, (a, b) -> a));
+
+        List<ProjectFavorite> favorites = projectFavoriteRepository.findAccessibleFavoritesForUser(userId,
+                Pageable.unpaged());
         java.util.Map<Long, LocalDateTime> favoriteMap = favorites.stream()
-            .collect(Collectors.toMap(f -> f.getProject().getId(), ProjectFavorite::getCreatedAt, (a, b) -> a));
+                .collect(Collectors.toMap(f -> f.getProject().getId(), ProjectFavorite::getCreatedAt, (a, b) -> a));
 
         return favorites.stream()
                 .map(fav -> convertToResponseDTO(fav.getProject(), userId, teamJoinedMap, accessMap, favoriteMap))
@@ -308,7 +314,7 @@ public class ProjectService {
 
     // Updates the fields provided in the request.
     @Transactional
-    @CacheEvict(cacheNames = {"project-recent", "project-favorites"}, allEntries = true)
+    @CacheEvict(cacheNames = { "project-recent", "project-favorites" }, allEntries = true)
     public ProjectResponseDTO updateProject(Long id, UpdateProjectDTO dto) {
         Project project = findProjectById(id);
 
@@ -323,7 +329,7 @@ public class ProjectService {
 
     // Deletes a project after owner permission is verified.
     @Transactional
-    @CacheEvict(cacheNames = {"project-recent", "project-favorites"}, allEntries = true)
+    @CacheEvict(cacheNames = { "project-recent", "project-favorites" }, allEntries = true)
     public void deleteProject(Long projectId, Long teamId, Long userId) {
         Project project = findProjectById(projectId);
         validateOwnerPermission(teamId, userId);
@@ -332,8 +338,8 @@ public class ProjectService {
         taskRepository.detachSprintsByProjectId(projectId);
 
         // Delete sprintboards before sprints (sprintboards FK → sprints).
-        sprintRepository.findByProject_Id(projectId).forEach(sprint ->
-                sprintboardRepository.findBySprintId(sprint.getId()).ifPresent(sprintboardRepository::delete));
+        sprintRepository.findByProject_Id(projectId).forEach(sprint -> sprintboardRepository
+                .findBySprintId(sprint.getId()).ifPresent(sprintboardRepository::delete));
 
         // Bulk DELETE bypasses Hibernate flush ordering so sprints are removed
         // from the DB before the project DELETE is issued.
@@ -356,7 +362,8 @@ public class ProjectService {
 
     private void evictUserRecentProjectCaches(Long userId) {
         Cache recentCache = cacheManager.getCache("project-recent");
-        if (recentCache == null) return;
+        if (recentCache == null)
+            return;
 
         // Controllers currently allow small caller-selected limits. Evict the
         // common bounded variants without clearing unrelated users' entries.
@@ -407,9 +414,9 @@ public class ProjectService {
                 favoriteMarkedAt = favoriteMap.get(project.getId());
             } else {
                 favoriteMarkedAt = projectFavoriteRepository
-                    .findByUserAndProject(userRepository.getReferenceById(userId), project)
-                    .map(ProjectFavorite::getCreatedAt)
-                    .orElse(null);
+                        .findByUserAndProject(userRepository.getReferenceById(userId), project)
+                        .map(ProjectFavorite::getCreatedAt)
+                        .orElse(null);
             }
         }
 
@@ -443,15 +450,15 @@ public class ProjectService {
 
         // Tasks marked as done.
         Long completedTasks = allTasks.stream()
-            .filter(task -> "DONE".equalsIgnoreCase(task.getStatus()))
-            .count();
+                .filter(task -> "DONE".equalsIgnoreCase(task.getStatus()))
+                .count();
 
         // Tasks that are overdue and still not completed.
         LocalDate today = LocalDate.now();
         Long overdueTasks = allTasks.stream()
-            .filter(task -> task.getDueDate() != null
-                && task.getDueDate().isBefore(today)
-                && !"DONE".equalsIgnoreCase(task.getStatus()))
+                .filter(task -> task.getDueDate() != null
+                        && task.getDueDate().isBefore(today)
+                        && !"DONE".equalsIgnoreCase(task.getStatus()))
                 .count();
 
         // Number of members in the project team.
@@ -459,8 +466,8 @@ public class ProjectService {
 
         // Find the active sprint and estimate sprint health.
         Sprint activeSprint = sprintRepository.findByProject_Id(projectId).stream()
-            .filter(sprint -> sprint.getStatus() == SprintStatus.ACTIVE)
-            .findFirst()
+                .filter(sprint -> sprint.getStatus() == SprintStatus.ACTIVE)
+                .findFirst()
                 .orElse(null);
 
         Integer sprintHealth = 0;
@@ -470,8 +477,8 @@ public class ProjectService {
             List<Task> sprintTasksList = taskRepository.findBySprintIdWithScalars(activeSprint.getId());
             Long sprintTasks = (long) sprintTasksList.size();
             Long sprintCompleted = sprintTasksList.stream()
-                .filter(task -> "DONE".equalsIgnoreCase(task.getStatus()))
-                .count();
+                    .filter(task -> "DONE".equalsIgnoreCase(task.getStatus()))
+                    .count();
             sprintHealth = sprintTasks > 0 ? (int) ((sprintCompleted * 100) / sprintTasks) : 0;
         }
 

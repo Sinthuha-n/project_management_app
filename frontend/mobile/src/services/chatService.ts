@@ -414,3 +414,10 @@ export async function postTelemetry(
 ): Promise<void> {
   await postTelemetryBuilder(api, projectId, { action, target, details });
 }
+projectId: string,
+  action: string,
+    target: string,
+      details ?: string
+): Promise < void> {
+  await postTelemetryBuilder(api, projectId, { action, target, details });
+}
