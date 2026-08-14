@@ -1,6 +1,7 @@
 package com.planora.backend.model;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
@@ -57,6 +58,18 @@ public class Sprint {
 
     @Column(nullable = true, length = 500)
     private String goal;
+
+    @Column(name = "committed_points")
+    private Integer committedPoints;
+
+    @Column(name = "completed_points")
+    private Integer completedPoints;
+
+    @Column(name = "commitment_captured", nullable = false)
+    private boolean commitmentCaptured = false;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
 
     @Override
     public boolean equals(Object o) {

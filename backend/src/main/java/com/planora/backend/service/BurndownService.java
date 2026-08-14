@@ -5,9 +5,9 @@ import com.planora.backend.dto.BurndownBreakdownDTO;
 import com.planora.backend.dto.BurndownBreakdownItemDTO;
 import com.planora.backend.dto.BurndownResponseDTO;
 import com.planora.backend.dto.BurndownSummaryDTO;
-import com.planora.backend.dto.SprintResponseDTO;
 import com.planora.backend.dto.SprintVelocityDTO;
 import com.planora.backend.model.Sprint;
+import com.planora.backend.model.SprintStatus;
 import com.planora.backend.model.Task;
 import com.planora.backend.repository.SprintRepository;
 import com.planora.backend.repository.TaskRepository;
@@ -334,28 +334,35 @@ public class BurndownService {
      */
     @Transactional(readOnly = true)
     public List<SprintVelocityDTO> getVelocityData(Long projectId, Long currentUserId) {
-        List<SprintResponseDTO> sprints = sprintService.getSprintsByProject(projectId, currentUserId);
-        List<SprintResponseDTO> completedSprints = sprints.stream()
-                .filter(s -> "COMPLETED".equals(s.getStatus()))
-                .toList();
-        if (completedSprints.isEmpty()) {
-            return List.of();
-        }
-
-        List<Long> sprintIds = completedSprints.stream().map(SprintResponseDTO::getId).toList();
-        java.util.Map<Long, int[]> velocityBySprintId = new java.util.HashMap<>();
-        for (Object[] row : taskRepository.aggregateVelocityBySprintIds(sprintIds)) {
-            Long sprintId = (Long) row[0];
-            int committed = row[1] != null ? ((Number) row[1]).intValue() : 0;
-            int completed = row[2] != null ? ((Number) row[2]).intValue() : 0;
-            velocityBySprintId.put(sprintId, new int[]{committed, completed});
-        }
-
-        return completedSprints.stream()
+        return sprintService.getSprintEntitiesByProject(projectId, currentUserId).stream()
+                .filter(s -> s.getStatus() == SprintStatus.COMPLETED)
+                .sorted(Comparator
+                        .comparing(BurndownService::velocitySortDate)
+                        .thenComparing(Sprint::getId))
                 .map(s -> {
-                    int[] values = velocityBySprintId.getOrDefault(s.getId(), new int[]{0, 0});
-                    return new SprintVelocityDTO(s.getId(), s.getName(), values[0], values[1]);
+                    int committed = s.getCommittedPoints() != null ? s.getCommittedPoints() : 0;
+                    int completed = s.getCompletedPoints() != null ? s.getCompletedPoints() : 0;
+                    return new SprintVelocityDTO(
+                            s.getId(),
+                            s.getName(),
+                            s.getStartDate(),
+                            s.getEndDate(),
+                            s.getCompletedAt(),
+                            committed,
+                            completed,
+                            s.isCommitmentCaptured()
+                    );
                 })
                 .collect(Collectors.toList());
+    }
+
+    private static LocalDateTime velocitySortDate(Sprint sprint) {
+        if (sprint.getCompletedAt() != null) {
+            return sprint.getCompletedAt();
+        }
+        if (sprint.getEndDate() != null) {
+            return sprint.getEndDate().atStartOfDay();
+        }
+        return LocalDateTime.MIN;
     }
 }

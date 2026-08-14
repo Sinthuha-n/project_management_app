@@ -6,10 +6,10 @@ import ProductBacklogSection from './components/ProductBacklogSection';
 import FilterBar, { type BacklogFilters } from './components/FilterBar';
 import BulkActionBar from './components/BulkActionBar';
 import dynamic from 'next/dynamic';
-import { Suspense, useState, useEffect, useMemo, useCallback } from 'react';
+import { Suspense, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 const VelocityChart = dynamic(() => import('./components/VelocityChart'), { ssr: false });
-import type { SprintVelocityPoint } from './components/VelocityChart';
+import { useSprintVelocity } from './hooks/useSprintVelocity';
 import { getUserFromToken } from '@/lib/auth';
 
 import { toast } from '@/components/ui';
@@ -75,7 +75,6 @@ function SprintBacklogPageContent() {
   const [sprints, setSprints] = useState<SprintItem[]>([]);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [showVelocity, setShowVelocity] = useState(false);
-  const [velocityData, setVelocityData] = useState<SprintVelocityPoint[]>([]);
   const [projectKey, setProjectKey] = useState<string>('');
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [projectLabels, setProjectLabels] = useState<Array<{ id: number; name: string; color?: string }>>([]);
@@ -87,6 +86,8 @@ function SprintBacklogPageContent() {
     priorities: [],
     assignee: '',
   });
+  const velocityPanelRef = useRef<HTMLDivElement>(null);
+  const velocity = useSprintVelocity(projectId, showVelocity);
 
   const allAssigneeNames = useMemo(() => {
     const names = new Set<string>();
@@ -776,15 +777,20 @@ function SprintBacklogPageContent() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  useEffect(() => {
-    if (!showVelocity || !projectId) return;
-    sprintsApi.getVelocity(projectId)
-      .then((data) => setVelocityData(data.map((point, index) => ({
-        sprintId: index + 1,
-        ...point,
-      }))))
-      .catch(() => setVelocityData([]));
-  }, [showVelocity, projectId]);
+  const handleVelocityToggle = useCallback(() => {
+    const nextValue = !showVelocity;
+    setShowVelocity(nextValue);
+    if (nextValue) {
+      requestAnimationFrame(() => {
+        const reduceMotion = typeof window.matchMedia === 'function'
+          && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        velocityPanelRef.current?.scrollIntoView({
+          behavior: reduceMotion ? 'auto' : 'smooth',
+          block: 'start',
+        });
+      });
+    }
+  }, [showVelocity]);
 
   const selectedCount = useMemo(() => {
     const backlogSelected = productTasks.filter(t => t.selected).length;
@@ -809,9 +815,12 @@ function SprintBacklogPageContent() {
               <span className="inline sm:hidden">{showArchived ? 'Hide' : 'Show'}</span>
             </button>
             <button
-              onClick={() => setShowVelocity(!showVelocity)}
+              onClick={handleVelocityToggle}
+              aria-expanded={showVelocity}
+              aria-controls="sprint-velocity-panel"
+              aria-label={showVelocity ? 'Hide sprint velocity' : 'Show sprint velocity'}
               className={`flex h-11 items-center gap-2 rounded-xl px-4 text-[13px] font-bold shadow-sm transition-all active:scale-95 ${
-                showVelocity ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                showVelocity ? 'bg-cu-primary text-white hover:bg-cu-primary-hover' : 'bg-cu-bg text-cu-text-secondary border border-cu-border hover:bg-cu-hover hover:text-cu-text-primary'
               }`}
             >
               <BarChart3 size={18} />
@@ -845,6 +854,28 @@ function SprintBacklogPageContent() {
             </div>
           ) : (
                         <>
+              <AnimatePresence initial={false}>
+                {showVelocity ? (
+                  <motion.div
+                    ref={velocityPanelRef}
+                    layout
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="scroll-mt-24 overflow-hidden motion-reduce:transform-none"
+                  >
+                    <VelocityChart
+                      sprints={velocity.data}
+                      status={velocity.status}
+                      error={velocity.error}
+                      onRetry={() => { void velocity.retry(); }}
+                      onClose={() => setShowVelocity(false)}
+                    />
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+
               <motion.div layout className="space-y-8">
                 <AnimatePresence initial={false}>
                   {filteredSprints.length > 0 ? (
@@ -948,18 +979,6 @@ function SprintBacklogPageContent() {
                 />
               </motion.div>
 
-              <AnimatePresence>
-                {showVelocity && (
-                  <motion.div 
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="mt-8 overflow-hidden"
-                  >
-                    <VelocityChart sprints={velocityData} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </>
           )}
         </div>

@@ -13,13 +13,37 @@ export function shouldRegisterServiceWorker({
   hasServiceWorker,
   protocol,
   hostname,
+  environment = process.env.NODE_ENV,
 }: {
   hasServiceWorker: boolean;
   protocol: string;
   hostname: string;
+  environment?: string;
 }): boolean {
   const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
-  return hasServiceWorker && (protocol === 'https:' || isLocalhost);
+  return environment !== 'development' && hasServiceWorker && (protocol === 'https:' || isLocalhost);
+}
+
+export async function cleanupDevelopmentPwa(): Promise<void> {
+  if ('serviceWorker' in navigator && typeof navigator.serviceWorker.getRegistrations === 'function') {
+    const registrations = await navigator.serviceWorker.getRegistrations().catch(() => []);
+    await Promise.all(registrations
+      .filter((registration) => {
+        try {
+          return new URL(registration.scope).origin === window.location.origin;
+        } catch {
+          return false;
+        }
+      })
+      .map((registration) => registration.unregister().catch(() => false)));
+  }
+
+  if ('caches' in window) {
+    const cacheKeys = await window.caches.keys().catch(() => []);
+    await Promise.all(cacheKeys
+      .filter((key) => key.startsWith('planora-pwa-'))
+      .map((key) => window.caches.delete(key).catch(() => false)));
+  }
 }
 
 export function isStandaloneMode(): boolean {
@@ -101,6 +125,11 @@ export default function PWARegistration() {
   useEffect(() => {
     applyStandaloneMarker(isStandaloneMode());
     let detachUpdateChecks: (() => void) | null = null;
+
+    if (process.env.NODE_ENV === 'development') {
+      void cleanupDevelopmentPwa();
+      return;
+    }
 
     if (!shouldRegisterServiceWorker({
       hasServiceWorker: 'serviceWorker' in navigator,

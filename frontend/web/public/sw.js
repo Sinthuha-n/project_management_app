@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'planora-pwa-v1';
+const CACHE_VERSION = 'planora-pwa-v2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = '/offline.html';
 const MAX_STATIC_CACHE_ENTRIES = 80;
@@ -64,6 +64,29 @@ async function trimStaticCache() {
   await Promise.all(keys.slice(0, keys.length - MAX_STATIC_CACHE_ENTRIES).map((key) => cache.delete(key)));
 }
 
+async function getOfflineNavigationResponse() {
+  try {
+    const cachedOfflinePage = await caches.match(OFFLINE_URL);
+    if (cachedOfflinePage) return cachedOfflinePage;
+  } catch (error) {
+    debugPwa('Offline cache lookup failed', error);
+  }
+
+  // respondWith() must always settle with a Response. The install cache is
+  // best-effort, so it may be unavailable after a first-load network failure.
+  return new Response(
+    '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Planora is offline</title><body><main><h1>You are offline</h1><p>Reconnect and refresh to continue.</p></main></body></html>',
+    {
+      status: 503,
+      statusText: 'Offline',
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+      },
+    },
+  );
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE)
@@ -106,7 +129,7 @@ self.addEventListener('fetch', (event) => {
         .then((preloadedResponse) => preloadedResponse || fetch(request))
         .catch(() => {
           debugPwa('Serving offline fallback', request.url);
-          return caches.match(OFFLINE_URL);
+          return getOfflineNavigationResponse();
         }),
     );
     return;

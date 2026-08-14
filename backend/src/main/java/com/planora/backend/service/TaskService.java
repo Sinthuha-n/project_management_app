@@ -225,7 +225,11 @@ public class TaskService {
             notificationService.createNotification(task.getAssignee().getUser(), message, link);
         }
 
-        return getTaskByIdInternal(savedTask.getId());
+        // The saved entity already contains every relationship populated during creation.
+        // Re-querying it with the large fetch-join graph in the same persistence context
+        // can trigger a Hibernate EntityInitializer failure immediately after INSERT.
+        // Map the managed entity directly and only load the lightweight dependency rows.
+        return mapToDTO(savedTask, buildDependencyMap(List.of(savedTask.getId())));
 
     }
 
@@ -317,7 +321,8 @@ public class TaskService {
 
     @Transactional
     public TaskResponseDTO updateTask(Long taskId, TaskRequestDTO request, Long currentUserId) {
-        Task task = findTaskWithProjectTeam(taskId);
+        Task task = taskRepository.findByIdForUpdate(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
 
         Long teamId = task.getProject().getTeam().getId();
 

@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Edit2 } from 'lucide-react';
 
 interface DescriptionEditorProps {
@@ -11,6 +11,7 @@ interface DescriptionEditorProps {
 const DescriptionEditor: React.FC<DescriptionEditorProps> = ({ description, onUpdateDescription, readOnly = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [edited, setEdited] = useState(description);
+  const commitStartedRef = useRef(false);
 
   // Sync local edit buffer when the description changes from outside (e.g. parent re-fetch after another user edits)
   useEffect(() => {
@@ -18,6 +19,8 @@ const DescriptionEditor: React.FC<DescriptionEditorProps> = ({ description, onUp
   }, [description]);
 
   const handleSave = () => {
+    if (commitStartedRef.current) return;
+    commitStartedRef.current = true;
     if (edited !== description) {
       onUpdateDescription?.(edited);
     }
@@ -35,6 +38,7 @@ const DescriptionEditor: React.FC<DescriptionEditorProps> = ({ description, onUp
             onBlur={handleSave}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
+                commitStartedRef.current = true;
                 setEdited(description);
                 setIsEditing(false);
               }
@@ -46,13 +50,19 @@ const DescriptionEditor: React.FC<DescriptionEditorProps> = ({ description, onUp
           />
           <div className="flex gap-2 mt-2">
             <button
+              onMouseDown={(e) => e.preventDefault()}
               onClick={handleSave}
               className="px-3 py-1.5 bg-cu-primary text-white text-sm font-semibold rounded-xl hover:bg-cu-primary-hover transition-colors"
             >
               Save
             </button>
             <button
-              onClick={() => { setEdited(description); setIsEditing(false); }}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                commitStartedRef.current = true;
+                setEdited(description);
+                setIsEditing(false);
+              }}
               className="px-3 py-1.5 bg-cu-bg-secondary text-cu-text-primary text-sm font-semibold rounded-xl hover:bg-cu-bg-tertiary transition-colors"
             >
               Cancel
@@ -61,7 +71,11 @@ const DescriptionEditor: React.FC<DescriptionEditorProps> = ({ description, onUp
         </div>
       ) : (
         <div
-          onClick={() => !readOnly && onUpdateDescription && setIsEditing(true)}
+          onClick={() => {
+            if (readOnly || !onUpdateDescription) return;
+            commitStartedRef.current = false;
+            setIsEditing(true);
+          }}
           className={`p-4 rounded-xl border border-cu-border transition-all min-h-[112px] text-cu-text-secondary text-sm leading-relaxed relative bg-cu-bg ${readOnly || !onUpdateDescription ? '' : 'hover:bg-cu-hover hover:border-cu-primary/30 cursor-text'}`}
         >
           {description || <span className="text-cu-text-muted italic">No description provided</span>}
