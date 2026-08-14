@@ -38,8 +38,8 @@ const burndown = {
   endDate: '2026-04-14',
   totalStoryPoints: 20,
   dataPoints: [
-    { date: '2026-04-01', remainingPoints: 20, idealPoints: 20, completedPoints: 0, dailyBurn: 0, variancePoints: 0 },
-    { date: '2026-04-08', remainingPoints: 8, idealPoints: 10, completedPoints: 12, dailyBurn: 3, variancePoints: -2, isToday: true },
+    { date: '2026-04-01', remainingPoints: 20, idealPoints: 20, completedPoints: 0, dailyBurn: 0 },
+    { date: '2026-04-08', remainingPoints: 8, idealPoints: 10, completedPoints: 12, dailyBurn: 3, isToday: true },
   ],
   summary: {
     totalStoryPoints: 20,
@@ -52,7 +52,6 @@ const burndown = {
     daysElapsed: 8,
     daysRemaining: 6,
     idealRemainingPoints: 10,
-    variancePoints: -2,
     actualBurnRate: 1.5,
     requiredBurnRate: 1.3,
     projectedCompletionDate: '2026-04-13',
@@ -84,6 +83,8 @@ describe('BurndownPage', () => {
     expect(screen.getByText('60%')).toBeInTheDocument();
     expect(screen.getByText('1.3 pts/day required to finish on time.')).toBeInTheDocument();
     expect(screen.getByText('Status mix')).toBeInTheDocument();
+    expect(screen.queryByText(/variance/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/(?:above|ahead of) the ideal/i)).not.toBeInTheDocument();
   });
 
   it('selects another sprint and refetches analytics', async () => {

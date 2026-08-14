@@ -9,6 +9,5 @@ public record BurndownDataPointDTO(
         int idealPoints,       // ideal remaining story points on this day
         Integer completedPoints,
         Integer dailyBurn,
-        Integer variancePoints,
         Boolean isToday
 ) {}

@@ -3774,8 +3774,6 @@ export interface components {
             isToday?: boolean;
             /** Format: int32 */
             remainingPoints?: number;
-            /** Format: int32 */
-            variancePoints?: number;
         };
         BurndownResponseDTO: {
             breakdown?: components["schemas"]["BurndownBreakdownDTO"];
@@ -3817,8 +3815,6 @@ export interface components {
             totalStoryPoints?: number;
             /** Format: int32 */
             totalTasks?: number;
-            /** Format: int32 */
-            variancePoints?: number;
         };
         CalendarEventDTO: {
             assignee?: string;

@@ -136,10 +136,6 @@
           "remainingPoints": {
             "format": "int32",
             "type": "integer"
-          },
-          "variancePoints": {
-            "format": "int32",
-            "type": "integer"
           }
         },
         "type": "object"
@@ -237,10 +233,6 @@
             "type": "integer"
           },
           "totalTasks": {
-            "format": "int32",
-            "type": "integer"
-          },
-          "variancePoints": {
             "format": "int32",
             "type": "integer"
           }

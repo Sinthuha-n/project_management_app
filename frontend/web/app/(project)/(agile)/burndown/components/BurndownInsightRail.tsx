@@ -25,13 +25,6 @@ export default function BurndownInsightRail({ summary, insights }: BurndownInsig
         <div className="min-w-0">
           <p className="text-[12px] font-bold uppercase tracking-wide text-cu-text-muted">Readout</p>
           <h2 className="text-[16px] font-bold text-cu-text-primary">{HEALTH_LABEL[summary.healthStatus] ?? summary.healthStatus}</h2>
-          <p className="mt-1 text-[12px] leading-5 text-cu-text-secondary">
-            {summary.variancePoints > 0
-              ? `${summary.variancePoints} points above the ideal remaining line.`
-              : summary.variancePoints < 0
-                ? `${Math.abs(summary.variancePoints)} points ahead of the ideal remaining line.`
-                : 'Actual burn is aligned with the ideal line.'}
-          </p>
         </div>
       </div>
 
