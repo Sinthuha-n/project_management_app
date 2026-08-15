@@ -21,7 +21,7 @@ public interface ProjectAccessRepository extends JpaRepository<ProjectAccess, Lo
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"project.team"})
     List<ProjectAccess> findByUser_UserIdOrderByLastAccessedAtDesc(Long userId, Pageable pageable);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query(value = """
             INSERT INTO project_access (project_id, user_id, last_accessed_at)
             VALUES (:projectId, :userId, CURRENT_TIMESTAMP)

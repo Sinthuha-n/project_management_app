@@ -183,6 +183,7 @@ export function ThreadBottomSheet(props: ThreadBottomSheetProps) {
                 onLongPress={() => {}}
                 onToggleReaction={onToggleReaction}
                 onOpenThread={() => {}}
+                projectId={projectId}
               />
             )}
             contentContainerStyle={styles.listContent}

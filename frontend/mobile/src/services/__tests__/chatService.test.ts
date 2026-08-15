@@ -1,5 +1,5 @@
 import api from '../../api/axios';
-import { uploadChatDocument, type ChatUploadFile } from '../chatService';
+import { uploadChatDocument, refreshChatDocument, type ChatUploadFile } from '../chatService';
 
 jest.mock('../../api/axios', () => ({
   get: jest.fn(),
@@ -118,5 +118,19 @@ describe('mobile chat attachment upload', () => {
 
     expect(api.post).not.toHaveBeenCalled();
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test('refreshes expired attachment url via backend', async () => {
+    (api.get as jest.Mock).mockResolvedValueOnce({
+      data: 'https://storage.example/fresh-presigned-url',
+    });
+
+    await expect(refreshChatDocument('3', 'https://storage.example/expired-url'))
+      .resolves.toBe('https://storage.example/fresh-presigned-url');
+
+    expect(api.get).toHaveBeenCalledWith(
+      '/api/projects/3/chat/messages/refresh-document',
+      { params: { url: 'https://storage.example/expired-url' } },
+    );
   });
 });
