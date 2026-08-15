@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import TaskRow, { type TaskRowTask, type TaskRowTeamMember } from './TaskRow';
+import { classifyDue, DUE_CHIP_STYLES } from './task-row/TaskRowConstants';
 
 const mockTask: TaskRowTask = {
   id: 1,
@@ -111,7 +112,6 @@ describe('TaskRow', () => {
 });
 
 describe('classifyDue & due date styling', () => {
-  const { classifyDue, DUE_CHIP_STYLES } = require('./task-row/TaskRowConstants');
 
   const formatLocal = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
