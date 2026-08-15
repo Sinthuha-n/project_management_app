@@ -3,6 +3,7 @@ package com.planora.backend.controller;
 import com.planora.backend.dto.PhotoUploadResponse;
 import com.planora.backend.dto.UpdateProfileRequest;
 import com.planora.backend.dto.UserResponseDTO;
+import com.planora.backend.exception.ProfilePhotoStorageException;
 import com.planora.backend.model.User;
 import com.planora.backend.service.UserService;
 import java.io.IOException;
@@ -80,9 +81,9 @@ public class UserProfileController {
                 return new ResponseEntity<>(response, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
             }
 
-            long maxSizeBytes = 5 * 1024 * 1024; // 5 MB
+            long maxSizeBytes = UserService.MAX_PROFILE_PHOTO_SIZE_BYTES;
             if (file.getSize() > maxSizeBytes) {
-                PhotoUploadResponse response = new PhotoUploadResponse(false, "File size exceeds 5 MB limit.", null, "FILE_TOO_LARGE");
+                PhotoUploadResponse response = new PhotoUploadResponse(false, "File size exceeds 25 MB limit.", null, "FILE_TOO_LARGE");
                 return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
             }
 
@@ -119,8 +120,19 @@ public class UserProfileController {
         } catch (IllegalArgumentException e){
             PhotoUploadResponse response = new PhotoUploadResponse(false, e.getMessage(), null, "INVALID_FILE");
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        } catch (ProfilePhotoStorageException e) {
+            PhotoUploadResponse response = new PhotoUploadResponse(
+                    false,
+                    "Profile photo storage is temporarily unavailable. Please try again.",
+                    null,
+                    "STORAGE_UNAVAILABLE");
+            return new ResponseEntity<>(response, HttpStatus.SERVICE_UNAVAILABLE);
         } catch (Exception e){
-            PhotoUploadResponse response = new PhotoUploadResponse(false, e.getMessage(), null, "UPLOAD_ERROR");
+            PhotoUploadResponse response = new PhotoUploadResponse(
+                    false,
+                    "Could not upload the profile photo. Please try again.",
+                    null,
+                    "UPLOAD_ERROR");
             return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }

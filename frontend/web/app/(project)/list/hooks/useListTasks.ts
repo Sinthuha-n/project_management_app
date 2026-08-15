@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { archiveTask, fetchTasksByProject, getArchivedTasks, unarchiveTask } from '@/app/(project)/kanban/api';
+import { fetchTasksByProject } from '@/app/(project)/kanban/api';
 import { getMilestones, assignTaskToMilestone } from '@/services/milestone-service';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
 import type { CreateTaskData } from '@/components/shared/CreateTaskModal';
@@ -99,17 +99,16 @@ export function useListTasks() {
   const [milestones, setMilestones] = useState<MilestoneResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showArchived, setShowArchived] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
-  const cacheKey = projectId ? `planora:tasks:${projectId}:${showArchived ? 'archived' : 'active'}` : null;
+  const cacheKey = projectId ? `planora:tasks:${projectId}:active` : null;
   const membersCacheKey = projectId ? `planora:membersMap:${projectId}` : null;
 
   const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     hasLoadedRef.current = false;
-  }, [projectId, showArchived]);
+  }, [projectId]);
 
   // Fetch project members to get profile photo URLs (keyed by userId)
   const loadMembersMap = useCallback(async (): Promise<Record<number, string | null>> => {
@@ -170,7 +169,7 @@ export function useListTasks() {
     // Always revalidate in background; load tasks + member photos in parallel
     try {
       const [data, membersMap] = await Promise.all([
-        showArchived ? getArchivedTasks(projectId) : fetchTasksByProject(projectId, { archived: false }),
+        fetchTasksByProject(projectId, { archived: false }),
         loadMembersMap(),
       ]);
       const enriched = (data as Task[]).map((t) =>
@@ -186,7 +185,7 @@ export function useListTasks() {
     } finally {
       setLoading(false);
     }
-  }, [projectId, cacheKey, loadMembersMap, showArchived]);
+  }, [projectId, cacheKey, loadMembersMap]);
 
   const loadSingleTask = useCallback(async (taskId: number) => {
     if (!projectId || !cacheKey) return;
@@ -197,8 +196,8 @@ export function useListTasks() {
       ]);
       const rawTask = res as Task;
       const isArchived = Boolean(rawTask.archived);
-      if (isArchived !== showArchived) {
-        // Remove task from list if archived status doesn't match
+      if (isArchived) {
+        // Archived tasks remain hidden from the active task list.
         setTasks((prev) => {
           const next = prev.filter((item) => item.id !== taskId);
           if (cacheKey) localStorage.setItem(cacheKey, JSON.stringify(next));
@@ -224,7 +223,7 @@ export function useListTasks() {
     } catch {
       void loadTasks();
     }
-  }, [projectId, cacheKey, loadMembersMap, loadTasks, showArchived]);
+  }, [projectId, cacheKey, loadMembersMap, loadTasks]);
 
   const loadRowEditDependencies = useCallback(async () => {
     if (!projectId) return;
@@ -288,7 +287,7 @@ export function useListTasks() {
       });
     } else if (event.type === 'TASK_UPDATED' && event.task) {
       const incomingArchived = Boolean((event.task as { archived?: boolean }).archived);
-      if (incomingArchived !== showArchived) {
+      if (incomingArchived) {
         setTasks((prev) => {
           const next = prev.filter((t) => t.id !== event.task!.id);
           if (cacheKey) localStorage.setItem(cacheKey, JSON.stringify(next));
@@ -322,7 +321,7 @@ export function useListTasks() {
         });
       }).catch(() => void loadTasks());
     }
-  }, [loadTasks, cacheKey, showArchived]));
+  }, [loadTasks, cacheKey]));
 
   const handleStatusChange = useCallback(async (taskId: number, newStatus: string) => {
     setTasks((prev) => {
@@ -351,34 +350,6 @@ export function useListTasks() {
       void loadTasks();
     }
   }, [loadTasks, cacheKey]);
-
-  const handleArchive = useCallback(async (taskId: number) => {
-    setTasks((prev) => {
-      const next = prev.filter((t) => t.id !== taskId);
-      if (cacheKey) localStorage.setItem(cacheKey, JSON.stringify(next));
-      return next;
-    });
-    try {
-      await archiveTask(taskId);
-    } catch {
-      if (cacheKey) localStorage.removeItem(cacheKey);
-      void loadTasks();
-    }
-  }, [cacheKey, loadTasks]);
-
-  const handleRestore = useCallback(async (taskId: number) => {
-    setTasks((prev) => {
-      const next = prev.filter((t) => t.id !== taskId);
-      if (cacheKey) localStorage.setItem(cacheKey, JSON.stringify(next));
-      return next;
-    });
-    try {
-      await unarchiveTask(taskId);
-    } catch {
-      if (cacheKey) localStorage.removeItem(cacheKey);
-      void loadTasks();
-    }
-  }, [cacheKey, loadTasks]);
 
   const handleBulkStatusChange = useCallback(async (taskIds: number[], newStatus: string) => {
     if (taskIds.length === 0) return;
@@ -570,13 +541,9 @@ export function useListTasks() {
     milestones,
     loadTasks,
     loadSingleTask,
-    showArchived,
-    setShowArchived,
     canModifyTasks: currentUserRole !== 'VIEWER',
     handleStatusChange,
     handleDelete,
-    handleArchive,
-    handleRestore,
     handleAddTask,
     handleBulkStatusChange,
     handleBulkDelete,

@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, CheckCircle2, Archive, ArrowRight } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ListTodo, ArrowRight } from 'lucide-react';
 import OverlayPortal from '@/components/ui/OverlayPortal';
 
 export interface AvailableDestSprint {
@@ -90,7 +90,7 @@ export default function CompleteSprintModal({
                     onChange={() => onSelectDestination(null)}
                     className="accent-cu-primary"
                   />
-                  <Archive size={15} className="text-cu-text-secondary flex-shrink-0" />
+                  <ListTodo size={15} className="text-cu-text-secondary flex-shrink-0" />
                   <span className="text-sm font-medium text-cu-text-primary">Backlog</span>
                 </label>
 

@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Task } from '../../kanban/types';
 import {
     ChevronDown, ArrowUp, ArrowRight, ArrowDown, Minus,
-    Archive, ArchiveRestore, MoreHorizontal, RefreshCw
+    MoreHorizontal, RefreshCw
 } from 'lucide-react';
 import { hexToLabelStyle } from '@/components/shared/LabelPicker';
 import AssigneeAvatar from '../../(agile)/sprint-backlog/components/AssigneeAvatar';
@@ -12,7 +12,6 @@ import * as Popover from '@radix-ui/react-popover';
 import { DayPicker } from 'react-day-picker';
 import { format, parseISO } from 'date-fns';
 import { tasksApi } from '@/services/tasks-contract';
-import { ArchiveBadge } from '@/components/ui';
 import { formatLocalDate } from '@/lib/date-format';
 import 'react-day-picker/dist/style.css';
 
@@ -32,15 +31,25 @@ const STATUS_COLOR: Record<string, string> = {
 
 const STATUS_OPTIONS = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'];
 
+function classifyBacklogDue(dueDate?: string | null, status?: string | null): 'overdue' | 'today' | 'five_days' | 'future' | 'none' {
+    if (!dueDate || status?.toUpperCase() === 'DONE') return 'none';
+    const due = new Date(dueDate.length === 10 ? `${dueDate}T00:00:00` : dueDate);
+    due.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((due.getTime() - today.getTime()) / 86_400_000);
+    if (diffDays < 0) return 'overdue';
+    if (diffDays === 0) return 'today';
+    if (diffDays <= 5) return 'five_days';
+    return 'future';
+}
+
 interface BacklogTaskRowProps {
     task: Task;
     onDelete: (id: number) => void;
     onClick: (task: Task) => void;
     onStatusChange: (id: number, status: string) => void;
     onOpenModal: (id: number) => void;
-    onArchive?: (id: number) => void | Promise<void>;
-    onUnarchive?: (id: number) => void | Promise<void>;
-    isArchived?: boolean;
     selected?: boolean;
     onToggleSelect?: (id: number) => void;
     onDateChange?: (id: number, dueDate: string | null) => void;
@@ -48,7 +57,7 @@ interface BacklogTaskRowProps {
 
 export default function BacklogTaskRow({
     task, onDelete, onClick, onStatusChange, onOpenModal,
-    onArchive, onUnarchive, selected, onToggleSelect, onDateChange, isArchived = false,
+    selected, onToggleSelect, onDateChange,
 }: BacklogTaskRowProps) {
     const PriorityIcon = task.priority ? (PRIORITY_CONFIG[task.priority]?.icon ?? Minus) : Minus;
     const priorityColor = task.priority ? (PRIORITY_CONFIG[task.priority]?.color ?? '#9CA3AF') : '#9CA3AF';
@@ -60,8 +69,7 @@ export default function BacklogTaskRow({
     const statusRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
-    const isOverdue = !!(task.dueDate && normalizedStatus !== 'DONE' &&
-        new Date(task.dueDate + 'T00:00:00') < new Date(new Date().toDateString()));
+    const dueClass = classifyBacklogDue(task.dueDate, normalizedStatus);
 
     useEffect(() => {
         const handler = (e: MouseEvent) => {
@@ -87,8 +95,14 @@ export default function BacklogTaskRow({
     return (
         <div
             className={`grid grid-cols-[auto_1fr_120px_100px_120px_100px_100px_32px] sm:grid-cols-[auto_1.5fr_140px_110px_130px_110px_120px_32px] items-center gap-x-2 px-3 sm:px-4 min-h-[52px] rounded-lg border cursor-pointer select-none transition-colors ${
-                selected ? 'bg-cu-primary/10 border-cu-primary/40 shadow-[inset_2px_0_0_var(--cu-primary)]' : isOverdue ? 'bg-red-500/10 border-red-500/25 hover:bg-red-500/15' : 'bg-cu-bg-secondary/70 border-cu-border hover:bg-cu-hover'
-            } ${task.archived || isArchived ? 'opacity-60' : ''}`}
+                selected
+                    ? 'bg-cu-primary/10 border-cu-primary/40 shadow-[inset_2px_0_0_var(--cu-primary)]'
+                    : dueClass === 'overdue' || dueClass === 'today'
+                        ? 'bg-red-500/10 border-red-500/25 hover:bg-red-500/15'
+                        : dueClass === 'five_days'
+                            ? 'bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/15'
+                            : 'bg-cu-bg-secondary/70 border-cu-border hover:bg-cu-hover'
+            }`}
             onClick={() => {
                 if (statusOpen || menuOpen) return;
                 if (window.innerWidth >= 768) onOpenModal(task.id);
@@ -123,7 +137,6 @@ export default function BacklogTaskRow({
                         <span>Recurring{task.recurrenceActive === false ? ' (Paused)' : ''}</span>
                     </span>
                 )}
-                {(task.archived || isArchived) && <ArchiveBadge />}
             </div>
 
             {/* Label */}
@@ -180,8 +193,14 @@ export default function BacklogTaskRow({
             <div className="min-w-0 flex items-center" onClick={(e) => e.stopPropagation()}>
                 <Popover.Root>
                     <Popover.Trigger asChild>
-                        <button className="text-[11px] text-cu-text-muted hover:text-cu-primary bg-transparent border border-transparent hover:border-cu-primary/30 hover:bg-cu-primary/10 px-2 py-1 rounded transition-colors truncate">
-                            {task.dueDate ? format(parseISO(task.dueDate), 'MMM d, yyyy') : 'No date'}
+                        <button className={`text-[11px] font-medium border px-2 py-1 rounded transition-colors truncate ${
+                            dueClass === 'overdue' || dueClass === 'today'
+                                ? 'border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/20'
+                                : dueClass === 'five_days'
+                                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20'
+                                    : 'text-cu-text-muted hover:text-cu-primary bg-transparent border-transparent hover:border-cu-primary/30 hover:bg-cu-primary/10'
+                        }`}>
+                            {dueClass === 'overdue' ? 'Overdue' : dueClass === 'today' ? 'Due today' : task.dueDate ? format(parseISO(task.dueDate), 'MMM d, yyyy') : 'No date'}
                         </button>
                     </Popover.Trigger>
                     <Popover.Portal>
@@ -213,33 +232,6 @@ export default function BacklogTaskRow({
                         >
                             Edit
                         </button>
-                        {!task.parentTaskId && (
-                            !task.archived ? (
-                                <button
-                                    onClick={async (e) => {
-                                        e.stopPropagation();
-                                        setMenuOpen(false);
-                                        await onArchive?.(task.id);
-                                    }}
-                                    className="w-full flex items-center text-left px-3 py-1.5 text-[12px] text-amber-500 hover:bg-cu-hover transition-colors"
-                                >
-                                    <Archive className="w-4 h-4 mr-2" />
-                                    Archive task
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={async (e) => {
-                                        e.stopPropagation();
-                                        setMenuOpen(false);
-                                        await onUnarchive?.(task.id);
-                                    }}
-                                    className="w-full flex items-center text-left px-3 py-1.5 text-[12px] text-cu-text-primary hover:bg-cu-hover transition-colors"
-                                >
-                                    <ArchiveRestore className="w-4 h-4 mr-2" />
-                                    Unarchive task
-                                </button>
-                            )
-                        )}
                         <button
                             onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(task.id); }}
                             className="w-full text-left px-3 py-1.5 text-[12px] text-cu-danger hover:bg-cu-danger/10 transition-colors"

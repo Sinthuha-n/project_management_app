@@ -109,3 +109,40 @@ describe('TaskRow', () => {
     expect(onRenameTask).toHaveBeenCalledWith(1, 'Renamed task');
   });
 });
+
+describe('classifyDue & due date styling', () => {
+  const { classifyDue, DUE_CHIP_STYLES } = require('./task-row/TaskRowConstants');
+
+  const formatLocal = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  it('classifies overdue as overdue with red style', () => {
+    const past = formatLocal(new Date(Date.now() - 86400000 * 2));
+    expect(classifyDue(past, 'TODO')).toBe('overdue');
+    expect(DUE_CHIP_STYLES.overdue).toContain('B42318');
+  });
+
+  it('classifies today as today with red style', () => {
+    const today = formatLocal(new Date());
+    expect(classifyDue(today, 'TODO')).toBe('today');
+    expect(DUE_CHIP_STYLES.today).toContain('B42318');
+  });
+
+  it('classifies due within 5 days as five_days with amber style', () => {
+    const in3Days = formatLocal(new Date(Date.now() + 86400000 * 3));
+    expect(classifyDue(in3Days, 'TODO')).toBe('five_days');
+    expect(DUE_CHIP_STYLES.five_days).toContain('B54708');
+  });
+
+  it('classifies due after 5 days as future with neutral style', () => {
+    const in10Days = formatLocal(new Date(Date.now() + 86400000 * 10));
+    expect(classifyDue(in10Days, 'TODO')).toBe('future');
+    expect(DUE_CHIP_STYLES.future).toContain('344054');
+  });
+
+  it('returns none for completed tasks or missing due date', () => {
+    const past = formatLocal(new Date(Date.now() - 86400000 * 2));
+    expect(classifyDue(past, 'DONE')).toBe('none');
+    expect(classifyDue(undefined, 'TODO')).toBe('none');
+  });
+});

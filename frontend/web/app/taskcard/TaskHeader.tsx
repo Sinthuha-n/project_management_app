@@ -1,6 +1,6 @@
 "use client";
 import React, { useRef, useState } from 'react';
-import { Layout, Link2, MoreHorizontal, X, Check, FileText, Archive, Calendar, Flag } from 'lucide-react';
+import { Layout, Link2, MoreHorizontal, X, Check, FileText, Calendar, Flag } from 'lucide-react';
 import api from '@/lib/axios';
 import { toast } from '@/components/ui';
 import { getDueDateMeta, getPriorityStyle, getStatusTone } from './components/taskUi';
@@ -9,11 +9,9 @@ interface TaskHeaderProps {
   project: string;
   taskId: string;
   numericTaskId?: number;
-  archived?: boolean;
   status?: string;
   priority?: string;
   dueDate?: string | null;
-  readOnly?: boolean;
   onClose?: (wasModified: boolean) => void;
 }
 
@@ -21,11 +19,9 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
   project,
   taskId,
   numericTaskId,
-  archived = false,
   status,
   priority,
   dueDate,
-  readOnly = false,
   onClose,
 }) => {
   const [copied, setCopied] = useState(false);
@@ -33,23 +29,7 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [showTemplateInput, setShowTemplateInput] = useState(false);
-  const [archiving, setArchiving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleToggleArchive = async () => {
-    if (!numericTaskId || readOnly) return;
-    setArchiving(true);
-    try {
-      const nextState = !archived;
-      await api.patch(`/api/tasks/${numericTaskId}`, { archived: nextState });
-      toast(nextState ? 'Task archived' : 'Task unarchived', 'success');
-      onClose?.(true);
-    } catch {
-      toast('Failed to update archive status', 'error');
-    } finally {
-      setArchiving(false);
-    }
-  };
 
   const handleCopyLink = () => {
     const url = window.location.href;
@@ -93,11 +73,6 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
           <span className="font-medium text-cu-text-secondary truncate">{project}</span>
           <span className="flex-shrink-0 text-cu-text-muted">/</span>
           <span className="text-cu-text-primary font-semibold flex-shrink-0">{taskId}</span>
-          {archived && (
-            <span className="hidden sm:inline-flex rounded-full bg-cu-warning/10 px-2 py-0.5 text-[10px] font-bold uppercase text-cu-warning">
-              Archived
-            </span>
-          )}
         </div>
         <div className="hidden min-w-0 items-center gap-1.5 sm:flex">
           {statusTone && (
@@ -155,15 +130,6 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
         >
           {copied ? <Check size={15} className="text-green-500" /> : <Link2 size={15} />}
           <span className="hidden sm:inline">{copied ? 'Copied!' : 'Copy link'}</span>
-        </button>
-        <button
-          onClick={handleToggleArchive}
-          disabled={archiving || readOnly}
-          title={archived ? "Unarchive Task" : "Archive Task"}
-          className="p-2 hover:bg-cu-hover rounded-lg flex items-center gap-1.5 text-cu-text-secondary hover:text-cu-primary text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          <Archive size={15} />
-          <span className="hidden sm:inline">{archived ? 'Unarchive Task' : 'Archive Task'}</span>
         </button>
         <div className="relative">
           <button
