@@ -100,6 +100,7 @@ export function ChatMessageList(props: ChatMessageListProps) {
         onToggleReaction={onToggleReaction}
         onOpenThread={onOpenThread}
         isPinned={message.id === pinnedMessageId}
+        projectId={props.projectId}
       />
     );
   };

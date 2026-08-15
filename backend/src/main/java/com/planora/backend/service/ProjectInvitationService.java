@@ -226,14 +226,17 @@ public class ProjectInvitationService {
             // ── REAL-TIME: notify chat-page clients that the member roster changed ──
             // Uses a plain Map payload so we don't need to add MEMBER_ADDED to the
             // ChatMessage.MessageType enum. The frontend JSON.parse path accepts any shape.
+            String sender = user.getUsername() != null ? user.getUsername()
+                    : (user.getEmail() != null ? user.getEmail() : "");
+            String presignedPicUrl = userService.generatePresignedUrl(user.getProfilePicUrl());
+            String profilePicUrl = presignedPicUrl != null ? presignedPicUrl : "";
+
             simpMessagingTemplate.convertAndSend(
                     "/topic/project/" + projectId + "/public",
                     Map.of(
                             "type",          "MEMBER_ADDED",
-                            "sender",        user.getUsername(),
-                            "profilePicUrl", userService.generatePresignedUrl(user.getProfilePicUrl()) != null
-                                             ? userService.generatePresignedUrl(user.getProfilePicUrl())
-                                             : ""
+                            "sender",        sender,
+                            "profilePicUrl", profilePicUrl
                     ));
             // ─────────────────────────────────────────────────────────────────────
         }

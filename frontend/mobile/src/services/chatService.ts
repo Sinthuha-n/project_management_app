@@ -414,10 +414,19 @@ export async function postTelemetry(
 ): Promise<void> {
   await postTelemetryBuilder(api, projectId, { action, target, details });
 }
-projectId: string,
-  action: string,
-    target: string,
-      details ?: string
-): Promise < void> {
-  await postTelemetryBuilder(api, projectId, { action, target, details });
+
+export async function refreshChatDocument(
+  projectId: string,
+  expiredUrl: string,
+): Promise<string> {
+  try {
+    const { data } = await api.get<string>(
+      `/api/projects/${projectId}/chat/messages/refresh-document`,
+      { params: { url: expiredUrl } },
+    );
+    return data;
+  } catch (error) {
+    throw new Error(apiErrorMessage(error, 'Failed to refresh document link.'));
+  }
 }
+
