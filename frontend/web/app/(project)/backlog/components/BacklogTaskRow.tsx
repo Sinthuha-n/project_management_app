@@ -248,8 +248,20 @@ export default function BacklogTaskRow({
             <div className="min-w-0 flex items-center" onClick={(e) => e.stopPropagation()}>
                 <Popover.Root>
                     <Popover.Trigger asChild>
-                        <button className="text-[11px] text-cu-text-muted hover:text-cu-primary bg-transparent border border-transparent hover:border-cu-primary/30 hover:bg-cu-primary/10 px-2 py-1 rounded transition-colors truncate">
-                            {task.dueDate ? format(parseISO(task.dueDate), 'MMM d, yyyy') : 'No date'}
+                        <button className={`text-[11px] font-medium border px-2 py-1 rounded transition-colors truncate ${
+                            dueClass === 'overdue' || dueClass === 'today'
+                                ? 'border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/20'
+                                : dueClass === 'five_days'
+                                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20'
+                                    : 'text-cu-text-muted hover:text-cu-primary bg-transparent border-transparent hover:border-cu-primary/30 hover:bg-cu-primary/10'
+                        }`}>
+                            {dueClass === 'overdue'
+                                ? 'Overdue'
+                                : dueClass === 'today'
+                                    ? 'Due today'
+                                    : task.dueDate
+                                        ? format(parseISO(task.dueDate), 'MMM d, yyyy')
+                                        : 'No date'}
                         </button>
                     </Popover.Trigger>
                     <Popover.Portal>
