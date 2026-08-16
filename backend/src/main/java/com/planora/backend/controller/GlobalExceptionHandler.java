@@ -113,6 +113,12 @@ public class GlobalExceptionHandler {
         return buildError(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request);
     }
 
+    @ExceptionHandler({ software.amazon.awssdk.services.s3.model.S3Exception.class, software.amazon.awssdk.core.exception.SdkException.class })
+    public ResponseEntity<ApiErrorResponse> handleStorageSdkException(Exception ex, HttpServletRequest request) {
+        logger.error("AWS Storage SDK exception: {}", ex.getMessage(), ex);
+        return buildError(HttpStatus.BAD_GATEWAY, "STORAGE_UNAVAILABLE", "Storage service is temporarily unavailable. Please retry shortly.", request);
+    }
+
     @ExceptionHandler(InvitationExpiredException.class)
     public ResponseEntity<ApiErrorResponse> handleInvitationExpired(InvitationExpiredException ex,
             HttpServletRequest request) {

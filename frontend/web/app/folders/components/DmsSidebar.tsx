@@ -63,6 +63,7 @@ export default function DmsSidebar({
                 <nav className="space-y-1">
                     <Link
                         href={withProjectId('/folders/view-all')}
+                        prefetch={false}
                         className={navLinkClass(mode === 'view-all')}
                     >
                         <span className="inline-flex items-center gap-2">
@@ -72,6 +73,7 @@ export default function DmsSidebar({
                     </Link>
                     <Link
                         href={withProjectId('/folders/recent')}
+                        prefetch={false}
                         className={navLinkClass(mode === 'recent')}
                     >
                         <span className="inline-flex items-center gap-2">
@@ -81,6 +83,7 @@ export default function DmsSidebar({
                     </Link>
                     <Link
                         href={withProjectId('/folders/favorites')}
+                        prefetch={false}
                         className={navLinkClass(mode === 'favorites')}
                     >
                         <span className="inline-flex items-center gap-2">
@@ -90,6 +93,7 @@ export default function DmsSidebar({
                     </Link>
                     <Link
                         href={withProjectId('/folders/trash')}
+                        prefetch={false}
                         className={navLinkClass(isTrashMode, true)}
                     >
                         <span className="inline-flex items-center gap-2">

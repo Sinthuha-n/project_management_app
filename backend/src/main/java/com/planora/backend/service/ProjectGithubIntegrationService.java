@@ -2,6 +2,7 @@ package com.planora.backend.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import com.planora.backend.dto.GithubCollaboratorInviteRequestDTO;
@@ -46,10 +47,17 @@ public class ProjectGithubIntegrationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found: " + request.getProjectId()));
         requireOwnerOrAdmin(project, userId);
 
-        if (integrationRepository.existsByProjectIdAndRepositoryFullName(
-                request.getProjectId(), request.getRepositoryFullName())) {
-            throw new ConflictException("Repository '" + request.getRepositoryFullName()
-                    + "' is already linked to this project");
+        Optional<GithubIntegration> existing = integrationRepository.findByProjectIdAndRepositoryFullName(
+                request.getProjectId(), request.getRepositoryFullName());
+        if (existing.isPresent()) {
+            GithubIntegration integration = existing.get();
+            if (integration.isActive()) {
+                log.info("Repository '{}' already linked to project {}, returning existing integration",
+                        request.getRepositoryFullName(), request.getProjectId());
+                return toDTO(integration);
+            }
+            integration.setActive(true);
+            return toDTO(integrationRepository.save(integration));
         }
 
         String accessToken = githubTokenService.getToken(userId);

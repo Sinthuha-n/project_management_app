@@ -284,14 +284,21 @@ export function GlobalNotificationProvider({ children }: { children: React.React
 
         const isAuthError = /jwt|token|expired|unauthorized|forbidden/i.test(errorMsg);
         if (isAuthError) {
+          intentionallyClosingClientRef.current = client;
+          try {
+            client.deactivate();
+          } catch { /* ignore clean close */ }
+          stompClientRef.current = null;
+          setClientState(null);
+          clearReconnectTimer();
+
           const refreshedToken = await ensureValidToken();
           if (refreshedToken) {
-            handleConnectionLost(client, refreshedToken);
-            return;
+            connectRealtime(refreshedToken);
           } else {
             disconnectClient();
-            return;
           }
+          return;
         }
 
         handleConnectionLost(client);
@@ -307,6 +314,12 @@ export function GlobalNotificationProvider({ children }: { children: React.React
           reason: event.reason,
           wasClean: event.wasClean,
         });
+
+        if (!getValidToken() && !getRefreshToken()) {
+          disconnectClient();
+          return;
+        }
+
         handleConnectionLost(client);
       },
     });
@@ -322,7 +335,7 @@ export function GlobalNotificationProvider({ children }: { children: React.React
     }
 
     const tokenCandidate = freshToken || getValidToken();
-    if (!tokenCandidate) {
+    if (!tokenCandidate && !getRefreshToken()) {
       disconnectClient();
       return;
     }

@@ -19,11 +19,27 @@ api.interceptors.request.use(
     (config) => {
         config.baseURL = resolveBaseUrl(config.baseURL);
 
+        // When data is FormData, remove Content-Type so Axios/browser automatically creates multipart/form-data with boundary
+        if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+            if (config.headers) {
+                delete config.headers['Content-Type'];
+                delete config.headers['content-type'];
+            }
+        }
+
         // Don't add token to auth endpoints
         const authEndpoints = ['/api/auth/login', '/api/auth/register', '/api/auth/forgot', '/api/auth/reset', '/api/auth/reg/verify', '/api/auth/resend', '/api/auth/refresh'];
         const isAuthEndpoint = authEndpoints.some(endpoint => config.url?.includes(endpoint));
         
         if (!isAuthEndpoint && typeof window !== 'undefined') {
+            if (hasRedirectedToLogin || (!getValidToken() && !getRefreshToken())) {
+                // Short-circuit background polling/requests during logout/redirect to prevent 401 cascades
+                const controller = new AbortController();
+                controller.abort();
+                config.signal = controller.signal;
+                return config;
+            }
+
             const token = getValidToken();
             if (token) {
                 config.headers.Authorization = `Bearer ${token}`;
@@ -42,7 +58,7 @@ api.interceptors.request.use(async (config) => {
 
     const authEndpoints = ['/api/auth/login', '/api/auth/register', '/api/auth/forgot', '/api/auth/reset', '/api/auth/reg/verify', '/api/auth/resend', '/api/auth/refresh'];
     const isAuthEndpoint = authEndpoints.some(endpoint => config.url?.includes(endpoint));
-    if (!isAuthEndpoint && typeof window !== 'undefined') {
+    if (!isAuthEndpoint && typeof window !== 'undefined' && !hasRedirectedToLogin) {
         try {
             if (!getValidToken()) {
                 if (!getRefreshToken()) {
@@ -88,9 +104,7 @@ function redirectToLoginOnce() {
 
     hasRedirectedToLogin = true;
     clearTokens();
-    setTimeout(() => {
-        window.location.href = '/login';
-    }, 300);
+    window.location.href = '/login';
 }
 
 function processQueue(error: unknown, token: string | null = null) {
