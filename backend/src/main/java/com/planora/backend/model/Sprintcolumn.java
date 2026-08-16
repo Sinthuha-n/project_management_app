@@ -28,6 +28,9 @@ public class Sprintcolumn {
     @Column(nullable = false)
     private String columnStatus;
 
+    @Column(name = "color")
+    private String color;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sprintboard_id", nullable = false)
     @JsonIgnore

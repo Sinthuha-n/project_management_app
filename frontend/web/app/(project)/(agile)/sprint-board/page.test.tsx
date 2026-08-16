@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import SprintBoardPage from './page';
 import api from '@/lib/axios';
@@ -102,6 +103,62 @@ describe('SprintBoardPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/No active sprint/i)).toBeInTheDocument();
+    });
+  });
+
+  it('handles multiple active sprints and listens to planora:sprint-updated event', async () => {
+    mockedUseSearchParams.mockReturnValue({
+      get: (key: string) => (key === 'projectId' ? '123' : null),
+    });
+
+    let sprintCallCount = 0;
+    mockedApi.get.mockImplementation((url: string) => {
+      if (url.includes('/api/projects/123')) {
+        return Promise.resolve({ data: { id: 123, type: 'AGILE' } });
+      }
+      if (url.includes('/api/sprints/project/123')) {
+        sprintCallCount++;
+        return Promise.resolve({
+          data: [
+            { id: 1, name: 'Sprint 1', status: 'ACTIVE' },
+            { id: 2, name: 'Sprint 2', status: 'ACTIVE' },
+          ],
+        });
+      }
+      if (url.includes('/api/sprintboards/sprint/1')) {
+        return Promise.resolve({
+          data: {
+            id: 10,
+            sprintId: 1,
+            columns: [{ id: 100, columnName: 'To Do', columnStatus: 'TODO', tasks: [] }],
+          },
+        });
+      }
+      if (url.includes('/api/sprintboards/sprint/2')) {
+        return Promise.resolve({
+          data: {
+            id: 20,
+            sprintId: 2,
+            columns: [{ id: 200, columnName: 'In Progress', columnStatus: 'IN_PROGRESS', tasks: [] }],
+          },
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    render(<SprintBoardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('board-header')).toBeInTheDocument();
+    });
+
+    const initialCalls = sprintCallCount;
+    await React.act(async () => {
+      window.dispatchEvent(new CustomEvent('planora:sprint-updated'));
+    });
+
+    await waitFor(() => {
+      expect(sprintCallCount).toBeGreaterThan(initialCalls);
     });
   });
 });

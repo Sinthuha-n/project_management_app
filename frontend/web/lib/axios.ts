@@ -70,6 +70,28 @@ api.interceptors.request.use(async (config) => {
 // Track whether a token refresh is in progress to avoid infinite loop
 let isRefreshing = false;
 let failedQueue: Array<{ resolve: (value: unknown) => void; reject: (reason?: unknown) => void }> = [];
+let hasRedirectedToLogin = false;
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('planora-auth-token-changed', () => {
+        if (getValidToken()) {
+            hasRedirectedToLogin = false;
+        }
+    });
+}
+
+function redirectToLoginOnce() {
+    if (typeof window === 'undefined' || hasRedirectedToLogin) return;
+    const currentPath = window.location.pathname;
+    const isAuthPage = currentPath === '/' || /^\/(login|register|signup|forgot-password|reset-password|verify-email)(\/|$)/.test(currentPath);
+    if (isAuthPage) return;
+
+    hasRedirectedToLogin = true;
+    clearTokens();
+    setTimeout(() => {
+        window.location.href = '/login';
+    }, 300);
+}
 
 function processQueue(error: unknown, token: string | null = null) {
     failedQueue.forEach(({ resolve, reject }) => {
@@ -103,7 +125,7 @@ api.interceptors.response.use(
 
         if (error.response?.status === 401 && !isAuthEndpoint && !originalRequest._retry) {
             if (typeof window !== 'undefined' && !getRefreshToken()) {
-                clearTokens();
+                redirectToLoginOnce();
                 return Promise.reject(error);
             }
 
@@ -127,11 +149,7 @@ api.interceptors.response.use(
                 return api(originalRequest);
             } catch (refreshError) {
                 processQueue(refreshError, null);
-                clearTokens();
-                if (typeof window !== 'undefined') {
-                    // 500ms delay lets toast notifications render before reload
-                    setTimeout(() => { window.location.href = '/login'; }, 500);
-                }
+                redirectToLoginOnce();
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;

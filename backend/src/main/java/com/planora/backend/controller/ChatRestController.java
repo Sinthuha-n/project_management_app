@@ -124,10 +124,10 @@ public class ChatRestController {
     /**
      * Upload a document to chat (S3-backed, like WhatsApp)
      */
-    @PostMapping("/messages/upload-document")
+    @PostMapping(value = "/messages/upload-document", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<String> uploadChatDocument(
             @PathVariable Long projectId,
-            @RequestPart("file") MultipartFile file,
+            @RequestParam("file") MultipartFile file,
             Authentication authentication
     ) {
         resolveValidatedTeamId(projectId, authentication.getName());
@@ -895,7 +895,7 @@ public class ChatRestController {
     private void validateTeamMembership(Long teamId, String usernameOrEmail) {
         var user = userCacheService.resolveUserByEmailOrUsername(usernameOrEmail);
         if (user == null) {
-            throw new RuntimeException("User is not found");
+            throw new com.planora.backend.exception.ForbiddenException("User is not found");
         }
         validateTeamMembership(teamId, user);
     }
@@ -905,7 +905,14 @@ public class ChatRestController {
     }
 
     private com.planora.backend.model.User resolveAuthenticatedUser(Authentication authentication) {
-        return userCacheService.resolveUserByEmailOrUsername(authentication.getName());
+        if (authentication == null || authentication.getName() == null) {
+            throw new com.planora.backend.exception.ForbiddenException("Authentication is required");
+        }
+        var user = userCacheService.resolveUserByEmailOrUsername(authentication.getName());
+        if (user == null) {
+            throw new com.planora.backend.exception.ForbiddenException("User is not found");
+        }
+        return user;
     }
 
 }

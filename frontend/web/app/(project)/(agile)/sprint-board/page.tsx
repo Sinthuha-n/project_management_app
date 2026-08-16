@@ -151,13 +151,14 @@ function SprintBoardPageContent() {
     let hasCache = false;
     if (cKey && !forceNetwork) {
       const cached = getSessionCache<SprintBoardCache>(cKey, { allowStale: true });
-      if (cached.data) {
+      if (cached.data && Array.isArray(cached.data.activeList) && Array.isArray(cached.data.boards)) {
         setAllActiveSprints(cached.data.activeList); 
         setAllBoards(cached.data.boards);
         hydrate(cached.data.boards[selectedIdx] ?? cached.data.boards[0] ?? null);
-        setLoading(false);
-        hasCache = true;
-        if (!cached.isStale) return;
+        if (cached.data.activeList.length > 0) {
+          setLoading(false);
+          hasCache = true;
+        }
       }
     }
     
@@ -167,13 +168,16 @@ function SprintBoardPageContent() {
     setError(null);
     try {
       const sprints = await fetchSprintsByProject(pid) as Array<SprintSummary & { name?: string }>;
-      const activeList = sprints.filter((s) => s.status === 'ACTIVE').map((s) => ({ ...s, sprintName: s.sprintName || s.name || `Sprint #${s.id}` }));
+      const activeList = (Array.isArray(sprints) ? sprints : [])
+        .filter((s) => (s.status ?? '').trim().toUpperCase() === 'ACTIVE')
+        .map((s) => ({ ...s, sprintName: s.sprintName || s.name || `Sprint #${s.id}` }));
+
       if (activeList.length === 0) { 
         setAllActiveSprints([]); 
         setAllBoards([]); 
         hydrate(null); 
         setLoading(false); 
-        if (cKey) setSessionCache(cKey, { activeList: [], boards: [] }, 30 * 60_000);
+        if (cKey) setSessionCache(cKey, { activeList: [], boards: [] }, 10_000);
         return; 
       }
       const boards = await Promise.all(
@@ -241,9 +245,13 @@ function SprintBoardPageContent() {
   useVisibilityInterval(() => void fetchData({ showSpinner: false }), 30_000, Boolean(projectIdStr));
 
   useEffect(() => { 
-    const onTaskUpdated = () => void fetchData({ showSpinner: false, forceNetwork: true }); 
-    window.addEventListener('planora:task-updated', onTaskUpdated); 
-    return () => window.removeEventListener('planora:task-updated', onTaskUpdated); 
+    const onRefresh = () => void fetchData({ showSpinner: false, forceNetwork: true }); 
+    window.addEventListener('planora:task-updated', onRefresh); 
+    window.addEventListener('planora:sprint-updated', onRefresh); 
+    return () => {
+      window.removeEventListener('planora:task-updated', onRefresh);
+      window.removeEventListener('planora:sprint-updated', onRefresh);
+    };
   }, [fetchData]);
 
   useTaskWebSocket(projectIdStr, () => { void fetchData({ showSpinner: false, forceNetwork: true }); });
@@ -322,7 +330,11 @@ function SprintBoardPageContent() {
             />
             {actions.successMsg && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-2 text-sm font-semibold text-emerald-500 shadow-cu-lg">{actions.successMsg}</div>}
 
-            <SprintDragDropProvider tasks={board.columns.flatMap((col) => col.tasks)} onDragEnd={actions.handleDragEnd}>
+            <SprintDragDropProvider
+              tasks={board.columns.flatMap((col) => col.tasks)}
+              columns={board.columns}
+              onDragEnd={actions.handleDragEnd}
+            >
               <div className="flex items-start gap-4 sm:gap-3 h-full min-h-[calc(100vh-250px)] pb-3">
                 {(swimlanes ?? [{ key: 'default', columns: filteredColumns }]).map((lane) => (
                   <div key={lane.key} className="space-y-2">
@@ -331,14 +343,26 @@ function SprintBoardPageContent() {
                       <div className="flex items-start gap-3">
                         {lane.columns.map((column) => (
                           <SprintColumn
-                            key={`${lane.key}-${column.id}`} column={column} dense={denseMode} compactEmpty
-                            collapsed={!!collapsedColumns[column.columnStatus]} onToggleCollapsed={toggleColumnCollapsed}
-                            selectedTaskIds={selectedTaskIds} onToggleTaskSelected={toggleTaskSelected}
-                            onInlineCreate={actions.handleInlineCreateTask} onOpenTask={(id) => setSelectedTaskId(id)}
+                            key={`${lane.key}-${column.id}`}
+                            column={column}
+                            dense={denseMode}
+                            compactEmpty
+                            collapsed={!!collapsedColumns[column.columnStatus]}
+                            onToggleCollapsed={toggleColumnCollapsed}
+                            selectedTaskIds={selectedTaskIds}
+                            onToggleTaskSelected={toggleTaskSelected}
+                            onInlineCreate={actions.handleInlineCreateTask}
+                            onOpenTask={(id) => setSelectedTaskId(id)}
                             onUpdateTaskDueDate={actions.handleInlineDueDateChange}
                             onAssignTaskSingle={actions.handleInlineAssignSingle}
                             onAssignTaskMultiple={actions.handleInlineAssignMultiple}
-                            teamMembers={teamMembers} projectKey={projectKey}
+                            onRenameTask={actions.handleRenameTask}
+                            onDeleteTask={actions.handleDeleteTask}
+                            onRenameColumn={actions.handleRenameColumn}
+                            onChangeColumnColor={actions.handleChangeColumnColor}
+                            onDeleteColumn={actions.handleDeleteColumn}
+                            teamMembers={teamMembers}
+                            projectKey={projectKey}
                           />
                         ))}
                       </div>

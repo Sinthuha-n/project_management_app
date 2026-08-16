@@ -1,7 +1,10 @@
 package com.planora.backend.service;
 
+import com.planora.backend.exception.BadRequestException;
+import com.planora.backend.exception.DocumentUploadException;
 import com.planora.backend.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -100,7 +103,10 @@ public class S3StorageService {
             if (ex.statusCode() == 404) {
                 throw new ResourceNotFoundException("Uploaded object not found in storage");
             }
-            throw new RuntimeException("Failed to verify uploaded object");
+            throw new DocumentUploadException(
+                    "STORAGE_ACCESS_DENIED",
+                    "Failed to verify uploaded object in storage: " + (ex.awsErrorDetails() != null ? ex.awsErrorDetails().errorMessage() : ex.getMessage()),
+                    HttpStatus.BAD_GATEWAY);
         }
     }
 
@@ -166,21 +172,21 @@ public class S3StorageService {
     public void validateFileRequest(String fileName, String contentType, Long fileSize,
                                     long maxBytes, Set<String> allowedTypes) {
         if (fileName == null || fileName.isBlank()) {
-            throw new RuntimeException("fileName is required");
+            throw new BadRequestException("fileName is required");
         }
 
         if (contentType == null || contentType.isBlank()) {
-            throw new RuntimeException("contentType is required");
+            throw new BadRequestException("contentType is required");
         }
 
         // Security: Prevent malicious uploads (like scripts or executables).
         if (!allowedTypes.contains(contentType)) {
-            throw new RuntimeException("Unsupported file type");
+            throw new BadRequestException("Unsupported file type");
         }
 
         // Security: Prevent server memory exhaustion attacks by enforcing strict size limits.
         if (fileSize == null || fileSize <= 0 || fileSize > maxBytes) {
-            throw new RuntimeException("fileSize must be between 1 byte and " + (maxBytes / (1024 * 1024)) + "MB");
+            throw new BadRequestException("fileSize must be between 1 byte and " + (maxBytes / (1024 * 1024)) + "MB");
         }
     }
 
@@ -191,14 +197,21 @@ public class S3StorageService {
      */
     public void putObject(String bucket, String objectKey, String contentType,
                           InputStream inputStream, long contentLength) {
-        // Step 1: Define the target destination and metadata.
-        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                .bucket(bucket)
-                .key(objectKey)
-                .contentType(contentType)
-                .build();
+        try {
+            // Step 1: Define the target destination and metadata.
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(objectKey)
+                    .contentType(contentType)
+                    .build();
 
-        // Step 2: Stream the bytes from our server's memory directly into the S3 bucket.
-        s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(inputStream, contentLength));
+            // Step 2: Stream the bytes from our server's memory directly into the S3 bucket.
+            s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(inputStream, contentLength));
+        } catch (Exception ex) {
+            throw new DocumentUploadException(
+                    "STORAGE_UPLOAD_FAILED",
+                    "Failed to store file in S3: " + ex.getMessage(),
+                    HttpStatus.BAD_GATEWAY);
+        }
     }
 }

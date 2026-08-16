@@ -1,6 +1,9 @@
 package com.planora.backend.service;
 
 import com.planora.backend.dto.*;
+import com.planora.backend.exception.BadRequestException;
+import com.planora.backend.exception.ConflictException;
+import com.planora.backend.exception.DocumentUploadException;
 import com.planora.backend.exception.ForbiddenException;
 import com.planora.backend.exception.ResourceNotFoundException;
 import com.planora.backend.exception.StorageQuotaExceededException;
@@ -10,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -181,7 +185,7 @@ public class DocumentService {
         requireNotViewer(member);
 
         if (file == null || file.isEmpty()) {
-            throw new RuntimeException("file is required");
+            throw new BadRequestException("file is required");
         }
 
         String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload.bin";
@@ -201,7 +205,7 @@ public class DocumentService {
             // Stream the file bytes to S3
             s3StorageService.putObject(dmsBucket, objectKey, resolvedContentType, file.getInputStream(), file.getSize());
         } catch (Exception e) {
-            throw new RuntimeException("Could not upload file to S3 from backend: " + e.getMessage());
+            throw new DocumentUploadException("STORAGE_UPLOAD_FAILED", "Could not upload file to S3 from backend: " + e.getMessage(), HttpStatus.BAD_GATEWAY);
         }
 
         virusScanService.scanFile(dmsBucket, objectKey, fileName);
@@ -227,7 +231,7 @@ public class DocumentService {
         // Make sure the document actually exists and isn't sitting in the trash.
         Document document = getDocument(projectId, documentId);
         if (document.getStatus() == DocumentStatus.SOFT_DELETED) {
-            throw new RuntimeException("Cannot upload new version for a deleted document");
+            throw new BadRequestException("Cannot upload new version for a deleted document");
         }
         requireDocumentFolderPermission(document, member, "WRITE");
 
@@ -251,7 +255,7 @@ public class DocumentService {
 
         Document document = getDocument(projectId, documentId);
         if (document.getStatus() == DocumentStatus.SOFT_DELETED) {
-            throw new RuntimeException("Cannot create new version for a deleted document");
+            throw new BadRequestException("Cannot create new version for a deleted document");
         }
         requireDocumentFolderPermission(document, member, "WRITE");
 
@@ -268,7 +272,7 @@ public class DocumentService {
         if (existingVersion != null) {
             // Security check: Make sure they aren't trying to attach a version to the wrong parent doc.
             if (!existingVersion.getDocument().getId().equals(documentId)) {
-                throw new RuntimeException("Provided object key already belongs to another document");
+                throw new DocumentUploadException("DUPLICATE_OBJECT_KEY", "Provided object key already belongs to another document", HttpStatus.CONFLICT);
             }
             return mapDocument(existingVersion.getDocument(), true);
         }
@@ -418,7 +422,7 @@ public class DocumentService {
 
         Document document = getDocument(projectId, documentId);
         if (document.getStatus() == DocumentStatus.SOFT_DELETED) {
-            throw new RuntimeException("Cannot update deleted document");
+            throw new BadRequestException("Cannot update deleted document");
         }
         requireDocumentFolderPermission(document, member, "WRITE");
 
@@ -515,7 +519,7 @@ public class DocumentService {
                 normalizedName
         );
         if (exists) {
-            throw new RuntimeException("A folder with the same name already exists at this level");
+            throw new ConflictException("A folder with the same name already exists at this level");
         }
 
         DocumentFolder folder = new DocumentFolder();
@@ -560,7 +564,7 @@ public class DocumentService {
             requireFolderPermission(parent.getId(), member, "WRITE");
             // Infinite loop prevention: A folder cannot be placed inside itself.
             if (parent.getId().equals(folderId)) {
-                throw new RuntimeException("Folder cannot be its own parent");
+                throw new BadRequestException("Folder cannot be its own parent");
             }
         }
 
@@ -574,7 +578,7 @@ public class DocumentService {
         if (exists && !(normalizedName.equalsIgnoreCase(folder.getName())
                 && ((folder.getParentFolder() == null && parent == null)
                 || (folder.getParentFolder() != null && parent != null && folder.getParentFolder().getId().equals(parent.getId()))))) {
-            throw new RuntimeException("A folder with the same name already exists at this level");
+            throw new ConflictException("A folder with the same name already exists at this level");
         }
 
         folder.setName(normalizedName);
@@ -603,7 +607,7 @@ public class DocumentService {
         User grantedBy = getUser(userId);
 
         if (permissions == null) {
-            throw new RuntimeException("permissions are required");
+            throw new BadRequestException("permissions are required");
         }
 
         for (FolderPermissionRequest request : permissions) {
@@ -767,13 +771,13 @@ public class DocumentService {
 
     private TeamRole parseTeamRole(String teamRole) {
         if (teamRole == null || teamRole.isBlank()) {
-            throw new RuntimeException("teamRole is required");
+            throw new BadRequestException("teamRole is required");
         }
 
         try {
             return TeamRole.valueOf(teamRole.trim().toUpperCase());
         } catch (IllegalArgumentException ex) {
-            throw new RuntimeException("Invalid teamRole: " + teamRole);
+            throw new BadRequestException("Invalid teamRole: " + teamRole);
         }
     }
 
@@ -786,7 +790,7 @@ public class DocumentService {
         for (String permission : permissions) {
             String normalized = permission == null ? "" : permission.trim().toUpperCase();
             if (!Set.of("READ", "WRITE", "MANAGE").contains(normalized)) {
-                throw new RuntimeException("Invalid folder permission: " + permission);
+                throw new BadRequestException("Invalid folder permission: " + permission);
             }
             normalizedPermissions.add(normalized);
         }
@@ -797,7 +801,7 @@ public class DocumentService {
     private void validateFileRequest(String fileName, String contentType, Long fileSize) {
         String normalizedType = fileTypeRegistry.normalizeContentType(fileName, contentType);
         if (normalizedType == null) {
-            throw new RuntimeException("Unsupported file type");
+            throw new BadRequestException("Unsupported file type");
         }
         s3StorageService.validateFileRequest(fileName, normalizedType, fileSize, MAX_FILE_SIZE_BYTES, fileTypeRegistry.allMimeTypes());
     }
@@ -844,7 +848,7 @@ public class DocumentService {
         String withoutPath = trimmed.replace("\\", "/");
         String nameOnly = withoutPath.substring(withoutPath.lastIndexOf("/") + 1);
         if (nameOnly.isBlank()) {
-            throw new RuntimeException("Invalid file name");
+            throw new BadRequestException("Invalid file name");
         }
         return nameOnly;
     }
@@ -852,7 +856,7 @@ public class DocumentService {
     private String normalizeFolderName(String name) {
         String normalized = name == null ? "" : name.trim();
         if (normalized.isBlank()) {
-            throw new RuntimeException("Folder name is required");
+            throw new BadRequestException("Folder name is required");
         }
         return normalized;
     }
@@ -860,12 +864,18 @@ public class DocumentService {
     // Ensures users can't finalize an upload using an S3 key that belongs to a different project.
     private void validateObjectKeyOwnership(Long projectId, String objectKey) {
         if (objectKey == null || objectKey.isBlank()) {
-            throw new RuntimeException("objectKey is required");
+            throw new DocumentUploadException(
+                    "INVALID_OBJECT_KEY",
+                    "objectKey is required",
+                    HttpStatus.BAD_REQUEST);
         }
 
         String expectedPrefix = "project-" + projectId + "/";
         if (!objectKey.startsWith(expectedPrefix)) {
-            throw new RuntimeException("Invalid object key for this project");
+            throw new DocumentUploadException(
+                    "INVALID_OBJECT_KEY",
+                    "Invalid object key for this project",
+                    HttpStatus.FORBIDDEN);
         }
     }
 

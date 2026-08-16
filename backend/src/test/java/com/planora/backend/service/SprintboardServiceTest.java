@@ -212,6 +212,34 @@ class SprintboardServiceTest {
     }
 
     @Test
+    void updateColumn_updatesNameAndColor() {
+        Project project = makeProject();
+        Sprint sprint = makeSprint(project);
+        Sprintboard sprintboard = makeSprintboard(sprint);
+
+        Sprintcolumn col = new Sprintcolumn();
+        col.setId(55L);
+        col.setSprintboard(sprintboard);
+        col.setColumnName("Old Name");
+        col.setColumnStatus("IN_PROGRESS");
+        col.setPosition(1);
+
+        TeamMember adminMember = new TeamMember();
+        adminMember.setRole(TeamRole.ADMIN);
+
+        when(sprintboardRepository.findById(7L)).thenReturn(Optional.of(sprintboard));
+        when(projectRepository.findById(3L)).thenReturn(Optional.of(project));
+        when(teamMemberRepository.findByTeamIdAndUserUserId(10L, 100L)).thenReturn(Optional.of(adminMember));
+        when(springcolumnRepository.findById(55L)).thenReturn(Optional.of(col));
+        when(springcolumnRepository.save(any(Sprintcolumn.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        SprintcolumnDTO result = sprintboardService.updateColumn(7L, 55L, "In Review", "#3B82F6", 100L);
+
+        org.junit.jupiter.api.Assertions.assertEquals("In Review", result.getColumnName());
+        org.junit.jupiter.api.Assertions.assertEquals("#3B82F6", result.getColor());
+    }
+
+    @Test
     void completeSprint_whenNotActive_throwsConflict() {
         Project project = makeProject();
         Sprint sprint = makeSprint(project);

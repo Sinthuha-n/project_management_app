@@ -2691,12 +2691,12 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        put: operations["updateColumnPut"];
         post?: never;
         delete: operations["deleteColumn"];
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["updateColumn"];
         trace?: never;
     };
     "/api/sprintboards/{sprintboardId}/columns/{columnStatus}/tasks": {
@@ -5193,6 +5193,7 @@ export interface components {
         SprintboardTaskResponseDTO: {
             assigneeName?: string;
             assigneePhotoUrl?: string;
+            assignees?: components["schemas"]["AssigneeDTO"][];
             /** Format: int32 */
             attachmentCount?: number;
             blocked?: boolean;
@@ -5215,6 +5216,7 @@ export interface components {
             updatedAt?: string;
         };
         SprintcolumnDTO: {
+            color?: string;
             columnName?: string;
             columnStatus?: string;
             /** Format: int64 */
@@ -5223,6 +5225,7 @@ export interface components {
             position?: number;
         };
         SprintcolumnFullDTO: {
+            color?: string;
             columnName?: string;
             columnStatus?: string;
             /** Format: int64 */
@@ -8518,7 +8521,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": {
+                "multipart/form-data": {
                     /** Format: binary */
                     file: string;
                 };
@@ -10452,6 +10455,35 @@ export interface operations {
             };
         };
     };
+    updateColumnPut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sprintboardId: number;
+                columnId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SprintcolumnDTO"];
+                };
+            };
+        };
+    };
     deleteColumn: {
         parameters: {
             query?: never;
@@ -10470,6 +10502,35 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    updateColumn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sprintboardId: number;
+                columnId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SprintcolumnDTO"];
+                };
             };
         };
     };
