@@ -182,7 +182,27 @@ export default function BacklogTaskRow({
 
             {/* Assignee */}
             <div className="min-w-0 flex items-center">
-                {task.assigneeName ? (
+                {task.assignees && task.assignees.length > 0 ? (
+                    <div className="flex items-center" title={task.assignees.map(a => a.name).join(', ')}>
+                        {task.assignees.slice(0, 3).map((a, idx) => (
+                            <span
+                                key={a.id}
+                                className="inline-block ring-2 ring-cu-bg rounded-full"
+                                style={{ marginLeft: idx === 0 ? 0 : -6, zIndex: task.assignees!.length - idx }}
+                            >
+                                <AssigneeAvatar name={a.name} profilePicUrl={a.avatar} size={22} />
+                            </span>
+                        ))}
+                        {task.assignees.length > 3 && (
+                            <span
+                                className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-full bg-cu-bg-tertiary ring-2 ring-cu-bg text-[9px] font-bold text-cu-text-secondary"
+                                style={{ marginLeft: -6 }}
+                            >
+                                +{task.assignees.length - 3}
+                            </span>
+                        )}
+                    </div>
+                ) : task.assigneeName ? (
                     <AssigneeAvatar name={task.assigneeName} profilePicUrl={task.assigneePhotoUrl} size={22} />
                 ) : (
                     <span className="text-[11px] text-cu-text-muted">—</span>

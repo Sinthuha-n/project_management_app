@@ -212,7 +212,12 @@ export function useBacklogData(projectId: string | null) {
         }
         if (filterPriority.length > 0) result = result.filter(t => t.priority && filterPriority.includes(t.priority));
         if (filterStatus.length > 0) result = result.filter(t => filterStatus.includes(t.status));
-        if (filterAssignee) result = result.filter(t => t.assigneeName === filterAssignee);
+        if (filterAssignee) {
+            result = result.filter(t => 
+                (t.assignees && t.assignees.some(a => a.name === filterAssignee)) ||
+                t.assigneeName === filterAssignee
+            );
+        }
         if (filterLabel !== null) result = result.filter(t => t.labels?.some(l => l.id === filterLabel) || t.labelId === filterLabel);
         if (filterDateRange.startDate || filterDateRange.endDate) {
             result = result.filter(t => {

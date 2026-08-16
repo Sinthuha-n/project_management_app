@@ -60,6 +60,9 @@ public class Project {
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true) // JPA: one project has many tasks; cascade and orphan cleanup are enabled.
     private List<Task> tasks = new ArrayList<>();
 
+    @Column(name = "figma_url", length = 1000)
+    private String figmaUrl;
+
     @Override // Java override: custom equality based on entity id.
     public boolean equals(Object o) {
         if (this == o) return true;

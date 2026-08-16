@@ -11,6 +11,8 @@ type ProjectContextCache = {
   isFavorite: boolean;
   type: string;
   name: string;
+  figmaUrl?: string | null;
+  ownerId?: number | null;
 };
 
 const fetchProject = (url: string) => api.get(url).then((response) => response.data);
@@ -67,6 +69,8 @@ export function useProjectContext() {
 
   const [isFavorite, setIsFavorite] = useState(false);
   const [projectType, setProjectType] = useState<string | null>(storedProjectType);
+  const [figmaUrl, setFigmaUrl] = useState<string | null>(null);
+  const [projectOwnerId, setProjectOwnerId] = useState<number | null>(null);
 
   const projectId = useMemo(() => {
     const queryProjectId = searchParams.get('projectId');
@@ -127,6 +131,8 @@ export function useProjectContext() {
     startTransition(() => {
       setIsFavorite(isFav);
       setProjectType(resolvedProjectType);
+      setFigmaUrl(projectData?.figmaUrl ?? null);
+      setProjectOwnerId(typeof projectData?.ownerId === 'number' ? projectData.ownerId : null);
     });
     setScopedProjectValue('currentProjectType', resolvedProjectType);
 
@@ -140,6 +146,8 @@ export function useProjectContext() {
         isFavorite: isFav,
         type: resolvedProjectType,
         name: projectData.name,
+        figmaUrl: projectData?.figmaUrl ?? null,
+        ownerId: typeof projectData?.ownerId === 'number' ? projectData.ownerId : null,
       }, 10 * 60_000);
     }
   }, [projectData, projectCacheKey]);
@@ -169,6 +177,8 @@ export function useProjectContext() {
     projectType: effectiveProjectType,
     isAgile,
     isFavorite,
+    figmaUrl,
+    projectOwnerId,
     toggleFavorite,
     switchProject
   };

@@ -142,6 +142,7 @@ export interface TaskItem {
   selected: boolean;
   assigneeName?: string;
   assigneePhotoUrl?: string | null;
+  assignees?: Assignee[];
   sprintId?: number | null;
   status?: string;
   startDate?: string;

@@ -150,9 +150,38 @@ export default function DesktopTaskRow(props: TaskRowProps) {
       </div>
 
       {/* Assignee */}
-      <div className="flex-shrink-0 w-[36px] flex items-center justify-center relative" ref={assignRef} onClick={(e) => e.stopPropagation()}>
-        <button type="button" title={task.assigneeName || 'Assign'} onClick={() => openAssign()} className="flex items-center justify-center">
-          {task.assigneeName && task.assigneeName !== 'Unassigned' ? (
+      <div className="flex-shrink-0 w-[52px] flex items-center justify-center relative" ref={assignRef} onClick={(e) => e.stopPropagation()}>
+        <button type="button"
+          title={
+            task.assignees && task.assignees.length > 0
+              ? task.assignees.map((a) => a.name).join(', ')
+              : (task.assigneeName || 'Assign')
+          }
+          onClick={() => openAssign()}
+          className="flex items-center"
+        >
+          {task.assignees && task.assignees.length > 0 ? (
+            // Multi-assignee avatar stack
+            <div className="flex items-center">
+              {task.assignees.slice(0, 3).map((a, idx) => (
+                <span
+                  key={a.id}
+                  className="inline-block ring-2 ring-cu-bg rounded-full"
+                  style={{ marginLeft: idx === 0 ? 0 : -6, zIndex: task.assignees!.length - idx }}
+                >
+                  <AssigneeAvatar name={a.name} profilePicUrl={a.avatar} size={20} />
+                </span>
+              ))}
+              {task.assignees.length > 3 && (
+                <span
+                  className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-cu-bg-tertiary ring-2 ring-cu-bg text-[9px] font-bold text-cu-text-secondary"
+                  style={{ marginLeft: -6 }}
+                >
+                  +{task.assignees.length - 3}
+                </span>
+              )}
+            </div>
+          ) : task.assigneeName && task.assigneeName !== 'Unassigned' ? (
             <AssigneeAvatar name={task.assigneeName} profilePicUrl={task.assigneePhotoUrl} size={22} />
           ) : (
             <div className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-dashed border-cu-border hover:border-cu-primary transition-colors">
@@ -183,6 +212,7 @@ export default function DesktopTaskRow(props: TaskRowProps) {
           document.body
         )}
       </div>
+
 
       {/* Status dropdown */}
       {!hideStatus && (
