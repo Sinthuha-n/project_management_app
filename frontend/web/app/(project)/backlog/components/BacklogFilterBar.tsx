@@ -184,7 +184,7 @@ export default function BacklogFilterBar({
                                         <ChevronDown size={12} className="text-cu-text-muted" />
                                     </button>
                                     {assigneeFilterOpen && (
-                                        <div className="absolute top-full left-0 mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-cu-lg z-50 min-w-full max-h-48 overflow-y-auto py-1">
+                                        <div className="absolute top-full left-0 mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-cu-lg z-[var(--cu-z-modal-popover)] min-w-full max-h-80 overflow-y-auto py-1">
                                             <button
                                                 type="button"
                                                 onClick={() => { setFilterAssignee(''); setAssigneeFilterOpen(false); }}

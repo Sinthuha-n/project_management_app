@@ -9,7 +9,7 @@ import {
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
 import { type CreateTaskData } from '@/components/shared/CreateTaskModal';
 import { toast } from '@/components/ui';
-import { normalizeTaskPriority } from '@/services/tasks-contract';
+import { normalizeTaskPriority, tasksApi } from '@/services/tasks-contract';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 import { useTaskMutations } from '@/hooks/useTaskMutations';
 import { useProjectTasks } from '@/hooks/useProjectTasks';
@@ -178,6 +178,37 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         }
     }, [tasks, forceRefresh, taskMutations]);
 
+    const handleAssigneeChange = useCallback(async (id: number, assigneeId: number | null) => {
+        const task = tasks.find(t => t.id === id);
+        if (!task) return;
+        const selectedMember = assigneeId != null
+            ? teamMembers.find(member => member.id === assigneeId)
+            : null;
+        const optimisticPatch: Partial<CanonicalTask> = selectedMember
+            ? {
+                assigneeId: selectedMember.memberId ?? selectedMember.id,
+                assigneeName: selectedMember.name,
+                assigneePhotoUrl: selectedMember.photoUrl ?? undefined,
+            }
+            : {
+                assigneeId: undefined,
+                assigneeName: undefined,
+                assigneePhotoUrl: undefined,
+            };
+
+        try {
+            await taskMutations.move(
+                id,
+                optimisticPatch,
+                () => tasksApi.update(id, { title: task.title, assigneeId }),
+                task as unknown as CanonicalTask,
+            );
+        } catch {
+            toast('Failed to update assignee', 'error');
+            void forceRefresh();
+        }
+    }, [forceRefresh, taskMutations, tasks, teamMembers]);
+
     const handleArchiveTask = useCallback(async (id: number) => {
         const archivedTask = tasks.find(t => t.id === id);
         if (!archivedTask) return;
@@ -296,7 +327,7 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         selectedIds, setSelectedIds,
         filteredTasks, groupedTasks,
         handleMarkDone, handleDelete, handleAddTask,
-        handleStatusChange, handleBulkDelete, handleBulkDone,
+        handleStatusChange, handleAssigneeChange, handleBulkDelete, handleBulkDone,
         handleArchiveTask, handleUnarchiveTask,
         toggleSelect, loadTasks: forceRefresh, handleDateChange, forceRefresh,
     };

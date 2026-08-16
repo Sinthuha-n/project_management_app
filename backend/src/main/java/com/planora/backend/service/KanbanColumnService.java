@@ -3,11 +3,16 @@ package com.planora.backend.service;
 
 import com.planora.backend.dto.KanbanColumnRequestDTO;
 import com.planora.backend.dto.KanbanColumnSettingsDTO;
+import com.planora.backend.exception.BadRequestException;
+import com.planora.backend.exception.ForbiddenException;
+import com.planora.backend.exception.ResourceNotFoundException;
 import com.planora.backend.model.Kanban;
 import com.planora.backend.model.KanbanColumn;
+import com.planora.backend.model.Project;
 import com.planora.backend.repository.KanbanColumnRepository;
 import com.planora.backend.repository.KanbanRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.planora.backend.repository.ProjectRepository;
+import com.planora.backend.repository.TaskRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +30,10 @@ public class KanbanColumnService {
     private final KanbanColumnRepository kanbanColumnRepository;
 
     private final KanbanRepository kanbanRepository;
+
+    private final ProjectRepository projectRepository;
+
+    private final TaskRepository taskRepository;
 
     //Creates a new column and automatically generates a logic-friendly 'status' key.
     public KanbanColumn createKanbanColumn(KanbanColumnRequestDTO dto) {
@@ -62,8 +71,37 @@ public class KanbanColumnService {
         throw new RuntimeException("KanbanColumn not found");
     }
 
-    public void deleteKanbanColumn(Long id) {
-        kanbanColumnRepository.deleteById(id);
+    @Transactional
+    public void deleteKanbanColumn(Long id, Long currentUserId) {
+        KanbanColumn column = kanbanColumnRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("KanbanColumn not found"));
+
+        Kanban kanban = column.getKanban();
+        if (kanban == null || kanban.getProjectId() == null) {
+            throw new ResourceNotFoundException("Kanban project not found");
+        }
+
+        Project project = projectRepository.findById(kanban.getProjectId())
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+
+        Long ownerId = project.getOwner() != null ? project.getOwner().getUserId() : null;
+        if (currentUserId == null || ownerId == null || !ownerId.equals(currentUserId)) {
+            throw new ForbiddenException("Only the project owner can delete board columns");
+        }
+
+        long taskCount = taskRepository.countByKanbanColumnId(id);
+        if (taskCount > 0) {
+            throw new BadRequestException("Move all tasks out of this column before deleting it");
+        }
+
+        Long kanbanId = kanban.getId();
+        kanbanColumnRepository.delete(column);
+
+        List<KanbanColumn> remainingColumns = kanbanColumnRepository.findByKanbanIdOrderByPosition(kanbanId);
+        for (int index = 0; index < remainingColumns.size(); index++) {
+            remainingColumns.get(index).setPosition(index);
+        }
+        kanbanColumnRepository.saveAll(remainingColumns);
     }
 
     @Transactional
@@ -94,6 +132,5 @@ public class KanbanColumnService {
         return kanbanColumnRepository.save(column);
     }
 }
-
 
 

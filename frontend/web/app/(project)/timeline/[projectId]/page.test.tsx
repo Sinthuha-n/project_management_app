@@ -1,8 +1,9 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import TimelinePage from './page';
 import { createTask, fetchTasksByProject } from '../../kanban/api';
-import { tasksApi } from '@/services/api-contract';
 import { getMilestones } from '@/services/milestone-service';
+import { useProjectTasks } from '@/hooks/useProjectTasks';
+import { useTaskMutations } from '@/hooks/useTaskMutations';
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ projectId: '42' }),
@@ -28,10 +29,12 @@ jest.mock('@/hooks/useTaskWebSocket', () => ({
   useTaskWebSocket: jest.fn(),
 }));
 
-jest.mock('@/lib/session-cache', () => ({
-  buildSessionCacheKey: jest.fn(() => 'timeline-cache-key'),
-  getSessionCache: jest.fn(() => ({ data: null, isStale: false })),
-  setSessionCache: jest.fn(),
+jest.mock('@/hooks/useProjectTasks', () => ({
+  useProjectTasks: jest.fn(),
+}));
+
+jest.mock('@/hooks/useTaskMutations', () => ({
+  useTaskMutations: jest.fn(),
 }));
 
 jest.mock('../../kanban/components/TimelineView', () => ({
@@ -74,8 +77,11 @@ jest.mock('@/components/shared/CreateTaskModal', () => ({
 
 const mockedFetchTasksByProject = fetchTasksByProject as jest.Mock;
 const mockedCreateTask = createTask as jest.Mock;
-const mockedTasksApi = tasksApi as unknown as { get: jest.Mock };
 const mockedGetMilestones = getMilestones as jest.Mock;
+const mockedUseProjectTasks = useProjectTasks as jest.Mock;
+const mockedUseTaskMutations = useTaskMutations as jest.Mock;
+const mockedRevalidate = jest.fn();
+const mockedTaskCreate = jest.fn();
 
 const initialTasks = [
   { id: 1, title: 'Original task', status: 'TODO', projectId: 42 },
@@ -86,58 +92,42 @@ describe('TimelinePage incremental task updates', () => {
     jest.clearAllMocks();
     mockedFetchTasksByProject.mockResolvedValue(initialTasks);
     mockedGetMilestones.mockResolvedValue([]);
+    mockedUseProjectTasks.mockReturnValue({
+      tasks: initialTasks,
+      loading: false,
+      error: null,
+      revalidate: mockedRevalidate,
+    });
+    mockedTaskCreate.mockImplementation((payload, request) => ({
+      optimisticTask: { id: -1, ...payload },
+      completion: request(payload),
+    }));
+    mockedUseTaskMutations.mockReturnValue({
+      create: mockedTaskCreate,
+    });
+  });
+
+  it('renders the canonical project task collection used by backlog and board', async () => {
+    render(<TimelinePage />);
+
+    expect(await screen.findByText('Original task')).toBeInTheDocument();
+    expect(mockedUseProjectTasks).toHaveBeenCalledWith('42', false);
+    expect(mockedFetchTasksByProject).not.toHaveBeenCalled();
   });
 
   it('does not refetch the full task list when a modified task modal closes', async () => {
     render(<TimelinePage />);
 
     await screen.findByText('Open first task');
-    expect(mockedFetchTasksByProject).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByText('Open first task'));
     fireEvent.click(screen.getByText('Close modified task'));
 
     expect(screen.queryByTestId('task-modal')).not.toBeInTheDocument();
-    expect(mockedFetchTasksByProject).toHaveBeenCalledTimes(1);
+    expect(mockedFetchTasksByProject).not.toHaveBeenCalled();
   });
 
-  it('merges task details from planora:task-updated without refetching all tasks', async () => {
-    render(<TimelinePage />);
-
-    await screen.findByText('Open first task');
-
-    act(() => {
-      window.dispatchEvent(new CustomEvent('planora:task-updated', {
-        detail: {
-          taskId: 1,
-          task: { id: 1, title: 'Updated task', status: 'IN_PROGRESS', projectId: 42 },
-        },
-      }));
-    });
-
-    expect(await screen.findByText('Updated task')).toBeInTheDocument();
-    expect(mockedFetchTasksByProject).toHaveBeenCalledTimes(1);
-  });
-
-  it('fetches only one task when a task update event has only a task id', async () => {
-    mockedTasksApi.get.mockResolvedValue({ id: 1, title: 'Fetched one task', status: 'DONE', projectId: 42 });
-
-    render(<TimelinePage />);
-
-    await screen.findByText('Open first task');
-
-    await act(async () => {
-      window.dispatchEvent(new CustomEvent('planora:task-updated', {
-        detail: { taskId: 1 },
-      }));
-    });
-
-    await waitFor(() => expect(mockedTasksApi.get).toHaveBeenCalledWith(1));
-    expect(await screen.findByText('Fetched one task')).toBeInTheDocument();
-    expect(mockedFetchTasksByProject).toHaveBeenCalledTimes(1);
-  });
-
-  it('appends a created task without refetching the full task list', async () => {
+  it('creates through the shared task mutation coordinator', async () => {
     mockedCreateTask.mockResolvedValue({ id: 2, title: 'New task', status: 'TODO', projectId: 42 });
 
     render(<TimelinePage />);
@@ -146,8 +136,11 @@ describe('TimelinePage incremental task updates', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create task' }));
     fireEvent.click(screen.getByText('Submit new task'));
 
-    expect(await screen.findByText('Original task,New task')).toBeInTheDocument();
+    expect(mockedTaskCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: 42, title: 'New task', status: 'TODO' }),
+      expect.any(Function),
+    );
     expect(mockedCreateTask).toHaveBeenCalledTimes(1);
-    expect(mockedFetchTasksByProject).toHaveBeenCalledTimes(1);
+    expect(mockedFetchTasksByProject).not.toHaveBeenCalled();
   });
 });

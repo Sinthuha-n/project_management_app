@@ -22,6 +22,8 @@ export interface TimelineFilters {
   search: string;
   assignee: string;
   milestone: string;
+  schedule: '' | 'scheduled' | 'unscheduled';
+  focus: '' | 'blocked' | 'overdue' | 'due-week' | 'past-milestone';
   hideWeekends: boolean;
   showDone: boolean;
 }
@@ -65,7 +67,12 @@ export const ZOOM_WIDTHS: Record<TimelineZoom, number> = {
 
 export function safeParseDate(value?: string | null) {
   if (!value) return null;
-  const parsed = parseISO(value.length === 10 ? `${value}T00:00:00` : value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    const parsedDateOnly = new Date(year, month - 1, day);
+    return isValid(parsedDateOnly) ? startOfDay(parsedDateOnly) : null;
+  }
+  const parsed = parseISO(value);
   if (!isValid(parsed)) return null;
   return startOfDay(parsed);
 }
@@ -80,19 +87,14 @@ export function statusLabel(status?: string | null) {
 }
 
 export function taskHasSchedule(task: Task) {
-  return Boolean(safeParseDate(task.startDate) || safeParseDate(task.dueDate));
+  return Boolean(getTaskSchedule(task));
 }
 
 export function getTaskSchedule(task: Task) {
-  const start = safeParseDate(task.startDate);
   const due = safeParseDate(task.dueDate);
-  if (!start && !due) return null;
-  const first = start ?? due!;
-  const last = due ?? start!;
-  return {
-    start: first <= last ? first : last,
-    due: first <= last ? last : first,
-  };
+  const start = safeParseDate(task.startDate) ?? (due ? safeParseDate(task.createdAt) : null);
+  if (!start || !due || due < start) return null;
+  return { start, due };
 }
 
 export function isTaskBlocked(task: Task) {
@@ -140,10 +142,17 @@ export function getTimelineInsights(tasks: Task[], milestones: Milestone[], toda
   });
 }
 
-export function filterTimelineTasks(tasks: Task[], filters: TimelineFilters) {
+export function filterTimelineTasks(tasks: Task[], filters: TimelineFilters, milestones: Milestone[] = [], today = startOfDay(new Date())) {
   const query = filters.search.trim().toLowerCase();
   return tasks.filter((task) => {
+    const schedule = getTaskSchedule(task);
     if (!filters.showDone && isDoneStatus(task.status)) return false;
+    if (filters.schedule === 'scheduled' && !schedule) return false;
+    if (filters.schedule === 'unscheduled' && schedule) return false;
+    if (filters.focus === 'blocked' && !isTaskBlocked(task)) return false;
+    if (filters.focus === 'overdue' && !isTaskOverdue(task, today)) return false;
+    if (filters.focus === 'due-week' && !isTaskDueThisWeek(task, today)) return false;
+    if (filters.focus === 'past-milestone' && !isTaskPastMilestone(task, milestones)) return false;
     if (filters.assignee && (task.assigneeName || 'Unassigned') !== filters.assignee) return false;
     if (filters.milestone === '__none__' && task.milestoneId != null) return false;
     if (filters.milestone && filters.milestone !== '__none__' && String(task.milestoneId ?? '') !== filters.milestone) return false;
@@ -223,44 +232,55 @@ export function buildTimelineTasks(
   visibleDays: Date[],
   dayColumnWidth: number,
   milestones: Milestone[],
-  activeDrag?: { taskId: number; type: 'move' | 'resize' } | null,
+  activeDrag?: { taskId: number; type: 'move' | 'resize-left' | 'resize-right' } | null,
   dragOffset = 0,
   today = startOfDay(new Date()),
 ) {
+  if (visibleDays.length === 0) return [];
+
   const dayIndexMap = new Map<string, number>();
   visibleDays.forEach((day, index) => dayIndexMap.set(format(day, 'yyyy-MM-dd'), index));
+  const firstVisibleDay = visibleDays[0];
+  const lastVisibleDay = visibleDays[visibleDays.length - 1];
 
   return tasks
     .map((task) => {
       const schedule = getTaskSchedule(task);
       if (!schedule) return null;
+      if (schedule.due < firstVisibleDay || schedule.start > lastVisibleDay) return null;
 
-      const startKey = format(schedule.start, 'yyyy-MM-dd');
-      const dueKey = format(schedule.due, 'yyyy-MM-dd');
-      let startIndex = dayIndexMap.get(startKey) ?? 0;
-      let endIndex = dayIndexMap.get(dueKey) ?? startIndex;
+      const clippedStart = schedule.start < firstVisibleDay ? firstVisibleDay : schedule.start;
+      const clippedDue = schedule.due > lastVisibleDay ? lastVisibleDay : schedule.due;
+      const startKey = format(clippedStart, 'yyyy-MM-dd');
+      const dueKey = format(clippedDue, 'yyyy-MM-dd');
+      let startIndex = dayIndexMap.get(startKey);
+      let endIndex = dayIndexMap.get(dueKey);
 
-      if (!dayIndexMap.has(startKey)) {
-        const nextVisible = visibleDays.findIndex((day) => day >= schedule.start);
-        startIndex = nextVisible >= 0 ? nextVisible : 0;
+      if (startIndex == null) {
+        const nextVisible = visibleDays.findIndex((day) => day >= clippedStart);
+        startIndex = nextVisible >= 0 ? nextVisible : undefined;
       }
-      if (!dayIndexMap.has(dueKey)) {
-        let previousVisible = -1;
+      if (endIndex == null) {
         for (let index = visibleDays.length - 1; index >= 0; index -= 1) {
-          if (visibleDays[index] <= schedule.due) {
-            previousVisible = index;
+          if (visibleDays[index] <= clippedDue) {
+            endIndex = index;
             break;
           }
         }
-        endIndex = previousVisible >= 0 ? previousVisible : startIndex;
       }
+      if (startIndex == null || endIndex == null || endIndex < startIndex) return null;
 
       const duration = Math.max(endIndex - startIndex + 1, 1);
       let previewStart = startIndex;
       let previewDuration = duration;
       if (activeDrag?.taskId === task.id && dragOffset !== 0) {
         if (activeDrag.type === 'move') previewStart = startIndex + dragOffset;
-        else previewDuration = Math.max(duration + dragOffset, 1);
+        else if (activeDrag.type === 'resize-right') previewDuration = Math.max(duration + dragOffset, 1);
+        else {
+          const nextStart = startIndex + dragOffset;
+          previewStart = Math.min(nextStart, endIndex);
+          previewDuration = Math.max(endIndex - previewStart + 1, 1);
+        }
       }
 
       return {
