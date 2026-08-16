@@ -133,6 +133,7 @@ export default function RecentSpacesCarousel({ projects, loading, searchQuery }:
                 {/* Final "View All" card */}
                 <Link
                     href="/spaces"
+                    prefetch={false}
                     className="group flex flex-col justify-center items-center min-w-[200px] h-[160px] bg-cu-bg-secondary/50 hover:bg-cu-bg rounded-2xl border border-dashed border-cu-border hover:border-cu-primary/30 hover:shadow-[0_8px_24px_rgba(0,82,204,0.08)] cursor-pointer transition-all duration-300 hover:-translate-y-[2px] shrink-0"
                 >
                     <div className="w-10 h-10 rounded-full bg-cu-bg flex items-center justify-center shadow-cu-sm border border-cu-border mb-3 group-hover:bg-cu-primary group-hover:border-transparent transition-all duration-300 group-hover:scale-110">

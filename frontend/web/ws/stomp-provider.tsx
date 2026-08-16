@@ -165,8 +165,9 @@ export function StompProvider({ token, children }: StompProviderProps) {
                 scheduleReconnect(500);
                 return;
               }
-              reconnectAttemptRef.current += 1;
-              scheduleReconnect();
+              // If token refresh failed, stop reconnecting until valid session is established
+              clearReconnectTimer();
+              setRealtimeError('Session expired. Please sign in again.');
               return;
             }
 
@@ -191,9 +192,13 @@ export function StompProvider({ token, children }: StompProviderProps) {
       setConnected(false);
       setClientState(null);
       if (existing?.connected) {
-        existing.disconnect(() => {
+        try {
+          existing.disconnect(() => {
+            connectClient();
+          });
+        } catch {
           connectClient();
-        });
+        }
         return;
       }
       connectClient();
@@ -211,7 +216,9 @@ export function StompProvider({ token, children }: StompProviderProps) {
       setClientState(null);
       const existing = clientRef.current;
       if (existing?.connected) {
-        existing.disconnect();
+        try {
+          existing.disconnect();
+        } catch { /* ignore clean close */ }
       }
       clientRef.current = null;
     };
@@ -220,7 +227,11 @@ export function StompProvider({ token, children }: StompProviderProps) {
   const subscribe = useCallback(
     (destination: string, callback: (message: IMessage) => void) => {
       if (!clientRef.current?.connected) return null;
-      return clientRef.current.subscribe(destination, callback);
+      try {
+        return clientRef.current.subscribe(destination, callback);
+      } catch {
+        return null;
+      }
     },
     [],
   );
@@ -228,7 +239,11 @@ export function StompProvider({ token, children }: StompProviderProps) {
   const send = useCallback(
     (destination: string, body: string) => {
       if (!clientRef.current?.connected) return;
-      clientRef.current.send(destination, {}, body);
+      try {
+        clientRef.current.send(destination, {}, body);
+      } catch {
+        // Guard against writing to closing/closed sockets
+      }
     },
     [],
   );

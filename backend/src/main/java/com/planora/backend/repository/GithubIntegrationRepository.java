@@ -14,6 +14,8 @@ public interface GithubIntegrationRepository extends JpaRepository<GithubIntegra
 
     Optional<GithubIntegration> findByIdAndProjectId(Long id, Long projectId);
 
+    Optional<GithubIntegration> findByProjectIdAndRepositoryFullName(Long projectId, String repositoryFullName);
+
     boolean existsByProjectIdAndRepositoryFullName(Long projectId, String repositoryFullName);
 
     List<GithubIntegration> findAllByActiveTrue();

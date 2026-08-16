@@ -501,32 +501,60 @@ export async function fetchProjectGitHubConnection(
   return activeRepository ? backendRepositoryToProjectConnection(activeRepository) : null;
 }
 
+const inFlightLinkOperations = new Map<string, Promise<ProjectGitHubConnection>>();
+
 export async function persistProjectGitHubConnection(
   projectId: string | number,
   repoFullName: string,
 ): Promise<ProjectGitHubConnection> {
   const numericProjectId = Number(projectId);
+  const normalizedRepo = repoFullName.trim().toLowerCase();
+  const key = `${numericProjectId}:${normalizedRepo}`;
+
+  const existingInFlight = inFlightLinkOperations.get(key);
+  if (existingInFlight) {
+    return existingInFlight;
+  }
+
+  const operation = (async () => {
+    try {
+      // Check if already linked to avoid unnecessary 409 Conflict requests
+      const linkedRepositories = await getLinkedRepositories(numericProjectId).catch(() => []);
+      const existingRepository = linkedRepositories.find(
+        (repository) => repository.repositoryFullName.toLowerCase() === normalizedRepo,
+      );
+      if (existingRepository) {
+        return backendRepositoryToProjectConnection(existingRepository);
+      }
+
+      const linkedRepository = await linkRepository({
+        projectId: numericProjectId,
+        repositoryFullName: repoFullName,
+      });
+      return backendRepositoryToProjectConnection(linkedRepository);
+    } catch (error) {
+      if (getApiErrorStatus(error) !== 409) {
+        throw error;
+      }
+
+      const linkedRepositories = await getLinkedRepositories(numericProjectId);
+      const existingRepository = linkedRepositories.find(
+        (repository) => repository.repositoryFullName.toLowerCase() === normalizedRepo,
+      );
+
+      if (!existingRepository) {
+        throw error;
+      }
+
+      return backendRepositoryToProjectConnection(existingRepository);
+    }
+  })();
+
+  inFlightLinkOperations.set(key, operation);
   try {
-    const linkedRepository = await linkRepository({
-      projectId: numericProjectId,
-      repositoryFullName: repoFullName,
-    });
-    return backendRepositoryToProjectConnection(linkedRepository);
-  } catch (error) {
-    if (getApiErrorStatus(error) !== 409) {
-      throw error;
-    }
-
-    const linkedRepositories = await getLinkedRepositories(numericProjectId);
-    const existingRepository = linkedRepositories.find(
-      (repository) => repository.repositoryFullName.toLowerCase() === repoFullName.toLowerCase(),
-    );
-
-    if (!existingRepository) {
-      throw error;
-    }
-
-    return backendRepositoryToProjectConnection(existingRepository);
+    return await operation;
+  } finally {
+    inFlightLinkOperations.delete(key);
   }
 }
 

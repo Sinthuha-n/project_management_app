@@ -12,7 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.planora.backend.controller.ProjectMemberController;
 import com.planora.backend.dto.ProjectInviteRequest;
+import com.planora.backend.exception.BadRequestException;
+import com.planora.backend.exception.ConflictException;
 import com.planora.backend.exception.InvitationExpiredException;
+import com.planora.backend.exception.ResourceNotFoundException;
 import com.planora.backend.model.Project;
 import com.planora.backend.model.TeamInvitation;
 import com.planora.backend.model.TeamMember;
@@ -46,7 +49,7 @@ public class ProjectInvitationService {
     @Transactional
     public void inviteToProject(Long projectId, ProjectInviteRequest request, Long inviterUserId) {
         if (request == null) {
-            throw new RuntimeException("Invite request is required");
+            throw new BadRequestException("Invite request is required");
         }
 
         String inviteeEmail = request.getEmail().trim().toLowerCase();
@@ -54,7 +57,7 @@ public class ProjectInvitationService {
         String roleStr = inviteRole.name();
 
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Project not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
 
         Long teamId = project.getTeam().getId();
         Long projectOwnerUserId = project.getOwner().getUserId();
@@ -73,7 +76,7 @@ public class ProjectInvitationService {
         userRepository.findFirstByEmailIgnoreCase(inviteeEmail).ifPresent(existingUser -> {
             teamMemberRepository.findByTeamIdAndUserUserId(teamId, existingUser.getUserId())
                     .ifPresent(member -> {
-                        throw new RuntimeException("This user is already a member of the project.");
+                        throw new ConflictException("This user is already a member of the project.");
                     });
         });
 
@@ -82,12 +85,12 @@ public class ProjectInvitationService {
         for (TeamInvitation existing : existingInvitations) {
             if ((existing.getStatus() == null || existing.getStatus().equalsIgnoreCase("PENDING")) &&
                     (existing.getExpiresAt() == null || existing.getExpiresAt().isAfter(LocalDateTime.now()))) {
-                throw new RuntimeException("Invitation already sent to this email");
+                throw new ConflictException("Invitation already sent to this email");
             }
         }
 
         User inviter = userRepository.findById(inviterUserId)
-                .orElseThrow(() -> new RuntimeException("Inviter not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Inviter not found"));
 
         // Save invitation (token generated even though we are not sending link yet)
         TeamInvitation invitation = new TeamInvitation();
@@ -115,11 +118,11 @@ public class ProjectInvitationService {
     @Transactional(noRollbackFor = InvitationExpiredException.class)
     public void acceptInvitation(String token, Long userId) {
         if (token == null || token.isBlank()) {
-            throw new RuntimeException("Invalid invitation token");
+            throw new BadRequestException("Invalid invitation token");
         }
 
         TeamInvitation invitation = teamInvitationRepository.findByTokenWithLock(token)
-                .orElseThrow(() -> new RuntimeException("Invitation not found or invalid"));
+                .orElseThrow(() -> new ResourceNotFoundException("Invitation not found or invalid"));
 
         Project project = invitation.getTeam().getProjects().stream().findFirst().orElse(null);
         Long projectOwnerUserId = (project != null && project.getOwner() != null)
@@ -137,12 +140,12 @@ public class ProjectInvitationService {
         }
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         // Only allow if email matches (optional safety check, but user could have
         // signed up with this email)
         if (!user.getEmail().equalsIgnoreCase(invitation.getEmail())) {
-            throw new RuntimeException("This invitation was sent to a different email address");
+            throw new BadRequestException("This invitation was sent to a different email address");
         }
 
         // Accept can be submitted twice from the UI. The invitation row lock above

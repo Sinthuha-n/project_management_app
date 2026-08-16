@@ -133,7 +133,11 @@ describe('useProfile', () => {
             await result.current.onUploadPhoto(event);
         });
 
-        expect(mockedApi.post).toHaveBeenCalledWith('/api/user/profile/photo', expect.any(FormData));
+        expect(mockedApi.post).toHaveBeenCalledWith('/api/user/profile/photo', expect.any(FormData), {
+            headers: {
+                'Content-Type': undefined,
+            },
+        });
         expect(result.current.resolvedProfilePicUrl).toBe('/uploads/new-avatar.png');
         expect((event.target as HTMLInputElement).value).toBe('');
     });

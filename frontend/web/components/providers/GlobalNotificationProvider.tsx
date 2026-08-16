@@ -6,7 +6,7 @@ import { Client, IMessage } from '@stomp/stompjs';
 import * as notificationsApi from '@/services/notifications-service';
 import { Notification } from '@/services/notifications-service';
 import { toast } from '@/components/ui/Toast';
-import { AUTH_TOKEN_CHANGED_EVENT, ensureValidToken, getValidToken } from '@/lib/auth';
+import { AUTH_TOKEN_CHANGED_EVENT, ensureValidToken, getRefreshToken, getValidToken } from '@/lib/auth';
 import { resolveWebSocketBaseUrlDetails } from '@/lib/realtime-url';
 import { getApiBaseUrl } from '@/lib/api-base-url';
 import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
@@ -211,7 +211,9 @@ export function GlobalNotificationProvider({ children }: { children: React.React
     try {
       const resolution = resolveWebSocketBaseUrlDetails(backendUrl);
       wsUrl = resolution.url;
-      console.info(`[realtime-ws] Connecting to ${wsUrl}/ws-native via ${resolution.source}.`);
+      if (reconnectAttemptRef.current <= 1) {
+        console.info(`[realtime-ws] Connecting to ${wsUrl}/ws-native via ${resolution.source}.`);
+      }
     } catch (error) {
       isConnectingRef.current = false;
       setRealtimeConnected(false);
@@ -280,18 +282,25 @@ export function GlobalNotificationProvider({ children }: { children: React.React
       },
       onStompError: async (frame) => {
         const errorMsg = frame.headers?.message || frame.body || 'Unknown STOMP error';
-        console.warn('[realtime-ws] STOMP error:', errorMsg);
+        if (reconnectAttemptRef.current <= 1) {
+          console.warn('[realtime-ws] STOMP error:', errorMsg);
+        }
 
         const isAuthError = /jwt|token|expired|unauthorized|forbidden/i.test(errorMsg);
         if (isAuthError) {
+          intentionallyClosingClientRef.current = client;
+          try {
+            client.deactivate();
+          } catch { /* ignore clean close */ }
+          stompClientRef.current = null;
+          setClientState(null);
           const refreshedToken = await ensureValidToken();
           if (refreshedToken) {
             handleConnectionLost(client, refreshedToken);
-            return;
           } else {
             disconnectClient();
-            return;
           }
+          return;
         }
 
         handleConnectionLost(client);
@@ -302,11 +311,19 @@ export function GlobalNotificationProvider({ children }: { children: React.React
           return;
         }
 
-        console.warn('[realtime-ws] WebSocket closed:', {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean,
-        });
+        if (reconnectAttemptRef.current <= 1) {
+          console.warn('[realtime-ws] WebSocket closed:', {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean,
+          });
+        }
+
+        if (!getValidToken() && !getRefreshToken()) {
+          disconnectClient();
+          return;
+        }
+
         handleConnectionLost(client);
       },
     });
@@ -322,7 +339,7 @@ export function GlobalNotificationProvider({ children }: { children: React.React
     }
 
     const tokenCandidate = freshToken || getValidToken();
-    if (!tokenCandidate) {
+    if (!tokenCandidate && !getRefreshToken()) {
       disconnectClient();
       return;
     }
