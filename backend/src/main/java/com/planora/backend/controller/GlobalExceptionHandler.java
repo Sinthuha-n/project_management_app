@@ -198,6 +198,41 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found", request);
     }
 
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleMaxUploadSizeExceeded(
+            org.springframework.web.multipart.MaxUploadSizeExceededException ex,
+            HttpServletRequest request) {
+        return buildError(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE", "Uploaded file exceeds the maximum permitted size", request);
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
+    public ResponseEntity<ApiErrorResponse> handleMissingServletRequestPart(
+            org.springframework.web.multipart.support.MissingServletRequestPartException ex,
+            HttpServletRequest request) {
+        return buildError(HttpStatus.BAD_REQUEST, "BAD_REQUEST", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiErrorResponse> handleMissingServletRequestParameter(
+            org.springframework.web.bind.MissingServletRequestParameterException ex,
+            HttpServletRequest request) {
+        return buildError(HttpStatus.BAD_REQUEST, "BAD_REQUEST", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MultipartException.class)
+    public ResponseEntity<ApiErrorResponse> handleMultipart(
+            org.springframework.web.multipart.MultipartException ex,
+            HttpServletRequest request) {
+        return buildError(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Failed to process multipart upload request", request);
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleHttpMediaTypeNotSupported(
+            org.springframework.web.HttpMediaTypeNotSupportedException ex,
+            HttpServletRequest request) {
+        return buildError(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_MEDIA_TYPE", ex.getMessage(), request);
+    }
+
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ApiErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex,
             HttpServletRequest request) {
