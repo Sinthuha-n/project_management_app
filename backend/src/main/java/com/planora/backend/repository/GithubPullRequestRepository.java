@@ -27,15 +27,15 @@ public interface GithubPullRequestRepository extends JpaRepository<GithubPullReq
 
     long countByIntegrationIdInAndState(List<Long> integrationIds, String state);
 
-    @Query("SELECT p FROM GithubPullRequest p WHERE p.task.id = :taskId "
-            + "ORDER BY COALESCE(p.updatedAt, p.createdAt) DESC")
+    @Query("SELECT p FROM GithubPullRequest p WHERE (p.task.id = :taskId OR p.linkedTaskId = :taskId) "
+            + "ORDER BY COALESCE(p.githubUpdatedAt, p.githubCreatedAt, p.syncedAt) DESC")
     List<GithubPullRequest> findByTaskId(@Param("taskId") Long taskId);
 
-    @Query("SELECT p FROM GithubPullRequest p WHERE p.task.id IN :taskIds "
-            + "ORDER BY COALESCE(p.updatedAt, p.createdAt) DESC")
+    @Query("SELECT p FROM GithubPullRequest p WHERE (p.task.id IN :taskIds OR p.linkedTaskId IN :taskIds) "
+            + "ORDER BY COALESCE(p.githubUpdatedAt, p.githubCreatedAt, p.syncedAt) DESC")
     List<GithubPullRequest> findAllByTaskIds(@Param("taskIds") List<Long> taskIds);
 
     @Modifying
-    @Query("DELETE FROM GithubPullRequest p WHERE p.task.id = :taskId")
+    @Query("DELETE FROM GithubPullRequest p WHERE (p.task.id = :taskId OR p.linkedTaskId = :taskId)")
     void deleteAllByTaskId(@Param("taskId") Long taskId);
 }

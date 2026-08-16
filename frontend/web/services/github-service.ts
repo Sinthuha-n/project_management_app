@@ -267,22 +267,29 @@ export function backendPrToGitHubPullRequest(pr: BackendGithubPr): GitHubPullReq
 }
 
 export function backendCommitToGitHubCommit(commit: BackendGithubCommit): GitHubCommit {
-  const authorLogin = commit.authorName ?? 'unknown';
+  const commitLike = commit as BackendGithubCommit & {
+    author?: string;
+    committedAt?: string;
+    htmlUrl?: string;
+  };
+  const authorLogin = commit.authorName ?? commitLike.author ?? 'unknown';
+  const htmlUrl = commit.commitUrl ?? commitLike.htmlUrl ?? '';
+  const date = commit.authoredAt ?? commitLike.committedAt ?? '';
 
   return {
     sha: commit.sha,
-    html_url: commit.commitUrl ?? '',
+    html_url: htmlUrl,
     commit: {
       message: commit.message ?? '',
       author: {
         name: authorLogin,
-        date: commit.authoredAt ?? '',
+        date: date,
       },
     },
     author: {
       login: authorLogin,
       avatar_url: '',
-      html_url: '',
+      html_url: authorLogin && authorLogin !== 'unknown' ? `https://github.com/${authorLogin}` : '',
     },
   };
 }

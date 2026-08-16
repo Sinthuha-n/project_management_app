@@ -40,6 +40,9 @@ public class ProjectGithubIntegrationService {
     private final GithubTokenService githubTokenService;
     private final ProjectRepository projectRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final GithubPullRequestService pullRequestService;
+    private final GithubCommitService commitService;
+    private final GithubIssueService issueService;
 
     @Transactional
     public ProjectGithubRepositoryDTO linkRepository(GithubLinkRequestDTO request, Long userId) {
@@ -51,13 +54,17 @@ public class ProjectGithubIntegrationService {
                 request.getProjectId(), request.getRepositoryFullName());
         if (existing.isPresent()) {
             GithubIntegration integration = existing.get();
-            if (integration.isActive()) {
-                log.info("Repository '{}' already linked to project {}, returning existing integration",
-                        request.getRepositoryFullName(), request.getProjectId());
-                return toDTO(integration);
+            if (!integration.isActive()) {
+                integration.setActive(true);
+                integration = integrationRepository.save(integration);
             }
-            integration.setActive(true);
-            return toDTO(integrationRepository.save(integration));
+            project.setGithubRepoFullName(request.getRepositoryFullName());
+            projectRepository.save(project);
+
+            triggerInitialSync(integration);
+            log.info("Repository '{}' already linked to project {}, reactivated and synced",
+                    request.getRepositoryFullName(), request.getProjectId());
+            return toDTO(integration);
         }
 
         String accessToken = githubTokenService.getToken(userId);
@@ -80,8 +87,30 @@ public class ProjectGithubIntegrationService {
         integration.setActive(true);
 
         GithubIntegration saved = integrationRepository.save(integration);
+        project.setGithubRepoFullName(request.getRepositoryFullName());
+        projectRepository.save(project);
+
         log.info("Linked GitHub repo '{}' to project {}", request.getRepositoryFullName(), request.getProjectId());
+        triggerInitialSync(saved);
         return toDTO(saved);
+    }
+
+    private void triggerInitialSync(GithubIntegration integration) {
+        try {
+            pullRequestService.syncPullRequests(integration);
+        } catch (Exception e) {
+            log.warn("Initial PR sync failed for {}: {}", integration.getRepositoryFullName(), e.getMessage());
+        }
+        try {
+            commitService.syncCommits(integration);
+        } catch (Exception e) {
+            log.warn("Initial commit sync failed for {}: {}", integration.getRepositoryFullName(), e.getMessage());
+        }
+        try {
+            issueService.syncIssues(integration);
+        } catch (Exception e) {
+            log.warn("Initial issue sync failed for {}: {}", integration.getRepositoryFullName(), e.getMessage());
+        }
     }
 
     @Transactional

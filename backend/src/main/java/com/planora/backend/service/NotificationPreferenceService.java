@@ -29,7 +29,6 @@ public class NotificationPreferenceService {
             NotificationEventType.TASK_ACTIVITY.name(),
             NotificationEventType.PROJECT_ACTIVITY.name(),
             NotificationEventType.TEAM_ACTIVITY.name(),
-            NotificationEventType.GITHUB_ACTIVITY.name(),
             NotificationEventType.REMINDER_ACTIVITY.name()
     );
 
