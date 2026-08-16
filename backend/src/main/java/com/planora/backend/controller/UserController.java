@@ -42,7 +42,7 @@ public class UserController {
     @Value("${app.cookie.secure:false}")
     private boolean cookieSecure;
 
-    @Value("${app.cookie.samesite:Lax}")
+    @Value("${app.cookie.samesite:None}")
     private String cookieSameSite;
 
 
