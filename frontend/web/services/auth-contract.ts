@@ -81,7 +81,11 @@ export const authApi = {
     return data;
   },
   uploadProfilePhoto: async (formData: FormData): Promise<PhotoUploadResponse> => {
-    const { data } = await api.post('/api/user/profile/photo', formData);
+    const { data } = await api.post('/api/user/profile/photo', formData, {
+      headers: {
+        'Content-Type': undefined,
+      },
+    });
     return data;
   },
   getAllUsers: async (): Promise<AuthUserSummary[]> => {

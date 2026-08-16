@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Bell, GitBranch, Globe, Lock, RefreshCw, Search, X, Check, Link2,
+  GitBranch, Globe, Lock, RefreshCw, Search, X, Check, Link2,
   LogOut, User, ExternalLink, GitPullRequest, ChevronDown, AlertCircle, GitCommit,
   SlidersHorizontal, ChevronLeft, ChevronRight, UserPlus,
 } from 'lucide-react';
@@ -12,7 +12,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { ensureValidToken } from '@/lib/auth';
 import api from '@/lib/axios';
-import { useGlobalNotifications } from '@/components/providers/GlobalNotificationProvider';
 import { useGithubPRSocket, type GithubPRUpdate } from '@/hooks/useGithubPRSocket';
 import { useGithubCISocket, type GithubCIUpdate } from '@/hooks/useGithubCISocket';
 import { useGithubIssueSocket, type GithubIssueUpdate } from '@/hooks/useGithubIssueSocket';
@@ -61,7 +60,6 @@ import IssueCard from '@/components/github/IssueCard';
 import GitHubMark from '@/components/github/GitHubMark';
 import { fetchMembers, type Member } from '@/services/members-service';
 import { getUserFromToken } from '@/lib/auth';
-import type { Notification } from '@/services/notifications-service';
 
 const GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
 
@@ -99,7 +97,6 @@ const glass = {
 } as const;
 
 const iconSurfaceClass = 'bg-cu-bg-secondary text-cu-text-secondary border border-cu-border shadow-cu-sm';
-const panelClass = 'rounded-2xl border border-cu-border bg-cu-bg px-4 py-4 shadow-cu-sm';
 const secondaryButtonClass = 'rounded-xl border border-cu-border bg-cu-bg px-3 py-2 font-outfit font-semibold text-cu-text-secondary shadow-cu-sm transition-colors hover:bg-cu-hover hover:text-cu-text-primary disabled:opacity-40';
 const iconButtonClass = 'rounded-xl border border-cu-border bg-cu-bg p-2 text-cu-text-secondary shadow-cu-sm transition-colors hover:bg-cu-hover hover:text-cu-text-primary disabled:opacity-40';
 const githubConnectRequiredMessage = 'Connect your GitHub account to load repository activity.';
@@ -136,9 +133,13 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
+function timeAgo(dateStr?: string | null): string {
+  if (!dateStr) return '';
+  const timestamp = new Date(dateStr).getTime();
+  if (isNaN(timestamp)) return '';
+  const diff = Math.max(0, Date.now() - timestamp);
   const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
@@ -155,35 +156,6 @@ function prStatus(pr: GitHubPullRequest): { label: string; color: string; dot: s
   return { label: 'Open', color: 'text-emerald-300 bg-emerald-400/12 border-emerald-400/25', dot: 'bg-emerald-400', glow: 'shadow-[0_0_10px_rgba(52,211,153,0.35)]' };
 }
 
-
-function isGitHubRepoNotification(notification: Notification, repoFullName: string): boolean {
-  const normalizedRepo = repoFullName.trim().toLowerCase();
-  if (!normalizedRepo) return false;
-
-  const link = typeof notification.link === 'string' ? notification.link.toLowerCase() : '';
-  return link.includes(`github.com/${normalizedRepo}/`);
-}
-
-type GitHubTabKey = 'pullRequests' | 'commits' | 'issues';
-
-function classifyGitHubNotification(notification: Notification): GitHubTabKey | null {
-  const link = typeof notification.link === 'string' ? notification.link.toLowerCase() : '';
-  const message = typeof notification.message === 'string' ? notification.message.toLowerCase() : '';
-
-  if (link.includes('/pull/') || message.includes('pr opened') || message.includes('pr merged')) {
-    return 'pullRequests';
-  }
-
-  if (link.includes('/commit/') || link.includes('/checks') || message.includes('ci failed')) {
-    return 'commits';
-  }
-
-  if (link.includes('/issues/') || message.includes('issue opened') || message.includes('issue closed') || message.includes('issue #')) {
-    return 'issues';
-  }
-
-  return null;
-}
 
 // ── Disconnected state ────────────────────────────────────────────────────────
 function DisconnectedView({
@@ -535,14 +507,15 @@ function PRCard({ pr }: { pr: GitHubPullRequest }) {
 
 // ── Commit Card ───────────────────────────────────────────────────────────────
 function CommitCard({ commit }: { commit: GitHubCommit }) {
-  const firstLine = commit.commit.message.split('\n')[0];
-  const shortSha = commit.sha.slice(0, 7);
-  const authorName = commit.author?.login ?? commit.commit.author.name;
+  const firstLine = (commit.commit?.message || 'No commit message').split('\n')[0];
+  const shortSha = commit.sha ? commit.sha.slice(0, 7) : '-------';
+  const authorName = commit.author?.login || commit.commit?.author?.name || 'unknown';
   const avatarUrl = commit.author?.avatar_url ?? null;
+  const commitDate = commit.commit?.author?.date || '';
 
   return (
     <motion.a
-      href={commit.html_url}
+      href={commit.html_url || '#'}
       target="_blank"
       rel="noopener noreferrer"
       initial={{ opacity: 0, y: 8 }}
@@ -559,9 +532,11 @@ function CommitCard({ commit }: { commit: GitHubCommit }) {
           <GitCommit size={11} />
           {shortSha}
         </span>
-        <span className="ml-auto text-[11px] text-slate-600 font-outfit shrink-0">
-          {timeAgo(commit.commit.author.date)}
-        </span>
+        {commitDate && (
+          <span className="ml-auto text-[11px] text-slate-600 font-outfit shrink-0">
+            {timeAgo(commitDate)}
+          </span>
+        )}
       </div>
 
       <p className="text-sm font-outfit font-semibold text-cu-text-primary leading-snug line-clamp-2 group-hover:text-cu-primary transition-colors">
@@ -1514,59 +1489,12 @@ function ConnectedDashboard({
   onRefreshAutomationLogs: () => void;
   canChangeRepo: boolean;
 }) {
-  const { notifications: globalNotifications, markAsRead } = useGlobalNotifications();
   const needsGitHubConnect = !hasConnectedGitHubAccount();
-  type LiveNotice = {
-    id: string;
-    message: string;
-    href: string;
-    tone: 'info' | 'success' | 'danger';
-  };
 
   const [activeTab, setActiveTab] = useState<'pullRequests' | 'commits' | 'issues'>('pullRequests');
   const [issueCount, setIssueCount] = useState<number | null>(null);
   const [newPRNotice, setNewPRNotice] = useState<GithubPRUpdate | null>(null);
   const [latestCIUpdate, setLatestCIUpdate] = useState<GithubCIUpdate | null>(null);
-  const [liveNotices, setLiveNotices] = useState<LiveNotice[]>([]);
-  const [activityError, setActivityError] = useState<string | null>(null);
-
-  const githubNotifications = useMemo(() => {
-    return globalNotifications
-      .filter((notification) => isGitHubRepoNotification(notification, connection.repoFullName))
-      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
-  }, [connection.repoFullName, globalNotifications]);
-
-  const unreadGithubNotificationCount = useMemo(
-    () => githubNotifications.filter((notification) => !notification.read).length,
-    [githubNotifications],
-  );
-
-  const recentGithubNotifications = githubNotifications.filter((notification) => !notification.read).slice(0, 4);
-  const unreadGitHubTabCounts = useMemo(() => {
-    return githubNotifications.reduce<Record<GitHubTabKey, number>>((counts, notification) => {
-      if (notification.read) {
-        return counts;
-      }
-
-      const tabKey = classifyGitHubNotification(notification);
-      if (tabKey) {
-        counts[tabKey] += 1;
-      }
-
-      return counts;
-    }, {
-      pullRequests: 0,
-      commits: 0,
-      issues: 0,
-    });
-  }, [githubNotifications]);
-
-  const pushNotice = useCallback((notice: Omit<LiveNotice, 'id'>) => {
-    setLiveNotices((current) => [{
-      ...notice,
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    }, ...current].slice(0, 4));
-  }, []);
 
   const handlePRUpdate = useCallback((update: GithubPRUpdate) => {
     if (update.type === 'opened') {
@@ -1577,7 +1505,7 @@ function ConnectedDashboard({
   }, [onPRUpdate]);
 
   const handleSocketError = useCallback((message: string) => {
-    setActivityError(message);
+    console.warn('GitHub socket warning:', message);
   }, []);
 
   useGithubPRSocket(projectId, handlePRUpdate, handleSocketError);
@@ -1585,44 +1513,11 @@ function ConnectedDashboard({
     setLatestCIUpdate(update);
   }, []), handleSocketError);
   useGithubIssueSocket(projectId, useCallback((update: GithubIssueUpdate) => {
-    pushNotice({
-      message: `Issue ${update.action}: #${update.issueNumber} ${update.issueTitle}`,
-      href: `https://github.com/${connection.repoFullName}/issues/${update.issueNumber}`,
-      tone: update.action === 'closed' ? 'success' : 'info',
-    });
     onIssueUpdate(update);
-  }, [connection.repoFullName, pushNotice, onIssueUpdate]), handleSocketError);
-  useGithubTaskBadgeSocket(projectId, useCallback((update: GithubTaskBadgeUpdate) => {
-    pushNotice({
-      message: `Task #${update.taskId} linked issue #${update.githubIssueNumber} is ${update.issueState}`,
-      href: `https://github.com/${update.githubRepoFullName}/issues/${update.githubIssueNumber}`,
-      tone: update.issueState === 'closed' ? 'success' : 'info',
-    });
-  }, [pushNotice]), handleSocketError);
+  }, [onIssueUpdate]), handleSocketError);
+  useGithubTaskBadgeSocket(projectId, useCallback((_update: GithubTaskBadgeUpdate) => {
+  }, []), handleSocketError);
 
-  const markGitHubNotificationRead = useCallback(async (notificationId: number) => {
-    try {
-      await markAsRead(notificationId);
-      setActivityError(null);
-    } catch (error) {
-      setActivityError(error instanceof Error ? error.message : 'Failed to mark GitHub notification as read.');
-    }
-  }, [markAsRead]);
-
-  const markAllGitHubNotificationsRead = useCallback(async () => {
-    const unreadIds = githubNotifications.filter((notification) => !notification.read).map((notification) => notification.id);
-    if (unreadIds.length === 0) {
-      return;
-    }
-
-    const results = await Promise.allSettled(unreadIds.map((id) => markAsRead(id)));
-    const failedCount = results.filter((result) => result.status === 'rejected').length;
-    if (failedCount > 0) {
-      setActivityError(`Failed to mark ${failedCount} GitHub notification${failedCount === 1 ? '' : 's'} as read.`);
-    } else {
-      setActivityError(null);
-    }
-  }, [githubNotifications, markAsRead]);
   const [prPage, setPRPage] = useState(1);
   const [commitPage, setCommitPage] = useState(1);
 
@@ -1699,93 +1594,6 @@ function ConnectedDashboard({
         </div>
       </div>
 
-      {activityError && (
-        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10">
-          <div className="mt-0.5 rounded-lg bg-amber-100 p-1.5 text-amber-600">
-            <AlertCircle size={15} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-outfit font-semibold text-cu-text-primary">GitHub notifications need attention</p>
-            <p className="text-xs font-outfit text-cu-text-secondary">{activityError}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setActivityError(null)}
-            className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-amber-100 hover:text-slate-600"
-            aria-label="Dismiss GitHub notification error"
-          >
-            <X size={15} />
-          </button>
-        </div>
-      )}
-
-      <div className={panelClass}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <div className="flex items-center gap-2">
-            <Bell size={15} className="text-cu-text-secondary" />
-            <span className="text-sm font-outfit font-bold text-cu-text-primary">GitHub notifications</span>
-            {unreadGithubNotificationCount > 0 && (
-              <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-bold text-white shadow-sm">
-                {unreadGithubNotificationCount > 9 ? '9+' : unreadGithubNotificationCount}
-              </span>
-            )}
-          </div>
-          <div className="flex w-full items-stretch gap-2 sm:ml-auto sm:w-auto sm:items-center">
-            <button
-              type="button"
-              onClick={() => void markAllGitHubNotificationsRead()}
-              disabled={unreadGithubNotificationCount === 0}
-              className={`${secondaryButtonClass} flex-1 text-xs sm:flex-none`}
-            >
-              Mark all as read
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-2">
-          {recentGithubNotifications.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-cu-border bg-cu-bg-secondary px-4 py-5 text-center text-sm text-cu-text-tertiary font-outfit">
-              No unread GitHub notifications yet.
-            </div>
-          ) : (
-            recentGithubNotifications.map((notification) => {
-              const isUnread = !notification.read;
-              return (
-                <div
-                  key={notification.id}
-                  className={`flex flex-col gap-3 rounded-2xl border px-4 py-3 sm:flex-row sm:items-start ${isUnread ? 'border-cu-primary/20 bg-cu-primary/10' : 'border-cu-border bg-cu-bg-secondary'}`}
-                >
-                  <div className={`mt-1 h-2.5 w-2.5 rounded-full ${isUnread ? 'bg-blue-600' : 'bg-slate-300'}`} />
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-sm font-outfit ${isUnread ? 'font-semibold text-cu-text-primary' : 'font-medium text-cu-text-secondary'}`}>
-                      {notification.message}
-                    </p>
-                    <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                      <a
-                        href={notification.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => void markGitHubNotificationRead(notification.id)}
-                        className="inline-flex items-center gap-1 text-xs font-outfit font-semibold text-blue-600 hover:underline"
-                      >
-                        View on GitHub <ExternalLink size={11} />
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => void markGitHubNotificationRead(notification.id)}
-                        className="text-xs font-outfit font-semibold text-cu-text-secondary hover:text-cu-text-primary"
-                      >
-                        Mark read
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
       <CIStatusBanner update={latestCIUpdate} repoFullName={connection.repoFullName} />
 
       <GitHubAutomationsPanel
@@ -1830,61 +1638,31 @@ function ConnectedDashboard({
             <button
               type="button"
               onClick={() => setNewPRNotice(null)}
+              className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-cu-hover hover:text-slate-600"
               aria-label="Dismiss new pull request notification"
-              className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-blue-100 hover:text-slate-600"
             >
-              <X size={15} />
+              <X size={14} />
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <AnimatePresence initial={false}>
-        {liveNotices.map((notice) => (
-          <motion.div
-            key={notice.id}
-            role="status"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className={`flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-sm ${notice.tone === 'danger'
-                ? 'border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10'
-                : notice.tone === 'success'
-                  ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10'
-                  : 'border-cu-border bg-cu-bg'
-              }`}
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-outfit font-semibold text-cu-text-primary">{notice.message}</p>
-              <a
-                href={notice.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 inline-flex items-center gap-1 text-xs font-outfit font-semibold text-blue-600 hover:underline"
-              >
-                View on GitHub <ExternalLink size={11} />
-              </a>
-            </div>
-            <button
-              type="button"
-              onClick={() => setLiveNotices((current) => current.filter((item) => item.id !== notice.id))}
-              aria-label="Dismiss GitHub activity notification"
-              className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-            >
-              <X size={15} />
-            </button>
-          </motion.div>
-        ))}
-      </AnimatePresence>
-
-      <div className="flex items-center gap-1 rounded-2xl border border-cu-border bg-cu-bg p-1 shadow-cu-sm">
+      {/* ── Tabs ─────────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 border-b border-cu-border pb-3">
         {([
-          { id: 'pullRequests', label: 'Pull Requests', short: 'PRs', icon: <GitPullRequest size={13} /> },
-          { id: 'commits', label: 'Commits', short: 'Commits', icon: <GitCommit size={13} /> },
+          {
+            id: 'pullRequests',
+            label: 'Pull Requests',
+            icon: <GitPullRequest size={13} />,
+          },
+          {
+            id: 'commits',
+            label: 'Commits',
+            icon: <GitCommit size={13} />,
+          },
           {
             id: 'issues',
-            label: `Issues${issueCount === null ? '' : ` (${issueCount})`}`,
-            short: `Issues${issueCount === null ? '' : ` (${issueCount})`}`,
+            label: issueCount === null ? 'Issues' : `Issues (${issueCount})`,
             icon: <AlertCircle size={13} />,
           },
         ] as const).map(tab => (
@@ -1899,12 +1677,6 @@ function ConnectedDashboard({
           >
             <span className="inline-flex items-center gap-2">
               <span>{tab.label}</span>
-              {unreadGitHubTabCounts[tab.id] > 0 && (
-                <span className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${activeTab === tab.id ? 'bg-white/15 text-white' : 'bg-red-600 text-white'
-                  }`}>
-                  {unreadGitHubTabCounts[tab.id] > 9 ? '9+' : unreadGitHubTabCounts[tab.id]}
-                </span>
-              )}
             </span>
           </button>
         ))}

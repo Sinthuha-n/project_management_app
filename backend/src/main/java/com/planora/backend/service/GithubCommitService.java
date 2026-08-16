@@ -4,8 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.planora.backend.dto.GithubCommitDTO;
 import com.planora.backend.model.GithubCommit;
 import com.planora.backend.model.GithubIntegration;
+import com.planora.backend.model.Project;
+import com.planora.backend.model.Task;
 import com.planora.backend.repository.GithubCommitRepository;
 import com.planora.backend.repository.GithubIntegrationRepository;
+import com.planora.backend.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -31,13 +34,27 @@ public class GithubCommitService {
     private final GithubTokenService githubTokenService;
     private final GithubIntegrationRepository integrationRepository;
     private final GithubCommitRepository commitRepository;
+    private final TaskRepository taskRepository;
 
-    private static final Pattern TASK_REF_PATTERN = Pattern.compile("#(\\d+)");
-
-    @Transactional(readOnly = true)
+    @Transactional
     public Page<GithubCommitDTO> getCommits(Long projectId, int page, int size) {
-        List<Long> ids = resolveIntegrationIds(projectId);
-        if (ids.isEmpty()) return Page.empty();
+        List<GithubIntegration> integrations = integrationRepository.findByProjectIdAndActiveTrue(projectId);
+        if (integrations.isEmpty()) return Page.empty();
+
+        List<Long> ids = integrations.stream().map(GithubIntegration::getId).collect(Collectors.toList());
+
+        // Proactive sync if no commits cached yet
+        if (commitRepository.countByIntegrationIdIn(ids) == 0) {
+            for (GithubIntegration integration : integrations) {
+                if (githubTokenService.hasValidToken(integration)) {
+                    try {
+                        syncCommits(integration);
+                    } catch (Exception e) {
+                        log.warn("Proactive commit sync failed for integration {}: {}", integration.getId(), e.getMessage());
+                    }
+                }
+            }
+        }
 
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "authoredAt"));
         return commitRepository.findByIntegrationIdIn(ids, pageRequest).map(this::toDTO);
@@ -66,51 +83,87 @@ public class GithubCommitService {
         commit.setSha(sha);
 
         JsonNode commitNode = node.path("commit");
-        commit.setMessage(commitNode.path("message").asText(null));
-        commit.setAuthorName(commitNode.path("author").path("name").asText(null));
-        commit.setAuthorEmail(commitNode.path("author").path("email").asText(null));
-        commit.setAuthoredAt(parseDateTime(commitNode.path("author").path("date").asText(null)));
-        commit.setCommitUrl(node.path("html_url").asText(null));
+        String message = commitNode.path("message").asText(null);
+        commit.setMessage(message);
+
+        String authorName = commitNode.path("author").path("name").asText(null);
+        String authorLogin = node.path("author").path("login").asText(null);
+        String finalAuthor = (authorLogin != null && !authorLogin.isBlank()) ? authorLogin : authorName;
+        commit.setAuthorName(authorName);
+        commit.setAuthor(finalAuthor);
+
+        String authorEmail = commitNode.path("author").path("email").asText(null);
+        commit.setAuthorEmail(authorEmail);
+
+        String dateStr = commitNode.path("author").path("date").asText(null);
+        LocalDateTime authoredAt = parseDateTime(dateStr);
+        commit.setAuthoredAt(authoredAt);
+        commit.setCommittedAt(dateStr);
+
+        String htmlUrl = node.path("html_url").asText(null);
+        commit.setCommitUrl(htmlUrl);
+        commit.setHtmlUrl(htmlUrl);
         commit.setSyncedAt(LocalDateTime.now());
 
-        if (commit.getLinkedTaskId() == null) {
-            commit.setLinkedTaskId(detectTaskRef(commit.getMessage()));
+        if (commit.getTask() == null || commit.getLinkedTaskId() == null) {
+            Task task = resolveTaskRef(integration.getProject(), message);
+            if (task != null) {
+                commit.setTask(task);
+                commit.setLinkedTaskId(task.getId());
+            }
         }
         commitRepository.save(commit);
     }
 
     @Transactional(readOnly = true)
     public List<GithubCommitDTO> getCommitsForTask(Long taskId) {
-        return commitRepository.findByLinkedTaskId(taskId)
+        return commitRepository.findByTaskId(taskId)
             .stream().map(this::toDTO).collect(Collectors.toList());
     }
 
-    private List<Long> resolveIntegrationIds(Long projectId) {
-        return integrationRepository.findByProjectIdAndActiveTrue(projectId)
-            .stream().map(GithubIntegration::getId).collect(Collectors.toList());
-    }
+    public Task resolveTaskRef(Project project, String text) {
+        if (project == null || text == null || text.isBlank()) return null;
 
-    private Long detectTaskRef(String message) {
-        if (message == null) return null;
-        Matcher matcher = TASK_REF_PATTERN.matcher(message);
-        if (matcher.find()) {
-            try { return Long.parseLong(matcher.group(1)); } catch (NumberFormatException e) { return null; }
+        String projectKey = project.getProjectKey() != null ? project.getProjectKey() : "TASK";
+        Pattern pattern = Pattern.compile(
+            "(?:#|" + Pattern.quote(projectKey) + "-|TASK-|task/|issue/|feature/)(\\d+)",
+            Pattern.CASE_INSENSITIVE
+        );
+        Matcher matcher = pattern.matcher(text);
+        while (matcher.find()) {
+            try {
+                long num = Long.parseLong(matcher.group(1));
+                // 1. Try project-scoped task number
+                Optional<Task> taskByNum = taskRepository.findByProjectIdAndProjectTaskNumber(project.getId(), num);
+                if (taskByNum.isPresent()) {
+                    return taskByNum.get();
+                }
+                // 2. Try global task ID if it belongs to this project
+                Optional<Task> taskById = taskRepository.findById(num);
+                if (taskById.isPresent() && taskById.get().getProject() != null
+                        && project.getId().equals(taskById.get().getProject().getId())) {
+                    return taskById.get();
+                }
+            } catch (NumberFormatException ignored) {
+            }
         }
         return null;
     }
 
     private GithubCommitDTO toDTO(GithubCommit commit) {
         String sha = commit.getSha();
+        String author = commit.getAuthorName() != null ? commit.getAuthorName() : commit.getAuthor();
+        String commitUrl = commit.getCommitUrl() != null ? commit.getCommitUrl() : commit.getHtmlUrl();
         return GithubCommitDTO.builder()
             .id(commit.getId())
-            .integrationId(commit.getIntegration().getId())
+            .integrationId(commit.getIntegration() != null ? commit.getIntegration().getId() : null)
             .sha(sha)
             .shortSha(sha != null && sha.length() >= 7 ? sha.substring(0, 7) : sha)
             .message(commit.getMessage())
-            .authorName(commit.getAuthorName())
+            .authorName(author)
             .authorEmail(commit.getAuthorEmail())
-            .commitUrl(commit.getCommitUrl())
-            .linkedTaskId(commit.getLinkedTaskId())
+            .commitUrl(commitUrl)
+            .linkedTaskId(commit.getLinkedTaskId() != null ? commit.getLinkedTaskId() : (commit.getTask() != null ? commit.getTask().getId() : null))
             .authoredAt(commit.getAuthoredAt())
             .build();
     }
@@ -120,3 +173,4 @@ public class GithubCommitService {
         try { return OffsetDateTime.parse(value).toLocalDateTime(); } catch (Exception e) { return null; }
     }
 }
+

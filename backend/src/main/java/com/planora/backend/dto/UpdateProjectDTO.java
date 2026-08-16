@@ -10,4 +10,7 @@ public class UpdateProjectDTO {
 
     @Size(max = 2000, message = "Description must be 2000 characters or fewer")
     private String description;
+
+    @Size(max = 1000, message = "Figma URL must be 1000 characters or fewer")
+    private String figmaUrl;
 }

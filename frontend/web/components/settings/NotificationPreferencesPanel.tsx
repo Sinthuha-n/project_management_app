@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Loader2, Mail, Bell, CalendarDays, MessageSquareText, GitPullRequest, Users, FolderKanban } from 'lucide-react';
+import { Loader2, Mail, Bell, CalendarDays, MessageSquareText, Users, FolderKanban } from 'lucide-react';
 import { toast } from '@/components/ui';
 import * as notificationPreferencesApi from '@/services/notification-preferences-service';
 import type { NotificationChannel, NotificationPreferenceRow } from '@/services/notification-preferences-service';
@@ -37,12 +37,6 @@ const EVENT_TYPES: EventTypeOption[] = [
     label: 'Team activity',
     description: 'Invites, role changes, and membership updates.',
     icon: <Users size={14} />,
-  },
-  {
-    value: 'GITHUB_ACTIVITY',
-    label: 'GitHub activity',
-    description: 'Pull requests, issues, CI, releases, and automation.',
-    icon: <GitPullRequest size={14} />,
   },
   {
     value: 'REMINDER_ACTIVITY',

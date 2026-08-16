@@ -22,7 +22,6 @@ const EVENT_TYPES: { value: string; label: string; description: string; icon: Ic
   { value: 'TASK_ACTIVITY', label: 'Task activity', description: 'Assignments, changes, and board updates.', icon: 'clipboard-check-outline' },
   { value: 'PROJECT_ACTIVITY', label: 'Project activity', description: 'Project pages and workspace updates.', icon: 'bell-outline' },
   { value: 'TEAM_ACTIVITY', label: 'Team activity', description: 'Invites, roles, membership changes.', icon: 'account-group-outline' },
-  { value: 'GITHUB_ACTIVITY', label: 'GitHub activity', description: 'PRs, issues, CI, releases, automation.', icon: 'source-pull' },
   { value: 'REMINDER_ACTIVITY', label: 'Reminders', description: 'Due-date and overdue reminders.', icon: 'calendar-clock' },
 ];
 

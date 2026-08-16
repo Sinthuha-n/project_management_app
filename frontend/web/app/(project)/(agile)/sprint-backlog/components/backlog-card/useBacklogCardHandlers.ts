@@ -3,6 +3,7 @@ import { tasksApi, sprintsApi, projectsApi } from '@/services/api-contract';
 import { toast } from '@/components/ui';
 import type { SprintItem, TaskItem } from '@/types';
 import { formatLocalDate } from '@/lib/date-format';
+import { buildSessionCacheKey, removeSessionCache } from '@/lib/session-cache';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -240,6 +241,12 @@ export function useBacklogCardHandlers({
     setEditingSprintLoading(true);
     try {
       await sprintsApi.update(sprint.id, { name });
+      const sbKey = buildSessionCacheKey('sprint-board-v2', [projectId]);
+      if (sbKey) removeSessionCache(sbKey);
+      const blKey = buildSessionCacheKey('sprint-backlog', [projectId, 'active']);
+      if (blKey) removeSessionCache(blKey);
+      window.dispatchEvent(new CustomEvent('planora:sprint-updated'));
+      window.dispatchEvent(new CustomEvent('planora:task-updated'));
       onSprintUpdated(sprint.id, { name });
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
@@ -267,6 +274,12 @@ export function useBacklogCardHandlers({
     try {
       await sprintsApi.update(sprint.id, { name: trimmedName });
       setShowEditSprintModal(false);
+      const sbKey = buildSessionCacheKey('sprint-board-v2', [projectId]);
+      if (sbKey) removeSessionCache(sbKey);
+      const blKey = buildSessionCacheKey('sprint-backlog', [projectId, 'active']);
+      if (blKey) removeSessionCache(blKey);
+      window.dispatchEvent(new CustomEvent('planora:sprint-updated'));
+      window.dispatchEvent(new CustomEvent('planora:task-updated'));
       onSprintUpdated(sprint.id, { name: trimmedName });
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
@@ -314,6 +327,11 @@ export function useBacklogCardHandlers({
         startDate: formatLocalDate(baseDate),
         endDate: formatLocalDate(endDate),
       });
+      const sbKey = buildSessionCacheKey('sprint-board-v2', [projectId]);
+      if (sbKey) removeSessionCache(sbKey);
+      const blKey = buildSessionCacheKey('sprint-backlog', [projectId, 'active']);
+      if (blKey) removeSessionCache(blKey);
+      window.dispatchEvent(new CustomEvent('planora:sprint-updated'));
       window.dispatchEvent(new CustomEvent('planora:task-updated'));
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
@@ -336,6 +354,11 @@ export function useBacklogCardHandlers({
       await sprintsApi.complete(sprint.id, completeDestination);
       setConfirmCompleteSprint(false);
       onSprintUpdated(sprint.id, { status: 'COMPLETED' });
+      const sbKey = buildSessionCacheKey('sprint-board-v2', [projectId]);
+      if (sbKey) removeSessionCache(sbKey);
+      const blKey = buildSessionCacheKey('sprint-backlog', [projectId, 'active']);
+      if (blKey) removeSessionCache(blKey);
+      window.dispatchEvent(new CustomEvent('planora:sprint-updated'));
       window.dispatchEvent(new CustomEvent('planora:task-updated'));
       toast('Sprint completed successfully.', 'success');
     } catch (err: unknown) {
@@ -352,6 +375,12 @@ export function useBacklogCardHandlers({
     try {
       await sprintsApi.delete(sprint.id);
       setConfirmDeleteSprint(false);
+      const sbKey = buildSessionCacheKey('sprint-board-v2', [projectId]);
+      if (sbKey) removeSessionCache(sbKey);
+      const blKey = buildSessionCacheKey('sprint-backlog', [projectId, 'active']);
+      if (blKey) removeSessionCache(blKey);
+      window.dispatchEvent(new CustomEvent('planora:sprint-updated'));
+      window.dispatchEvent(new CustomEvent('planora:task-updated'));
       onSprintDeleted(sprint.id, sprint.tasks);
     } catch {
       setConfirmDeleteSprint(false);

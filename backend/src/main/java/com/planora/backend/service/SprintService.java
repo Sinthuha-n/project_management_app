@@ -92,13 +92,20 @@ public class SprintService {
     }
 
     private SprintResponseDTO toDTO(Object[] row) {
+        String statusStr = null;
+        if (row[5] instanceof SprintStatus ss) {
+            statusStr = ss.name();
+        } else if (row[5] != null) {
+            statusStr = row[5].toString();
+        }
+
         return SprintResponseDTO.builder()
                 .id((Long) row[0])
                 .projectId((Long) row[1])
                 .name((String) row[2])
                 .startDate((LocalDate) row[3])
                 .endDate((LocalDate) row[4])
-                .status(row[5] != null ? ((SprintStatus) row[5]).name() : null)
+                .status(statusStr)
                 .goal((String) row[6])
                 .build();
     }

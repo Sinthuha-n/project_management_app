@@ -381,10 +381,15 @@ public class TaskGithubService {
             GitHubTaskData.RecentCommit c = incoming.get(i);
             // CI status is applied to the most-recent commit only; older commits are null.
             String commitCiStatus = (i == 0) ? overallCiStatus : null;
-            entities.add(new GithubCommit(
+            GithubCommit commitEntity = new GithubCommit(
                     null, task, c.getSha(), c.getMessage(),
                     c.getAuthor(), c.getDate(), c.getHtmlUrl(),
-                    commitCiStatus, now));
+                    commitCiStatus, now);
+            commitEntity.setAuthorName(c.getAuthor());
+            commitEntity.setCommitUrl(c.getHtmlUrl());
+            commitEntity.setAuthoredAt(parseIso(c.getDate()));
+            commitEntity.setLinkedTaskId(task.getId());
+            entities.add(commitEntity);
         }
         commitRepository.saveAll(entities);
     }
@@ -420,18 +425,25 @@ public class TaskGithubService {
             CiStatus resolved = ciStatusResolver.resolveFromStoredValue(pr.getCiStatus());
             normalizedCiStatus = (resolved == CiStatus.UNKNOWN) ? null : resolved.name();
         }
+        int prNum = pr.getPrNumber() > 0 ? pr.getPrNumber() : (pr.getGithubPrNumber() != null ? pr.getGithubPrNumber() : 0);
+        String author = pr.getAuthor() != null ? pr.getAuthor() : pr.getAuthorLogin();
+        String htmlUrl = pr.getHtmlUrl() != null ? pr.getHtmlUrl() : pr.getGithubUrl();
+        String createdAt = pr.getCreatedAt() != null ? pr.getCreatedAt() : formatIso(pr.getGithubCreatedAt());
+        String updatedAt = pr.getUpdatedAt() != null ? pr.getUpdatedAt() : formatIso(pr.getGithubUpdatedAt());
+        String mergedAt = pr.getMergedAt() != null ? formatIso(pr.getMergedAt()) : formatIso(pr.getGithubMergedAt());
+
         return TaskGithubSummaryDTO.PullRequestItem.builder()
                 .id(pr.getId())
-                .prNumber(pr.getPrNumber())
+                .prNumber(prNum)
                 .title(pr.getTitle())
                 .state(pr.getState())
                 .ciStatus(normalizedCiStatus)
                 .reviewStatus(pr.getReviewStatus())
-                .htmlUrl(pr.getHtmlUrl())
-                .author(pr.getAuthor())
-                .createdAt(pr.getCreatedAt())
-                .updatedAt(pr.getUpdatedAt())
-                .mergedAt(formatIso(pr.getMergedAt()))
+                .htmlUrl(htmlUrl)
+                .author(author)
+                .createdAt(createdAt)
+                .updatedAt(updatedAt)
+                .mergedAt(mergedAt)
                 .headBranch(pr.getHeadBranch())
                 .baseBranch(pr.getBaseBranch())
                 .build();
@@ -447,20 +459,27 @@ public class TaskGithubService {
             CiStatus resolved = ciStatusResolver.resolveFromStoredValue(pr.getCiStatus());
             normalizedCiStatus = (resolved == CiStatus.UNKNOWN) ? null : resolved.name();
         }
+        int prNum = pr.getPrNumber() > 0 ? pr.getPrNumber() : (pr.getGithubPrNumber() != null ? pr.getGithubPrNumber() : 0);
+        String author = pr.getAuthor() != null ? pr.getAuthor() : pr.getAuthorLogin();
+        String htmlUrl = pr.getHtmlUrl() != null ? pr.getHtmlUrl() : pr.getGithubUrl();
+        String createdAt = pr.getCreatedAt() != null ? pr.getCreatedAt() : formatIso(pr.getGithubCreatedAt());
+        String updatedAt = pr.getUpdatedAt() != null ? pr.getUpdatedAt() : formatIso(pr.getGithubUpdatedAt());
+        String mergedAt = pr.getMergedAt() != null ? formatIso(pr.getMergedAt()) : formatIso(pr.getGithubMergedAt());
+
         return LinkedPrResponseDTO.builder()
                 .id(pr.getId())
-                .prNumber(pr.getPrNumber())
+                .prNumber(prNum)
                 .title(pr.getTitle())
                 .state(pr.getState())
                 .ciStatus(normalizedCiStatus)
                 .reviewStatus(pr.getReviewStatus())
                 .headBranch(pr.getHeadBranch())
                 .baseBranch(pr.getBaseBranch())
-                .htmlUrl(pr.getHtmlUrl())
-                .author(pr.getAuthor())
-                .createdAt(pr.getCreatedAt())
-                .updatedAt(pr.getUpdatedAt())
-                .mergedAt(formatIso(pr.getMergedAt()))
+                .htmlUrl(htmlUrl)
+                .author(author)
+                .createdAt(createdAt)
+                .updatedAt(updatedAt)
+                .mergedAt(mergedAt)
                 .build();
     }
 
@@ -557,14 +576,18 @@ public class TaskGithubService {
             normalizedCiStatus = (resolved == CiStatus.UNKNOWN) ? null : resolved.name();
         }
 
+        String author = c.getAuthor() != null ? c.getAuthor() : c.getAuthorName();
+        String committedAt = c.getCommittedAt() != null ? c.getCommittedAt() : formatIso(c.getAuthoredAt());
+        String htmlUrl = c.getHtmlUrl() != null ? c.getHtmlUrl() : c.getCommitUrl();
+
         return LinkedCommitResponseDTO.builder()
                 .id(c.getId())
                 .sha(shortSha)
                 .fullSha(sha)
                 .message(c.getMessage())
-                .author(c.getAuthor())
-                .committedAt(c.getCommittedAt())
-                .htmlUrl(c.getHtmlUrl())
+                .author(author)
+                .committedAt(committedAt)
+                .htmlUrl(htmlUrl)
                 .ciStatus(normalizedCiStatus)
                 .referencedTaskNumbers(extractTaskNumbers(c.getMessage()))
                 .build();
@@ -612,13 +635,17 @@ public class TaskGithubService {
             normalizedCiStatus = (resolved == CiStatus.UNKNOWN) ? null : resolved.name();
         }
 
+        String author = c.getAuthor() != null ? c.getAuthor() : c.getAuthorName();
+        String committedAt = c.getCommittedAt() != null ? c.getCommittedAt() : formatIso(c.getAuthoredAt());
+        String htmlUrl = c.getHtmlUrl() != null ? c.getHtmlUrl() : c.getCommitUrl();
+
         return TaskGithubSummaryDTO.CommitItem.builder()
                 .id(c.getId())
                 .sha(shortSha)
                 .message(c.getMessage())
-                .author(c.getAuthor())
-                .committedAt(c.getCommittedAt())
-                .htmlUrl(c.getHtmlUrl())
+                .author(author)
+                .committedAt(committedAt)
+                .htmlUrl(htmlUrl)
                 .ciStatus(normalizedCiStatus)
                 .build();
     }

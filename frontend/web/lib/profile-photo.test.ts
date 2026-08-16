@@ -43,10 +43,12 @@ describe('resolveProfilePhotoUrl', () => {
     expect(resolveProfilePhotoUrl('/uploads/avatar.png')).toBe('/uploads/avatar.png');
   });
 
-  it('falls back to the user photo endpoint when a user id is available', () => {
+  it('returns null when photo url is missing, even if a user id is provided', () => {
     process.env.NEXT_PUBLIC_API_BASE_URL = 'https://api.example.com';
 
-    expect(resolveProfilePhotoUrl(null, 42)).toBe('https://api.example.com/api/auth/users/42/photo');
+    expect(resolveProfilePhotoUrl(null, 42)).toBeNull();
+    expect(resolveProfilePhotoUrl(undefined, 42)).toBeNull();
+    expect(resolveProfilePhotoUrl('', 42)).toBeNull();
   });
 
   it('returns null for empty values without a fallback user id', () => {

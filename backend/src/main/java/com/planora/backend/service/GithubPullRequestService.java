@@ -4,8 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.planora.backend.dto.GithubPrDTO;
 import com.planora.backend.model.GithubIntegration;
 import com.planora.backend.model.GithubPullRequest;
+import com.planora.backend.model.Project;
+import com.planora.backend.model.Task;
 import com.planora.backend.repository.GithubIntegrationRepository;
 import com.planora.backend.repository.GithubPullRequestRepository;
+import com.planora.backend.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -31,13 +34,27 @@ public class GithubPullRequestService {
     private final GithubTokenService githubTokenService;
     private final GithubIntegrationRepository integrationRepository;
     private final GithubPullRequestRepository pullRequestRepository;
+    private final TaskRepository taskRepository;
 
-    private static final Pattern TASK_REF_PATTERN = Pattern.compile("#(\\d+)", Pattern.CASE_INSENSITIVE);
-
-    @Transactional(readOnly = true)
+    @Transactional
     public Page<GithubPrDTO> getPullRequests(Long projectId, String state, int page, int size) {
-        List<Long> ids = resolveIntegrationIds(projectId);
-        if (ids.isEmpty()) return Page.empty();
+        List<GithubIntegration> integrations = integrationRepository.findByProjectIdAndActiveTrue(projectId);
+        if (integrations.isEmpty()) return Page.empty();
+
+        List<Long> ids = integrations.stream().map(GithubIntegration::getId).collect(Collectors.toList());
+
+        // Proactive sync if no PRs cached yet
+        if (pullRequestRepository.countByIntegrationIdIn(ids) == 0) {
+            for (GithubIntegration integration : integrations) {
+                if (githubTokenService.hasValidToken(integration)) {
+                    try {
+                        syncPullRequests(integration);
+                    } catch (Exception e) {
+                        log.warn("Proactive PR sync failed for integration {}: {}", integration.getId(), e.getMessage());
+                    }
+                }
+            }
+        }
 
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "githubCreatedAt"));
         Page<GithubPullRequest> prs = "all".equalsIgnoreCase(state)
@@ -74,20 +91,48 @@ public class GithubPullRequestService {
         GithubPullRequest pr = existing.orElse(new GithubPullRequest());
         pr.setIntegration(integration);
         pr.setGithubPrNumber(prNumber);
+        pr.setPrNumber(prNumber);
         pr.setTitle(truncate(node.path("title").asText(""), 500));
         pr.setBody(node.path("body").asText(null));
         pr.setState(resolvePrState(node));
-        pr.setAuthorLogin(node.path("user").path("login").asText(null));
-        pr.setHeadBranch(node.path("head").path("ref").asText(null));
-        pr.setBaseBranch(node.path("base").path("ref").asText(null));
-        pr.setGithubUrl(node.path("html_url").asText(null));
-        pr.setGithubCreatedAt(parseDateTime(node.path("created_at").asText(null)));
-        pr.setGithubUpdatedAt(parseDateTime(node.path("updated_at").asText(null)));
-        pr.setGithubMergedAt(parseDateTime(node.path("merged_at").asText(null)));
+
+        String authorLogin = node.path("user").path("login").asText(null);
+        pr.setAuthorLogin(authorLogin);
+        pr.setAuthor(authorLogin);
+
+        String headBranch = node.path("head").path("ref").asText(null);
+        String baseBranch = node.path("base").path("ref").asText(null);
+        String headSha = node.path("head").path("sha").asText(null);
+        pr.setHeadBranch(headBranch);
+        pr.setBaseBranch(baseBranch);
+        pr.setHeadSha(headSha);
+
+        String htmlUrl = node.path("html_url").asText(null);
+        pr.setGithubUrl(htmlUrl);
+        pr.setHtmlUrl(htmlUrl);
+
+        String createdAtStr = node.path("created_at").asText(null);
+        LocalDateTime createdAt = parseDateTime(createdAtStr);
+        pr.setGithubCreatedAt(createdAt);
+        pr.setCreatedAt(createdAtStr);
+
+        String updatedAtStr = node.path("updated_at").asText(null);
+        LocalDateTime updatedAt = parseDateTime(updatedAtStr);
+        pr.setGithubUpdatedAt(updatedAt);
+        pr.setUpdatedAt(updatedAtStr);
+
+        String mergedAtStr = node.path("merged_at").asText(null);
+        LocalDateTime mergedAt = parseDateTime(mergedAtStr);
+        pr.setGithubMergedAt(mergedAt);
+        pr.setMergedAt(mergedAt);
         pr.setSyncedAt(LocalDateTime.now());
 
-        if (pr.getLinkedTaskId() == null) {
-            pr.setLinkedTaskId(detectTaskRef(pr.getTitle() + " " + pr.getHeadBranch()));
+        if (pr.getTask() == null || pr.getLinkedTaskId() == null) {
+            Task task = resolveTaskRef(integration.getProject(), pr.getTitle() + " " + headBranch);
+            if (task != null) {
+                pr.setTask(task);
+                pr.setLinkedTaskId(task.getId());
+            }
         }
         pullRequestRepository.save(pr);
     }
@@ -96,19 +141,44 @@ public class GithubPullRequestService {
     public void linkTaskToPr(Long prId, Long taskId) {
         pullRequestRepository.findById(prId).ifPresent(pr -> {
             pr.setLinkedTaskId(taskId);
+            taskRepository.findById(taskId).ifPresent(pr::setTask);
             pullRequestRepository.save(pr);
         });
     }
 
     @Transactional(readOnly = true)
     public List<GithubPrDTO> getPrsForTask(Long taskId) {
-        return pullRequestRepository.findByLinkedTaskId(taskId)
+        return pullRequestRepository.findByTaskId(taskId)
             .stream().map(this::toDTO).collect(Collectors.toList());
     }
 
-    private List<Long> resolveIntegrationIds(Long projectId) {
-        return integrationRepository.findByProjectIdAndActiveTrue(projectId)
-            .stream().map(GithubIntegration::getId).collect(Collectors.toList());
+    public Task resolveTaskRef(Project project, String text) {
+        if (project == null || text == null || text.isBlank()) return null;
+
+        String projectKey = project.getProjectKey() != null ? project.getProjectKey() : "TASK";
+        Pattern pattern = Pattern.compile(
+            "(?:#|" + Pattern.quote(projectKey) + "-|TASK-|task/|issue/|feature/)(\\d+)",
+            Pattern.CASE_INSENSITIVE
+        );
+        Matcher matcher = pattern.matcher(text);
+        while (matcher.find()) {
+            try {
+                long num = Long.parseLong(matcher.group(1));
+                // 1. Try project-scoped task number
+                Optional<Task> taskByNum = taskRepository.findByProjectIdAndProjectTaskNumber(project.getId(), num);
+                if (taskByNum.isPresent()) {
+                    return taskByNum.get();
+                }
+                // 2. Try global task ID if it belongs to this project
+                Optional<Task> taskById = taskRepository.findById(num);
+                if (taskById.isPresent() && taskById.get().getProject() != null
+                        && project.getId().equals(taskById.get().getProject().getId())) {
+                    return taskById.get();
+                }
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return null;
     }
 
     private String resolvePrState(JsonNode node) {
@@ -120,28 +190,22 @@ public class GithubPullRequestService {
         return state;
     }
 
-    private Long detectTaskRef(String text) {
-        if (text == null) return null;
-        Matcher matcher = TASK_REF_PATTERN.matcher(text);
-        if (matcher.find()) {
-            try { return Long.parseLong(matcher.group(1)); } catch (NumberFormatException e) { return null; }
-        }
-        return null;
-    }
-
     private GithubPrDTO toDTO(GithubPullRequest pr) {
+        String author = pr.getAuthorLogin() != null ? pr.getAuthorLogin() : pr.getAuthor();
+        String url = pr.getGithubUrl() != null ? pr.getGithubUrl() : pr.getHtmlUrl();
+        int prNum = pr.getGithubPrNumber() != null ? pr.getGithubPrNumber() : pr.getPrNumber();
         return GithubPrDTO.builder()
             .id(pr.getId())
-            .integrationId(pr.getIntegration().getId())
-            .githubPrNumber(pr.getGithubPrNumber())
+            .integrationId(pr.getIntegration() != null ? pr.getIntegration().getId() : null)
+            .githubPrNumber(prNum)
             .title(pr.getTitle())
             .body(pr.getBody())
             .state(pr.getState())
-            .authorLogin(pr.getAuthorLogin())
+            .authorLogin(author)
             .headBranch(pr.getHeadBranch())
             .baseBranch(pr.getBaseBranch())
-            .githubUrl(pr.getGithubUrl())
-            .linkedTaskId(pr.getLinkedTaskId())
+            .githubUrl(url)
+            .linkedTaskId(pr.getLinkedTaskId() != null ? pr.getLinkedTaskId() : (pr.getTask() != null ? pr.getTask().getId() : null))
             .githubCreatedAt(pr.getGithubCreatedAt())
             .githubUpdatedAt(pr.getGithubUpdatedAt())
             .mergedAt(pr.getGithubMergedAt())
@@ -158,3 +222,4 @@ public class GithubPullRequestService {
         return value.length() > max ? value.substring(0, max) : value;
     }
 }
+

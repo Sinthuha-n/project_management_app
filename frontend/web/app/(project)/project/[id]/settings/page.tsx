@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   AlertTriangle, Trash2, LogOut, Settings2,
   FileText, Shield, Loader2, CheckCircle2,
-  X, Info, ArrowRight, Github, RefreshCw,
+  X, Info, ArrowRight, Github, RefreshCw, Figma,
 } from 'lucide-react';
 import * as projectsApi from '@/services/projects-service';
 import { toast } from '@/components/ui';
@@ -44,6 +44,7 @@ interface ProjectData {
   ownerId?: number;
   ownerName?: string;
   createdAt?: string;
+  figmaUrl?: string | null;
 }
 
 type QuickTemplateKey = 'prMergedDone' | 'ciFailedBug' | 'prOpenedReview';
@@ -599,6 +600,12 @@ export default function ProjectSettingsPage() {
   const [isSavingGeneral, setIsSavingGeneral] = useState(false);
   const [generalSaved, setGeneralSaved] = useState(false);
 
+  // Figma form
+  const [figmaInput, setFigmaInput] = useState('');
+  const [isSavingFigma, setIsSavingFigma] = useState(false);
+  const [figmaSaved, setFigmaSaved] = useState(false);
+  const [figmaError, setFigmaError] = useState('');
+
   // Delete
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -630,10 +637,12 @@ export default function ProjectSettingsPage() {
         ownerId: typeof data.ownerId === 'number' ? data.ownerId : undefined,
         ownerName: typeof data.ownerName === 'string' ? data.ownerName : undefined,
         createdAt: typeof data.createdAt === 'string' ? data.createdAt : undefined,
+        figmaUrl: typeof data.figmaUrl === 'string' ? data.figmaUrl : null,
       };
       setProject(pd);
       setName(pd.name);
       setDescription(pd.description);
+      setFigmaInput(pd.figmaUrl ?? '');
     } catch {
       toast('Failed to load project details', 'error');
     } finally {
@@ -663,6 +672,33 @@ export default function ProjectSettingsPage() {
       toast('Failed to update project', 'error');
     } finally {
       setIsSavingGeneral(false);
+    }
+  };
+
+  const handleSaveFigmaUrl = async () => {
+    setFigmaError('');
+    const trimmed = figmaInput.trim();
+    let normalized: string | null = null;
+    if (trimmed) {
+      const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+      try {
+        const url = new URL(withProtocol);
+        normalized = url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+      } catch { /* fall through */ }
+      if (!normalized) { setFigmaError('Enter a valid URL.'); return; }
+    }
+    setIsSavingFigma(true);
+    try {
+      await projectsApi.updateProjectDetails(projectId, { figmaUrl: normalized });
+      setProject((prev) => prev ? { ...prev, figmaUrl: normalized } : null);
+      window.dispatchEvent(new Event('storage'));
+      setFigmaSaved(true);
+      setTimeout(() => setFigmaSaved(false), 3000);
+      toast(normalized ? 'Figma link saved' : 'Figma link removed', 'success');
+    } catch {
+      toast('Failed to save Figma link', 'error');
+    } finally {
+      setIsSavingFigma(false);
     }
   };
 
@@ -785,6 +821,76 @@ export default function ProjectSettingsPage() {
                         {isSavingGeneral ? 'Saving...' : 'Save Changes'}
                       </button>
                     </div>
+                  </div>
+                </SectionCard>
+              </div>
+
+              {/* Figma Integration */}
+              <div className="mb-5 break-inside-avoid">
+                <SectionCard
+                  title="Figma Integration"
+                  description="Shared design link for all project members"
+                  icon={<Figma size={15} />}
+                >
+                  <div className="space-y-4">
+                    {/* Show current link for everyone */}
+                    {project?.figmaUrl && (
+                      <div className="flex items-center gap-2 rounded-xl border border-cu-border bg-cu-bg-secondary px-3.5 py-2.5">
+                        <Figma size={14} className="text-[#F24E1E] shrink-0" />
+                        <a
+                          href={project.figmaUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-cu-primary hover:underline truncate flex-1 font-medium"
+                        >
+                          {project.figmaUrl}
+                        </a>
+                      </div>
+                    )}
+                    {!project?.figmaUrl && !isOwner && (
+                      <p className="text-sm text-cu-text-muted italic">No Figma link configured for this project.</p>
+                    )}
+
+                    {/* Edit form — owner only */}
+                    {isOwner && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-cu-text-secondary mb-1.5">
+                            {project?.figmaUrl ? 'Update Figma URL' : 'Add Figma URL'}
+                          </label>
+                          <input
+                            value={figmaInput}
+                            onChange={(e) => { setFigmaInput(e.target.value); setFigmaError(''); }}
+                            placeholder="https://www.figma.com/file/..."
+                            className={`w-full border rounded-xl px-3.5 py-2.5 text-sm text-cu-text-primary placeholder:text-cu-text-muted focus:outline-none focus:ring-2 focus:ring-cu-primary/20 focus:border-cu-primary transition-all bg-cu-bg ${
+                              figmaError ? 'border-red-400' : 'border-cu-border'
+                            }`}
+                          />
+                          {figmaError && <p className="mt-1.5 text-xs text-cu-danger">{figmaError}</p>}
+                          {project?.figmaUrl && (
+                            <p className="mt-1 text-xs text-cu-text-muted">Leave blank and save to remove the link.</p>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="h-5">
+                            {figmaSaved && (
+                              <span className="flex items-center gap-1.5 text-xs text-cu-success">
+                                <CheckCircle2 size={13} />
+                                Saved
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => void handleSaveFigmaUrl()}
+                            disabled={isSavingFigma}
+                            className="h-9 px-5 bg-cu-primary text-white text-sm font-semibold rounded-xl hover:bg-cu-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shadow-cu-sm"
+                          >
+                            {isSavingFigma && <Loader2 size={13} className="animate-spin" />}
+                            {isSavingFigma ? 'Saving...' : figmaInput.trim() ? 'Save Link' : (project?.figmaUrl ? 'Remove Link' : 'Save')}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </SectionCard>
               </div>

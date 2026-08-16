@@ -53,7 +53,6 @@ public class ChatDocumentService {
                     chatBucket,
                     objectKey,
                     attachment.contentType(),
-                    attachment.fileSize(),
                     UPLOAD_URL_DURATION);
             return new ChatAttachmentUploadInitResponseDTO(
                     uploadUrl,

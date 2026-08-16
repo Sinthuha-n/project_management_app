@@ -14,6 +14,8 @@ export interface TaskRowTask {
   selected?: boolean;
   assigneeName?: string;
   assigneePhotoUrl?: string | null;
+  /** Multi-assignee array. When present, takes precedence over assigneeName/assigneePhotoUrl for display. */
+  assignees?: Array<{ id: number; name: string; avatar?: string }>;
   status: string;
   dueDate?: string;
   priority?: string;

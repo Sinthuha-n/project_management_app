@@ -257,7 +257,11 @@ export function useProfile() {
         formData.append('file', file);
         try {
             setIsUploadingPhoto(true);
-            const response = await api.post<PhotoUploadResponse>('/api/user/profile/photo', formData);
+            const response = await api.post<PhotoUploadResponse>('/api/user/profile/photo', formData, {
+                headers: {
+                    'Content-Type': undefined,
+                },
+            });
             if (!response.data.success) {
                 setErrorMessage(response.data.message || 'Failed to upload profile picture.');
                 return;

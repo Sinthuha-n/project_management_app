@@ -6,7 +6,7 @@ import { Client, IMessage } from '@stomp/stompjs';
 import * as notificationsApi from '@/services/notifications-service';
 import { Notification } from '@/services/notifications-service';
 import { toast } from '@/components/ui/Toast';
-import { AUTH_TOKEN_CHANGED_EVENT, getValidToken } from '@/lib/auth';
+import { AUTH_TOKEN_CHANGED_EVENT, ensureValidToken, getRefreshToken, getValidToken } from '@/lib/auth';
 import { resolveWebSocketBaseUrlDetails } from '@/lib/realtime-url';
 import { getApiBaseUrl } from '@/lib/api-base-url';
 import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
@@ -110,7 +110,7 @@ export function GlobalNotificationProvider({ children }: { children: React.React
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttemptRef = useRef(0);
   const queuedRealtimeMessagesRef = useRef<QueuedRealtimeMessage[]>([]);
-  const reconnectAttemptHandlerRef = useRef<(token: string) => void>(() => {});
+  const reconnectAttemptHandlerRef = useRef<(freshToken?: string) => void>(() => {});
   const backendUrl = getApiBaseUrl();
 
   useEffect(() => {
@@ -158,11 +158,15 @@ export function GlobalNotificationProvider({ children }: { children: React.React
     const queuedMessages = queuedRealtimeMessagesRef.current;
     queuedRealtimeMessagesRef.current = [];
     queuedMessages.forEach((message) => {
-      client.publish({
-        destination: message.destination,
-        body: message.body,
-        headers: message.headers,
-      });
+      try {
+        client.publish({
+          destination: message.destination,
+          body: message.body,
+          headers: message.headers,
+        });
+      } catch (err) {
+        console.warn('[realtime-ws] Failed to publish queued message:', err);
+      }
     });
   }, []);
 
@@ -184,8 +188,8 @@ export function GlobalNotificationProvider({ children }: { children: React.React
     setClientState(null);
   }, [clearReconnectTimer]);
 
-  const handleConnectionLost = useCallback((client: Client, token: string) => {
-    if (stompClientRef.current !== client || activeTokenRef.current !== token) {
+  const handleConnectionLost = useCallback((client: Client, freshToken?: string) => {
+    if (stompClientRef.current !== client) {
       return;
     }
 
@@ -194,7 +198,7 @@ export function GlobalNotificationProvider({ children }: { children: React.React
     isConnectingRef.current = false;
     setRealtimeConnected(false);
     setRealtimeReconnecting(true);
-    reconnectAttemptHandlerRef.current(token);
+    reconnectAttemptHandlerRef.current(freshToken);
   }, []);
 
   const connectRealtime = useCallback((token: string) => {
@@ -207,7 +211,9 @@ export function GlobalNotificationProvider({ children }: { children: React.React
     try {
       const resolution = resolveWebSocketBaseUrlDetails(backendUrl);
       wsUrl = resolution.url;
-      console.info(`[realtime-ws] Connecting to ${wsUrl}/ws-native via ${resolution.source}.`);
+      if (reconnectAttemptRef.current <= 1) {
+        console.info(`[realtime-ws] Connecting to ${wsUrl}/ws-native via ${resolution.source}.`);
+      }
     } catch (error) {
       isConnectingRef.current = false;
       setRealtimeConnected(false);
@@ -274,9 +280,30 @@ export function GlobalNotificationProvider({ children }: { children: React.React
           }
         });
       },
-      onStompError: (frame) => {
-        console.warn('[realtime-ws] STOMP error:', frame.headers?.message || frame.body || 'Unknown STOMP error');
-        handleConnectionLost(client, token);
+      onStompError: async (frame) => {
+        const errorMsg = frame.headers?.message || frame.body || 'Unknown STOMP error';
+        if (reconnectAttemptRef.current <= 1) {
+          console.warn('[realtime-ws] STOMP error:', errorMsg);
+        }
+
+        const isAuthError = /jwt|token|expired|unauthorized|forbidden/i.test(errorMsg);
+        if (isAuthError) {
+          intentionallyClosingClientRef.current = client;
+          try {
+            client.deactivate();
+          } catch { /* ignore clean close */ }
+          stompClientRef.current = null;
+          setClientState(null);
+          const refreshedToken = await ensureValidToken();
+          if (refreshedToken) {
+            handleConnectionLost(client, refreshedToken);
+          } else {
+            disconnectClient();
+          }
+          return;
+        }
+
+        handleConnectionLost(client);
       },
       onWebSocketClose: (event) => {
         if (intentionallyClosingClientRef.current === client) {
@@ -284,22 +311,36 @@ export function GlobalNotificationProvider({ children }: { children: React.React
           return;
         }
 
-        console.warn('[realtime-ws] WebSocket closed:', {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean,
-        });
-        handleConnectionLost(client, token);
+        if (reconnectAttemptRef.current <= 1) {
+          console.warn('[realtime-ws] WebSocket closed:', {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean,
+          });
+        }
+
+        if (!getValidToken() && !getRefreshToken()) {
+          disconnectClient();
+          return;
+        }
+
+        handleConnectionLost(client);
       },
     });
 
     stompClientRef.current = client;
     setClientState(client);
     client.activate();
-  }, [backendUrl, clearReconnectTimer, flushQueuedRealtimeMessages, handleConnectionLost]);
+  }, [backendUrl, clearReconnectTimer, disconnectClient, flushQueuedRealtimeMessages, handleConnectionLost]);
 
-  const scheduleReconnect = useCallback((token: string) => {
-    if (!token || reconnectTimerRef.current !== null) {
+  const scheduleReconnect = useCallback((freshToken?: string) => {
+    if (reconnectTimerRef.current !== null) {
+      return;
+    }
+
+    const tokenCandidate = freshToken || getValidToken();
+    if (!tokenCandidate && !getRefreshToken()) {
+      disconnectClient();
       return;
     }
 
@@ -308,11 +349,16 @@ export function GlobalNotificationProvider({ children }: { children: React.React
     setRealtimeConnected(false);
     setRealtimeReconnecting(true);
 
-    reconnectTimerRef.current = window.setTimeout(() => {
+    reconnectTimerRef.current = window.setTimeout(async () => {
       reconnectTimerRef.current = null;
-      connectRealtime(token);
+      const validToken = getValidToken() || (await ensureValidToken());
+      if (validToken) {
+        connectRealtime(validToken);
+      } else {
+        disconnectClient();
+      }
     }, delay);
-  }, [connectRealtime]);
+  }, [connectRealtime, disconnectClient]);
 
   useEffect(() => {
     reconnectAttemptHandlerRef.current = scheduleReconnect;
@@ -454,7 +500,10 @@ export function GlobalNotificationProvider({ children }: { children: React.React
       },
     ) => {
       const client = stompClientRef.current;
-      if (!client?.connected) {
+      const webSocket = client?.webSocket as WebSocket | undefined;
+      const isSocketOpen = !webSocket || typeof WebSocket === 'undefined' || webSocket.readyState === WebSocket.OPEN;
+
+      if (!client?.connected || !isSocketOpen) {
         if (options?.queueWhenDisconnected) {
           queuedRealtimeMessagesRef.current.push({
             destination,
@@ -465,7 +514,11 @@ export function GlobalNotificationProvider({ children }: { children: React.React
         return;
       }
 
-      client.publish({ destination, body, headers: options?.headers });
+      try {
+        client.publish({ destination, body, headers: options?.headers });
+      } catch (err) {
+        console.warn('[realtime-ws] Failed to publish message:', err);
+      }
     },
     [],
   );

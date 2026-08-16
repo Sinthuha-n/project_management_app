@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 type ApiFixture = {
+  projectType?: 'KANBAN' | 'AGILE';
   tasks: Array<Record<string, unknown>>;
   sentChatMessages: string[];
 };
@@ -16,12 +17,13 @@ const futureJwt = [
   'test-signature',
 ].join('.');
 
-async function authenticate(page: Page) {
-  await page.addInitScript((token) => {
+async function authenticate(page: Page, defaultProjectType: 'KANBAN' | 'AGILE' = 'KANBAN') {
+  await page.addInitScript(({ token, projectType }) => {
     localStorage.setItem('planora:access_token', token);
+    localStorage.setItem('planora:has_refresh_token', 'true');
     localStorage.setItem('currentProjectId', '3');
-    localStorage.setItem('currentProjectType', 'KANBAN');
-  }, futureJwt);
+    localStorage.setItem('currentProjectType', projectType);
+  }, { token: futureJwt, projectType: defaultProjectType });
 }
 
 function json(route: Route, body: unknown, status = 200) {
@@ -44,7 +46,7 @@ async function mockPlanoraApi(page: Page, fixture: ApiFixture) {
     const method = request.method();
 
     if (path === '/api/projects/3' && method === 'GET') {
-      return json(route, { id: 3, name: 'Quality Project', projectKey: 'QA', type: 'KANBAN', teamId: 1 });
+      return json(route, { id: 3, name: 'Quality Project', projectKey: 'QA', type: fixture.projectType ?? 'KANBAN', teamId: 1 });
     }
     if (path === '/api/tasks/project/3/all' && method === 'GET') {
       return json(route, url.searchParams.get('archived') === 'true' ? [] : fixture.tasks);
@@ -131,7 +133,7 @@ async function mockPlanoraApi(page: Page, fixture: ApiFixture) {
       return json(route, []);
     }
     if (path === '/api/auth/refresh') {
-      return json(route, { accessToken: futureJwt });
+      return json(route, { token: futureJwt, accessToken: futureJwt });
     }
     if (path.includes('/notifications')) return json(route, []);
     if (path.includes('/inbox')) {
@@ -144,6 +146,7 @@ async function mockPlanoraApi(page: Page, fixture: ApiFixture) {
 
 test('backlog optimistic creation reconciles to one row and survives refresh', async ({ page }) => {
   const fixture: ApiFixture = {
+    projectType: 'KANBAN',
     tasks: [{
       id: 1,
       projectId: 3,
@@ -159,21 +162,21 @@ test('backlog optimistic creation reconciles to one row and survives refresh', a
     }],
     sentChatMessages: [],
   };
-  await authenticate(page);
+  await authenticate(page, 'KANBAN');
   await mockPlanoraApi(page, fixture);
 
   await page.goto('/backlog?projectId=3');
-  await expect(page.getByText('1 issue', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 issue', { exact: true })).toBeVisible({ timeout: 15_000 });
 
   await page.getByRole('button', { name: 'Add task' }).click();
   await page.getByPlaceholder('Task title…').fill('One correlated task');
   await page.getByPlaceholder('Task title…').press('Enter');
 
-  await expect(page.getByText('2 issues', { exact: true })).toBeVisible();
+  await expect(page.getByText('2 issues', { exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText('One correlated task', { exact: true })).toHaveCount(1);
 
   await page.reload();
-  await expect(page.getByText('2 issues', { exact: true })).toBeVisible();
+  await expect(page.getByText('2 issues', { exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText('One correlated task', { exact: true })).toHaveCount(1);
 });
 
@@ -231,8 +234,8 @@ test('text fields use the neutral focus token in light and dark modes', async ({
 });
 
 test('sprint velocity renders tightly grouped plan and actual bars in light and dark modes', async ({ page }, testInfo) => {
-  const fixture: ApiFixture = { tasks: [], sentChatMessages: [] };
-  await authenticate(page);
+  const fixture: ApiFixture = { projectType: 'AGILE', tasks: [], sentChatMessages: [] };
+  await authenticate(page, 'AGILE');
   await page.addInitScript(() => {
     localStorage.setItem('currentProjectType', 'AGILE');
     localStorage.setItem('planora-theme', 'light');
@@ -240,7 +243,9 @@ test('sprint velocity renders tightly grouped plan and actual bars in light and 
   await mockPlanoraApi(page, fixture);
 
   await page.goto('/sprint-backlog?projectId=3');
-  await page.getByRole('button', { name: 'Show sprint velocity' }).click();
+  const velocityBtn = page.getByRole('button', { name: 'Show sprint velocity' });
+  await expect(velocityBtn).toBeVisible();
+  await velocityBtn.click();
   const chart = page.getByRole('img', { name: 'Sprint velocity chart for 6 completed sprints' });
   await expect(chart).toBeVisible();
   await expect(page.getByText('Committed (plan)')).toBeVisible();

@@ -44,6 +44,7 @@ type RawTask = {
   storyPoint: number;
   assigneeName?: string;
   assigneePhotoUrl?: string | null;
+  assignees?: Array<{ id: number; name: string; email?: string; avatar?: string; profilePicUrl?: string | null }>;
   sprintId?: number | null;
   status?: string;
   startDate?: string;
@@ -90,8 +91,16 @@ function SprintBacklogPageContent() {
 
   const allAssigneeNames = useMemo(() => {
     const names = new Set<string>();
-    productTasks.forEach((t) => { if (t.assigneeName && t.assigneeName !== 'Unassigned') names.add(t.assigneeName); });
-    sprints.forEach((s) => s.tasks.forEach((t) => { if (t.assigneeName && t.assigneeName !== 'Unassigned') names.add(t.assigneeName); }));
+    const collectNames = (t: TaskItem) => {
+      // Prefer the assignees array; fall back to the legacy assigneeName field
+      if (t.assignees && t.assignees.length > 0) {
+        t.assignees.forEach((a) => { if (a.name && a.name !== 'Unassigned') names.add(a.name); });
+      } else if (t.assigneeName && t.assigneeName !== 'Unassigned') {
+        names.add(t.assigneeName);
+      }
+    };
+    productTasks.forEach(collectNames);
+    sprints.forEach((s) => s.tasks.forEach(collectNames));
     return Array.from(names).sort();
   }, [productTasks, sprints]);
 
@@ -100,7 +109,13 @@ function SprintBacklogPageContent() {
       if (filters.search && !t.title.toLowerCase().includes(filters.search.toLowerCase())) return false;
       if (filters.statuses.length > 0 && !filters.statuses.includes(t.status ?? 'TODO')) return false;
       if (filters.priorities.length > 0 && !filters.priorities.includes(t.priority ?? 'LOW')) return false;
-      if (filters.assignee && t.assigneeName !== filters.assignee) return false;
+      if (filters.assignee) {
+        // Match against any assignee in the multi-assignee array, falling back to legacy field
+        const hasMatch =
+          (t.assignees && t.assignees.some((a) => a.name === filters.assignee)) ||
+          t.assigneeName === filters.assignee;
+        if (!hasMatch) return false;
+      }
       return true;
     });
   }, [filters]);
@@ -121,6 +136,12 @@ function SprintBacklogPageContent() {
     selected: false,
     assigneeName: raw.assigneeName ?? 'Unassigned',
     assigneePhotoUrl: raw.assigneePhotoUrl ?? null,
+    assignees: raw.assignees?.map((a) => ({
+      id: a.id,
+      name: a.name,
+      email: a.email,
+      avatar: a.avatar ?? a.profilePicUrl ?? undefined,
+    })) ?? [],
     sprintId: raw.sprintId ?? null,
     status: raw.status ?? 'TODO',
     startDate: raw.startDate ?? '',

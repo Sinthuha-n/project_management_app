@@ -8,7 +8,7 @@ import { Menu, Plus, Settings, Github, Figma } from 'lucide-react';
 
 import { useNavigation } from '@/lib/navigation-context';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { getUserFromToken, getValidToken, User } from '@/lib/auth';
+import { getUserFromToken, getValidToken, User, getUserIdFromToken } from '@/lib/auth';
 import * as projectsApi from '@/services/projects-service';
 
 import { NotificationBell } from './topbar/NotificationBell';
@@ -33,7 +33,8 @@ function TopBarContent() {
   useNavigation();
 
   const {
-    projectId, projectName, projectType, isAgile, isFavorite, toggleFavorite, switchProject
+    projectId, projectName, projectType, isAgile, isFavorite, toggleFavorite, switchProject,
+    figmaUrl, projectOwnerId,
   } = useProjectContext();
 
   const { tabs, activeTab, getTabHref, isProjectPage } = useProjectTabs(projectId, isAgile);
@@ -48,6 +49,11 @@ function TopBarContent() {
   const [figmaModalOpen, setFigmaModalOpen] = useState(false);
   const [figmaLinkInput, setFigmaLinkInput] = useState('');
   const [figmaLinkError, setFigmaLinkError] = useState('');
+  const [isSavingFigma, setIsSavingFigma] = useState(false);
+
+  // Derived: is the current user the project owner (can edit Figma link)
+  const currentUserId = getUserIdFromToken();
+  const isProjectOwner = Boolean(currentUserId && projectOwnerId && currentUserId === projectOwnerId);
 
   // Close project dropdown on outside click
   useEffect(() => {
@@ -101,32 +107,45 @@ function TopBarContent() {
 
   const handleOpenFigma = () => {
     if (!projectId) return;
-
-    const storageKey = `planora:project:${projectId}:figma-link`;
-    const savedLink = window.localStorage.getItem(storageKey);
-    if (savedLink) {
-      window.open(savedLink, '_blank', 'noopener,noreferrer');
-      return;
+    if (figmaUrl) {
+      window.open(figmaUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      // No Figma link set yet — owner can set one via the edit modal, others see a hint
+      if (isProjectOwner) {
+        setFigmaLinkInput('');
+        setFigmaLinkError('');
+        setFigmaModalOpen(true);
+      } else {
+        // Show a brief visual cue that no link is configured (let the tooltip speak)
+      }
     }
+  };
 
-    setFigmaLinkInput('');
+  const handleEditFigmaLink = () => {
+    setFigmaLinkInput(figmaUrl ?? '');
     setFigmaLinkError('');
     setFigmaModalOpen(true);
   };
 
-  const handleSaveFigmaLink = () => {
+  const handleSaveFigmaLink = async () => {
     if (!projectId) return;
-
-    const figmaLink = normalizeFigmaUrl(figmaLinkInput);
-    if (!figmaLink) {
-      setFigmaLinkError('Enter a valid Figma link.');
+    const normalized = figmaLinkInput.trim() === '' ? '' : normalizeFigmaUrl(figmaLinkInput);
+    if (figmaLinkInput.trim() !== '' && !normalized) {
+      setFigmaLinkError('Enter a valid URL.');
       return;
     }
-
-    const storageKey = `planora:project:${projectId}:figma-link`;
-    window.localStorage.setItem(storageKey, figmaLink);
-    setFigmaModalOpen(false);
-    window.open(figmaLink, '_blank', 'noopener,noreferrer');
+    setIsSavingFigma(true);
+    try {
+      await projectsApi.updateProjectDetails(Number(projectId), { figmaUrl: normalized || null });
+      setFigmaModalOpen(false);
+      if (normalized) window.open(normalized, '_blank', 'noopener,noreferrer');
+      // Force SWR revalidation by dispatching a storage event (useProjectContext will pick it up on next poll)
+      window.dispatchEvent(new Event('storage'));
+    } catch {
+      setFigmaLinkError('Failed to save. Please try again.');
+    } finally {
+      setIsSavingFigma(false);
+    }
   };
 
   /* ── Profile avatar block (shared) ── */
@@ -254,14 +273,35 @@ function TopBarContent() {
               >
                 <Github size={18} strokeWidth={pathname.startsWith('/github') ? 2.5 : 2} />
               </button>
-              <button
-                onClick={handleOpenFigma}
-                className="p-2 rounded-lg transition-all text-cu-text-muted hover:text-cu-text-secondary hover:bg-cu-hover"
-                title="Figma"
-                aria-label="Figma"
-              >
-                <Figma size={18} strokeWidth={2} />
-              </button>
+              {/* Figma button — open link for all, edit for owner */}
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={handleOpenFigma}
+                  className={`p-2 rounded-lg transition-all ${
+                    figmaUrl
+                      ? 'text-[#F24E1E] hover:bg-[#F24E1E]/10'
+                      : 'text-cu-text-muted hover:text-cu-text-secondary hover:bg-cu-hover'
+                  }`}
+                  title={figmaUrl ? 'Open Figma' : isProjectOwner ? 'Add Figma link' : 'No Figma link set'}
+                  aria-label="Figma"
+                >
+                  <Figma size={18} strokeWidth={figmaUrl ? 2.2 : 2} />
+                </button>
+                {/* Pencil edit button — owner only */}
+                {isProjectOwner && (
+                  <button
+                    onClick={handleEditFigmaLink}
+                    className="p-1 rounded-md transition-all text-cu-text-muted hover:text-cu-text-secondary hover:bg-cu-hover"
+                    title="Edit Figma link"
+                    aria-label="Edit Figma link"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
               <button
                 onClick={() => router.push(`/project/${projectId}/settings`)}
                 className={`p-2 rounded-lg transition-all ${
@@ -329,24 +369,24 @@ function TopBarContent() {
       <Modal
         open={figmaModalOpen}
         onOpenChange={setFigmaModalOpen}
-        title="Connect Figma"
-        description="Save one Figma file or prototype link for this project."
+        title={figmaUrl ? 'Edit Figma Link' : 'Connect Figma'}
+        description="Save the shared Figma file or prototype link for this project. All team members will be able to open it."
         size="md"
       >
         <form
           className="pt-4"
           onSubmit={(event) => {
             event.preventDefault();
-            handleSaveFigmaLink();
+            void handleSaveFigmaLink();
           }}
         >
           <div className="flex items-center gap-3 rounded-lg border border-cu-border bg-cu-bg-secondary px-3 py-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cu-bg text-cu-primary ring-1 ring-cu-border">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cu-bg text-[#F24E1E] ring-1 ring-cu-border">
               <Figma size={20} strokeWidth={2.2} />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold text-cu-text-primary font-outfit">Project design link</p>
-              <p className="text-xs text-cu-text-secondary font-outfit">This will open directly next time.</p>
+              <p className="text-xs text-cu-text-secondary font-outfit">All project members can open this link.</p>
             </div>
           </div>
 
@@ -368,6 +408,9 @@ function TopBarContent() {
           {figmaLinkError && (
             <p className="mt-2 text-xs font-semibold text-red-500 font-outfit">{figmaLinkError}</p>
           )}
+          {figmaUrl && (
+            <p className="mt-2 text-xs text-cu-text-muted font-outfit">Leave blank to remove the Figma link.</p>
+          )}
 
           <div className="mt-6 flex items-center justify-end gap-2">
             <button
@@ -379,9 +422,11 @@ function TopBarContent() {
             </button>
             <button
               type="submit"
-              className="h-10 rounded-lg bg-cu-primary px-4 text-sm font-bold text-white shadow-sm shadow-cu-primary/20 transition-colors hover:bg-cu-primary-hover font-outfit"
+              disabled={isSavingFigma}
+              className="h-10 rounded-lg bg-cu-primary px-4 text-sm font-bold text-white shadow-sm shadow-cu-primary/20 transition-colors hover:bg-cu-primary-hover font-outfit disabled:opacity-60 flex items-center gap-2"
             >
-              Save & Open
+              {isSavingFigma && <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>}
+              {figmaLinkInput.trim() ? 'Save & Open' : 'Remove Link'}
             </button>
           </div>
         </form>

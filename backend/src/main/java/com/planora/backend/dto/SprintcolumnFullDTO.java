@@ -12,5 +12,6 @@ public class SprintcolumnFullDTO {
     private Integer position;
     private String columnName;
     private String columnStatus;
+    private String color;
     private List<SprintboardTaskResponseDTO> tasks;
 }

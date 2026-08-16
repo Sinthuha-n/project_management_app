@@ -3195,6 +3195,9 @@
           "description": {
             "type": "string"
           },
+          "figmaUrl": {
+            "type": "string"
+          },
           "githubRepoFullName": {
             "type": "string"
           },
@@ -3375,6 +3378,9 @@
           },
           "favoriteMarkedAt": {
             "format": "date-time",
+            "type": "string"
+          },
+          "figmaUrl": {
             "type": "string"
           },
           "id": {
@@ -4098,6 +4104,12 @@
           "assigneePhotoUrl": {
             "type": "string"
           },
+          "assignees": {
+            "items": {
+              "$ref": "#/components/schemas/AssigneeDTO"
+            },
+            "type": "array"
+          },
           "attachmentCount": {
             "format": "int32",
             "type": "integer"
@@ -4149,6 +4161,9 @@
       },
       "SprintcolumnDTO": {
         "properties": {
+          "color": {
+            "type": "string"
+          },
           "columnName": {
             "type": "string"
           },
@@ -4168,6 +4183,9 @@
       },
       "SprintcolumnFullDTO": {
         "properties": {
+          "color": {
+            "type": "string"
+          },
           "columnName": {
             "type": "string"
           },
@@ -5587,6 +5605,11 @@
         "properties": {
           "description": {
             "maxLength": 2000,
+            "minLength": 0,
+            "type": "string"
+          },
+          "figmaUrl": {
+            "maxLength": 1000,
             "minLength": 0,
             "type": "string"
           },
@@ -9822,7 +9845,7 @@
         ],
         "requestBody": {
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
                 "properties": {
                   "file": {
@@ -12963,6 +12986,108 @@
         ],
         "responses": {
           "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "sprintboard-controller"
+        ]
+      },
+      "patch": {
+        "operationId": "updateColumn",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sprintboardId",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "columnId",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SprintcolumnDTO"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "sprintboard-controller"
+        ]
+      },
+      "put": {
+        "operationId": "updateColumnPut",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sprintboardId",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "columnId",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SprintcolumnDTO"
+                }
+              }
+            },
             "description": "OK"
           }
         },
