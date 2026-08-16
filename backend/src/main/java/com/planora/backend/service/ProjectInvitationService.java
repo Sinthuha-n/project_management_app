@@ -2,6 +2,7 @@ package com.planora.backend.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -68,20 +69,19 @@ public class ProjectInvitationService {
             throw new AccessDeniedException("Only the project creator can hold OWNER role");
         }
 
-
         // Block if user is already a member
         userRepository.findFirstByEmailIgnoreCase(inviteeEmail).ifPresent(existingUser -> {
             teamMemberRepository.findByTeamIdAndUserUserId(teamId, existingUser.getUserId())
-                .ifPresent(member -> {
-                    throw new RuntimeException("This user is already a member of the project.");
-                });
+                    .ifPresent(member -> {
+                        throw new RuntimeException("This user is already a member of the project.");
+                    });
         });
 
         // Block if already invited and not expired (pending)
         List<TeamInvitation> existingInvitations = teamInvitationRepository.findByTeamIdAndEmail(teamId, inviteeEmail);
         for (TeamInvitation existing : existingInvitations) {
             if ((existing.getStatus() == null || existing.getStatus().equalsIgnoreCase("PENDING")) &&
-                (existing.getExpiresAt() == null || existing.getExpiresAt().isAfter(LocalDateTime.now()))) {
+                    (existing.getExpiresAt() == null || existing.getExpiresAt().isAfter(LocalDateTime.now()))) {
                 throw new RuntimeException("Invitation already sent to this email");
             }
         }
@@ -123,8 +123,8 @@ public class ProjectInvitationService {
 
         Project project = invitation.getTeam().getProjects().stream().findFirst().orElse(null);
         Long projectOwnerUserId = (project != null && project.getOwner() != null)
-            ? project.getOwner().getUserId()
-            : null;
+                ? project.getOwner().getUserId()
+                : null;
 
         teamMemberService.enforceCreatorOnlyOwnerRole(invitation.getTeam().getId(), projectOwnerUserId);
 
@@ -213,18 +213,32 @@ public class ProjectInvitationService {
                     user.getEmail(),
                     userService.generatePresignedUrl(user.getProfilePicUrl()),
                     invitedRole.name(),
-                    0,        // task count starts at 0 for a brand-new member
-                    "Active"
-            );
+                    0, // task count starts at 0 for a brand-new member
+                    "Active");
             simpMessagingTemplate.convertAndSend(
                     "/topic/project/" + projectId + "/members",
                     new ProjectMemberController.MemberEvent(
                             ProjectMemberController.MemberEventAction.MEMBER_JOINED,
                             user.getUserId(),
                             invitedRole.name(),
-                            memberPayload
-                    )
-            );
+                            memberPayload));
+
+            // ── REAL-TIME: notify chat-page clients that the member roster changed ──
+            // Uses a plain Map payload so we don't need to add MEMBER_ADDED to the
+            // ChatMessage.MessageType enum. The frontend JSON.parse path accepts any shape.
+            String sender = user.getUsername() != null ? user.getUsername()
+                    : (user.getEmail() != null ? user.getEmail() : "");
+            String presignedPicUrl = userService.generatePresignedUrl(user.getProfilePicUrl());
+            String profilePicUrl = presignedPicUrl != null ? presignedPicUrl : "";
+
+            simpMessagingTemplate.convertAndSend(
+                    "/topic/project/" + projectId + "/public",
+                    Map.of(
+                            "type",          "MEMBER_ADDED",
+                            "sender",        sender,
+                            "profilePicUrl", profilePicUrl
+                    ));
+            // ─────────────────────────────────────────────────────────────────────
         }
         // ─────────────────────────────────────────────────────────────────────
     }

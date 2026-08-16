@@ -396,6 +396,7 @@ export const useChat = (projectId: string) => {
     sendRealtime,
     setError,
     setUsers,
+    setUserProfilePics,
     setMessages,
     setTeamLastMessage,
     setTeamUnseenCount,

@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/src/constants/colors';
 import { ChatMessage as ChatMessageType, ChatReactionSummary } from '../../types/chat';
 import { avatarColor, formatTime } from '@/src/hooks/chat/chatUtils';
+import { refreshChatDocument } from '../../services/chatService';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const MAX_BUBBLE_WIDTH = Dimensions.get('window').width * 0.74;
@@ -27,6 +28,7 @@ interface ChatMessageProps {
   onToggleReaction: (messageId: number, emoji: string) => void;
   onOpenThread: (message: ChatMessageType) => void;
   isPinned?: boolean;
+  projectId?: string;
 }
 
 function isFileUrl(content: string): boolean {
@@ -40,7 +42,9 @@ function getFileName(url: string): string {
   try {
     const p = new URL(url).pathname;
     const parts = p.split('/');
-    return decodeURIComponent(parts[parts.length - 1]) || 'Attachment';
+    const raw = decodeURIComponent(parts[parts.length - 1]) || 'Attachment';
+    const cleaned = raw.replace(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-/, '');
+    return cleaned || raw || 'Attachment';
   } catch {
     return 'Attachment';
   }
@@ -79,6 +83,7 @@ export function ChatMessage({
   message, isMe, showAvatar, showDateSep,
   userProfilePics, currentUser, currentUserAliases,
   reactions, onLongPress, onToggleReaction, onOpenThread, isPinned,
+  projectId,
 }: ChatMessageProps) {
   if (message.type === 'JOIN' || message.type === 'LEAVE') return null;
 
@@ -97,6 +102,21 @@ export function ChatMessage({
 
   const timeColor = isMe ? 'rgba(255,255,255,0.65)' : Colors.textMuted;
   const readTickColor = hasRead ? '#60A5FA' : 'rgba(255,255,255,0.65)';
+
+  const handleOpenDocument = async (url: string) => {
+    try {
+      if (projectId) {
+        const freshUrl = await refreshChatDocument(projectId, url);
+        await Linking.openURL(freshUrl || url);
+        return;
+      }
+    } catch {
+      // If refresh fails (e.g. offline or unroutable), fallback to opening original URL
+    }
+    Linking.openURL(url).catch((err) => {
+      console.error('Failed to open document URL:', err);
+    });
+  };
 
   const renderAvatar = () => {
     if (!showAvatar) return <View style={styles.avatarSpacer} />;
@@ -130,7 +150,7 @@ export function ChatMessage({
             styles.fileCard,
             isMe ? styles.fileCardMe : styles.fileCardOther,
           ]}
-          onPress={() => Linking.openURL(message.content)}
+          onPress={() => handleOpenDocument(message.content)}
         >
           <View style={[styles.fileIconBadge, isMe ? styles.fileIconBadgeMe : styles.fileIconBadgeOther]}>
             <Ionicons

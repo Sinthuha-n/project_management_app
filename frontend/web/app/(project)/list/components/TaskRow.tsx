@@ -2,7 +2,6 @@
 
 import React, { useRef } from 'react';
 import {
-  Archive,
   CalendarDays,
   Check,
   ChevronDown,
@@ -10,7 +9,6 @@ import {
   MoreHorizontal,
   Plus,
   RefreshCw,
-  RotateCcw,
   Tag,
   Target,
   Trash2,
@@ -46,8 +44,6 @@ export interface TaskRowProps {
   onOpenModal: (id: number) => void;
   onStatusChange: (id: number, status: string) => void;
   onDelete: (id: number) => void;
-  onArchive: (id: number) => void;
-  onRestore: (id: number) => void;
   members: Array<{ id: number; name: string; photoUrl?: string | null }>;
   availableLabels: Label[];
   milestones: MilestoneResponse[];
@@ -59,7 +55,6 @@ export interface TaskRowProps {
   onToggleSelect?: (taskId: number) => void;
   projectStatuses?: ListProjectStatus[];
   canModifyTasks?: boolean;
-  showArchived?: boolean;
   onPriorityChange?: (taskId: number, priority: string) => void;
 }
 
@@ -106,6 +101,18 @@ function isTaskOverdue(task: Task) {
     task.status !== 'DONE' &&
     new Date(`${task.dueDate}T00:00:00`) < new Date(new Date().toDateString()),
   );
+}
+
+function getDueDateTone(task: Task) {
+  if (!task.dueDate || task.status === 'DONE') return 'neutral';
+  const due = new Date(`${task.dueDate}T00:00:00`);
+  due.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due.getTime() - today.getTime()) / 86_400_000);
+  if (diffDays <= 0) return 'danger';
+  if (diffDays <= 5) return 'warning';
+  return 'neutral';
 }
 
 function formatDueDate(dueDate?: string) {
@@ -353,22 +360,24 @@ function StatusControl({ task, projectStatuses, onStatusChange }: Pick<TaskRowPr
 
 function DueDateControl({ task, onDueDateChange }: Pick<TaskRowProps, 'task' | 'onDueDateChange'>) {
   const dateInputRef = useRef<HTMLInputElement>(null);
-  const overdue = isTaskOverdue(task);
+  const dueTone = getDueDateTone(task);
+  const label = dueTone === 'danger' && isTaskOverdue(task) ? 'Overdue' : formatDueDate(task.dueDate);
+  const toneClass = dueTone === 'danger'
+    ? 'border-red-500/20 bg-red-500/10 text-red-500'
+    : dueTone === 'warning'
+      ? 'border-amber-500/25 bg-amber-500/10 text-amber-600'
+      : 'border-cu-border bg-cu-bg-secondary text-cu-text-secondary hover:bg-cu-hover hover:text-cu-text-primary';
 
   return (
     <StopPropagation>
       <button
         type="button"
-        className={`inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-cu-md border px-2 text-[11px] font-bold transition-colors ${
-          overdue
-            ? 'border-red-500/20 bg-red-500/10 text-red-500'
-            : 'border-cu-border bg-cu-bg-secondary text-cu-text-secondary hover:bg-cu-hover hover:text-cu-text-primary'
-        }`}
+        className={`inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-cu-md border px-2 text-[11px] font-bold transition-colors ${toneClass}`}
         onClick={() => dateInputRef.current?.showPicker?.() ?? dateInputRef.current?.click()}
         aria-label="Edit due date"
       >
         <CalendarDays size={12} className="shrink-0" />
-        <span className="truncate">{overdue ? 'Overdue' : formatDueDate(task.dueDate)}</span>
+        <span className="truncate">{label}</span>
       </button>
       <input
         ref={dateInputRef}
@@ -406,12 +415,6 @@ function TaskBadges({ task, compact = false }: { task: Task; compact?: boolean }
           Blocked
         </span>
       )}
-      {task.archived && (
-        <span className={`inline-flex items-center gap-1 rounded-cu-sm bg-cu-bg-tertiary px-1.5 py-0.5 font-semibold text-cu-text-secondary ${compact ? 'text-[9px]' : 'text-[10px]'}`}>
-          <Archive size={compact ? 8 : 9} className="shrink-0" />
-          Archived
-        </span>
-      )}
     </>
   );
 }
@@ -419,12 +422,9 @@ function TaskBadges({ task, compact = false }: { task: Task; compact?: boolean }
 function ActionsMenu({
   task,
   onOpenModal,
-  onArchive,
-  onRestore,
   onDelete,
   canModifyTasks = true,
-  showArchived = false,
-}: Pick<TaskRowProps, 'task' | 'onOpenModal' | 'onArchive' | 'onRestore' | 'onDelete' | 'canModifyTasks' | 'showArchived'>) {
+}: Pick<TaskRowProps, 'task' | 'onOpenModal' | 'onDelete' | 'canModifyTasks'>) {
   return (
     <StopPropagation>
       <DropdownMenu>
@@ -437,24 +437,6 @@ function ActionsMenu({
         <DropdownMenuContent align="end" className="min-w-[150px]">
           <DropdownMenuItem onSelect={() => onOpenModal(task.id)} className="min-h-9 text-[12px]">
             Edit
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!canModifyTasks}
-            onSelect={(event) => {
-              if (!canModifyTasks) {
-                event.preventDefault();
-                return;
-              }
-              if (showArchived) {
-                if (window.confirm(`Restore "${task.title}" to active tasks?`)) onRestore(task.id);
-              } else if (window.confirm(`Archive "${task.title}"? You can restore it from Archived Tasks.`)) {
-                onArchive(task.id);
-              }
-            }}
-            className={`min-h-9 text-[12px] ${canModifyTasks ? '' : 'cursor-not-allowed text-cu-text-muted'}`}
-          >
-            {showArchived ? <RotateCcw size={13} /> : <Archive size={13} />}
-            {showArchived ? 'Restore' : 'Archive'}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -557,14 +539,19 @@ function MobileStatusControl({ task, projectStatuses, onStatusChange }: Pick<Tas
 
 function MobileDueDateControl({ task, onDueDateChange }: Pick<TaskRowProps, 'task' | 'onDueDateChange'>) {
   const dateInputRef = useRef<HTMLInputElement>(null);
-  const overdue = isTaskOverdue(task);
-  const label = overdue ? 'Overdue' : formatDueDate(task.dueDate);
+  const dueTone = getDueDateTone(task);
+  const label = dueTone === 'danger' && isTaskOverdue(task) ? 'Overdue' : formatDueDate(task.dueDate);
+  const toneClass = dueTone === 'danger'
+    ? 'border-red-500/20 bg-red-500/10 text-red-500'
+    : dueTone === 'warning'
+      ? 'border-amber-500/25 bg-amber-500/10 text-amber-600'
+      : '';
 
   return (
     <StopPropagation>
       <button
         type="button"
-        className={`${mobileIconButtonClass} ${overdue ? 'border-red-500/20 bg-red-500/10 text-red-500' : ''}`}
+        className={`${mobileIconButtonClass} ${toneClass}`}
         onClick={() => dateInputRef.current?.showPicker?.() ?? dateInputRef.current?.click()}
         aria-label={`Due date: ${label}`}
         title={`Due date: ${label}`}
@@ -725,7 +712,6 @@ export function DesktopTaskRow(props: TaskRowProps) {
     onOpenModal,
     selected,
     onToggleSelect,
-    showArchived,
   } = props;
   const priorityColor = PRIORITY_CONFIG[task.priority ?? '']?.color ?? '#9CA3AF';
 
@@ -733,7 +719,7 @@ export function DesktopTaskRow(props: TaskRowProps) {
     <div
       className={`hidden min-h-[48px] cursor-pointer border-b border-cu-border/50 transition-colors ${LIST_GRID_CLASS} ${
         selected ? 'border-l-2 border-l-cu-primary bg-cu-primary/[0.04]' : 'border-l-2 border-l-transparent bg-cu-bg hover:bg-cu-hover/70'
-      } ${showArchived ? 'opacity-75' : ''}`}
+      }`}
       onClick={() => onOpenModal(task.id)}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -777,14 +763,14 @@ export function DesktopTaskRow(props: TaskRowProps) {
 }
 
 export function MobileTaskRow(props: TaskRowProps) {
-  const { task, onOpenModal, selected, onToggleSelect, showArchived } = props;
+  const { task, onOpenModal, selected, onToggleSelect } = props;
   const priorityColor = PRIORITY_CONFIG[task.priority ?? '']?.color ?? '#9CA3AF';
 
   return (
     <div
       className={`flex min-h-[60px] items-center overflow-hidden rounded-cu-md border border-cu-border bg-cu-bg shadow-cu-sm transition-colors md:hidden ${
         selected ? 'ring-2 ring-cu-primary/25' : ''
-      } ${showArchived ? 'opacity-75' : ''}`}
+      }`}
       data-testid="mobile-task-row"
     >
       <span className="h-10 w-1 shrink-0 rounded-r-full" style={{ backgroundColor: priorityColor }} />

@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, BarChart3, Rocket, Archive } from 'lucide-react';
+import { AlertTriangle, BarChart3, Rocket } from 'lucide-react';
 import BacklogCard from './components/BacklogCard';
 import ProductBacklogSection from './components/ProductBacklogSection';
 import FilterBar, { type BacklogFilters } from './components/FilterBar';
@@ -79,7 +79,6 @@ function SprintBacklogPageContent() {
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [projectLabels, setProjectLabels] = useState<Array<{ id: number; name: string; color?: string }>>([]);
   const [activeBoardStatuses, setActiveBoardStatuses] = useState<Array<{ value: string; label: string }>>([]);
-  const [showArchived, setShowArchived] = useState(false);
   const [filters, setFilters] = useState<BacklogFilters>({
     search: '',
     statuses: [],
@@ -168,7 +167,7 @@ function SprintBacklogPageContent() {
     const { showSpinner = true, forceNetwork = false } = options;
     if (!projectId) return;
     
-    const cKey = buildSessionCacheKey('sprint-backlog', [projectId, showArchived.toString()]);
+    const cKey = buildSessionCacheKey('sprint-backlog', [projectId, 'active']);
     let hasCachedData = false;
     if (cKey && !forceNetwork) {
       const cached = getSessionCache<CacheShape>(cKey, { allowStale: true });
@@ -183,22 +182,11 @@ function SprintBacklogPageContent() {
 
     if (showSpinner && !hasCachedData) setLoading(true);
     try {
-      const tasksPromises = [
-        tasksApi.listAllByProject(projectId),
-      ];
-      if (showArchived) {
-        tasksPromises.push(tasksApi.listAllByProject(projectId, { archived: true }));
-      }
-
-      const [rawSprints, ...tasksResList] = await Promise.all([
+      const [rawSprints, rawTasks] = await Promise.all([
         sprintsApi.listByProject(projectId),
-        ...tasksPromises,
+        tasksApi.listAllByProject(projectId, { archived: false }),
       ]);
-      const rawTasks: RawTask[] = [];
-      tasksResList.forEach((res) => {
-        rawTasks.push(...(res as RawTask[]));
-      });
-      const uniqueRaw = Array.from(new Map(rawTasks.map(t => [t.id, t])).values());
+      const uniqueRaw = Array.from(new Map((rawTasks as RawTask[]).map(t => [t.id, t])).values());
       const mappedTasks = uniqueRaw.map((t) => mapRawTask(t));
 
       if (projectIdNum) {
@@ -250,7 +238,7 @@ function SprintBacklogPageContent() {
     } finally {
       if (showSpinner && !hasCachedData) setLoading(false);
     }
-  }, [projectId, projectIdNum, projectKey, setTasksForProject, showArchived]);
+  }, [projectId, projectIdNum, projectKey, setTasksForProject]);
 
   const createSprint = useCallback(async (name: string, startDate?: string, endDate?: string, goal?: string) => {
     const trimmed = name.trim();
@@ -682,7 +670,7 @@ function SprintBacklogPageContent() {
         priority: t.priority ?? 'LOW',
         archived: t.archived ?? false,
       };
-      if (newTask.archived && !showArchived) {
+      if (newTask.archived) {
         return;
       }
       if (newTask.sprintId) {
@@ -714,7 +702,7 @@ function SprintBacklogPageContent() {
         const existingIndex = prev.findIndex(x => x.id === t.id);
         const existing = existingIndex >= 0 ? prev[existingIndex] : undefined;
         const filtered = prev.filter(x => x.id !== t.id);
-        if (t.archived && !showArchived) {
+        if (t.archived) {
           return filtered;
         }
         if (!t.sprintId && targetSprintId === null) {
@@ -732,7 +720,7 @@ function SprintBacklogPageContent() {
         const existingIndex = s.tasks.findIndex(x => x.id === t.id);
         const existing = existingIndex >= 0 ? s.tasks[existingIndex] : undefined;
         const filtered = s.tasks.filter(x => x.id !== t.id);
-        if (t.archived && !showArchived) {
+        if (t.archived) {
           return { ...s, tasks: filtered };
         }
         if (s.id === t.sprintId) {
@@ -753,7 +741,7 @@ function SprintBacklogPageContent() {
         ...s, tasks: s.tasks.filter(x => x.id !== deletedId)
       })));
     }
-  }, [showArchived]));
+  }, []));
 
   useEffect(() => {
     const action = searchParams.get('action');
@@ -804,16 +792,6 @@ function SprintBacklogPageContent() {
         <div className="flex items-start justify-between gap-4">
           <FilterBar filters={filters} onChange={setFilters} assigneeNames={allAssigneeNames} />
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 pt-0.5">
-            <button
-              onClick={() => setShowArchived(!showArchived)}
-              className={`flex h-11 items-center gap-2 rounded-xl px-4 text-[13px] font-bold shadow-sm transition-all active:scale-95 ${
-                showArchived ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <Archive size={18} />
-              <span className="hidden sm:inline">{showArchived ? 'Hide Archived' : 'Show Archived'}</span>
-              <span className="inline sm:hidden">{showArchived ? 'Hide' : 'Show'}</span>
-            </button>
             <button
               onClick={handleVelocityToggle}
               aria-expanded={showVelocity}

@@ -94,13 +94,13 @@ export function useChat(projectId: string) {
   // Track which rooms we've subscribed to already
   const subscribedRoomsRef = useRef<Set<number>>(new Set());
 
-  const roomsHook     = useChatRooms(projectId);
-  const messagesHook  = useChatMessages(projectId);
-  const presenceHook  = useChatPresence(projectId);
+  const roomsHook = useChatRooms(projectId);
+  const messagesHook = useChatMessages(projectId);
+  const presenceHook = useChatPresence(projectId);
   const reactionsHook = useChatReactions(projectId);
-  const searchHook    = useChatSearch(projectId);
-  const threadsHook   = useChatThreads(projectId);
-  const unreadHook    = useChatUnread(projectId);
+  const searchHook = useChatSearch(projectId);
+  const threadsHook = useChatThreads(projectId);
+  const unreadHook = useChatUnread(projectId);
 
   const { selectedRoomId, selectRoom, rooms } = roomsHook;
 
@@ -206,8 +206,8 @@ export function useChat(projectId: string) {
       unsubscribeNetwork();
       unsubscribeChat();
     };
-  // Listener callbacks only use React state setters from messagesHook, which are stable.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Listener callbacks only use React state setters from messagesHook, which are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadLatestForQueuedMessage, projectId]);
 
   const clearReconnectTimer = useCallback(() => {
@@ -706,9 +706,9 @@ export function useChat(projectId: string) {
       clearReconnectTimer();
       clearTokenRefreshTimer();
     };
-  // The initialization lifecycle is intentionally keyed to project changes only.
-  // The hook modules expose stable operational callbacks for this flow.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // The initialization lifecycle is intentionally keyed to project changes only.
+    // The hook modules expose stable operational callbacks for this flow.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   // ── Send helpers ──────────────────────────────────────────────────────────
@@ -822,7 +822,7 @@ export function useChat(projectId: string) {
     if (displayUser) {
       selectRoom(null);
       messagesHook.loadPrivateHistory(displayUser);
-      chatService.markPrivateRead(projectId, displayUser).catch(() => {});
+      chatService.markPrivateRead(projectId, displayUser).catch(() => { });
       unreadHook.setPrivateUnseenCounts(prev => ({ ...prev, [dmKey(displayUser)]: 0 }));
     }
   }, [projectId, selectRoom, messagesHook, unreadHook]);
@@ -832,7 +832,7 @@ export function useChat(projectId: string) {
     if (id !== null) {
       setSelectedUser(null);
       messagesHook.loadRoomHistory(id);
-      chatService.markRoomRead(projectId, id).catch(() => {});
+      chatService.markRoomRead(projectId, id).catch(() => { });
       unreadHook.setRoomUnseenCounts(prev => ({ ...prev, [id]: 0 }));
       // Subscribe if we have an open socket
       if (socketRef.current?.readyState === WebSocket.OPEN) {

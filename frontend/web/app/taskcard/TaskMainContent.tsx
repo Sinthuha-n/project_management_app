@@ -93,11 +93,6 @@ const TaskOverviewStrip = ({ overview }: { overview?: TaskMainContentProps['over
             GH #{overview.githubIssueNumber}
           </span>
         )}
-        {overview.archived && (
-          <span className="inline-flex items-center rounded-full bg-cu-warning/10 px-2.5 py-1 text-[11px] font-bold text-cu-warning">
-            Archived
-          </span>
-        )}
       </div>
       {(labels.length > 0 || assignees.length > 0) && (
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-cu-border pt-3">

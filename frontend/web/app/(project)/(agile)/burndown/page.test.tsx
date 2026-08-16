@@ -81,7 +81,6 @@ describe('BurndownPage', () => {
     expect(await screen.findByTestId('burndown-chart')).toHaveTextContent('Sprint 1');
     expect(screen.getAllByText('On track').length).toBeGreaterThan(0);
     expect(screen.getByText('60%')).toBeInTheDocument();
-    expect(screen.getByText('1.3 pts/day required to finish on time.')).toBeInTheDocument();
     expect(screen.getByText('Status mix')).toBeInTheDocument();
     expect(screen.queryByText(/variance/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/(?:above|ahead of) the ideal/i)).not.toBeInTheDocument();

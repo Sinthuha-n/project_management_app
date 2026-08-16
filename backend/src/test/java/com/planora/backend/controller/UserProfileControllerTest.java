@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planora.backend.dto.PhotoUploadResponse;
 import com.planora.backend.dto.UpdateProfileRequest;
 import com.planora.backend.dto.UserResponseDTO;
+import com.planora.backend.exception.ProfilePhotoStorageException;
 import com.planora.backend.service.JWTService;
 import com.planora.backend.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
@@ -147,5 +148,23 @@ class UserProfileControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.photoUrl").value("https://cdn.example.com/photo.jpg?sig=abc"));
+    }
+
+    @Test
+    @WithMockUserPrincipal(email = "alice@example.com")
+    void uploadProfilePhoto_returns503WithoutLeakingStorageDetails() throws Exception {
+        MockMultipartFile validFile = new MockMultipartFile(
+                "file", "photo.jpg", "image/jpeg", "imagedata".getBytes());
+        when(service.isValidImageType("image/jpeg")).thenReturn(true);
+        when(service.isValidImageByMagicBytes(any())).thenReturn(true);
+        when(service.uploadProfilePicture(anyString(), any())).thenThrow(
+                new ProfilePhotoStorageException("Access key abc was rejected", new RuntimeException("secret")));
+
+        mockMvc.perform(multipart("/api/user/profile/photo")
+                        .file(validFile)
+                        .with(csrf()))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.errorCode").value("STORAGE_UNAVAILABLE"))
+                .andExpect(jsonPath("$.message").value("Profile photo storage is temporarily unavailable. Please try again."));
     }
 }

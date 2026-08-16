@@ -456,11 +456,9 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
               project={taskData.projectName}
               taskId={`TASK-${taskData.id}`}
               numericTaskId={taskData.id}
-              archived={taskData.archived}
               status={taskData.status}
               priority={taskData.priority}
               dueDate={taskData.dueDate}
-              readOnly={!canEdit}
               onClose={(wasModifiedFlag) => onClose(wasModifiedFlag || wasModified.current)}
             />
             <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-y-auto md:overflow-hidden">
