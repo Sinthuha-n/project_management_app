@@ -895,7 +895,7 @@ public class ChatRestController {
     private void validateTeamMembership(Long teamId, String usernameOrEmail) {
         var user = userCacheService.resolveUserByEmailOrUsername(usernameOrEmail);
         if (user == null) {
-            throw new RuntimeException("User is not found");
+            throw new com.planora.backend.exception.ForbiddenException("User is not found");
         }
         validateTeamMembership(teamId, user);
     }

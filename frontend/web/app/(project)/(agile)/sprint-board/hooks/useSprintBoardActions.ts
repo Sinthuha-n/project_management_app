@@ -141,9 +141,35 @@ export function useSprintBoardActions({
 
     // ── Task Move Handling ───────────────────────────────────────────────────
     const taskId = parseInt(String(active.id), 10);
-    const newStatus = String(over.id);
+
+    // Resolve target column status: overId could be a column status string (e.g. "TODO"),
+    // a column element id (e.g. "column-10" or "10"), or a sibling task id (e.g. "42").
+    let newStatus: string | null = null;
+    const directCol = board.columns.find((col) => col.columnStatus === overId);
+    if (directCol) {
+      newStatus = directCol.columnStatus;
+    } else if (overId.startsWith('column-')) {
+      const colId = Number(overId.replace('column-', ''));
+      const col = board.columns.find((c) => c.id === colId);
+      if (col) newStatus = col.columnStatus;
+    } else {
+      const colById = board.columns.find((col) => col.id === Number(overId));
+      if (colById) {
+        newStatus = colById.columnStatus;
+      } else {
+        // Dropped on another task card: look up parent column of the target task
+        const colByTask = board.columns.find((col) => col.tasks.some((t) => String(t.taskId) === overId));
+        if (colByTask) {
+          newStatus = colByTask.columnStatus;
+        }
+      }
+    }
+
+    if (!newStatus) return;
+
     const sourceColumn = board.columns.find((column) => column.tasks.some((task) => task.taskId === taskId));
     if (!sourceColumn || sourceColumn.columnStatus === newStatus) return;
+
     applyOptimisticMove(taskId, newStatus);
     setAllBoards((prev) => prev.map((entry, idx) => {
       if (idx !== selectedIdx) return entry;
@@ -374,6 +400,12 @@ export function useSprintBoardActions({
       setShowCompleteConfirm(false);
       setSuccessMsg('Sprint completed successfully!');
       setTimeout(() => setSuccessMsg(''), 1800);
+      const cacheKey = buildSessionCacheKey('sprint-board-v2', [projectIdStr]);
+      if (cacheKey) removeSessionCache(cacheKey);
+      const backlogKey = buildSessionCacheKey('sprint-backlog', [projectIdStr, 'active']);
+      if (backlogKey) removeSessionCache(backlogKey);
+      window.dispatchEvent(new CustomEvent('planora:sprint-updated'));
+      window.dispatchEvent(new CustomEvent('planora:task-updated'));
       forceRefresh();
     } catch (err: unknown) {
       toast(normalizeApiError(err, 'Failed to complete sprint.'), 'error');

@@ -151,13 +151,14 @@ function SprintBoardPageContent() {
     let hasCache = false;
     if (cKey && !forceNetwork) {
       const cached = getSessionCache<SprintBoardCache>(cKey, { allowStale: true });
-      if (cached.data) {
+      if (cached.data && Array.isArray(cached.data.activeList) && Array.isArray(cached.data.boards)) {
         setAllActiveSprints(cached.data.activeList); 
         setAllBoards(cached.data.boards);
         hydrate(cached.data.boards[selectedIdx] ?? cached.data.boards[0] ?? null);
-        setLoading(false);
-        hasCache = true;
-        if (!cached.isStale) return;
+        if (cached.data.activeList.length > 0) {
+          setLoading(false);
+          hasCache = true;
+        }
       }
     }
     
@@ -167,13 +168,16 @@ function SprintBoardPageContent() {
     setError(null);
     try {
       const sprints = await fetchSprintsByProject(pid) as Array<SprintSummary & { name?: string }>;
-      const activeList = sprints.filter((s) => s.status === 'ACTIVE').map((s) => ({ ...s, sprintName: s.sprintName || s.name || `Sprint #${s.id}` }));
+      const activeList = (Array.isArray(sprints) ? sprints : [])
+        .filter((s) => (s.status ?? '').trim().toUpperCase() === 'ACTIVE')
+        .map((s) => ({ ...s, sprintName: s.sprintName || s.name || `Sprint #${s.id}` }));
+
       if (activeList.length === 0) { 
         setAllActiveSprints([]); 
         setAllBoards([]); 
         hydrate(null); 
         setLoading(false); 
-        if (cKey) setSessionCache(cKey, { activeList: [], boards: [] }, 30 * 60_000);
+        if (cKey) setSessionCache(cKey, { activeList: [], boards: [] }, 10_000);
         return; 
       }
       const boards = await Promise.all(
@@ -241,9 +245,13 @@ function SprintBoardPageContent() {
   useVisibilityInterval(() => void fetchData({ showSpinner: false }), 30_000, Boolean(projectIdStr));
 
   useEffect(() => { 
-    const onTaskUpdated = () => void fetchData({ showSpinner: false, forceNetwork: true }); 
-    window.addEventListener('planora:task-updated', onTaskUpdated); 
-    return () => window.removeEventListener('planora:task-updated', onTaskUpdated); 
+    const onRefresh = () => void fetchData({ showSpinner: false, forceNetwork: true }); 
+    window.addEventListener('planora:task-updated', onRefresh); 
+    window.addEventListener('planora:sprint-updated', onRefresh); 
+    return () => {
+      window.removeEventListener('planora:task-updated', onRefresh);
+      window.removeEventListener('planora:sprint-updated', onRefresh);
+    };
   }, [fetchData]);
 
   useTaskWebSocket(projectIdStr, () => { void fetchData({ showSpinner: false, forceNetwork: true }); });

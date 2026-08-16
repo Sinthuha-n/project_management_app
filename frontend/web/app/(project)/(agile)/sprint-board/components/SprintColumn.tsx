@@ -80,12 +80,19 @@ export default function SprintColumn({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
-  const droppableRef = useDroppable({
+  const { setNodeRef: setDroppableNodeRef } = useDroppable({
     id: column.columnStatus,
     data: { type: 'column', columnStatus: column.columnStatus, columnId: column.id },
   });
 
-  const sortable = useSortable({
+  const {
+    attributes: sortableAttributes,
+    listeners: sortableListeners,
+    setNodeRef: setSortableNodeRef,
+    transform: sortableTransform,
+    transition: sortableTransition,
+    isDragging: isColumnDragging,
+  } = useSortable({
     id: `column-${column.id}`,
     data: { type: 'column', columnId: column.id, columnStatus: column.columnStatus },
   });
@@ -146,8 +153,8 @@ export default function SprintColumn({
 
   const taskIds = column.tasks.map((task) => task.taskId.toString());
   const sortableStyle = {
-    transform: CSS.Transform.toString(sortable.transform),
-    transition: sortable.transition,
+    transform: CSS.Transform.toString(sortableTransform),
+    transition: sortableTransition,
     ...getColumnBgStyle(),
   };
 
@@ -184,13 +191,13 @@ export default function SprintColumn({
 
   return (
     <motion.div
-      ref={sortable.setNodeRef}
+      ref={setSortableNodeRef}
       whileHover={{ scale: 1.002 }}
       transition={{ duration: 0.2 }}
       animate={{ width: columnWidth }}
       style={sortableStyle}
       className={`flex flex-col h-full min-w-0 rounded-xl border border-cu-border p-2 snap-center snap-always shadow-cu-sm transition-all duration-200 ${
-        sortable.isDragging ? 'opacity-40 ring-2 ring-cu-primary' : ''
+        isColumnDragging ? 'opacity-40 ring-2 ring-cu-primary' : ''
       }`}
     >
       {/* Column Header */}
@@ -206,8 +213,8 @@ export default function SprintColumn({
           </button>
           <button
             type="button"
-            {...sortable.attributes}
-            {...sortable.listeners}
+            {...sortableAttributes}
+            {...sortableListeners}
             className="rounded-md p-0.5 text-cu-text-muted hover:bg-cu-hover hover:text-cu-text-primary cursor-grab active:cursor-grabbing transition-colors flex-shrink-0"
             title="Drag to reorder column"
           >
@@ -410,7 +417,7 @@ export default function SprintColumn({
       {/* Column Content / Droppable Task Container */}
       {!collapsed && (
         <div
-          ref={droppableRef.setNodeRef}
+          ref={setDroppableNodeRef}
           className="flex-1 overflow-y-auto px-1 space-y-2.5 no-scrollbar"
           style={{ minHeight: '150px' }}
         >
