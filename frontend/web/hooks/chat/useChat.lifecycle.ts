@@ -127,6 +127,7 @@ export interface UseRealtimeLifecycleArgs {
   sendRealtime: (destination: string, body: string) => void;
   setError: SetState<string>;
   setUsers: SetState<string[]>;
+  setUserProfilePics: SetState<Record<string, string>>;
   setMessages: SetState<ChatMessage[]>;
   setTeamLastMessage: SetState<ChatMessage | null>;
   setTeamUnseenCount: SetState<number>;
@@ -176,6 +177,7 @@ export const useRealtimeLifecycle = ({
   sendRealtime,
   setError,
   setUsers,
+  setUserProfilePics,
   setMessages,
   setTeamLastMessage,
   setTeamUnseenCount,
@@ -224,6 +226,7 @@ export const useRealtimeLifecycle = ({
       sendRealtime,
       setError,
       setUsers,
+      setUserProfilePics,
       setMessages,
       setTeamLastMessage,
       setTeamUnseenCount,
@@ -256,6 +259,7 @@ export const useRealtimeLifecycle = ({
     sendRealtime,
     setError,
     setUsers,
+    setUserProfilePics,
     setMessages,
     setTeamLastMessage,
     setTeamUnseenCount,

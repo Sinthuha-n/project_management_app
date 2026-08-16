@@ -4,7 +4,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
     AlertCircle, Plus, ChevronDown, ChevronUp,
-    Archive, Check, Trash2, MoreHorizontal, X, CornerDownLeft
+    Check, Trash2, MoreHorizontal, X, CornerDownLeft
 } from 'lucide-react';
 import { RefreshCw } from 'lucide-react';
 import CreateTaskModal from '@/components/shared/CreateTaskModal';
@@ -53,9 +53,8 @@ function BacklogPageContent() {
     ] = useState(false);
     const [inlineTitle, setInlineTitle] = useState('');
     const [inlineTitleLength, setInlineTitleLength] = useState(0);
-    const [showArchived, setShowArchived] = useState(false);
     const {
-        tasks, archivedTasks, archivedLoading, loading, error, collapsedGroups, toggleGroup,
+        tasks, loading, error, collapsedGroups, toggleGroup,
         selectedTask, setSelectedTask,
         selectedTaskIdForModal, setSelectedTaskIdForModal,
         showCreateModal, setShowCreateModal,
@@ -71,9 +70,8 @@ function BacklogPageContent() {
         groupedTasks,
         handleMarkDone, handleDelete, handleAddTask,
         handleStatusChange, handleBulkDelete, handleBulkDone,
-        handleArchiveTask, handleUnarchiveTask,
         toggleSelect, loadTasks, handleDateChange
-    } = useBacklogData(projectId, showArchived);
+    } = useBacklogData(projectId);
 
     // Handle action triggers from TopBar (e.g. ?action=add-task)
     useEffect(() => {
@@ -156,7 +154,6 @@ function BacklogPageContent() {
                 filterLabel={filterLabel} setFilterLabel={setFilterLabel}
                 filterDateRange={filterDateRange} setFilterDateRange={setFilterDateRange}
                 groupBy={groupBy} setGroupBy={setGroupBy}
-                showArchived={showArchived} setShowArchived={setShowArchived}
                 teamMembers={teamMembers} labels={labels}
             />
 
@@ -233,8 +230,6 @@ function BacklogPageContent() {
                                             onClick={setSelectedTask}
                                             onStatusChange={handleStatusChange}
                                             onOpenModal={setSelectedTaskIdForModal}
-                                            onArchive={handleArchiveTask}
-                                            onUnarchive={handleUnarchiveTask}
                                             selected={selectedIds.has(task.id)}
                                             onToggleSelect={toggleSelect}
                                             onDateChange={handleDateChange}
@@ -312,42 +307,6 @@ function BacklogPageContent() {
                 </AnimatePresence>
               </div>
             ))}
-
-            {showArchived && (
-                <div className="mt-6">
-                    <div className="flex items-center gap-2 mb-3 px-2">
-                        <Archive className="w-4 h-4 text-amber-500" />
-                        <h3 className="text-sm font-medium text-cu-text-secondary">
-                            Archived Tasks ({archivedTasks.length})
-                        </h3>
-                    </div>
-                    {archivedLoading ? (
-                        <div className="text-sm text-cu-text-secondary px-4 py-2">Loading...</div>
-                    ) : archivedTasks.length === 0 ? (
-                        <div className="text-sm text-cu-text-secondary px-4 py-8 text-center">
-                            No archived tasks
-                        </div>
-                    ) : (
-                        <div className="opacity-60 flex flex-col gap-[5px]">
-                            {archivedTasks.map(task => (
-                                <BacklogTaskRow
-                                    key={task.id}
-                                    task={{ ...task, archived: true }}
-                                    onDelete={handleDelete}
-                                    onClick={setSelectedTask}
-                                    onStatusChange={handleStatusChange}
-                                    onOpenModal={setSelectedTaskIdForModal}
-                                    onArchive={handleArchiveTask}
-                                    onUnarchive={handleUnarchiveTask}
-                                    isArchived
-                                    selected={false}
-                                    onDateChange={handleDateChange}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
 
             {/* ── Bulk action floating bar ── */}
             {selectedIds.size > 0 && (

@@ -29,6 +29,7 @@ import com.planora.backend.dto.LoginResponse;
 import com.planora.backend.dto.UpdateProfileRequest;
 import com.planora.backend.dto.UserResponseDTO;
 import com.planora.backend.exception.ResourceNotFoundException;
+import com.planora.backend.exception.ProfilePhotoStorageException;
 import com.planora.backend.model.User;
 import com.planora.backend.model.VerificationToken;
 import com.planora.backend.repository.TokenRepository;
@@ -53,6 +54,7 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 public class UserService {
 
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+    public static final long MAX_PROFILE_PHOTO_SIZE_BYTES = 25L * 1024 * 1024;
     private static final Duration REFRESH_TOKEN_RETRY_GRACE = Duration.ofSeconds(10);
     private static final SecureRandom OTP_RANDOM = new SecureRandom();
     private static final String HASHED_OTP_PREFIX = "v2:";
@@ -804,8 +806,7 @@ public class UserService {
         }
 
         // Step 2. Hard validation on file size (25MB limit).
-        long maxFileSize = 25L * 1024 * 1024; // 25 MB to match service-layer limit
-        if (file.getSize() > maxFileSize) {
+        if (file.getSize() > MAX_PROFILE_PHOTO_SIZE_BYTES) {
             throw new IllegalArgumentException("File size exceeds maximum limit of 25MB");
         }
 
@@ -825,17 +826,14 @@ public class UserService {
             throw new IllegalArgumentException("Could not validate image content");
         }
 
-        try {
-            // Step 4. Check if user already has an avatar. If yes, issue delete command to S3.
-            String oldKey = user.getProfilePicUrl();
-            if (oldKey != null && !oldKey.isEmpty()) {
-                deleteProfilePictureByKey(extractKeyFromStoredValue(oldKey));
-            }
+        String oldKey = extractKeyFromStoredValue(user.getProfilePicUrl());
+        String uniqueFileName = UUID.randomUUID() + extensionForContentType(contentType);
+        boolean replacementUploaded = false;
 
-            // Step 5. Construct a collision-free filename using UUIDs.
-            String originalFilename = file.getOriginalFilename();
-            String fileExtension = originalFilename != null ? originalFilename.substring(originalFilename.lastIndexOf(".")) : ".jpg";
-            String uniqueFileName = UUID.randomUUID().toString() + fileExtension;
+        try {
+            // Build the replacement from the validated MIME type. Camera and clipboard
+            // uploads commonly have no filename extension, so the original name is not
+            // safe input for key construction.
 
             // Step 6. Build AWS upload request metadata.
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
@@ -847,16 +845,35 @@ public class UserService {
             // Step 7. Stream file directly from the HTTP request to AWS S3.
             s3Client.putObject(putObjectRequest,
                     RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+            replacementUploaded = true;
 
-            // Step 8. Store ONLY the S3 object key. Storing full URLs makes migrating AWS buckets difficult.
+            // Persist the new key before deleting the old object. A failed replacement
+            // must never remove the user's currently working avatar.
             user.setProfilePicUrl(uniqueFileName);
-            userRepository.save(user);
+            userRepository.saveAndFlush(user);
+
+            if (oldKey != null && !oldKey.isEmpty() && !oldKey.equals(uniqueFileName)) {
+                deleteProfilePictureByKey(oldKey);
+            }
 
             return uniqueFileName;
 
         } catch (Exception e) {
-            throw new RuntimeException("Could not store the file in S3. Error: " + e.getMessage());
+            if (replacementUploaded) {
+                deleteProfilePictureByKey(uniqueFileName);
+            }
+            logger.error("Failed to replace profile photo for user {}", email, e);
+            throw new ProfilePhotoStorageException("Could not store the profile photo", e);
         }
+    }
+
+    private String extensionForContentType(String contentType) {
+        return switch (contentType.toLowerCase()) {
+            case "image/png" -> ".png";
+            case "image/gif" -> ".gif";
+            case "image/webp" -> ".webp";
+            default -> ".jpg";
+        };
     }
 
     // Whitelist of allowed MIME types for avatar uploads.

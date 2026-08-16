@@ -8,7 +8,6 @@ import { STATUS_LABELS, type TaskStatus } from './TaskRowConstants';
 import type { TaskRowProps } from '../TaskRow';
 import { useTaskRowState } from './useTaskRowState';
 import { formatDate } from './TaskRowConstants';
-import { ArchiveBadge } from '@/components/ui';
 
 function hexToLabelStyle(hex: string): React.CSSProperties {
   return { backgroundColor: `${hex}20`, color: hex, border: `1px solid ${hex}40` };
@@ -49,7 +48,7 @@ export default function MobileTaskRow(props: TaskRowProps) {
 
   return (
     <div
-      className={`group relative flex flex-col rounded-2xl border-l-[6px] border border-cu-border shadow-cu-sm hover:shadow-cu-md transition-all duration-200 mb-3 select-none overflow-hidden ${rowBg} ${task.archived ? 'opacity-60' : ''}`}
+      className={`group relative flex flex-col rounded-2xl border-l-[6px] border border-cu-border shadow-cu-sm hover:shadow-cu-md transition-all duration-200 mb-3 select-none overflow-hidden ${rowBg}`}
       style={{ borderLeftColor: statusBorderColor }}
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -112,7 +111,6 @@ export default function MobileTaskRow(props: TaskRowProps) {
                   <span>Recur{task.recurrenceActive === false ? ' (P)' : ''}</span>
                 </span>
               )}
-              {task.archived && <ArchiveBadge />}
             </h3>
           )}
           <div className="flex flex-wrap gap-1 mt-1.5">
@@ -209,12 +207,14 @@ export default function MobileTaskRow(props: TaskRowProps) {
                 onClick={openDatePicker}
                 title={formatDate(task.dueDate)}
                 className={`text-[12px] font-bold leading-none whitespace-nowrap px-2 py-2 rounded-lg min-h-[44px] ${
-                  dueClass === 'overdue' || dueClass === 'old'
+                  dueClass === 'overdue' || dueClass === 'old' || dueClass === 'today'
                     ? 'text-cu-danger bg-cu-danger-light'
-                    : 'text-cu-text-secondary bg-cu-bg-tertiary'
+                    : dueClass === 'five_days' || dueClass === 'soon'
+                      ? 'text-amber-800 bg-amber-50 dark:text-amber-300 dark:bg-amber-900/15'
+                      : 'text-cu-text-secondary bg-cu-bg-tertiary'
                 }`}
               >
-                {dueClass === 'overdue' ? 'Overdue' : formatDate(task.dueDate)}
+                {dueClass === 'overdue' ? 'Overdue' : dueClass === 'today' ? 'Due today' : formatDate(task.dueDate)}
               </button>
               <input
                 ref={dateRef}

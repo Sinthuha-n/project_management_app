@@ -58,19 +58,25 @@ export function getDueDateMeta(dueDate?: string | null, status?: string | null) 
   }
 
   const date = new Date(dueDate.includes('T') ? dueDate : `${dueDate}T00:00:00`);
+  date.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((date.getTime() - today.getTime()) / 86_400_000);
 
   if (status?.toUpperCase() === 'DONE') {
     return { label, tone: 'done' as const, className: 'text-emerald-500 bg-emerald-500/10' };
   }
 
-  if (date < today) {
+  if (diffDays < 0) {
     return { label: `Overdue ${label}`, tone: 'overdue' as const, className: 'text-red-500 bg-red-500/10' };
   }
 
-  if (date.toDateString() === today.toDateString()) {
-    return { label: 'Due today', tone: 'today' as const, className: 'text-cu-primary bg-cu-primary/10' };
+  if (diffDays === 0) {
+    return { label: 'Due today', tone: 'today' as const, className: 'text-red-500 bg-red-500/10' };
+  }
+
+  if (diffDays <= 5) {
+    return { label, tone: 'upcoming' as const, className: 'text-amber-600 bg-amber-500/10' };
   }
 
   return { label, tone: 'upcoming' as const, className: 'text-cu-text-secondary bg-cu-bg-secondary' };

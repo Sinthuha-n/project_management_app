@@ -258,7 +258,6 @@ function TaskPageContent() {
           project={taskData.projectName} 
           taskId={`TASK-${taskData.id}`} 
           numericTaskId={taskData.id}
-          archived={taskData.archived}
           status={taskData.status}
           priority={taskData.priority}
           dueDate={taskData.dueDate}

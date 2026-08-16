@@ -2,6 +2,7 @@ package com.planora.backend.service;
 
 import com.planora.backend.dto.LoginResponse;
 import com.planora.backend.dto.UpdateProfileRequest;
+import com.planora.backend.exception.ProfilePhotoStorageException;
 import com.planora.backend.model.User;
 import com.planora.backend.model.VerificationToken;
 import com.planora.backend.repository.TokenRepository;
@@ -19,13 +20,19 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.Authentication;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -80,6 +87,7 @@ public class UserServiceTest {
         testUser.setPassword("Test@1234");
         testUser.setUsername("testuser");
         lenient().when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        ReflectionTestUtils.setField(userService, "profileBucket", "profile-bucket");
     }
 
     @Test
@@ -776,6 +784,49 @@ public class UserServiceTest {
     }
 
     @Test
+    void uploadProfilePicture_acceptsExtensionlessCameraImage() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "avatar",
+                "image/png",
+                onePixelPng());
+        when(userRepository.findFirstByEmailIgnoreCase("test@example.com"))
+                .thenReturn(Optional.of(testUser));
+        when(userRepository.saveAndFlush(testUser)).thenReturn(testUser);
+
+        String key = userService.uploadProfilePicture("test@example.com", file);
+
+        assertTrue(key.endsWith(".png"));
+        ArgumentCaptor<PutObjectRequest> request = ArgumentCaptor.forClass(PutObjectRequest.class);
+        verify(s3Client).putObject(request.capture(), any(RequestBody.class));
+        assertEquals("profile-bucket", request.getValue().bucket());
+        assertEquals(key, request.getValue().key());
+        assertEquals(key, testUser.getProfilePicUrl());
+    }
+
+    @Test
+    void uploadProfilePicture_keepsOldAvatarWhenReplacementUploadFails() {
+        testUser.setProfilePicUrl("existing-avatar.png");
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "replacement.png",
+                "image/png",
+                onePixelPng());
+        when(userRepository.findFirstByEmailIgnoreCase("test@example.com"))
+                .thenReturn(Optional.of(testUser));
+        doThrow(new RuntimeException("S3 unavailable"))
+                .when(s3Client).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+
+        assertThrows(
+                ProfilePhotoStorageException.class,
+                () -> userService.uploadProfilePicture("test@example.com", file));
+
+        assertEquals("existing-avatar.png", testUser.getProfilePicUrl());
+        verify(s3Client, never()).deleteObject(any(DeleteObjectRequest.class));
+        verify(userRepository, never()).saveAndFlush(any(User.class));
+    }
+
+    @Test
     void testGeneratePresignedUrl_ValidKey_ReturnsPresignedUrl() throws Exception {
         software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest presignedResponse =
                 mock(software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest.class);
@@ -823,5 +874,10 @@ public class UserServiceTest {
         } catch (java.security.NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private byte[] onePixelPng() {
+        return Base64.getDecoder().decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
     }
 }

@@ -45,7 +45,8 @@ public class GlobalExceptionHandler {
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleResourceNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleResourceNotFound(ResourceNotFoundException ex,
+            HttpServletRequest request) {
         return buildError(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", ex.getMessage(), request);
     }
 
@@ -60,27 +61,32 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(GithubAuthenticationException.class)
-    public ResponseEntity<ApiErrorResponse> handleGithubAuthentication(GithubAuthenticationException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleGithubAuthentication(GithubAuthenticationException ex,
+            HttpServletRequest request) {
         return buildError(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", ex.getMessage(), request);
     }
 
     @ExceptionHandler(GithubRateLimitException.class)
-    public ResponseEntity<ApiErrorResponse> handleGithubRateLimit(GithubRateLimitException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleGithubRateLimit(GithubRateLimitException ex,
+            HttpServletRequest request) {
         return buildError(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMIT", ex.getMessage(), request);
     }
 
     @ExceptionHandler(GithubRepositoryNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleGithubRepositoryNotFound(GithubRepositoryNotFoundException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleGithubRepositoryNotFound(GithubRepositoryNotFoundException ex,
+            HttpServletRequest request) {
         return buildError(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", ex.getMessage(), request);
     }
 
     @ExceptionHandler(GithubIntegrationDisabledException.class)
-    public ResponseEntity<ApiErrorResponse> handleGithubIntegrationDisabled(GithubIntegrationDisabledException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleGithubIntegrationDisabled(GithubIntegrationDisabledException ex,
+            HttpServletRequest request) {
         return buildError(HttpStatus.SERVICE_UNAVAILABLE, "INTEGRATION_DISABLED", ex.getMessage(), request);
     }
 
     @ExceptionHandler(GithubIssueValidationException.class)
-    public ResponseEntity<ApiErrorResponse> handleGithubIssueValidation(GithubIssueValidationException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleGithubIssueValidation(GithubIssueValidationException ex,
+            HttpServletRequest request) {
         return buildError(HttpStatus.UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", ex.getMessage(), request);
     }
 
@@ -89,28 +95,33 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.CONFLICT, "CONFLICT", ex.getMessage(), request);
     }
 
-    @ExceptionHandler({OptimisticLockException.class, ObjectOptimisticLockingFailureException.class})
+    @ExceptionHandler({ OptimisticLockException.class, ObjectOptimisticLockingFailureException.class })
     public ResponseEntity<ApiErrorResponse> handleOptimisticLock(Exception ex, HttpServletRequest request) {
-        return buildError(HttpStatus.CONFLICT, "CONFLICT", "This resource was changed by another request. Refresh and try again.", request);
+        return buildError(HttpStatus.CONFLICT, "CONFLICT",
+                "This resource was changed by another request. Refresh and try again.", request);
     }
 
     @ExceptionHandler(StorageQuotaExceededException.class)
-    public ResponseEntity<ApiErrorResponse> handleStorageQuotaExceeded(StorageQuotaExceededException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleStorageQuotaExceeded(StorageQuotaExceededException ex,
+            HttpServletRequest request) {
         return buildError(HttpStatus.PAYLOAD_TOO_LARGE, "STORAGE_QUOTA_EXCEEDED", ex.getMessage(), request);
     }
 
     @ExceptionHandler(DocumentUploadException.class)
-    public ResponseEntity<ApiErrorResponse> handleDocumentUpload(DocumentUploadException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleDocumentUpload(DocumentUploadException ex,
+            HttpServletRequest request) {
         return buildError(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), request);
     }
 
     @ExceptionHandler(InvitationExpiredException.class)
-    public ResponseEntity<ApiErrorResponse> handleInvitationExpired(InvitationExpiredException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleInvitationExpired(InvitationExpiredException ex,
+            HttpServletRequest request) {
         return buildError(HttpStatus.GONE, "INVITATION_EXPIRED", ex.getMessage(), request);
     }
 
     @ExceptionHandler(EntityNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleEntityNotFound(EntityNotFoundException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleEntityNotFound(EntityNotFoundException ex,
+            HttpServletRequest request) {
         return buildError(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", ex.getMessage(), request);
     }
 
@@ -120,24 +131,25 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex,
+            HttpServletRequest request) {
         List<ApiFieldError> validationErrors = new ArrayList<>();
         for (FieldError error : ex.getBindingResult().getFieldErrors()) {
             validationErrors.add(new ApiFieldError(error.getField(), error.getDefaultMessage()));
         }
         ApiErrorResponse body = new ApiErrorResponse(
-            LocalDateTime.now().toString(),
-            HttpStatus.BAD_REQUEST.value(),
-            "VALIDATION_ERROR",
-            "Validation failed",
-            request.getRequestURI(),
-            validationErrors
-        );
+                LocalDateTime.now().toString(),
+                HttpStatus.BAD_REQUEST.value(),
+                "VALIDATION_ERROR",
+                "Validation failed",
+                request.getRequestURI(),
+                validationErrors);
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ApiErrorResponse> handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleConstraintViolation(ConstraintViolationException ex,
+            HttpServletRequest request) {
         List<ApiFieldError> validationErrors = new ArrayList<>();
         ex.getConstraintViolations().forEach(violation -> {
             String propertyPath = violation.getPropertyPath().toString();
@@ -145,18 +157,18 @@ public class GlobalExceptionHandler {
             validationErrors.add(new ApiFieldError(field, violation.getMessage()));
         });
         ApiErrorResponse body = new ApiErrorResponse(
-            LocalDateTime.now().toString(),
-            HttpStatus.BAD_REQUEST.value(),
-            "VALIDATION_ERROR",
-            "Validation failed",
-            request.getRequestURI(),
-            validationErrors
-        );
+                LocalDateTime.now().toString(),
+                HttpStatus.BAD_REQUEST.value(),
+                "VALIDATION_ERROR",
+                "Validation failed",
+                request.getRequestURI(),
+                validationErrors);
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
+            HttpServletRequest request) {
         return buildError(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Invalid request payload", request);
     }
 
@@ -170,39 +182,44 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiErrorResponse> handleRuntime(RuntimeException ex, HttpServletRequest request) {
         logger.error("Unhandled runtime exception", ex);
-        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "An unexpected error occurred", request);
+        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "An unexpected error occurred",
+                request);
     }
 
     @ExceptionHandler(AsyncRequestNotUsableException.class)
     public void handleBrokenPipe(AsyncRequestNotUsableException ex) {
-        // Client closed the connection before the response was fully written — nothing to do.
+        // Client closed the connection before the response was fully written — nothing
+        // to do.
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleNoResourceFound(NoResourceFoundException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleNoResourceFound(NoResourceFoundException ex,
+            HttpServletRequest request) {
         return buildError(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found", request);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<ApiErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+    public ResponseEntity<ApiErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex,
+            HttpServletRequest request) {
         return buildError(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED", ex.getMessage(), request);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGeneric(Exception ex, HttpServletRequest request) {
         logger.error("Unhandled Exception: ", ex);
-        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "An unexpected error occurred", request);
+        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "An unexpected error occurred",
+                request);
     }
 
-    private ResponseEntity<ApiErrorResponse> buildError(HttpStatus status, String errorCode, String message, HttpServletRequest request) {
+    private ResponseEntity<ApiErrorResponse> buildError(HttpStatus status, String errorCode, String message,
+            HttpServletRequest request) {
         ApiErrorResponse body = new ApiErrorResponse(
-            LocalDateTime.now().toString(),
-            status.value(),
-            errorCode,
-            message,
-            request.getRequestURI(),
-            null
-        );
+                LocalDateTime.now().toString(),
+                status.value(),
+                errorCode,
+                message,
+                request.getRequestURI(),
+                null);
         return new ResponseEntity<>(body, status);
     }
 }

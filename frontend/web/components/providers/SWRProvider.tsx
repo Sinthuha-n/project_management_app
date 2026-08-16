@@ -1,6 +1,7 @@
 'use client';
 
 import { SWRConfig } from 'swr';
+import { shouldRetrySWRRequest } from '@/lib/swr-retry';
 
 // Global SWR defaults applied to every useSWR call in the app.
 // Individual call-sites can still override these per-hook.
@@ -17,6 +18,9 @@ export default function SWRProvider({ children }: { children: React.ReactNode })
         dedupingInterval: 30_000,
         // Retry failed requests at most twice (default is 3) with exponential back-off.
         errorRetryCount: 2,
+        // Authentication, authorization, validation, and missing-resource failures are
+        // terminal. Retrying them only duplicates browser/backend error noise.
+        shouldRetryOnError: shouldRetrySWRRequest,
         // Keep data fresh in the background after 5 minutes.
         refreshInterval: 0,
       }}

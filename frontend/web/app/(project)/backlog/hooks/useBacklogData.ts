@@ -8,7 +8,6 @@ import {
 } from '../../kanban/api';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
 import { type CreateTaskData } from '@/components/shared/CreateTaskModal';
-import { toast } from '@/components/ui';
 import { normalizeTaskPriority } from '@/services/tasks-contract';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 import { useTaskMutations } from '@/hooks/useTaskMutations';
@@ -19,10 +18,9 @@ type TaskWithAssignees = Task & {
     assignees?: Array<{ id?: number; avatar?: string | null }>;
 };
 
-export function useBacklogData(projectId: string | null, showArchived = false) {
+export function useBacklogData(projectId: string | null) {
     const taskMutations = useTaskMutations(projectId);
     const activeTaskSource = useProjectTasks(projectId, false);
-    const archivedTaskSource = useProjectTasks(showArchived ? projectId : null, true);
 
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [selectedTaskIdForModal, setSelectedTaskIdForModal] = useState<number | null>(null);
@@ -104,18 +102,9 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         () => enrichTaskAvatars(activeTaskSource.tasks as unknown as Task[]),
         [activeTaskSource.tasks, enrichTaskAvatars],
     );
-    const archivedTasks = useMemo(
-        () => showArchived
-            ? enrichTaskAvatars(archivedTaskSource.tasks as unknown as Task[])
-            : [],
-        [archivedTaskSource.tasks, enrichTaskAvatars, showArchived],
-    );
     const forceRefresh = useCallback(async () => {
-        await Promise.all([
-            activeTaskSource.revalidate(),
-            showArchived ? archivedTaskSource.revalidate() : Promise.resolve(),
-        ]);
-    }, [activeTaskSource, archivedTaskSource, showArchived]);
+        await activeTaskSource.revalidate();
+    }, [activeTaskSource]);
 
     useEffect(() => {
         if (!projectId) return;
@@ -177,28 +166,6 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
             void forceRefresh();
         }
     }, [tasks, forceRefresh, taskMutations]);
-
-    const handleArchiveTask = useCallback(async (id: number) => {
-        const archivedTask = tasks.find(t => t.id === id);
-        if (!archivedTask) return;
-        try {
-            await taskMutations.archive(archivedTask as unknown as CanonicalTask);
-        } catch {
-            toast('Failed to archive task', 'error');
-            void forceRefresh();
-        }
-    }, [tasks, forceRefresh, taskMutations]);
-
-    const handleUnarchiveTask = useCallback(async (id: number) => {
-        const task = archivedTasks.find(t => t.id === id);
-        if (!task) return;
-        try {
-            await taskMutations.restore(task as unknown as CanonicalTask);
-        } catch {
-            toast('Failed to unarchive task', 'error');
-            void forceRefresh();
-        }
-    }, [archivedTasks, forceRefresh, taskMutations]);
 
     const handleBulkDelete = useCallback(async () => {
         const ids = [...selectedIds];
@@ -277,8 +244,7 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
     }, [filteredTasks, groupBy]);
 
     return {
-        tasks, archivedTasks,
-        archivedLoading: archivedTaskSource.loading,
+        tasks,
         loading: activeTaskSource.loading,
         error: activeTaskSource.error instanceof Error ? activeTaskSource.error.message : activeTaskSource.error ? 'Failed to load tasks' : null,
         collapsedGroups, toggleGroup,
@@ -297,7 +263,6 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         filteredTasks, groupedTasks,
         handleMarkDone, handleDelete, handleAddTask,
         handleStatusChange, handleBulkDelete, handleBulkDone,
-        handleArchiveTask, handleUnarchiveTask,
         toggleSelect, loadTasks: forceRefresh, handleDateChange, forceRefresh,
     };
 }

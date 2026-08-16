@@ -37,7 +37,7 @@ export const DUE_CHIP_STYLES: Record<DueClass, string> = {
   old: 'bg-[#FEF3F2] text-[#B42318] border-[#FDA29B]',
   overdue: 'bg-[#FEF3F2] text-[#B42318] border-[#FDA29B]',
   today: 'bg-[#FEF3F2] text-[#B42318] border-[#FDA29B]',
-  five_days: 'bg-[#FDF2F2] text-[#F59E0B] border-[#F59E0B]/30',
+  five_days: 'bg-[#FFFAEB] text-[#B54708] border-[#FEDF89]',
   soon: 'bg-[#FFFAEB] text-[#B54708] border-[#FEDF89]',
   future: 'bg-[#F9FAFB] text-[#344054] border-[#EAECF0]',
   none: 'bg-[#F9FAFB] text-[#98A2B3] border-[#EAECF0]',
@@ -54,10 +54,9 @@ export function classifyDue(dueDate: string | undefined, status: string): DueCla
   due.setHours(0, 0, 0, 0);
   const diffDays = Math.round((due.getTime() - now.getTime()) / 86_400_000);
   
-  if (diffDays === 5 || diffDays === 3) return 'five_days';
   if (diffDays < 0) return 'overdue';
   if (diffDays === 0) return 'today';
-  if (diffDays <= 3) return 'soon';
+  if (diffDays <= 5) return 'five_days';
   return 'future';
 }
 

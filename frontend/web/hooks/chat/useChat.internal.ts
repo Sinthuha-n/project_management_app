@@ -257,9 +257,30 @@ export async function initializeChatState(args: ChatInitializationArgs): Promise
       if (cached.data.pics) setUserProfilePics(cached.data.pics);
       if (cached.data.rooms) setRooms(cached.data.rooms);
       setIsLoading(false);
-      if (!cached.isStale) {
+    if (!cached.isStale) {
         restoreSelection(cached.data.users || [], cached.data.rooms || []);
         await loadHistory(hydrateReactions);
+
+        // Stale-while-revalidate: even on a fresh cache hit, revalidate the
+        // users list in the background so a member added during this session
+        // appears in the DM sidebar without waiting for the 30-minute TTL.
+        void (async () => {
+          try {
+            const freshUsers = await fetchAllUsers();
+            if (cacheKey) {
+              const existing = getSessionCache<ChatInitCache>(cacheKey, { allowStale: true });
+              if (existing.data) {
+                setSessionCache(
+                  cacheKey,
+                  { ...existing.data, users: freshUsers },
+                  30 * 60_000,
+                );
+              }
+            }
+          } catch {
+            // Background revalidation failure must not affect the already-rendered UI.
+          }
+        })();
         return;
       }
     }
@@ -318,6 +339,7 @@ interface BaseRealtimeSubscriptionsArgs {
   sendRealtime: (destination: string, body: string) => void;
   setError: SetState<string>;
   setUsers: SetState<string[]>;
+  setUserProfilePics: SetState<Record<string, string>>;
   setMessages: SetState<ChatMessage[]>;
   setTeamLastMessage: SetState<ChatMessage | null>;
   setTeamUnseenCount: SetState<number>;
@@ -356,6 +378,7 @@ export function setupBaseRealtimeSubscriptions(args: BaseRealtimeSubscriptionsAr
     sendRealtime,
     setError,
     setUsers,
+    setUserProfilePics,
     setMessages,
     setTeamLastMessage,
     setTeamUnseenCount,
@@ -389,9 +412,24 @@ export function setupBaseRealtimeSubscriptions(args: BaseRealtimeSubscriptionsAr
 
   addSubscription(
     subscribeRealtime(`/topic/project/${projectId}/public`, (payload) => {
-      const incoming = parsePayload<ChatMessage>(payload);
+      const incoming = parsePayload<ChatMessage & { profilePicUrl?: string }>(payload);
       if (incoming.type === 'JOIN' && incoming.sender !== currentUser) {
         setUsers((prev) => (prev.includes(incoming.sender) ? prev : [...prev, incoming.sender]));
+        return;
+      }
+
+      // MEMBER_ADDED is broadcast by ProjectInvitationService when an invitation is
+      // accepted. It updates the DM sidebar in real-time without a page refresh.
+      if ((incoming.type as string) === 'MEMBER_ADDED' && incoming.sender !== currentUser) {
+        setUsers((prev) =>
+          prev.some((u) => isSameIdentity(u, incoming.sender)) ? prev : [...prev, incoming.sender],
+        );
+        if (incoming.profilePicUrl && incoming.sender) {
+          setUserProfilePics((prev) => ({
+            ...prev,
+            [incoming.sender.toLowerCase()]: incoming.profilePicUrl as string,
+          }));
+        }
         return;
       }
 
