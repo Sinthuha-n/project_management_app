@@ -483,9 +483,15 @@ async function requestRefreshAccessToken(_options: RefreshAccessTokenOptions = {
             throw new Error('Token refresh cancelled during logout');
         }
 
-        saveToken(data.token);
+        const newAccessToken = data?.token || data?.accessToken;
+        if (!newAccessToken) {
+            clearTokens();
+            throw new Error('Token refresh response missing access token');
+        }
+
+        saveToken(newAccessToken);
         saveRefreshToken('true', { broadcast: true });
-        return data.token;
+        return newAccessToken;
     } finally {
         releaseRefreshLock();
     }

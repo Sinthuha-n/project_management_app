@@ -20,6 +20,7 @@ const futureJwt = [
 async function authenticate(page: Page, defaultProjectType: 'KANBAN' | 'AGILE' = 'KANBAN') {
   await page.addInitScript(({ token, projectType }) => {
     localStorage.setItem('planora:access_token', token);
+    localStorage.setItem('planora:has_refresh_token', 'true');
     localStorage.setItem('currentProjectId', '3');
     localStorage.setItem('currentProjectType', projectType);
   }, { token: futureJwt, projectType: defaultProjectType });
@@ -132,7 +133,7 @@ async function mockPlanoraApi(page: Page, fixture: ApiFixture) {
       return json(route, []);
     }
     if (path === '/api/auth/refresh') {
-      return json(route, { accessToken: futureJwt });
+      return json(route, { token: futureJwt, accessToken: futureJwt });
     }
     if (path.includes('/notifications')) return json(route, []);
     if (path.includes('/inbox')) {
