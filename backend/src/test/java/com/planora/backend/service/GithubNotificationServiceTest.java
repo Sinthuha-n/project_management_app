@@ -90,23 +90,18 @@ class GithubNotificationServiceTest {
     }
 
     @Test
-    void notifyPROpened_notifiesMembersExceptAuthorAndDeduplicatesAcrossProjects() {
-        when(userRepository.findByGithubUsernameIgnoreCase("octocat")).thenReturn(List.of(author));
+    void notifyPROpened_broadcastsUpdateAndPublishesEventWithoutCreatingInAppNotifications() {
         when(projectRepository.findByGithubRepoFullNameIgnoreCase("planora/app"))
                 .thenReturn(List.of(firstProject, secondProject));
-        when(teamMemberRepository.findByTeamId(11L)).thenReturn(List.of(member(author), member(recipient)));
-        when(teamMemberRepository.findByTeamId(12L)).thenReturn(List.of(member(recipient)));
 
         githubNotificationService.notifyPROpened(
                 "planora/app", 17, "Improve sync", "octocat", "feature/planora-123-review");
 
-        String message = "\uD83D\uDD00 PR opened: #17 Improve sync by @octocat";
         String link = "https://github.com/planora/app/pull/17";
-        String prefix = "\uD83D\uDD00 PR opened: #17 ";
-        verify(notificationService).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
-                recipient, 41L, NotificationEventType.GITHUB_ACTIVITY.name(), message, link, prefix);
         verify(notificationService, never()).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
-                author, 41L, NotificationEventType.GITHUB_ACTIVITY.name(), message, link, prefix);
+                any(), any(), any(), any(), any(), any());
+        verify(notificationService, never()).createNotification(any(), any(), any(), any(), any());
+
         GithubPRUpdatePayload updatePayload = new GithubPRUpdatePayload(
                 "opened", 17, "Improve sync", link, "octocat");
         verify(githubEventBroadcaster).broadcastPRUpdate(41L, updatePayload);
@@ -129,29 +124,25 @@ class GithubNotificationServiceTest {
 
         verify(projectRepository, never()).findByGithubRepoFullNameIgnoreCase(org.mockito.ArgumentMatchers.anyString());
         verify(notificationService, never()).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
         verify(applicationEventPublisher, never()).publishEvent(any());
     }
 
     @Test
-    void notifyPRMerged_notifiesMembersExceptMergerAndPublishesEvent() {
-        when(userRepository.findByGithubUsernameIgnoreCase("maintainer")).thenReturn(List.of(author));
+    void notifyPRMerged_broadcastsUpdateAndPublishesEventWithoutCreatingInAppNotifications() {
         when(projectRepository.findByGithubRepoFullNameIgnoreCase("planora/app"))
                 .thenReturn(List.of(firstProject, secondProject));
-        when(teamMemberRepository.findByTeamId(11L)).thenReturn(List.of(member(author), member(recipient)));
-        when(teamMemberRepository.findByTeamId(12L)).thenReturn(List.of(member(recipient)));
 
         githubNotificationService.notifyPRMerged(
                 " planora/app ", 17, "Improve sync", "maintainer", "feature/planora-123-review");
 
-        String message = "\u2705 PR merged: #17 Improve sync by @maintainer";
         String link = "https://github.com/planora/app/pull/17";
-        String prefix = "\u2705 PR merged: #17 ";
-        verify(notificationService).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
-                recipient, 41L, NotificationEventType.GITHUB_ACTIVITY.name(), message, link, prefix);
         verify(notificationService, never()).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
-                author, 41L, NotificationEventType.GITHUB_ACTIVITY.name(), message, link, prefix);
+                any(), any(), any(), any(), any(), any());
+        verify(notificationService, never()).createNotification(any(), any(), any(), any(), any());
+
         GithubPRUpdatePayload updatePayload = new GithubPRUpdatePayload(
                 "merged", 17, "Improve sync", link, "maintainer");
         verify(githubEventBroadcaster).broadcastPRUpdate(41L, updatePayload);
@@ -176,62 +167,27 @@ class GithubNotificationServiceTest {
     }
 
     @Test
-    void notifyReviewRequested_notifiesOnlyUsersMappedToRequestedReviewer() {
-        User secondReviewer = user(3L, "second-reviewer");
-        when(userRepository.findByGithubUsernameIgnoreCase("requested-reviewer"))
-                .thenReturn(List.of(recipient, secondReviewer));
-        when(projectRepository.findByGithubRepoFullNameIgnoreCase("planora/app"))
-                .thenReturn(List.of(firstProject));
-
+    void notifyReviewRequested_doesNotCreateInAppNotification() {
         githubNotificationService.notifyReviewRequested(
                 " planora/app ", 17, "Improve sync", "requested-reviewer");
 
-        String message = "\uD83D\uDC41 Review requested: #17 Improve sync in planora/app";
-        String link = "https://github.com/planora/app/pull/17";
-        verify(notificationService).createNotification(
-                recipient,
-                41L,
-                NotificationEventType.GITHUB_ACTIVITY.name(),
-                message,
-                link);
-        verify(notificationService).createNotification(
-                secondReviewer,
-                41L,
-                NotificationEventType.GITHUB_ACTIVITY.name(),
-                message,
-                link);
-        verify(teamMemberRepository, never()).findByTeamId(any());
+        verify(notificationService, never()).createNotification(any(), any(), any(), any(), any());
+        verify(notificationService, never()).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
+                any(), any(), any(), any(), any(), any());
     }
 
     @Test
-    void notifyReviewRequested_skipsNotificationWhenReviewerIsNotMapped() {
-        when(userRepository.findByGithubUsernameIgnoreCase("unknown-reviewer")).thenReturn(List.of());
-
-        githubNotificationService.notifyReviewRequested(
-                "planora/app", 17, "Improve sync", "unknown-reviewer");
-
-        verify(notificationService, never()).createNotification(any(), any(), any());
-        verify(projectRepository, never()).findByGithubRepoFullNameIgnoreCase(any());
-        verify(teamMemberRepository, never()).findByTeamId(any());
-    }
-
-    @Test
-    void notifyCIFailed_notifiesProjectMembersAndPublishesEvent() {
+    void notifyCIFailed_broadcastsUpdateAndPublishesEventWithoutCreatingInAppNotifications() {
         when(projectRepository.findByGithubRepoFullNameIgnoreCase("planora/app"))
                 .thenReturn(List.of(firstProject, secondProject));
-        when(teamMemberRepository.findByTeamId(11L)).thenReturn(List.of(member(author), member(recipient)));
-        when(teamMemberRepository.findByTeamId(12L)).thenReturn(List.of(member(recipient)));
 
         githubNotificationService.notifyCIFailed(
                 " planora/app ", "main", "abcdef1234567890", "Backend checks");
 
-        String message = "\u274C CI failed: Backend checks on main (abcdef1)";
-        String link = "https://github.com/planora/app/commit/abcdef1234567890/checks";
-        String prefix = "\u274C CI failed: Backend checks on ";
-        verify(notificationService).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
-                author, 41L, NotificationEventType.GITHUB_ACTIVITY.name(), message, link, prefix);
-        verify(notificationService).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
-                recipient, 41L, NotificationEventType.GITHUB_ACTIVITY.name(), message, link, prefix);
+        verify(notificationService, never()).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
+                any(), any(), any(), any(), any(), any());
+        verify(notificationService, never()).createNotification(any(), any(), any(), any(), any());
+
         GithubCIUpdatePayload updatePayload = new GithubCIUpdatePayload(
                 "Backend checks", "main", "failure", "abcdef1234567890");
         verify(githubEventBroadcaster).broadcastCIUpdate(41L, updatePayload);
@@ -256,12 +212,9 @@ class GithubNotificationServiceTest {
     }
 
     @Test
-    void notifyIssueEvent_openedNotifiesMembersExceptAuthorAndPublishesEvent() {
-        when(userRepository.findByGithubUsernameIgnoreCase("octocat")).thenReturn(List.of(author));
+    void notifyIssueEvent_openedPublishesEventAndBroadcastsWithoutCreatingInAppNotifications() {
         when(projectRepository.findByGithubRepoFullNameIgnoreCase("planora/app"))
                 .thenReturn(List.of(firstProject, secondProject));
-        when(teamMemberRepository.findByTeamId(11L)).thenReturn(List.of(member(author), member(recipient)));
-        when(teamMemberRepository.findByTeamId(12L)).thenReturn(List.of(member(recipient)));
 
         githubNotificationService.notifyIssueEvent(
                 "planora/app",
@@ -272,13 +225,10 @@ class GithubNotificationServiceTest {
                 "Build fails on main",
                 List.of("bug", "backend"));
 
-        String message = "\uD83D\uDC1B Issue opened: #34 Broken sync by @octocat";
-        String link = "https://github.com/planora/app/issues/34";
-        String prefix = "\uD83D\uDC1B Issue opened: #34 ";
-        verify(notificationService).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
-                recipient, 41L, NotificationEventType.GITHUB_ACTIVITY.name(), message, link, prefix);
         verify(notificationService, never()).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
-                author, 41L, NotificationEventType.GITHUB_ACTIVITY.name(), message, link, prefix);
+                any(), any(), any(), any(), any(), any());
+        verify(notificationService, never()).createNotification(any(), any(), any(), any(), any());
+
         GithubIssueUpdatePayload updatePayload = new GithubIssueUpdatePayload(
                 "opened", 34, "Broken sync", "octocat");
         verify(githubEventBroadcaster).broadcastIssueUpdate(41L, updatePayload);
@@ -295,30 +245,23 @@ class GithubNotificationServiceTest {
     }
 
     @Test
-    void notifyIssueEvent_closedNotifiesAllProjectMembers() {
+    void notifyIssueEvent_closedBroadcastsWithoutInAppNotification() {
         when(projectRepository.findByGithubRepoFullNameIgnoreCase("planora/app"))
                 .thenReturn(List.of(firstProject));
-        when(teamMemberRepository.findByTeamId(11L)).thenReturn(List.of(member(author), member(recipient)));
 
         githubNotificationService.notifyIssueEvent("planora/app", 34, "Broken sync", "closed", "octocat");
 
-        String message = "\u2705 Issue closed: #34 Broken sync";
-        String link = "https://github.com/planora/app/issues/34";
-        String prefix = "\u2705 Issue closed: #34 ";
-        verify(notificationService).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
-                author, 41L, NotificationEventType.GITHUB_ACTIVITY.name(), message, link, prefix);
-        verify(notificationService).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
-                recipient, 41L, NotificationEventType.GITHUB_ACTIVITY.name(), message, link, prefix);
+        verify(notificationService, never()).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
+                any(), any(), any(), any(), any(), any());
+        verify(notificationService, never()).createNotification(any(), any(), any(), any(), any());
+        verify(githubEventBroadcaster).broadcastIssueUpdate(41L, new GithubIssueUpdatePayload(
+                "closed", 34, "Broken sync", "octocat"));
     }
 
     @Test
-    void notifyIssueEvent_labeledNotifiesImportedTaskAssigneeAndPublishesEvent() {
-        Task importedTask = new Task();
-        importedTask.setAssignee(member(recipient));
+    void notifyIssueEvent_labeledPublishesEventAndBroadcastsWithoutInAppNotifications() {
         when(projectRepository.findByGithubRepoFullNameIgnoreCase("planora/app"))
                 .thenReturn(List.of(firstProject));
-        when(taskRepository.findByProjectIdAndGithubIssueNumber(41L, 34L))
-                .thenReturn(List.of(importedTask));
 
         githubNotificationService.notifyIssueEvent(
                 "planora/app",
@@ -331,12 +274,7 @@ class GithubNotificationServiceTest {
                 "ready-for-review",
                 "5319e7");
 
-        verify(notificationService).createNotification(
-                recipient,
-                41L,
-                NotificationEventType.GITHUB_ACTIVITY.name(),
-                "\uD83C\uDFF7 Issue #34 labeled in GitHub",
-                "https://github.com/planora/app/issues/34");
+        verify(notificationService, never()).createNotification(any(), any(), any(), any(), any());
         ArgumentCaptor<IssueLabeledEvent> eventCaptor = ArgumentCaptor.forClass(IssueLabeledEvent.class);
         verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
         assertEquals("planora/app", eventCaptor.getValue().getRepoFullName());
@@ -347,42 +285,27 @@ class GithubNotificationServiceTest {
     }
 
     @Test
-    void notifyIssueEvent_assignedTargetsMappedGithubAssigneeOnly() {
-        when(userRepository.findByGithubUsernameIgnoreCase("assigned-user")).thenReturn(List.of(recipient));
+    void notifyIssueEvent_assignedBroadcastsWithoutInAppNotification() {
         when(projectRepository.findByGithubRepoFullNameIgnoreCase("planora/app"))
                 .thenReturn(List.of(firstProject));
 
         githubNotificationService.notifyIssueEvent(
                 "planora/app", 34, "Broken sync", "assigned", "assigned-user");
 
-        verify(notificationService).createNotification(
-                recipient,
-                41L,
-                NotificationEventType.GITHUB_ACTIVITY.name(),
-                "\uD83D\uDCCB You were assigned to issue #34: Broken sync",
-                "https://github.com/planora/app/issues/34");
-        verify(teamMemberRepository, never()).findByTeamId(any());
+        verify(notificationService, never()).createNotification(any(), any(), any(), any(), any());
         verify(githubEventBroadcaster).broadcastIssueUpdate(eq(41L), eq(new GithubIssueUpdatePayload(
                 "assigned", 34, "Broken sync", "assigned-user")));
     }
 
     @Test
-    void notifyRelease_notifiesAllProjectMembersAndPublishesEvent() {
-        when(projectRepository.findByGithubRepoFullNameIgnoreCase("planora/app"))
-                .thenReturn(List.of(firstProject, secondProject));
-        when(teamMemberRepository.findByTeamId(11L)).thenReturn(List.of(member(author), member(recipient)));
-        when(teamMemberRepository.findByTeamId(12L)).thenReturn(List.of(member(recipient)));
-
+    void notifyRelease_publishesEventWithoutInAppNotifications() {
         githubNotificationService.notifyRelease(
                 " planora/app ", "v2.0.0", "Planora 2.0", " https://github.com/planora/app/releases/tag/v2.0.0 ");
 
-        String message = "\uD83D\uDE80 Release published: Planora 2.0 (v2.0.0) in planora/app";
         String link = "https://github.com/planora/app/releases/tag/v2.0.0";
-        String prefix = "\uD83D\uDE80 Release published: Planora 2.0 (";
-        verify(notificationService).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
-                author, 41L, NotificationEventType.GITHUB_ACTIVITY.name(), message, link, prefix);
-        verify(notificationService).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
-                recipient, 41L, NotificationEventType.GITHUB_ACTIVITY.name(), message, link, prefix);
+        verify(notificationService, never()).createNotificationIfNotDuplicateByLinkAndMessagePrefix(
+                any(), any(), any(), any(), any(), any());
+        verify(notificationService, never()).createNotification(any(), any(), any(), any(), any());
 
         ArgumentCaptor<ReleasePublishedEvent> eventCaptor = ArgumentCaptor.forClass(ReleasePublishedEvent.class);
         verify(applicationEventPublisher).publishEvent(eventCaptor.capture());

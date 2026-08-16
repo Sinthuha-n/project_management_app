@@ -139,7 +139,7 @@ class NotificationPreferenceServiceTest {
 
         List<NotificationPreferenceResponseDTO> result = service.getPreferenceMatrix(7L, 11L);
 
-        assertThat(result).hasSize(12).allSatisfy(item -> {
+        assertThat(result).hasSize(10).allSatisfy(item -> {
             assertThat(item.getProjectId()).isEqualTo(11L);
             assertThat(item.isEnabled()).isTrue();
         });
@@ -149,11 +149,9 @@ class NotificationPreferenceServiceTest {
                         "TASK_ACTIVITY", "TASK_ACTIVITY",
                         "PROJECT_ACTIVITY", "PROJECT_ACTIVITY",
                         "TEAM_ACTIVITY", "TEAM_ACTIVITY",
-                        "GITHUB_ACTIVITY", "GITHUB_ACTIVITY",
                         "REMINDER_ACTIVITY", "REMINDER_ACTIVITY");
         assertThat(result).extracting(NotificationPreferenceResponseDTO::getChannel)
                 .containsExactly(
-                        NotificationChannel.IN_APP, NotificationChannel.EMAIL,
                         NotificationChannel.IN_APP, NotificationChannel.EMAIL,
                         NotificationChannel.IN_APP, NotificationChannel.EMAIL,
                         NotificationChannel.IN_APP, NotificationChannel.EMAIL,

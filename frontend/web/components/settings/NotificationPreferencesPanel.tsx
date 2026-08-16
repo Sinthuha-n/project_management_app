@@ -39,12 +39,6 @@ const EVENT_TYPES: EventTypeOption[] = [
     icon: <Users size={14} />,
   },
   {
-    value: 'GITHUB_ACTIVITY',
-    label: 'GitHub activity',
-    description: 'Pull requests, issues, CI, releases, and automation.',
-    icon: <GitPullRequest size={14} />,
-  },
-  {
     value: 'REMINDER_ACTIVITY',
     label: 'Reminders',
     description: 'Due-date and overdue reminders.',
