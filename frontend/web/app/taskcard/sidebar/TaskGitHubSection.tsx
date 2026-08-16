@@ -79,7 +79,9 @@ interface TaskGithubSummaryDTO {
 
 function formatRelative(iso: string | null | undefined): string {
   if (!iso) return '';
-  const diff  = Date.now() - new Date(iso).getTime();
+  const timestamp = new Date(iso).getTime();
+  if (isNaN(timestamp)) return '';
+  const diff  = Math.max(0, Date.now() - timestamp);
   const mins  = Math.floor(diff / 60_000);
   if (mins < 1)   return 'just now';
   if (mins < 60)  return `${mins}m ago`;

@@ -59,6 +59,15 @@ class ProjectGithubIntegrationServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private GithubPullRequestService pullRequestService;
+
+    @Mock
+    private GithubCommitService commitService;
+
+    @Mock
+    private GithubIssueService issueService;
+
     @InjectMocks
     private ProjectGithubIntegrationService service;
 
@@ -82,6 +91,9 @@ class ProjectGithubIntegrationServiceTest {
 
         assertEquals("planora/web", service.linkRepository(request, 1L).getRepositoryFullName());
         verify(githubApiClient).fetchRepository("planora/web", "token");
+        verify(pullRequestService).syncPullRequests(any(GithubIntegration.class));
+        verify(commitService).syncCommits(any(GithubIntegration.class));
+        verify(issueService).syncIssues(any(GithubIntegration.class));
     }
 
     @Test

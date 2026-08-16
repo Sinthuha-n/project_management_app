@@ -136,9 +136,13 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
+function timeAgo(dateStr?: string | null): string {
+  if (!dateStr) return '';
+  const timestamp = new Date(dateStr).getTime();
+  if (isNaN(timestamp)) return '';
+  const diff = Math.max(0, Date.now() - timestamp);
   const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
@@ -535,14 +539,15 @@ function PRCard({ pr }: { pr: GitHubPullRequest }) {
 
 // ── Commit Card ───────────────────────────────────────────────────────────────
 function CommitCard({ commit }: { commit: GitHubCommit }) {
-  const firstLine = commit.commit.message.split('\n')[0];
-  const shortSha = commit.sha.slice(0, 7);
-  const authorName = commit.author?.login ?? commit.commit.author.name;
+  const firstLine = (commit.commit?.message || 'No commit message').split('\n')[0];
+  const shortSha = commit.sha ? commit.sha.slice(0, 7) : '-------';
+  const authorName = commit.author?.login || commit.commit?.author?.name || 'unknown';
   const avatarUrl = commit.author?.avatar_url ?? null;
+  const commitDate = commit.commit?.author?.date || '';
 
   return (
     <motion.a
-      href={commit.html_url}
+      href={commit.html_url || '#'}
       target="_blank"
       rel="noopener noreferrer"
       initial={{ opacity: 0, y: 8 }}
@@ -559,9 +564,11 @@ function CommitCard({ commit }: { commit: GitHubCommit }) {
           <GitCommit size={11} />
           {shortSha}
         </span>
-        <span className="ml-auto text-[11px] text-slate-600 font-outfit shrink-0">
-          {timeAgo(commit.commit.author.date)}
-        </span>
+        {commitDate && (
+          <span className="ml-auto text-[11px] text-slate-600 font-outfit shrink-0">
+            {timeAgo(commitDate)}
+          </span>
+        )}
       </div>
 
       <p className="text-sm font-outfit font-semibold text-cu-text-primary leading-snug line-clamp-2 group-hover:text-cu-primary transition-colors">

@@ -23,20 +23,20 @@ public interface GithubCommitRepository extends JpaRepository<GithubCommit, Long
 
     long countByIntegrationIdIn(List<Long> integrationIds);
 
-    @Query("SELECT c FROM GithubCommit c WHERE c.task.id = :taskId "
-            + "ORDER BY c.committedAt DESC, c.syncedAt DESC")
+    @Query("SELECT c FROM GithubCommit c WHERE (c.task.id = :taskId OR c.linkedTaskId = :taskId) "
+            + "ORDER BY COALESCE(c.authoredAt, c.syncedAt) DESC")
     List<GithubCommit> findByTaskId(@Param("taskId") Long taskId);
 
-    @Query("SELECT c FROM GithubCommit c WHERE c.task.id IN :taskIds "
-            + "ORDER BY c.committedAt DESC, c.syncedAt DESC")
+    @Query("SELECT c FROM GithubCommit c WHERE (c.task.id IN :taskIds OR c.linkedTaskId IN :taskIds) "
+            + "ORDER BY COALESCE(c.authoredAt, c.syncedAt) DESC")
     List<GithubCommit> findAllByTaskIds(@Param("taskIds") List<Long> taskIds);
 
-    @Query("SELECT c FROM GithubCommit c WHERE c.task.id = :taskId "
-            + "ORDER BY c.committedAt DESC, c.syncedAt DESC")
+    @Query("SELECT c FROM GithubCommit c WHERE (c.task.id = :taskId OR c.linkedTaskId = :taskId) "
+            + "ORDER BY COALESCE(c.authoredAt, c.syncedAt) DESC")
     List<GithubCommit> findRecentByTaskId(@Param("taskId") Long taskId, Pageable pageable);
 
     @Modifying
-    @Query("DELETE FROM GithubCommit c WHERE c.task.id = :taskId")
+    @Query("DELETE FROM GithubCommit c WHERE (c.task.id = :taskId OR c.linkedTaskId = :taskId)")
     void deleteAllByTaskId(@Param("taskId") Long taskId);
 
     @Query("SELECT c FROM GithubCommit c WHERE c.sha = :sha")
