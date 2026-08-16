@@ -126,6 +126,7 @@ export interface SprintboardColumn {
   columnName: string;
   columnStatus: string;
   position: number;
+  color?: string | null;
   tasks: SprintboardTask[];
 }
 
@@ -397,9 +398,16 @@ export const sprintboardsApi = {
   moveTask: async (taskId: number | string, payload: { sprintboardId: number; newColumnStatus: string }): Promise<void> => {
     await api.put(`/api/sprintboards/tasks/${taskId}/move`, payload);
   },
-  addColumn: async (sprintboardId: number | string, payload: { name: string; status: string }): Promise<unknown> => {
+  addColumn: async (sprintboardId: number | string, payload: { name: string; status: string; color?: string }): Promise<unknown> => {
     const { data } = await api.post(`/api/sprintboards/${sprintboardId}/columns`, payload);
     return data;
+  },
+  updateColumn: async (sprintboardId: number | string, columnId: number | string, payload: { name?: string; color?: string | null }): Promise<unknown> => {
+    const { data } = await api.patch(`/api/sprintboards/${sprintboardId}/columns/${columnId}`, payload);
+    return data;
+  },
+  deleteColumn: async (sprintboardId: number | string, columnId: number | string): Promise<void> => {
+    await api.delete(`/api/sprintboards/${sprintboardId}/columns/${columnId}`);
   },
   reorderColumns: async (sprintboardId: number | string, reorderRequest: Array<{ id: number; position: number }>): Promise<void> => {
     await api.patch(`/api/sprintboards/${sprintboardId}/columns/reorder`, reorderRequest);

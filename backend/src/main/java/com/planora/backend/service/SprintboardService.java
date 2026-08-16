@@ -143,6 +143,7 @@ public class SprintboardService {
                     dto.setPosition(col.getPosition());
                     dto.setColumnName(col.getColumnName());
                     dto.setColumnStatus(col.getColumnStatus() != null ? col.getColumnStatus() : "TODO");
+                    dto.setColor(col.getColor());
                     return dto;
                 })
                 .collect(Collectors.toList());
@@ -181,6 +182,7 @@ public class SprintboardService {
             dto.setPosition(col.getPosition());
             dto.setColumnName(col.getColumnName());
             dto.setColumnStatus(col.getColumnStatus() != null ? col.getColumnStatus() : "TODO");
+            dto.setColor(col.getColor());
             dto.setTasks(tasksByStatus.getOrDefault(dto.getColumnStatus(), List.of()));
             return dto;
         }).toList();
@@ -317,6 +319,11 @@ public class SprintboardService {
 
     @Transactional
     public SprintcolumnDTO addColumnToSprintboard(Long sprintboardId, String name, String statusStr, Long currentUserId) {
+        return addColumnToSprintboard(sprintboardId, name, statusStr, null, currentUserId);
+    }
+
+    @Transactional
+    public SprintcolumnDTO addColumnToSprintboard(Long sprintboardId, String name, String statusStr, String color, Long currentUserId) {
         Sprintboard sprintboard = getSprintboardById(sprintboardId);
         Sprint sprint = sprintboard.getSprint();
 
@@ -338,6 +345,9 @@ public class SprintboardService {
         column.setColumnName(name);
         column.setColumnStatus(status);
         column.setPosition(maxPos + 1);
+        if (color != null && !color.isBlank()) {
+            column.setColor(color.trim());
+        }
 
         Sprintcolumn savedCol = springcolumnRepository.save(column);
 
@@ -346,6 +356,36 @@ public class SprintboardService {
         dto.setColumnName(savedCol.getColumnName());
         dto.setColumnStatus(savedCol.getColumnStatus());
         dto.setPosition(savedCol.getPosition());
+        dto.setColor(savedCol.getColor());
+        return dto;
+    }
+
+    @Transactional
+    public SprintcolumnDTO updateColumn(Long sprintboardId, Long columnId, String name, String color, Long currentUserId) {
+        Sprintboard sprintboard = getSprintboardById(sprintboardId);
+        Sprint sprint = sprintboard.getSprint();
+        requireViewBoard(sprint.getProId(), currentUserId);
+
+        Sprintcolumn column = springcolumnRepository.findById(columnId)
+                .orElseThrow(() -> new RuntimeException("Sprint column not found"));
+        if (column.getSprintboard() == null || !column.getSprintboard().getId().equals(sprintboardId)) {
+            throw new RuntimeException("Sprint column does not belong to this sprintboard");
+        }
+
+        if (name != null && !name.isBlank()) {
+            column.setColumnName(name.trim());
+        }
+        if (color != null) {
+            column.setColor(color.trim().isEmpty() ? null : color.trim());
+        }
+
+        Sprintcolumn savedCol = springcolumnRepository.save(column);
+        SprintcolumnDTO dto = new SprintcolumnDTO();
+        dto.setId(savedCol.getId());
+        dto.setColumnName(savedCol.getColumnName());
+        dto.setColumnStatus(savedCol.getColumnStatus());
+        dto.setPosition(savedCol.getPosition());
+        dto.setColor(savedCol.getColor());
         return dto;
     }
 
@@ -409,6 +449,7 @@ public class SprintboardService {
                     dto.setPosition(col.getPosition());
                     dto.setColumnName(col.getColumnName());
                     dto.setColumnStatus(col.getColumnStatus() != null ? col.getColumnStatus() : "TODO");
+                    dto.setColor(col.getColor());
                     return dto;
                 })
                 .collect(Collectors.toList());
@@ -429,6 +470,28 @@ public class SprintboardService {
         dto.setUpdatedAt(task.getUpdatedAt());
         dto.setAttachmentCount(task.getAttachments() != null ? task.getAttachments().size() : 0);
         dto.setCommentCount(task.getComments() != null ? task.getComments().size() : 0);
+
+        java.util.List<com.planora.backend.dto.TaskResponseDTO.AssigneeDTO> assigneesList = new java.util.ArrayList<>();
+        if (task.getAssignees() != null && !task.getAssignees().isEmpty()) {
+            for (TeamMember m : task.getAssignees()) {
+                if (m.getUser() != null) {
+                    String name = (m.getUser().getFullName() != null && !m.getUser().getFullName().isBlank())
+                            ? m.getUser().getFullName()
+                            : m.getUser().getUsername();
+                    String photoUrl = userService.generatePresignedUrl(m.getUser().getProfilePicUrl());
+                    assigneesList.add(new com.planora.backend.dto.TaskResponseDTO.AssigneeDTO(m.getId(), m.getUser().getUserId(), name, photoUrl));
+                }
+            }
+        } else if (task.getAssignee() != null && task.getAssignee().getUser() != null) {
+            TeamMember m = task.getAssignee();
+            String name = (m.getUser().getFullName() != null && !m.getUser().getFullName().isBlank())
+                    ? m.getUser().getFullName()
+                    : m.getUser().getUsername();
+            String photoUrl = userService.generatePresignedUrl(m.getUser().getProfilePicUrl());
+            assigneesList.add(new com.planora.backend.dto.TaskResponseDTO.AssigneeDTO(m.getId(), m.getUser().getUserId(), name, photoUrl));
+        }
+        dto.setAssignees(assigneesList);
+
         TeamMember displayAssignee = task.getAssignee();
         if ((displayAssignee == null || displayAssignee.getUser() == null) && task.getAssignees() != null && !task.getAssignees().isEmpty()) {
             displayAssignee = task.getAssignees().iterator().next();

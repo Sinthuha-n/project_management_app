@@ -322,7 +322,11 @@ function SprintBoardPageContent() {
             />
             {actions.successMsg && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-2 text-sm font-semibold text-emerald-500 shadow-cu-lg">{actions.successMsg}</div>}
 
-            <SprintDragDropProvider tasks={board.columns.flatMap((col) => col.tasks)} onDragEnd={actions.handleDragEnd}>
+            <SprintDragDropProvider
+              tasks={board.columns.flatMap((col) => col.tasks)}
+              columns={board.columns}
+              onDragEnd={actions.handleDragEnd}
+            >
               <div className="flex items-start gap-4 sm:gap-3 h-full min-h-[calc(100vh-250px)] pb-3">
                 {(swimlanes ?? [{ key: 'default', columns: filteredColumns }]).map((lane) => (
                   <div key={lane.key} className="space-y-2">
@@ -331,14 +335,26 @@ function SprintBoardPageContent() {
                       <div className="flex items-start gap-3">
                         {lane.columns.map((column) => (
                           <SprintColumn
-                            key={`${lane.key}-${column.id}`} column={column} dense={denseMode} compactEmpty
-                            collapsed={!!collapsedColumns[column.columnStatus]} onToggleCollapsed={toggleColumnCollapsed}
-                            selectedTaskIds={selectedTaskIds} onToggleTaskSelected={toggleTaskSelected}
-                            onInlineCreate={actions.handleInlineCreateTask} onOpenTask={(id) => setSelectedTaskId(id)}
+                            key={`${lane.key}-${column.id}`}
+                            column={column}
+                            dense={denseMode}
+                            compactEmpty
+                            collapsed={!!collapsedColumns[column.columnStatus]}
+                            onToggleCollapsed={toggleColumnCollapsed}
+                            selectedTaskIds={selectedTaskIds}
+                            onToggleTaskSelected={toggleTaskSelected}
+                            onInlineCreate={actions.handleInlineCreateTask}
+                            onOpenTask={(id) => setSelectedTaskId(id)}
                             onUpdateTaskDueDate={actions.handleInlineDueDateChange}
                             onAssignTaskSingle={actions.handleInlineAssignSingle}
                             onAssignTaskMultiple={actions.handleInlineAssignMultiple}
-                            teamMembers={teamMembers} projectKey={projectKey}
+                            onRenameTask={actions.handleRenameTask}
+                            onDeleteTask={actions.handleDeleteTask}
+                            onRenameColumn={actions.handleRenameColumn}
+                            onChangeColumnColor={actions.handleChangeColumnColor}
+                            onDeleteColumn={actions.handleDeleteColumn}
+                            teamMembers={teamMembers}
+                            projectKey={projectKey}
                           />
                         ))}
                       </div>

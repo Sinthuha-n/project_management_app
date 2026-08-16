@@ -74,8 +74,28 @@ export async function updateTask(taskId: number, taskData: Record<string, unknow
 /**
  * Add a new column to the sprint board
  */
-export async function addColumn(sprintboardId: number, name: string, status: string) {
-  return await sprintboardsApi.addColumn(sprintboardId, { name, status });
+export async function addColumn(sprintboardId: number, name: string, status: string, color?: string) {
+  return await sprintboardsApi.addColumn(sprintboardId, { name, status, color });
+}
+
+export async function updateSprintColumn(
+  sprintboardId: number,
+  columnId: number,
+  payload: { name?: string; color?: string | null }
+): Promise<unknown> {
+  return await sprintboardsApi.updateColumn(sprintboardId, columnId, payload);
+}
+
+export async function deleteSprintColumn(sprintboardId: number, columnId: number): Promise<void> {
+  await sprintboardsApi.deleteColumn(sprintboardId, columnId);
+}
+
+export async function renameSprintTask(taskId: number, title: string): Promise<unknown> {
+  return await tasksApi.update(taskId, { title });
+}
+
+export async function deleteSprintTask(taskId: number): Promise<void> {
+  await tasksApi.delete(taskId);
 }
 
 export async function bulkUpdateTaskStatus(taskIds: number[], status: string): Promise<void> {

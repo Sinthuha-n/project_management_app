@@ -106,22 +106,40 @@ export function useSprintBoardActions({
     if (!over || !board || !sprintboard) return;
     const activeId = String(active.id);
     const overId = String(over.id);
-    if (activeId.startsWith('column-') && overId.startsWith('column-')) {
+
+    // ── Column Reorder Handling ──────────────────────────────────────────────
+    if (activeId.startsWith('column-')) {
       const activeColumnId = Number(activeId.replace('column-', ''));
-      const overColumnId = Number(overId.replace('column-', ''));
-      const fromIndex = board.columns.findIndex((column) => column.id === activeColumnId);
-      const toIndex = board.columns.findIndex((column) => column.id === overColumnId);
-      if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
-      setAllBoards((prev) => prev.map((entry, idx) => idx !== selectedIdx ? entry : { ...entry, columns: arrayMove(entry.columns, fromIndex, toIndex) }));
-      try {
-        const reordered = arrayMove(board.columns, fromIndex, toIndex);
-        await reorderSprintColumns(sprintboard.id, reordered.map((column, index) => ({ id: column.id, position: index })));
-      } catch {
-        toast('Failed to reorder columns, refreshing board', 'error');
-        forceRefresh();
+      let overColumnId: number | null = null;
+      if (overId.startsWith('column-')) {
+        overColumnId = Number(overId.replace('column-', ''));
+      } else {
+        const matchedCol = board.columns.find((col) =>
+          col.columnStatus === overId ||
+          col.id === Number(overId) ||
+          col.tasks.some((t) => String(t.taskId) === overId)
+        );
+        if (matchedCol) overColumnId = matchedCol.id;
+      }
+
+      if (overColumnId !== null && activeColumnId !== overColumnId) {
+        const fromIndex = board.columns.findIndex((column) => column.id === activeColumnId);
+        const toIndex = board.columns.findIndex((column) => column.id === overColumnId);
+        if (fromIndex >= 0 && toIndex >= 0 && fromIndex !== toIndex) {
+          const reordered = arrayMove(board.columns, fromIndex, toIndex);
+          setAllBoards((prev) => prev.map((entry, idx) => idx !== selectedIdx ? entry : { ...entry, columns: reordered }));
+          try {
+            await reorderSprintColumns(sprintboard.id, reordered.map((column, index) => ({ id: column.id, position: index })));
+          } catch {
+            toast('Failed to reorder columns, refreshing board', 'error');
+            forceRefresh();
+          }
+        }
       }
       return;
     }
+
+    // ── Task Move Handling ───────────────────────────────────────────────────
     const taskId = parseInt(String(active.id), 10);
     const newStatus = String(over.id);
     const sourceColumn = board.columns.find((column) => column.tasks.some((task) => task.taskId === taskId));
@@ -189,31 +207,164 @@ export function useSprintBoardActions({
     }
   }, [selectedIdx, forceRefresh, setAllBoards]);
 
+  // Instant 0ms optimistic single assign
   const handleInlineAssignSingle = useCallback(async (taskId: number, userId: number) => {
+    const selected = teamMembers.find((member) => member.userId === userId || member.id === userId);
+    setAllBoards((prev) => prev.map((entry, idx) => idx !== selectedIdx ? entry : {
+      ...entry,
+      columns: entry.columns.map((column) => ({
+        ...column,
+        tasks: column.tasks.map((task) => {
+          if (task.taskId !== taskId) return task;
+          return {
+            ...task,
+            assigneeName: selected?.name,
+            assigneePhotoUrl: selected?.photoUrl ?? undefined,
+            assignees: selected ? [{
+              memberId: selected.id,
+              userId: selected.userId,
+              name: selected.name,
+              photoUrl: selected.photoUrl ?? undefined,
+            }] : [],
+          };
+        }),
+      })),
+    }));
+
     try {
       await assignTaskSingle(taskId, userId);
-      const selected = teamMembers.find((member) => member.userId === userId || member.id === userId);
-      setAllBoards((prev) => prev.map((entry, idx) => idx !== selectedIdx ? entry : {
-        ...entry, columns: entry.columns.map((column) => ({ ...column, tasks: column.tasks.map((task) => task.taskId === taskId ? { ...task, assigneeName: selected?.name, assigneePhotoUrl: selected?.photoUrl ?? undefined } : task) })),
-      }));
     } catch (err: unknown) {
       toast(normalizeApiError(err, 'Failed to update assignee.'), 'error');
       forceRefresh();
     }
   }, [selectedIdx, teamMembers, forceRefresh, setAllBoards]);
 
+  // Instant 0ms optimistic multi assign
   const handleInlineAssignMultiple = useCallback(async (taskId: number, assigneeIds: number[]) => {
+    const selectedMembers = teamMembers.filter((m) => assigneeIds.includes(m.userId ?? m.id));
+    const firstMember = selectedMembers[0];
+    const newAssignees = selectedMembers.map((m) => ({
+      memberId: m.id,
+      userId: m.userId,
+      name: m.name,
+      photoUrl: m.photoUrl ?? undefined,
+    }));
+
+    setAllBoards((prev) => prev.map((entry, idx) => idx !== selectedIdx ? entry : {
+      ...entry,
+      columns: entry.columns.map((column) => ({
+        ...column,
+        tasks: column.tasks.map((task) => {
+          if (task.taskId !== taskId) return task;
+          return {
+            ...task,
+            assigneeName: firstMember?.name,
+            assigneePhotoUrl: firstMember?.photoUrl ?? undefined,
+            assignees: newAssignees,
+          };
+        }),
+      })),
+    }));
+
     try {
       await assignTaskMultiple(taskId, assigneeIds);
-      const selected = teamMembers.find((member) => assigneeIds.includes(member.userId));
-      setAllBoards((prev) => prev.map((entry, idx) => idx !== selectedIdx ? entry : {
-        ...entry, columns: entry.columns.map((column) => ({ ...column, tasks: column.tasks.map((task) => task.taskId === taskId ? { ...task, assigneeName: selected?.name, assigneePhotoUrl: selected?.photoUrl ?? undefined } : task) })),
-      }));
     } catch (err: unknown) {
       toast(normalizeApiError(err, 'Failed to update assignees.'), 'error');
       forceRefresh();
     }
   }, [selectedIdx, teamMembers, forceRefresh, setAllBoards]);
+
+  // Task Rename
+  const handleRenameTask = useCallback(async (taskId: number, newTitle: string) => {
+    setAllBoards((prev) => prev.map((entry, idx) => idx !== selectedIdx ? entry : {
+      ...entry,
+      columns: entry.columns.map((col) => ({
+        ...col,
+        tasks: col.tasks.map((t) => t.taskId === taskId ? { ...t, title: newTitle } : t),
+      })),
+    }));
+    try {
+      const { renameSprintTask } = await import('../api');
+      await renameSprintTask(taskId, newTitle);
+      window.dispatchEvent(new CustomEvent('planora:task-updated'));
+    } catch (err: unknown) {
+      toast(normalizeApiError(err, 'Failed to rename task.'), 'error');
+      forceRefresh();
+    }
+  }, [selectedIdx, forceRefresh, setAllBoards]);
+
+  // Task Delete
+  const handleDeleteTask = useCallback(async (taskId: number) => {
+    setAllBoards((prev) => prev.map((entry, idx) => {
+      if (idx !== selectedIdx) return entry;
+      return {
+        ...entry,
+        columns: entry.columns.map((col) => ({
+          ...col,
+          tasks: col.tasks.filter((t) => t.taskId !== taskId),
+        })),
+      };
+    }));
+
+    try {
+      const { deleteSprintTask } = await import('../api');
+      await deleteSprintTask(taskId);
+      toast('Task deleted', 'success');
+      window.dispatchEvent(new CustomEvent('planora:task-updated'));
+    } catch (err: unknown) {
+      toast(normalizeApiError(err, 'Failed to delete task.'), 'error');
+      forceRefresh();
+    }
+  }, [selectedIdx, forceRefresh, setAllBoards]);
+
+  // Column Rename
+  const handleRenameColumn = useCallback(async (columnId: number, newName: string) => {
+    if (!sprintboard) return;
+    setAllBoards((prev) => prev.map((entry, idx) => idx !== selectedIdx ? entry : {
+      ...entry,
+      columns: entry.columns.map((col) => col.id === columnId ? { ...col, columnName: newName } : col),
+    }));
+    try {
+      const { updateSprintColumn } = await import('../api');
+      await updateSprintColumn(sprintboard.id, columnId, { name: newName });
+    } catch (err: unknown) {
+      toast(normalizeApiError(err, 'Failed to rename column.'), 'error');
+      forceRefresh();
+    }
+  }, [selectedIdx, sprintboard, forceRefresh, setAllBoards]);
+
+  // Column Change Color
+  const handleChangeColumnColor = useCallback(async (columnId: number, color: string | null) => {
+    if (!sprintboard) return;
+    setAllBoards((prev) => prev.map((entry, idx) => idx !== selectedIdx ? entry : {
+      ...entry,
+      columns: entry.columns.map((col) => col.id === columnId ? { ...col, color } : col),
+    }));
+    try {
+      const { updateSprintColumn } = await import('../api');
+      await updateSprintColumn(sprintboard.id, columnId, { color });
+    } catch (err: unknown) {
+      toast(normalizeApiError(err, 'Failed to update column color.'), 'error');
+      forceRefresh();
+    }
+  }, [selectedIdx, sprintboard, forceRefresh, setAllBoards]);
+
+  // Column Delete
+  const handleDeleteColumn = useCallback(async (columnId: number) => {
+    if (!sprintboard) return;
+    setAllBoards((prev) => prev.map((entry, idx) => idx !== selectedIdx ? entry : {
+      ...entry,
+      columns: entry.columns.filter((col) => col.id !== columnId),
+    }));
+    try {
+      const { deleteSprintColumn } = await import('../api');
+      await deleteSprintColumn(sprintboard.id, columnId);
+      toast('Column deleted', 'success');
+    } catch (err: unknown) {
+      toast(normalizeApiError(err, 'Failed to delete column.'), 'error');
+      forceRefresh();
+    }
+  }, [selectedIdx, sprintboard, forceRefresh, setAllBoards]);
 
   const handleCompleteSprint = async () => {
     if (!sprintIdToComplete) return;
@@ -229,12 +380,12 @@ export function useSprintBoardActions({
     } finally { setIsUpdating(false); }
   };
 
-  const finalizeAddColumn = async (name: string, status: string) => {
+  const finalizeAddColumn = async (name: string, status: string, color?: string) => {
     if (!sprintboard) return;
     setIsCreatingColumn(true);
     try {
       const { addColumn } = await import('../api');
-      await addColumn(sprintboard.id, name, status);
+      await addColumn(sprintboard.id, name, status, color);
       setSuccessMsg(`Column "${name}" added`);
       setTimeout(() => setSuccessMsg(''), 1500);
       setIsAddingColumn(false);
@@ -284,6 +435,11 @@ export function useSprintBoardActions({
     handleInlineDueDateChange,
     handleInlineAssignSingle,
     handleInlineAssignMultiple,
+    handleRenameTask,
+    handleDeleteTask,
+    handleRenameColumn,
+    handleChangeColumnColor,
+    handleDeleteColumn,
     handleCompleteSprint,
     finalizeAddColumn,
     handleUndoMove,

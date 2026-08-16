@@ -8,9 +8,20 @@ import OverlayPortal from '@/components/ui/OverlayPortal';
 interface CreateColumnModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateColumn: (name: string, status: string) => Promise<void>;
+  onCreateColumn: (name: string, status: string, color?: string) => Promise<void>;
   loading?: boolean;
 }
+
+const COLOR_OPTIONS = [
+  { label: 'Default', value: undefined, hex: 'transparent' },
+  { label: 'Indigo', value: '#6366F1', hex: '#6366F1' },
+  { label: 'Blue', value: '#3B82F6', hex: '#3B82F6' },
+  { label: 'Cyan', value: '#06B6D4', hex: '#06B6D4' },
+  { label: 'Emerald', value: '#10B981', hex: '#10B981' },
+  { label: 'Amber', value: '#F59E0B', hex: '#F59E0B' },
+  { label: 'Rose', value: '#F43F5E', hex: '#F43F5E' },
+  { label: 'Purple', value: '#8B5CF6', hex: '#8B5CF6' },
+];
 
 export default function CreateColumnModal({
   isOpen,
@@ -20,13 +31,15 @@ export default function CreateColumnModal({
 }: CreateColumnModalProps) {
   const [name, setName] = useState('');
   const [status, setStatus] = useState('TODO');
+  const [selectedColor, setSelectedColor] = useState<string | undefined>(undefined);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    await onCreateColumn(name.trim(), status);
+    await onCreateColumn(name.trim(), status, selectedColor);
     setName('');
     setStatus('TODO');
+    setSelectedColor(undefined);
     onClose();
   };
 
@@ -118,6 +131,33 @@ export default function CreateColumnModal({
                       <span className={`text-[13px] font-bold ${status === opt.value ? 'text-cu-primary' : 'text-cu-text-primary'}`}>
                         {opt.label}
                       </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Column Theme Color */}
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-cu-text-primary">Column Accent Color (Optional)</label>
+                <div className="flex items-center gap-2">
+                  {COLOR_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => setSelectedColor(opt.value)}
+                      className={`h-7 w-7 rounded-full border border-cu-border flex items-center justify-center transition-transform hover:scale-110 ${
+                        selectedColor === opt.value || (!selectedColor && opt.value === undefined)
+                          ? 'ring-2 ring-cu-primary ring-offset-2'
+                          : ''
+                      }`}
+                      style={{
+                        backgroundColor: opt.value ?? 'var(--cu-bg-secondary)',
+                      }}
+                      title={opt.label}
+                    >
+                      {(selectedColor === opt.value || (!selectedColor && opt.value === undefined)) && (
+                        <div className={`h-2 w-2 rounded-full ${opt.value ? 'bg-white' : 'bg-cu-primary'}`} />
+                      )}
                     </button>
                   ))}
                 </div>

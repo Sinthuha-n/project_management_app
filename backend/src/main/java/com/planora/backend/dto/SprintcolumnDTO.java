@@ -8,4 +8,5 @@ public class SprintcolumnDTO {
     private Integer position;
     private String columnName;
     private String columnStatus;
+    private String color;
 }

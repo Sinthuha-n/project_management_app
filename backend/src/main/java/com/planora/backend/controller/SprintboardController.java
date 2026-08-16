@@ -87,8 +87,31 @@ public class SprintboardController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
         String name = body.getOrDefault("name", "New Column");
         String status = body.getOrDefault("status", "TODO");
-        SprintcolumnDTO column = sprintboardService.addColumnToSprintboard(sprintboardId, name, status, currentUser.getUserId());
+        String color = body.get("color");
+        SprintcolumnDTO column = sprintboardService.addColumnToSprintboard(sprintboardId, name, status, color, currentUser.getUserId());
         return new ResponseEntity<>(column, HttpStatus.CREATED);
+    }
+
+    // UPDATE column (rename / change color)
+    @PatchMapping("/{sprintboardId}/columns/{columnId}")
+    public ResponseEntity<SprintcolumnDTO> updateColumn(
+            @PathVariable Long sprintboardId,
+            @PathVariable Long columnId,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        String name = body.get("name");
+        String color = body.get("color");
+        SprintcolumnDTO column = sprintboardService.updateColumn(sprintboardId, columnId, name, color, currentUser.getUserId());
+        return new ResponseEntity<>(column, HttpStatus.OK);
+    }
+
+    @PutMapping("/{sprintboardId}/columns/{columnId}")
+    public ResponseEntity<SprintcolumnDTO> updateColumnPut(
+            @PathVariable Long sprintboardId,
+            @PathVariable Long columnId,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return updateColumn(sprintboardId, columnId, body, currentUser);
     }
 
     @PatchMapping("/{sprintboardId}/columns/reorder")

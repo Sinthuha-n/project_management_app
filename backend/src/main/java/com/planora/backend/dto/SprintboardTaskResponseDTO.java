@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class SprintboardTaskResponseDTO {
@@ -13,6 +14,7 @@ public class SprintboardTaskResponseDTO {
     private Integer storyPoint;
     private String assigneeName;
     private String assigneePhotoUrl;
+    private List<TaskResponseDTO.AssigneeDTO> assignees;
     private String status;
     private String priority;
     private LocalDate dueDate;

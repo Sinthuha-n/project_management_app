@@ -1,3 +1,10 @@
+export interface SprintboardAssignee {
+  memberId?: number;
+  userId?: number;
+  name?: string;
+  photoUrl?: string;
+}
+
 export interface SprintboardTask {
   taskId: number;
   projectTaskNumber?: number;
@@ -5,6 +12,7 @@ export interface SprintboardTask {
   storyPoint: number;
   assigneeName?: string;
   assigneePhotoUrl?: string;
+  assignees?: SprintboardAssignee[];
   status: string;
   priority: string;
   dueDate?: string;
@@ -20,6 +28,7 @@ export interface Sprintcolumn {
   position: number;
   columnName: string;
   columnStatus: string;
+  color?: string | null;
   tasks: SprintboardTask[];
 }
 
