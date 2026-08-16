@@ -129,7 +129,7 @@ public class EmailService {
             sendHtml(toEmail, "Planora - Project Invitation", html);
 
         } catch (Exception e) {
-            throw new RuntimeException("Failed to send invitation email", e);
+            log.error("Failed to send project invitation email to {}: {}", toEmail, e.getMessage(), e);
         }
     }
 

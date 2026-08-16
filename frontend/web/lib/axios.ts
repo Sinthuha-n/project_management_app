@@ -4,9 +4,6 @@ import { buildVerifyEmailPath, isEmailVerificationRequired, rememberPendingVerif
 import { getApiBaseUrl } from "@/lib/api-base-url";
 
 const api = axios.create({
-    headers: {
-        'Content-Type': 'application/json'
-    },
     withCredentials: true,
 });
 
@@ -22,8 +19,12 @@ api.interceptors.request.use(
         // When data is FormData, remove Content-Type so Axios/browser automatically creates multipart/form-data with boundary
         if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
             if (config.headers) {
-                delete config.headers['Content-Type'];
-                delete config.headers['content-type'];
+                if (typeof config.headers.delete === 'function') {
+                    config.headers.delete('Content-Type');
+                    config.headers.delete('content-type');
+                }
+                delete (config.headers as Record<string, unknown>)['Content-Type'];
+                delete (config.headers as Record<string, unknown>)['content-type'];
             }
         }
 

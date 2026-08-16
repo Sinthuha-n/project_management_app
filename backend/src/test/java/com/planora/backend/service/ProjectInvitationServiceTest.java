@@ -25,6 +25,8 @@ import org.springframework.security.access.AccessDeniedException;
 
 import com.planora.backend.controller.ProjectMemberController;
 import com.planora.backend.dto.ProjectInviteRequest;
+import com.planora.backend.exception.BadRequestException;
+import com.planora.backend.exception.ConflictException;
 import com.planora.backend.exception.InvitationExpiredException;
 import com.planora.backend.model.Project;
 import com.planora.backend.model.Team;
@@ -107,7 +109,7 @@ class ProjectInvitationServiceTest {
         when(userRepository.findFirstByEmailIgnoreCase("already@example.com")).thenReturn(Optional.empty());
         when(teamInvitationRepository.findByTeamIdAndEmail(11L, "already@example.com")).thenReturn(List.of(existingInvite));
 
-        assertThrows(RuntimeException.class, () -> projectInvitationService.inviteToProject(77L, request, 10L));
+        assertThrows(ConflictException.class, () -> projectInvitationService.inviteToProject(77L, request, 10L));
     }
 
     @Test
@@ -224,7 +226,7 @@ class ProjectInvitationServiceTest {
         when(teamInvitationRepository.findByTokenWithLock("token-1")).thenReturn(Optional.of(invitation));
         when(userRepository.findById(20L)).thenReturn(Optional.of(actualUser));
 
-        assertThrows(RuntimeException.class, () -> projectInvitationService.acceptInvitation("token-1", 20L));
+        assertThrows(BadRequestException.class, () -> projectInvitationService.acceptInvitation("token-1", 20L));
     }
 
     private Project project(Long projectId, Long ownerId, String ownerEmail) {
