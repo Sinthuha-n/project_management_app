@@ -10,7 +10,6 @@ import type { BurndownResponse, BurndownSummary } from '@/types';
 import BurndownChart from './components/BurndownChart';
 import BurndownCommandBar from './components/BurndownCommandBar';
 import BurndownHealthStrip from './components/BurndownHealthStrip';
-import BurndownInsightRail from './components/BurndownInsightRail';
 import BurndownBreakdownPanel from './components/BurndownBreakdownPanel';
 import BurndownState from './components/BurndownState';
 import DateSetterPrompt from './components/DateSetterPrompt';
@@ -223,13 +222,12 @@ function BurndownContent() {
                   message="The sprint has estimated scope but no completed story points in the selected date range."
                 />
               )}
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="grid gap-4">
                 <BurndownChart
                   sprintName={burndown.sprintName}
                   dataPoints={burndown.dataPoints}
                   totalStoryPoints={burndown.totalStoryPoints}
                 />
-                <BurndownInsightRail summary={summary} insights={burndown.insights ?? []} />
               </div>
               <BurndownBreakdownPanel breakdown={burndown.breakdown} />
               <SprintScopeNote burndown={burndown} selectedSprint={selectedSprint} />

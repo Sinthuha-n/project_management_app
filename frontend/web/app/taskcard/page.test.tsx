@@ -9,7 +9,7 @@ jest.mock('./TaskHeader', () => ({
   default: ({ onClose, project, taskId }: { onClose: (wasModified: boolean) => void; project: unknown; taskId: unknown }) => (
     <div data-testid="task-header">
       <span>Header: {String(project)} / {String(taskId)}</span>
-      <button data-testid="archive-btn" onClick={() => onClose(true)}>Archive (onClose true)</button>
+      <button data-testid="modified-close-btn" onClick={() => onClose(true)}>Close (onClose true)</button>
       <button data-testid="close-btn" onClick={() => onClose(false)}>Close (onClose false)</button>
     </div>
   ),
@@ -340,7 +340,7 @@ describe('TaskPage cache and invalidation', () => {
     });
   });
 
-  it('Archive/Close Invalidation: clears cached item if onClose was called with wasModified=true', async () => {
+  it('Close invalidation clears cached item if onClose was called with wasModified=true', async () => {
     localStorage.setItem(
       'planora:task:123',
       JSON.stringify({
@@ -365,8 +365,8 @@ describe('TaskPage cache and invalidation', () => {
     expect(localStorage.getItem('planora:task:123')).not.toBeNull();
 
     // Test close with modifications (wasModified = true)
-    const archiveBtn = screen.getByTestId('archive-btn');
-    fireEvent.click(archiveBtn);
+    const modifiedCloseBtn = screen.getByTestId('modified-close-btn');
+    fireEvent.click(modifiedCloseBtn);
     expect(backMock).toHaveBeenCalledTimes(2);
     // Cache should be removed
     expect(localStorage.getItem('planora:task:123')).toBeNull();

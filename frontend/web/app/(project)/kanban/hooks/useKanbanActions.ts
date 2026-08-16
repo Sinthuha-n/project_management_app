@@ -308,7 +308,7 @@ export function useKanbanActions(
         });
       }));
       setCompleteSuccess(true);
-      setToastMessage(`Archived ${nonDone.length} task${nonDone.length !== 1 ? 's' : ''} to Done.`);
+      setToastMessage(`Marked ${nonDone.length} task${nonDone.length !== 1 ? 's' : ''} as Done.`);
       setTimeout(() => {
         setCompleteSuccess(false);
         setToastMessage(null);

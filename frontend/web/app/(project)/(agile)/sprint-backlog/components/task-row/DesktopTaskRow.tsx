@@ -8,7 +8,6 @@ import { hexToLabelStyle } from '@/components/shared/LabelPicker';
 import { STATUS_LABELS, DUE_CHIP_STYLES, type TaskStatus, formatDate } from './TaskRowConstants';
 import type { TaskRowProps } from '../TaskRow';
 import { useTaskRowState } from './useTaskRowState';
-import { ArchiveBadge } from '@/components/ui';
 
 export default function DesktopTaskRow(props: TaskRowProps) {
   const {
@@ -53,7 +52,7 @@ export default function DesktopTaskRow(props: TaskRowProps) {
 
   return (
     <div
-      className={`group relative flex items-center min-h-[40px] rounded-lg border-2 border-transparent ${rowBg} hover:opacity-90 transition-colors duration-150 ${task.archived ? 'opacity-60' : ''}`}
+      className={`group relative flex items-center min-h-[40px] rounded-lg border-2 border-transparent ${rowBg} hover:opacity-90 transition-colors duration-150`}
       style={{ borderLeft: `3px solid ${statusBorderColor}` }}
       onClick={() => { if (!renaming) onOpenTask?.(task.id); }}
       onTouchStart={onTouchStartInternal}
@@ -141,7 +140,6 @@ export default function DesktopTaskRow(props: TaskRowProps) {
                 <span>Recurring{task.recurrenceActive === false ? ' (Paused)' : ''}</span>
               </span>
             )}
-            {task.archived && <ArchiveBadge />}
             {task.labels?.[0] && (
               <span style={hexToLabelStyle(task.labels[0].color ?? '#6366F1')} className="flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap border border-white/40">
                 {task.labels[0].name}
