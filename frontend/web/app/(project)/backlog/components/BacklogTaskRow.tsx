@@ -33,6 +33,19 @@ const STATUS_COLOR: Record<string, string> = {
 
 const STATUS_OPTIONS = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'];
 
+function classifyBacklogDue(dueDate?: string | null, status?: string | null): 'overdue' | 'today' | 'five_days' | 'future' | 'none' {
+    if (!dueDate || status?.toUpperCase() === 'DONE') return 'none';
+    const due = new Date(dueDate.length === 10 ? `${dueDate}T00:00:00` : dueDate);
+    due.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((due.getTime() - today.getTime()) / 86_400_000);
+    if (diffDays < 0) return 'overdue';
+    if (diffDays === 0) return 'today';
+    if (diffDays <= 5) return 'five_days';
+    return 'future';
+}
+
 interface BacklogTaskRowProps {
     task: Task;
     onDelete: (id: number) => void;
@@ -65,8 +78,7 @@ export default function BacklogTaskRow({
     const assigneeRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
-    const isOverdue = !!(task.dueDate && normalizedStatus !== 'DONE' &&
-        new Date(task.dueDate + 'T00:00:00') < new Date(new Date().toDateString()));
+    const dueClass = classifyBacklogDue(task.dueDate, normalizedStatus);
     const hasOpenPopover = statusOpen || assigneeOpen || menuOpen;
 
     useEffect(() => {
@@ -99,7 +111,13 @@ export default function BacklogTaskRow({
     return (
         <div
             className={`grid grid-cols-[auto_1fr_120px_100px_120px_100px_100px_32px] sm:grid-cols-[auto_1.5fr_140px_110px_130px_110px_120px_32px] items-center gap-x-2 px-3 sm:px-4 min-h-[52px] rounded-lg border cursor-pointer select-none transition-colors ${
-                selected ? 'bg-cu-primary/10 border-cu-primary/40 shadow-[inset_2px_0_0_var(--cu-primary)]' : isOverdue ? 'bg-red-500/10 border-red-500/25 hover:bg-red-500/15' : 'bg-cu-bg-secondary/70 border-cu-border hover:bg-cu-hover'
+                selected
+                    ? 'bg-cu-primary/10 border-cu-primary/40 shadow-[inset_2px_0_0_var(--cu-primary)]'
+                    : dueClass === 'overdue' || dueClass === 'today'
+                        ? 'bg-red-500/10 border-red-500/25 hover:bg-red-500/15'
+                        : dueClass === 'five_days'
+                            ? 'bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/15'
+                            : 'bg-cu-bg-secondary/70 border-cu-border hover:bg-cu-hover'
             } ${task.archived || isArchived ? 'opacity-60' : ''} ${hasOpenPopover ? 'relative z-[var(--cu-z-modal-popover)]' : 'relative z-auto'}`}
             onClick={() => {
                 if (statusOpen || assigneeOpen || menuOpen) return;
