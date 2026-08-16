@@ -42,7 +42,7 @@ export function CurrentSprintCard({ tasks, sprints }: { tasks: Task[]; sprints: 
   const progAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(progAnim, { toValue: pct / 100, duration: 1200, useNativeDriver: false }).start();
-  }, [pct]);
+  }, [pct, progAnim]);
 
   if (!activeSprint) {
     return (

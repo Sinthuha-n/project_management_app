@@ -97,7 +97,6 @@ const glass = {
 } as const;
 
 const iconSurfaceClass = 'bg-cu-bg-secondary text-cu-text-secondary border border-cu-border shadow-cu-sm';
-const panelClass = 'rounded-2xl border border-cu-border bg-cu-bg px-4 py-4 shadow-cu-sm';
 const secondaryButtonClass = 'rounded-xl border border-cu-border bg-cu-bg px-3 py-2 font-outfit font-semibold text-cu-text-secondary shadow-cu-sm transition-colors hover:bg-cu-hover hover:text-cu-text-primary disabled:opacity-40';
 const iconButtonClass = 'rounded-xl border border-cu-border bg-cu-bg p-2 text-cu-text-secondary shadow-cu-sm transition-colors hover:bg-cu-hover hover:text-cu-text-primary disabled:opacity-40';
 const githubConnectRequiredMessage = 'Connect your GitHub account to load repository activity.';
@@ -157,8 +156,6 @@ function prStatus(pr: GitHubPullRequest): { label: string; color: string; dot: s
   return { label: 'Open', color: 'text-emerald-300 bg-emerald-400/12 border-emerald-400/25', dot: 'bg-emerald-400', glow: 'shadow-[0_0_10px_rgba(52,211,153,0.35)]' };
 }
 
-
-type GitHubTabKey = 'pullRequests' | 'commits' | 'issues';
 
 // ── Disconnected state ────────────────────────────────────────────────────────
 function DisconnectedView({
@@ -1493,25 +1490,11 @@ function ConnectedDashboard({
   canChangeRepo: boolean;
 }) {
   const needsGitHubConnect = !hasConnectedGitHubAccount();
-  type LiveNotice = {
-    id: string;
-    message: string;
-    href: string;
-    tone: 'info' | 'success' | 'danger';
-  };
 
   const [activeTab, setActiveTab] = useState<'pullRequests' | 'commits' | 'issues'>('pullRequests');
   const [issueCount, setIssueCount] = useState<number | null>(null);
   const [newPRNotice, setNewPRNotice] = useState<GithubPRUpdate | null>(null);
   const [latestCIUpdate, setLatestCIUpdate] = useState<GithubCIUpdate | null>(null);
-  const [liveNotices, setLiveNotices] = useState<LiveNotice[]>([]);
-
-  const pushNotice = useCallback((notice: Omit<LiveNotice, 'id'>) => {
-    setLiveNotices((current) => [{
-      ...notice,
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    }, ...current].slice(0, 4));
-  }, []);
 
   const handlePRUpdate = useCallback((update: GithubPRUpdate) => {
     if (update.type === 'opened') {
@@ -1530,20 +1513,10 @@ function ConnectedDashboard({
     setLatestCIUpdate(update);
   }, []), handleSocketError);
   useGithubIssueSocket(projectId, useCallback((update: GithubIssueUpdate) => {
-    pushNotice({
-      message: `Issue ${update.action}: #${update.issueNumber} ${update.issueTitle}`,
-      href: `https://github.com/${connection.repoFullName}/issues/${update.issueNumber}`,
-      tone: update.action === 'closed' ? 'success' : 'info',
-    });
     onIssueUpdate(update);
-  }, [connection.repoFullName, pushNotice, onIssueUpdate]), handleSocketError);
-  useGithubTaskBadgeSocket(projectId, useCallback((update: GithubTaskBadgeUpdate) => {
-    pushNotice({
-      message: `Task #${update.taskId} linked issue #${update.githubIssueNumber} is ${update.issueState}`,
-      href: `https://github.com/${update.githubRepoFullName}/issues/${update.githubIssueNumber}`,
-      tone: update.issueState === 'closed' ? 'success' : 'info',
-    });
-  }, [pushNotice]), handleSocketError);
+  }, [onIssueUpdate]), handleSocketError);
+  useGithubTaskBadgeSocket(projectId, useCallback((_update: GithubTaskBadgeUpdate) => {
+  }, []), handleSocketError);
 
   const [prPage, setPRPage] = useState(1);
   const [commitPage, setCommitPage] = useState(1);
@@ -1689,7 +1662,7 @@ function ConnectedDashboard({
           },
           {
             id: 'issues',
-            label: 'Issues',
+            label: issueCount === null ? 'Issues' : `Issues (${issueCount})`,
             icon: <AlertCircle size={13} />,
           },
         ] as const).map(tab => (
