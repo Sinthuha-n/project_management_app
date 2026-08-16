@@ -3,7 +3,6 @@ package com.planora.backend.service;
 import com.planora.backend.repository.TokenRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,9 +17,6 @@ import java.time.Duration;
  * which slows down database queries and consumes unnecessary cloud storage costs.
  */
 @Component
-// @EnableScheduling tells Spring's background task executor to look for methods
-// annotated with @Scheduled and run them automatically.
-@EnableScheduling
 public class TokenCleanupScheduler {
 
     private static final Logger logger = LoggerFactory.getLogger(TokenCleanupScheduler.class);

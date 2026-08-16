@@ -12,7 +12,7 @@ public final class PostgresTestCleaner {
 
     public static void clean(JdbcTemplate jdbcTemplate) {
         var tables = jdbcTemplate.queryForList(
-                "select tablename from pg_tables where schemaname=current_schema() and tablename <> 'flyway_schema_history'",
+                "select tablename from pg_tables where schemaname=current_schema() and tablename <> 'flyway_schema_history' order by tablename",
                 String.class);
         if (tables.isEmpty()) return;
         String quotedTables = tables.stream()
