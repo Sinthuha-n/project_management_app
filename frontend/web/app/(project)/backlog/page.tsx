@@ -134,7 +134,11 @@ function BacklogPageContent() {
             <div className="sticky-section-header border border-cu-border rounded-2xl px-4 sm:px-6 py-4 mb-4 flex items-center justify-between gap-3 flex-wrap flex-shrink-0 z-40 bg-cu-bg/90 backdrop-blur shadow-cu-sm">
                 <div>
                     <h1 className="text-[20px] sm:text-2xl font-bold text-cu-text-primary">Product Backlog</h1>
-                    <p className="text-[12px] sm:text-[13px] text-cu-text-secondary mt-0.5">
+                    <p
+                        data-testid="issue-count"
+                        aria-live="polite"
+                        className="text-[12px] sm:text-[13px] text-cu-text-secondary mt-0.5"
+                    >
                         {tasks.length} issue{tasks.length !== 1 ? 's' : ''}
                     </p>
                 </div>
