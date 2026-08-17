@@ -46,9 +46,9 @@ public class GithubIssueService {
 
         List<Long> ids = integrations.stream().map(GithubIntegration::getId).collect(Collectors.toList());
 
-        // Proactive sync if no issues cached yet
-        if (issueRepository.countByIntegrationIdIn(ids) == 0) {
-            for (GithubIntegration integration : integrations) {
+        // Proactive sync for any integration that has no issues cached yet
+        for (GithubIntegration integration : integrations) {
+            if (issueRepository.countByIntegrationId(integration.getId()) == 0) {
                 if (githubTokenService.hasValidToken(integration)) {
                     try {
                         syncIssues(integration);
@@ -118,9 +118,15 @@ public class GithubIssueService {
         issue.setGithubUpdatedAt(parseDateTime(node.path("updated_at").asText(null)));
         issue.setSyncedAt(LocalDateTime.now());
 
-        List<String> labelNames = new ArrayList<>();
-        node.path("labels").forEach(label -> labelNames.add(label.path("name").asText()));
-        issue.setLabelNames(String.join(",", labelNames));
+        List<String> labelEntries = new ArrayList<>();
+        node.path("labels").forEach(label -> {
+            String name = label.path("name").asText("");
+            String color = label.path("color").asText("");
+            if (!name.isBlank()) {
+                labelEntries.add(color.isBlank() ? name : name + ":" + color);
+            }
+        });
+        issue.setLabelNames(String.join(",", labelEntries));
 
         if (issue.getLinkedTaskId() == null) {
             Task task = resolveTaskRef(integration.getProject(), issue.getTitle() + " " + issue.getBody());
@@ -170,12 +176,19 @@ public class GithubIssueService {
     private GithubIssueDTO toDTO(GithubIssue issue) {
         List<GithubLabelDTO> labels = (issue.getLabelNames() != null && !issue.getLabelNames().isBlank())
             ? List.of(issue.getLabelNames().split(",")).stream()
-                .map(name -> new GithubLabelDTO(name, null))
+                .filter(s -> !s.isBlank())
+                .map(entry -> {
+                    if (entry.contains(":")) {
+                        String[] parts = entry.split(":", 2);
+                        return new GithubLabelDTO(parts[0], parts[1].isBlank() ? null : parts[1]);
+                    }
+                    return new GithubLabelDTO(entry, null);
+                })
                 .toList()
             : List.of();
         return GithubIssueDTO.builder()
             .id(issue.getId())
-            .integrationId(issue.getIntegration().getId())
+            .integrationId(issue.getIntegration() != null ? issue.getIntegration().getId() : null)
             .githubIssueNumber(issue.getGithubIssueNumber())
             .number(issue.getGithubIssueNumber())
             .title(issue.getTitle())

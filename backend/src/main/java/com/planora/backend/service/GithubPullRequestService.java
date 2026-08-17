@@ -43,9 +43,9 @@ public class GithubPullRequestService {
 
         List<Long> ids = integrations.stream().map(GithubIntegration::getId).collect(Collectors.toList());
 
-        // Proactive sync if no PRs cached yet
-        if (pullRequestRepository.countByIntegrationIdIn(ids) == 0) {
-            for (GithubIntegration integration : integrations) {
+        // Proactive sync for any integration that has no PRs cached yet
+        for (GithubIntegration integration : integrations) {
+            if (pullRequestRepository.countByIntegrationId(integration.getId()) == 0) {
                 if (githubTokenService.hasValidToken(integration)) {
                     try {
                         syncPullRequests(integration);

@@ -127,7 +127,7 @@ export async function getProjectGitHubRepo(projectId: string): Promise<ProjectGi
   const cacheKey = await projectRepoCacheKey(projectId);
   try {
     const { data } = await api.get<BackendProjectGitHubRepository[]>(`/api/github/project/${projectId}/repos`);
-    const active = (data ?? []).find(repo => repo.active) ?? data?.[0];
+    const active = (data ?? []).find(repo => repo.active);
     if (active) {
       const connection = connectionFromBackend(active);
       await AsyncStorage.setItem(cacheKey, JSON.stringify(connection));

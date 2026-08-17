@@ -2162,6 +2162,12 @@ export default function GitHubProjectPage({ projectId }: { projectId: string }) 
   const handleSelectRepo = async (repo: GitHubRepository) => {
     setLoadingRepos(true);
     setRepoError(null);
+    setPRs([]);
+    setCommits([]);
+    setIssues([]);
+    setPRError(null);
+    setCommitError(null);
+    setIssueError(null);
 
     try {
       const persistedConnection = await persistProjectGitHubConnection(projectId, repo.full_name);

@@ -43,9 +43,9 @@ public class GithubCommitService {
 
         List<Long> ids = integrations.stream().map(GithubIntegration::getId).collect(Collectors.toList());
 
-        // Proactive sync if no commits cached yet
-        if (commitRepository.countByIntegrationIdIn(ids) == 0) {
-            for (GithubIntegration integration : integrations) {
+        // Proactive sync for any integration that has no commits cached yet
+        for (GithubIntegration integration : integrations) {
+            if (commitRepository.countByIntegrationId(integration.getId()) == 0) {
                 if (githubTokenService.hasValidToken(integration)) {
                     try {
                         syncCommits(integration);
