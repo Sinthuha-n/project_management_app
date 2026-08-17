@@ -127,7 +127,7 @@ class GithubPullRequestServiceTest {
     void getPullRequests_triggersProactiveSyncWhenEmpty() throws Exception {
         when(integrationRepository.findByProjectIdAndActiveTrue(16L))
                 .thenReturn(List.of(integration));
-        when(pullRequestRepository.countByIntegrationIdIn(List.of(100L)))
+        when(pullRequestRepository.countByIntegrationId(100L))
                 .thenReturn(0L);
         when(githubTokenService.hasValidToken(integration)).thenReturn(true);
         when(githubTokenService.resolveToken(integration)).thenReturn("gh-token");

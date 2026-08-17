@@ -324,13 +324,15 @@ export function backendIssueToGitHubIssue(issue: BackendGithubIssue): GitHubIssu
   const htmlUrl = issue.githubUrl ?? issueLike.htmlUrl ?? '';
   const createdAt = issue.githubCreatedAt ?? issueLike.createdAt ?? '';
   const updatedAt = issue.githubUpdatedAt ?? issueLike.updatedAt ?? createdAt;
+  const rawState = (issue.state || 'open').toLowerCase();
+  const state: 'open' | 'closed' = rawState === 'closed' ? 'closed' : 'open';
 
   return {
     id: issue.id,
     number,
     title: issue.title,
     body: issue.body ?? undefined,
-    state: issue.state,
+    state,
     labels: normalizeBackendIssueLabels(issue.labels),
     assignees: Array.isArray(issueLike.assignees) ? issueLike.assignees : [],
     createdAt,
@@ -504,7 +506,7 @@ export async function fetchProjectGitHubConnection(
   projectId: string | number,
 ): Promise<ProjectGitHubConnection | null> {
   const repositories = await getLinkedRepositories(Number(projectId));
-  const activeRepository = repositories.find(repository => repository.active) ?? repositories[0];
+  const activeRepository = repositories.find(repository => repository.active);
   return activeRepository ? backendRepositoryToProjectConnection(activeRepository) : null;
 }
 
@@ -525,15 +527,6 @@ export async function persistProjectGitHubConnection(
 
   const operation = (async () => {
     try {
-      // Check if already linked to avoid unnecessary 409 Conflict requests
-      const linkedRepositories = await getLinkedRepositories(numericProjectId).catch(() => []);
-      const existingRepository = linkedRepositories.find(
-        (repository) => repository.repositoryFullName.toLowerCase() === normalizedRepo,
-      );
-      if (existingRepository) {
-        return backendRepositoryToProjectConnection(existingRepository);
-      }
-
       const linkedRepository = await linkRepository({
         projectId: numericProjectId,
         repositoryFullName: repoFullName,
