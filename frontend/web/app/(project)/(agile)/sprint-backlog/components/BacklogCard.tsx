@@ -35,8 +35,8 @@ interface BacklogCardProps {
   onSprintUpdated: (sprintId: number, updates: Partial<SprintItem>) => void;
   onStatusChange?: (taskId: number, status: string) => void;
   onStoryPointsChange?: (taskId: number, points: number) => void;
-  onAssignTask?: (taskId: number, name: string, photo: string | null) => void;
-  onAssignMultiple?: (taskId: number, userIds: number[]) => Promise<void> | void;
+  onAssignTask?: (taskId: number, name: string, photo: string | null, assignees?: TaskItem['assignees']) => void;
+  onAssignMultiple?: (taskId: number, userIds: number[], assignees?: TaskItem['assignees']) => Promise<void> | void;
   onRenameTask?: (taskId: number, title: string) => void;
   onDueDateChange?: (taskId: number, dueDate: string) => Promise<void>;
   projectLabels?: Array<{ id: number; name: string; color?: string }>;

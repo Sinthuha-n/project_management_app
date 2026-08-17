@@ -597,7 +597,7 @@ public class ChatService {
             return;
         }
 
-        var readState = chatReadStateRepository.findByProjectIdAndUserUserIdAndRoomId(projectId, user.getUserId(), roomId)
+        var readState = chatReadStateRepository.findFirstByProjectIdAndUserUserIdAndRoomIdOrderByIdDesc(projectId, user.getUserId(), roomId)
                 .orElseGet(ChatReadState::new);
 
         readState.setProjectId(projectId);
@@ -605,7 +605,14 @@ public class ChatService {
         readState.setRoomId(roomId);
         readState.setOtherParticipant(null);
         readState.setLastReadMessageId(latestMessage.get().getId());
-        chatReadStateRepository.save(readState);
+        ChatReadState saved = chatReadStateRepository.save(readState);
+
+        var allDuplicates = chatReadStateRepository.findAllByProjectIdAndUserUserIdAndRoomId(projectId, user.getUserId(), roomId);
+        if (allDuplicates.size() > 1) {
+            allDuplicates.stream()
+                    .filter(rs -> rs.getId() != null && !rs.getId().equals(saved.getId()))
+                    .forEach(chatReadStateRepository::delete);
+        }
     }
 
     public void markPrivateConversationAsRead(Long projectId, String usernameOrEmail, String otherParticipant) {

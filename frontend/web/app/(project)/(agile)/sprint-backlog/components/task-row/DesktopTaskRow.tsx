@@ -52,23 +52,42 @@ export default function DesktopTaskRow(props: TaskRowProps) {
     displayLabel, displayStyle, dueClass, statusBorderColor, priorityKey, priorityStyle,
   } = state;
 
-  const currentAssigneeUserIds = React.useMemo(() => {
+  const [localAssigneeUserIds, setLocalAssigneeUserIds] = React.useState<number[]>(() => {
     if (task.assignees && task.assignees.length > 0) {
       return task.assignees
         .map((a) => a.userId ?? a.memberId ?? a.id)
         .filter((id): id is number => typeof id === 'number');
     }
     return [];
+  });
+  const [isAssigning, setIsAssigning] = React.useState(false);
+
+  React.useEffect(() => {
+    if (task.assignees) {
+      const ids = task.assignees
+        .map((a) => a.userId ?? a.memberId ?? a.id)
+        .filter((id): id is number => typeof id === 'number');
+      setLocalAssigneeUserIds(ids);
+    }
   }, [task.assignees]);
 
+  const currentAssigneeUserIds = localAssigneeUserIds;
+
   const handleToggleMember = async (userId: number) => {
+    if (isAssigning) return;
     if (assignMode === 'single') {
-      if (onAssignMultiple) {
-        await onAssignMultiple(task.id, [userId]);
-      } else {
-        await onAssignTask(task.id, userId);
+      setIsAssigning(true);
+      setLocalAssigneeUserIds([userId]);
+      try {
+        if (onAssignMultiple) {
+          await onAssignMultiple(task.id, [userId]);
+        } else {
+          await onAssignTask(task.id, userId);
+        }
+      } finally {
+        setIsAssigning(false);
+        setAssignOpen(false);
       }
-      setAssignOpen(false);
       return;
     }
 
@@ -77,18 +96,33 @@ export default function DesktopTaskRow(props: TaskRowProps) {
       ? currentAssigneeUserIds.filter((id) => id !== userId)
       : [...currentAssigneeUserIds, userId];
 
-    if (onAssignMultiple) {
-      await onAssignMultiple(task.id, updated);
-    } else {
-      await onAssignTask(task.id, updated.length > 0 ? updated[0] : 0);
+    setLocalAssigneeUserIds(updated);
+    setIsAssigning(true);
+    try {
+      if (onAssignMultiple) {
+        await onAssignMultiple(task.id, updated);
+      } else {
+        await onAssignTask(task.id, updated.length > 0 ? updated[0] : 0);
+      }
+    } finally {
+      setIsAssigning(false);
     }
   };
 
   const handleClearAssignees = async () => {
-    if (onAssignMultiple) {
-      await onAssignMultiple(task.id, []);
+    if (isAssigning) return;
+    setLocalAssigneeUserIds([]);
+    setIsAssigning(true);
+    try {
+      if (onAssignMultiple) {
+        await onAssignMultiple(task.id, []);
+      } else {
+        await onAssignTask(task.id, 0);
+      }
+    } finally {
+      setIsAssigning(false);
+      setAssignOpen(false);
     }
-    setAssignOpen(false);
   };
 
   const filteredMembers = React.useMemo(() => {

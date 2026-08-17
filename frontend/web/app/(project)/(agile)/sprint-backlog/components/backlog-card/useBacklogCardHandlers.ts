@@ -52,8 +52,8 @@ interface UseBacklogCardHandlersArgs {
   onSprintUpdated: (sprintId: number, updates: Partial<SprintItem>) => void;
   onStatusChange?: (taskId: number, status: string) => void;
   onStoryPointsChange?: (taskId: number, points: number) => void;
-  onAssignTask?: (taskId: number, name: string, photo: string | null) => void;
-  onAssignMultiple?: (taskId: number, userIds: number[]) => Promise<void> | void;
+  onAssignTask?: (taskId: number, name: string, photo: string | null, assignees?: TaskItem['assignees']) => void;
+  onAssignMultiple?: (taskId: number, userIds: number[], assignees?: TaskItem['assignees']) => Promise<void> | void;
   onRenameTask?: (taskId: number, title: string) => void;
   onDueDateChange?: (taskId: number, dueDate: string) => Promise<void>;
   projectLabels: Array<{ id: number; name: string; color?: string }>;
@@ -215,23 +215,23 @@ export function useBacklogCardHandlers({
     try {
       await tasksApi.assignTaskSingle(taskId, userId);
       const member = teamMembers.find((m) => m.user.userId === userId);
-      if (member) {
-        const name = getMemberDisplayName(member);
-        const photo = member.user.profilePicUrl || null;
-        updateTask(taskId, {
-          assigneeName: name,
-          assigneePhotoUrl: photo,
-          assignees: [{
-            id: member.user.userId,
-            userId: member.user.userId,
-            name,
-            avatar: photo || undefined,
-            photoUrl: photo,
-            profilePicUrl: photo,
-          }],
-        });
-        if (onAssignTask) onAssignTask(taskId, name, photo);
-      }
+      const name = member ? getMemberDisplayName(member) : 'Unassigned';
+      const photo = member?.user?.profilePicUrl || null;
+      const newAssignees: TaskItem['assignees'] = member ? [{
+        id: member.user.userId,
+        userId: member.user.userId,
+        memberId: member.id,
+        name,
+        avatar: photo || undefined,
+        photoUrl: photo,
+        profilePicUrl: photo,
+      }] : [];
+      updateTask(taskId, {
+        assigneeName: name,
+        assigneePhotoUrl: photo,
+        assignees: newAssignees,
+      });
+      if (onAssignTask) onAssignTask(taskId, name, photo, newAssignees);
     } catch { /* silent */ }
   };
 
@@ -240,23 +240,26 @@ export function useBacklogCardHandlers({
       await tasksApi.assignTaskMultiple(taskId, { assigneeIds: userIds });
       const assignedMembers = teamMembers.filter((m) => userIds.includes(m.user.userId));
       const first = assignedMembers[0];
-      const newAssignees = assignedMembers.map((m) => ({
+      const newAssignees: TaskItem['assignees'] = assignedMembers.map((m) => ({
         id: m.user.userId,
         userId: m.user.userId,
+        memberId: m.id,
         name: getMemberDisplayName(m),
         avatar: m.user.profilePicUrl || undefined,
-        photoUrl: m.user.profilePicUrl || undefined,
-        profilePicUrl: m.user.profilePicUrl || undefined,
+        photoUrl: m.user.profilePicUrl || null,
+        profilePicUrl: m.user.profilePicUrl || null,
       }));
+      const name = first ? getMemberDisplayName(first) : 'Unassigned';
+      const photo = first?.user?.profilePicUrl || null;
       updateTask(taskId, {
-        assigneeName: first ? getMemberDisplayName(first) : 'Unassigned',
-        assigneePhotoUrl: first?.user?.profilePicUrl || null,
+        assigneeName: name,
+        assigneePhotoUrl: photo,
         assignees: newAssignees,
       });
       if (onAssignMultiple) {
-        await onAssignMultiple(taskId, userIds);
+        await onAssignMultiple(taskId, userIds, newAssignees);
       } else if (onAssignTask) {
-        onAssignTask(taskId, first ? getMemberDisplayName(first) : 'Unassigned', first?.user?.profilePicUrl || null);
+        onAssignTask(taskId, name, photo, newAssignees);
       }
     } catch {
       toast('Failed to update assignees.', 'error');
