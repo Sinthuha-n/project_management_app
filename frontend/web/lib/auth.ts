@@ -1,5 +1,6 @@
 import { initializeSessionCacheForCurrentAuth } from '@/lib/session-cache';
 import { getApiBaseUrl } from '@/lib/api-base-url';
+import { clearAllBrowserCachesAndStorage } from '@/lib/cache-cleaner';
 
 export interface User {
     email: string;
@@ -143,25 +144,23 @@ function broadcastAuthSync(type: AuthSyncType, token?: string | null): void {
 
 function clearLocalAuthState(): void {
     memoryToken = null;
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-    localStorage.removeItem('userProfile');
-    localStorage.removeItem('rememberMe');
-    localStorage.removeItem(REFRESH_TOKEN_MARKER_KEY);
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('refreshToken');
-    sessionStorage.removeItem(REFRESH_TOKEN_MARKER_KEY);
-    sessionStorage.removeItem(TOKEN_KEY);
-    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
-
-    Object.keys(localStorage)
-        .filter((k) => k.startsWith('planora:') && k !== AUTH_SYNC_KEY)
-        .forEach((k) => localStorage.removeItem(k));
-    Object.keys(sessionStorage)
-        .filter((k) => k.startsWith('planora:'))
-        .forEach((k) => sessionStorage.removeItem(k));
+    try {
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
+        localStorage.removeItem('userProfile');
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem(REFRESH_TOKEN_MARKER_KEY);
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('refreshToken');
+        sessionStorage.removeItem(REFRESH_TOKEN_MARKER_KEY);
+        sessionStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+    } catch {
+        // Ignore storage access errors
+    }
+    void clearAllBrowserCachesAndStorage();
 }
 
 function sleep(ms: number): Promise<void> {
@@ -429,6 +428,7 @@ export function clearTokens(): void {
 
         broadcastAuthSync('logout');
         emitAuthTokenChanged();
+        void clearAllBrowserCachesAndStorage();
     }
 }
 
@@ -555,7 +555,24 @@ export async function ensureValidToken(options: EnsureValidTokenOptions = {}): P
     }
 }
 
-/** Alias for clearTokens — clears all auth state and planora: caches. */
-export function logout(): void {
-    clearTokens();
+/** Comprehensive logout — clears backend session cookie, tokens, and all browser caches. */
+export async function logout(): Promise<void> {
+    if (typeof window !== 'undefined') {
+        ensureAuthSyncListener();
+        markAuthLoggedOut();
+        clearLocalAuthState();
+
+        try {
+            await fetch(`${getApiBaseUrl()}/api/auth/logout`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+        } catch (err) {
+            console.error('Failed to logout backend session', err);
+        }
+
+        broadcastAuthSync('logout');
+        emitAuthTokenChanged();
+        await clearAllBrowserCachesAndStorage();
+    }
 }
