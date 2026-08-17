@@ -117,6 +117,20 @@ describe('timeline utils', () => {
     expect(models[0]).toMatchObject({ leftPx: 0, widthPx: 54, durationDays: 6 });
   });
 
+  it('prefers an explicit start date over the task creation date', () => {
+    const task: Task = {
+      id: 7,
+      title: 'Explicitly scheduled task',
+      status: 'TODO',
+      createdAt: '2026-09-01T09:00:00Z',
+      startDate: '2026-09-10',
+      dueDate: '2026-09-12',
+    };
+
+    expect(dateToKey(getTaskSchedule(task)!.start)).toBe('2026-09-10');
+    expect(dateToKey(getTaskSchedule(task)!.due)).toBe('2026-09-12');
+  });
+
   it('renders inclusive cross-month and partially visible task bars without mutating dates', () => {
     const crossMonthTask: Task = {
       id: 4,
