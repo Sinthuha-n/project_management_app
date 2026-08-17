@@ -38,9 +38,9 @@ Backend endpoints with no frontend/mobile usage: 40
 - backend/src/main/java/com/planora/backend/controller/TeamMemberController.java:34 POST /api/teams/:teamId/members/:userId
 - backend/src/main/java/com/planora/backend/controller/TeamMemberController.java:100 PUT /api/teams/:teamId/members/:userId/role
 - backend/src/main/java/com/planora/backend/controller/TeamMemberController.java:114 DELETE /api/teams/:teamId/members/:userId
-- backend/src/main/java/com/planora/backend/controller/UserController.java:107 POST /api/auth/resend-otp
-- backend/src/main/java/com/planora/backend/controller/UserController.java:208 GET /api/auth/users/:userId/photo
-- backend/src/main/java/com/planora/backend/controller/UserController.java:219 GET /api/auth/me
+- backend/src/main/java/com/planora/backend/controller/UserController.java:117 POST /api/auth/resend-otp
+- backend/src/main/java/com/planora/backend/controller/UserController.java:218 GET /api/auth/users/:userId/photo
+- backend/src/main/java/com/planora/backend/controller/UserController.java:229 GET /api/auth/me
 - backend/src/main/java/com/planora/backend/controller/UserGithubUsernameController.java:28 PUT /api/users/me/github-username
 - backend/src/main/java/com/planora/backend/controller/UserGithubUsernameController.java:46 DELETE /api/users/me/github-username
 

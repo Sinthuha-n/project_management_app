@@ -52,7 +52,7 @@ describe('useChatRooms', () => {
 
     let created = null;
     await act(async () => {
-      created = await result.current.createRoom('engineering', ['bob'], 'alice', ['bob']);
+      created = await result.current.createRoom('engineering', ['bob'], 'alice');
     });
 
     expect(created).toEqual({
@@ -67,6 +67,39 @@ describe('useChatRooms', () => {
         id: 101,
         projectId: 42,
         name: 'engineering',
+        createdBy: 'alice',
+      },
+    ]);
+  });
+
+  it('creates a room without any additional members', async () => {
+    const createRoomRestMock = chatApi.createRoomRest as jest.Mock;
+    createRoomRestMock.mockResolvedValue({
+      id: 102,
+      projectId: 42,
+      name: 'announcements',
+      createdBy: 'alice',
+    });
+
+    const { result } = renderHook(() => useChatRooms('42'));
+
+    let created = null;
+    await act(async () => {
+      created = await result.current.createRoom('announcements', [], 'alice');
+    });
+
+    expect(created).toEqual({
+      id: 102,
+      projectId: 42,
+      name: 'announcements',
+      createdBy: 'alice',
+    });
+    expect(createRoomRestMock).toHaveBeenCalledWith('42', 'announcements', []);
+    expect(result.current.rooms).toEqual([
+      {
+        id: 102,
+        projectId: 42,
+        name: 'announcements',
         createdBy: 'alice',
       },
     ]);

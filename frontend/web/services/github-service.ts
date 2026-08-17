@@ -245,25 +245,34 @@ export function projectConnectionToLinkRequest(
 }
 
 export function backendPrToGitHubPullRequest(pr: BackendGithubPr): GitHubPullRequest {
-  const prLike = pr as unknown as { author?: string; htmlUrl?: string };
+  const prLike = pr as unknown as {
+    author?: string;
+    htmlUrl?: string;
+    avatarUrl?: string;
+    draft?: boolean;
+    labels?: GitHubLabel[];
+  };
   const authorLogin = pr.authorLogin ?? prLike.author ?? 'unknown';
   const htmlUrl = pr.githubUrl ?? prLike.htmlUrl ?? '';
+  const isMerged = pr.state === 'merged' || Boolean(pr.mergedAt);
+  const avatarUrl = prLike.avatarUrl || (authorLogin && authorLogin !== 'unknown' ? `https://github.com/${authorLogin}.png` : '');
+
   return {
     id: pr.id,
     number: pr.githubPrNumber,
     title: pr.title || 'Untitled PR',
-    state: pr.state === 'merged' ? 'closed' : ((pr.state as 'open' | 'closed') || 'open'),
-    merged_at: pr.mergedAt,
+    state: isMerged ? 'closed' : ((pr.state as 'open' | 'closed') || 'open'),
+    merged_at: pr.mergedAt ?? (isMerged ? (pr.githubUpdatedAt || pr.githubCreatedAt || new Date().toISOString()) : null),
     created_at: pr.githubCreatedAt ?? '',
     updated_at: pr.githubUpdatedAt ?? pr.githubCreatedAt ?? '',
     html_url: htmlUrl,
-    draft: false,
+    draft: Boolean(prLike.draft),
     user: {
       login: authorLogin,
-      avatar_url: '',
+      avatar_url: avatarUrl,
       html_url: authorLogin && authorLogin !== 'unknown' ? `https://github.com/${authorLogin}` : '',
     },
-    labels: [],
+    labels: Array.isArray(prLike.labels) ? prLike.labels : [],
     head: { ref: pr.headBranch ?? '' },
     base: { ref: pr.baseBranch ?? '' },
   };
@@ -562,19 +571,85 @@ export async function persistProjectGitHubConnection(
   }
 }
 
-export async function fetchProjectPullRequests(projectId: string | number): Promise<GitHubPullRequest[]> {
-  const response = await getPullRequests(Number(projectId), { state: 'all', page: 0, size: 100 });
-  return (response.content || []).map(backendPrToGitHubPullRequest);
+export async function fetchProjectPullRequests(
+  projectId: string | number,
+  repoFullName?: string,
+): Promise<GitHubPullRequest[]> {
+  try {
+    const response = await getPullRequests(Number(projectId), { state: 'all', page: 0, size: 100 });
+    const prs = (response.content || []).map(backendPrToGitHubPullRequest);
+    if (prs.length > 0 || !repoFullName) {
+      return prs;
+    }
+  } catch (error) {
+    if (!repoFullName) throw error;
+  }
+
+  if (repoFullName) {
+    const [owner, repo] = repoFullName.split('/');
+    if (owner && repo) {
+      try {
+        return await fetchPullRequests(owner, repo);
+      } catch {
+        return [];
+      }
+    }
+  }
+
+  return [];
 }
 
-export async function fetchProjectCommits(projectId: string | number): Promise<GitHubCommit[]> {
-  const response = await getCommits(Number(projectId), { page: 0, size: 100 });
-  return (response.content || []).map(backendCommitToGitHubCommit);
+export async function fetchProjectCommits(
+  projectId: string | number,
+  repoFullName?: string,
+): Promise<GitHubCommit[]> {
+  try {
+    const response = await getCommits(Number(projectId), { page: 0, size: 100 });
+    const commits = (response.content || []).map(backendCommitToGitHubCommit);
+    if (commits.length > 0 || !repoFullName) {
+      return commits;
+    }
+  } catch (error) {
+    if (!repoFullName) throw error;
+  }
+
+  if (repoFullName) {
+    const [owner, repo] = repoFullName.split('/');
+    if (owner && repo) {
+      try {
+        return await fetchCommits(owner, repo);
+      } catch {
+        return [];
+      }
+    }
+  }
+
+  return [];
 }
 
-export async function fetchProjectIssues(projectId: string | number): Promise<GitHubIssue[]> {
-  const response = await getIssues(Number(projectId), { state: 'all', page: 0, size: 100 });
-  return (response.content || []).map(backendIssueToGitHubIssue);
+export async function fetchProjectIssues(
+  projectId: string | number,
+  repoFullName?: string,
+): Promise<GitHubIssue[]> {
+  try {
+    const response = await getIssues(Number(projectId), { state: 'all', page: 0, size: 100 });
+    const issues = (response.content || []).map(backendIssueToGitHubIssue);
+    if (issues.length > 0 || !repoFullName) {
+      return issues;
+    }
+  } catch (error) {
+    if (!repoFullName) throw error;
+  }
+
+  if (repoFullName) {
+    try {
+      return await fetchIssues(repoFullName);
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
 }
 
 export async function syncProjectGitHub(projectId: string | number): Promise<void> {

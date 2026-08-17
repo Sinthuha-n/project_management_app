@@ -49,8 +49,13 @@ export function BaseModal({ isOpen, onClose, title, icon, children, onSubmit, su
                   {icon} {title}
                 </h3>
                 <button
-                  onClick={onClose}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClose();
+                  }}
                   className="w-8 h-8 rounded-lg flex items-center justify-center text-cu-text-muted hover:text-cu-text-primary hover:bg-cu-bg-tertiary transition-colors"
+                  aria-label="Close dialog"
                 >
                   <X size={18} strokeWidth={2.5} />
                 </button>
@@ -60,13 +65,21 @@ export function BaseModal({ isOpen, onClose, title, icon, children, onSubmit, su
               </div>
               <div className="px-5 py-4 border-t border-cu-border bg-cu-bg-secondary flex items-center justify-end gap-2">
                 <button
-                  onClick={onClose}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClose();
+                  }}
                   className="px-4 py-2 rounded-xl text-[13.5px] font-semibold text-cu-text-secondary hover:bg-cu-bg-tertiary transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={onSubmit}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSubmit();
+                  }}
                   disabled={submitDisabled}
                   className={`px-4 py-2 rounded-xl text-[13.5px] font-semibold text-white transition-colors shadow-cu-sm disabled:opacity-50 disabled:cursor-not-allowed
                     ${submitColor === 'red' ? 'bg-red-500 hover:bg-red-600' : 'bg-cu-primary hover:bg-cu-primary-dark'}`}
@@ -134,7 +147,7 @@ export function CreateChannelModal({ isOpen, onClose, users, onCreate }: {
       icon={<Hash size={18} className="text-cu-primary" strokeWidth={2.5} />}
       onSubmit={handleSubmit}
       submitLabel="Create"
-      submitDisabled={!name.trim() || selectedUsers.size === 0}
+      submitDisabled={!name.trim()}
     >
       <div className="space-y-4">
         {/* Channel name */}
@@ -153,7 +166,7 @@ export function CreateChannelModal({ isOpen, onClose, users, onCreate }: {
         {/* Members section */}
         <div>
           <label className="block text-[12px] font-bold text-cu-text-secondary uppercase tracking-wide mb-1.5">
-            Add Members {selectedUsers.size > 0 && <span className="text-cu-primary">({selectedUsers.size} selected)</span>}
+            Add Members (Optional) {selectedUsers.size > 0 && <span className="text-cu-primary">({selectedUsers.size} selected)</span>}
           </label>
 
           {/* Selected chips row */}

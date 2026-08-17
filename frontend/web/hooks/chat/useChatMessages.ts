@@ -369,6 +369,38 @@ export function useChatMessages(projectId: string) {
       const trimmed = content.trim();
       if (!trimmed) return;
 
+      const now = new Date().toISOString();
+      setMessages(prev => prev.map(m => m.id === messageId ? { ...m, content: trimmed, editedAt: now } : m));
+      setRoomMessages(prev => {
+        const next: Record<number, ChatMessage[]> = {};
+        for (const [rid, list] of Object.entries(prev)) {
+          next[Number(rid)] = list.map(m => m.id === messageId ? { ...m, content: trimmed, editedAt: now } : m);
+        }
+        return next;
+      });
+      setPrivateMessages(prev => {
+        const next: Record<string, ChatMessage[]> = {};
+        for (const [partner, list] of Object.entries(prev)) {
+          next[partner] = list.map(m => m.id === messageId ? { ...m, content: trimmed, editedAt: now } : m);
+        }
+        return next;
+      });
+      setTeamLastMessage(prev => prev?.id === messageId ? { ...prev, content: trimmed, editedAt: now } : prev);
+      setRoomLastMessages(prev => {
+        const next: Record<number, ChatMessage | null> = {};
+        for (const [rid, m] of Object.entries(prev)) {
+          next[Number(rid)] = m?.id === messageId ? { ...m, content: trimmed, editedAt: now } : m;
+        }
+        return next;
+      });
+      setPrivateLastMessages(prev => {
+        const next: Record<string, ChatMessage | null> = {};
+        for (const [partner, m] of Object.entries(prev)) {
+          next[partner] = m?.id === messageId ? { ...m, content: trimmed, editedAt: now } : m;
+        }
+        return next;
+      });
+
       if (stompSend) {
         stompSend(
           `/app/project/${projectId}/messages/${messageId}/edit`,
@@ -392,7 +424,22 @@ export function useChatMessages(projectId: string) {
       messageId: number,
       stompSend?: (dest: string, body: string) => void,
     ) => {
-      if (!window.confirm('Delete this message?')) return;
+      const now = new Date().toISOString();
+      setMessages(prev => prev.map(m => m.id === messageId ? { ...m, deleted: true, deletedAt: now, content: '[message deleted]' } : m));
+      setRoomMessages(prev => {
+        const next: Record<number, ChatMessage[]> = {};
+        for (const [rid, list] of Object.entries(prev)) {
+          next[Number(rid)] = list.map(m => m.id === messageId ? { ...m, deleted: true, deletedAt: now, content: '[message deleted]' } : m);
+        }
+        return next;
+      });
+      setPrivateMessages(prev => {
+        const next: Record<string, ChatMessage[]> = {};
+        for (const [partner, list] of Object.entries(prev)) {
+          next[partner] = list.map(m => m.id === messageId ? { ...m, deleted: true, deletedAt: now, content: '[message deleted]' } : m);
+        }
+        return next;
+      });
 
       if (stompSend) {
         stompSend(

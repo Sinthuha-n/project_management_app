@@ -41,6 +41,11 @@ public class GithubIssueService {
 
     @Transactional
     public Page<GithubIssueDTO> getIssues(Long projectId, String state, int page, int size) {
+        return getIssues(projectId, state, page, size, null);
+    }
+
+    @Transactional
+    public Page<GithubIssueDTO> getIssues(Long projectId, String state, int page, int size, Long userId) {
         List<GithubIntegration> integrations = integrationRepository.findByProjectIdAndActiveTrue(projectId);
         if (integrations.isEmpty()) return Page.empty();
 
@@ -49,6 +54,7 @@ public class GithubIssueService {
         // Proactive sync for any integration that has no issues cached yet
         for (GithubIntegration integration : integrations) {
             if (issueRepository.countByIntegrationId(integration.getId()) == 0) {
+                ensureIntegrationToken(integration, userId);
                 if (githubTokenService.hasValidToken(integration)) {
                     try {
                         syncIssues(integration);
@@ -67,6 +73,20 @@ public class GithubIssueService {
         return issues.map(this::toDTO);
     }
 
+    private void ensureIntegrationToken(GithubIntegration integration, Long userId) {
+        if (!githubTokenService.hasValidToken(integration) && userId != null) {
+            try {
+                String userToken = githubTokenService.getToken(userId);
+                if (userToken != null && !userToken.isBlank()) {
+                    integration.setEncryptedAccessToken(githubTokenService.encryptToken(userToken));
+                    integrationRepository.save(integration);
+                }
+            } catch (Exception e) {
+                log.debug("Could not backfill integration token from user {}: {}", userId, e.getMessage());
+            }
+        }
+    }
+
     @Transactional
     public void syncIssues(GithubIntegration integration) {
         String token = githubTokenService.resolveToken(integration);
@@ -76,7 +96,7 @@ public class GithubIssueService {
         List<JsonNode> nodes = githubApiClient.fetchIssues(repo, token, "all", 1, 100);
         for (JsonNode node : nodes) {
             // GitHub issues endpoint also returns PRs; skip them
-            if (!node.path("pull_request").isMissingNode()) continue;
+            if (node.hasNonNull("pull_request") || !node.path("pull_request").isMissingNode()) continue;
             upsertIssue(integration, node);
         }
 
@@ -102,7 +122,13 @@ public class GithubIssueService {
 
     @Transactional
     public void upsertIssue(GithubIntegration integration, JsonNode node) {
+        if (node == null) return;
+        // Do not upsert pull requests into the issues table
+        if (node.hasNonNull("pull_request") || !node.path("pull_request").isMissingNode()) return;
+
         int issueNumber = node.path("number").asInt();
+        if (issueNumber <= 0) return;
+
         Optional<GithubIssue> existing = issueRepository
             .findByIntegrationIdAndGithubIssueNumber(integration.getId(), issueNumber);
 

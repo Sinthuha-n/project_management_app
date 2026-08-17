@@ -103,12 +103,16 @@ export function restoreSelectionState(args: SelectionRestoreArgs): void {
     if (
       parsed.type === 'private' &&
       typeof parsed.value === 'string' &&
-      availableUsers.includes(parsed.value)
+      (availableUsers.length === 0 || availableUsers.includes(parsed.value))
     ) {
       setSelectedUser(parsed.value);
     } else if (parsed.type === 'room') {
       const rid = Number(parsed.value);
-      if (Number.isFinite(rid) && availableRooms.some((room) => room.id === rid)) {
+      if (
+        Number.isFinite(rid) &&
+        rid > 0 &&
+        (availableRooms.length === 0 || availableRooms.some((room) => room.id === rid))
+      ) {
         setSelectedRoomId(rid);
       }
     }

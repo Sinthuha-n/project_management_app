@@ -152,6 +152,9 @@ export const ThreadPanel = ({
                         {formatTime(message.timestamp)}
                       </span>
                     )}
+                    {message.editedAt && !message.deleted && (
+                      <span className="text-[10px] text-cu-text-muted italic">edited</span>
+                    )}
                   </div>
 
                   <div className="text-[13.5px] leading-relaxed text-cu-text-secondary font-medium">
@@ -165,10 +168,6 @@ export const ThreadPanel = ({
                       <span className="break-words whitespace-pre-wrap">{message.content}</span>
                     )}
                   </div>
-                  
-                  {message.editedAt && !message.deleted && (
-                    <span className="text-[10px] text-cu-text-muted italic mt-1 block">edited</span>
-                  )}
 
                   {!!message.id && !message.deleted && (
                     <div className="flex flex-wrap gap-1 mt-2">
