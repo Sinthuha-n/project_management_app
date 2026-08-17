@@ -56,4 +56,42 @@ class TokenEncryptionUtilTest {
                 () -> TokenEncryptionUtil.decrypt(Base64.getEncoder().encodeToString(new byte[11]), key(32)));
         assertThrows(Exception.class, () -> TokenEncryptionUtil.decrypt(null, key(32)));
     }
+
+    @Test
+    void isEncrypted_identifiesCiphertextVsPlaintext() throws Exception {
+        String encryptionKey = key(32);
+        String plaintext = "ghp_1234567890abcdef";
+        String encrypted = TokenEncryptionUtil.encrypt(plaintext, encryptionKey);
+
+        org.junit.jupiter.api.Assertions.assertTrue(TokenEncryptionUtil.isEncrypted(encrypted, encryptionKey));
+        org.junit.jupiter.api.Assertions.assertFalse(TokenEncryptionUtil.isEncrypted(plaintext, encryptionKey));
+        org.junit.jupiter.api.Assertions.assertFalse(TokenEncryptionUtil.isEncrypted(null, encryptionKey));
+        org.junit.jupiter.api.Assertions.assertFalse(TokenEncryptionUtil.isEncrypted("", encryptionKey));
+        org.junit.jupiter.api.Assertions.assertFalse(TokenEncryptionUtil.isEncrypted("short", encryptionKey));
+        org.junit.jupiter.api.Assertions.assertFalse(TokenEncryptionUtil.isEncrypted(encrypted, key(32))); // wrong key
+    }
+
+    @Test
+    void decryptOrPassthrough_handlesBothCiphertextAndPlaintext() throws Exception {
+        String encryptionKey = key(32);
+        String plaintext = "ghp_test_token_value";
+        String encrypted = TokenEncryptionUtil.encrypt(plaintext, encryptionKey);
+
+        assertEquals(plaintext, TokenEncryptionUtil.decryptOrPassthrough(encrypted, encryptionKey));
+        assertEquals(plaintext, TokenEncryptionUtil.decryptOrPassthrough(plaintext, encryptionKey));
+        assertEquals(null, TokenEncryptionUtil.decryptOrPassthrough(null, encryptionKey));
+        assertEquals("", TokenEncryptionUtil.decryptOrPassthrough("", encryptionKey));
+    }
+
+    @Test
+    void hashSha256_computesDeterministicHexHash() {
+        String raw = "sample-invitation-token-12345";
+        String hash1 = TokenEncryptionUtil.hashSha256(raw);
+        String hash2 = TokenEncryptionUtil.hashSha256(raw);
+
+        assertEquals(hash1, hash2);
+        assertEquals(64, hash1.length());
+        org.junit.jupiter.api.Assertions.assertNotEquals(raw, hash1);
+        org.junit.jupiter.api.Assertions.assertNull(TokenEncryptionUtil.hashSha256(null));
+    }
 }

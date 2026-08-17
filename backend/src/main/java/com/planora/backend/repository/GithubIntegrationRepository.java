@@ -27,4 +27,6 @@ public interface GithubIntegrationRepository extends JpaRepository<GithubIntegra
 
     @EntityGraph(attributePaths = {"project"})
     List<GithubIntegration> findByRepositoryFullNameIgnoreCaseAndActiveTrue(String repositoryFullName);
+
+    List<GithubIntegration> findByEncryptedAccessTokenIsNotNull();
 }

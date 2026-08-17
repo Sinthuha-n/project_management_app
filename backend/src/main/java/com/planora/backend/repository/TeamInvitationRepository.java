@@ -23,5 +23,10 @@ public interface TeamInvitationRepository extends JpaRepository<TeamInvitation, 
     @Query("select invitation from TeamInvitation invitation where invitation.token = :token")
     Optional<TeamInvitation> findByTokenWithLock(@Param("token") String token);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"team.projects"})
+    @Query("select invitation from TeamInvitation invitation where invitation.token = :token or invitation.token = :hashedToken")
+    Optional<TeamInvitation> findByTokenOrHashedTokenWithLock(@Param("token") String token, @Param("hashedToken") String hashedToken);
+
     java.util.List<TeamInvitation> findByTeamIdAndStatus(Long teamId, String status);
 }

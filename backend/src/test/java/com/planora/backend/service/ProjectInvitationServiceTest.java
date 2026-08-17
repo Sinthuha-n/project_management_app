@@ -148,7 +148,7 @@ class ProjectInvitationServiceTest {
         invitee.setUserId(20L);
         invitee.setEmail("invitee@example.com");
 
-        when(teamInvitationRepository.findByTokenWithLock("token-1")).thenReturn(Optional.of(invitation));
+        when(teamInvitationRepository.findByTokenOrHashedTokenWithLock(eq("token-1"), anyString())).thenReturn(Optional.of(invitation));
         when(userRepository.findById(20L)).thenReturn(Optional.of(invitee));
         when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 20L)).thenReturn(Optional.empty());
 
@@ -184,7 +184,7 @@ class ProjectInvitationServiceTest {
         existingMember.setUser(invitee);
         existingMember.setRole(TeamRole.ADMIN);
 
-        when(teamInvitationRepository.findByTokenWithLock("token-1")).thenReturn(Optional.of(invitation));
+        when(teamInvitationRepository.findByTokenOrHashedTokenWithLock(eq("token-1"), anyString())).thenReturn(Optional.of(invitation));
         when(userRepository.findById(20L)).thenReturn(Optional.of(invitee));
         when(teamMemberRepository.findByTeamIdAndUserUserId(11L, 20L)).thenReturn(Optional.of(existingMember));
 
@@ -204,7 +204,7 @@ class ProjectInvitationServiceTest {
         invitation.setExpiresAt(LocalDateTime.now().minusDays(1));
         invitation.setTeam(new Team());
 
-        when(teamInvitationRepository.findByTokenWithLock("expired-token")).thenReturn(Optional.of(invitation));
+        when(teamInvitationRepository.findByTokenOrHashedTokenWithLock(eq("expired-token"), anyString())).thenReturn(Optional.of(invitation));
 
         assertThrows(InvitationExpiredException.class, () -> projectInvitationService.acceptInvitation("expired-token", 20L));
         assertEquals("EXPIRED", invitation.getStatus());
@@ -223,7 +223,7 @@ class ProjectInvitationServiceTest {
         actualUser.setUserId(20L);
         actualUser.setEmail("actual@example.com");
 
-        when(teamInvitationRepository.findByTokenWithLock("token-1")).thenReturn(Optional.of(invitation));
+        when(teamInvitationRepository.findByTokenOrHashedTokenWithLock(eq("token-1"), anyString())).thenReturn(Optional.of(invitation));
         when(userRepository.findById(20L)).thenReturn(Optional.of(actualUser));
 
         assertThrows(BadRequestException.class, () -> projectInvitationService.acceptInvitation("token-1", 20L));

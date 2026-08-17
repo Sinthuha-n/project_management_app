@@ -21,6 +21,7 @@ import com.planora.backend.exception.GithubIntegrationDisabledException;
 import com.planora.backend.model.GithubIntegration;
 import com.planora.backend.model.User;
 import com.planora.backend.repository.UserRepository;
+import com.planora.backend.util.TokenEncryptionUtil;
 
 @ExtendWith(MockitoExtension.class)
 class GithubTokenServiceTest {
@@ -124,5 +125,25 @@ class GithubTokenServiceTest {
         assertThatThrownBy(() -> service.saveToken(1L, null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("encrypt GitHub token for user");
+    }
+
+    @Test
+    void legacyPlaintextToken_resolvesAndAutoEncrypts() {
+        User user = user(1, "octocat");
+        user.setGithubAccessToken("ghp_legacy_personal_access_token");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        String retrieved = service.getToken(1L);
+        assertThat(retrieved).isEqualTo("ghp_legacy_personal_access_token");
+        assertThat(TokenEncryptionUtil.isEncrypted(user.getGithubAccessToken(), key)).isTrue();
+        verify(userRepository).save(user);
+
+        GithubIntegration integration = new GithubIntegration();
+        integration.setId(12L);
+        integration.setEncryptedAccessToken("ghp_legacy_integration_token");
+
+        String resolved = service.resolveToken(integration);
+        assertThat(resolved).isEqualTo("ghp_legacy_integration_token");
+        assertThat(TokenEncryptionUtil.isEncrypted(integration.getEncryptedAccessToken(), key)).isTrue();
     }
 }
