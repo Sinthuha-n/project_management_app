@@ -9,7 +9,7 @@ import KanbanColumn from './components/KanbanColumn';
 import SortableColumn from './components/SortableColumn';
 import KanbanFilterBar from './components/KanbanFilterBar';
 import CreateTaskModal from './components/CreateTaskModal';
-import { AlertCircle, Loader, CheckCircle2, Plus, LayoutGrid, X } from 'lucide-react';
+import { AlertCircle, Loader, CheckCircle2, Plus, LayoutGrid, X, Trash2 } from 'lucide-react';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import TaskCardModal from '@/app/taskcard/TaskCardModal';
 import EmptyState from '@/components/shared/EmptyState';
@@ -45,6 +45,7 @@ function KanbanPageContent() {
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
+  const [taskPendingDelete, setTaskPendingDelete] = useState<typeof tasks[number] | null>(null);
 
   const handleAnyDragEnd = useCallback((event: DragEndEvent) => {
     if (!isNaN(Number(event.active.id))) {
@@ -224,7 +225,10 @@ function KanbanPageContent() {
                         color={cfg?.color}
                         wipLimit={cfg?.wipLimit}
                         updatingTaskId={updatingTaskId}
-                        onDeleteTask={handleDeleteTask}
+                        onDeleteTask={(taskId) => {
+                          const task = tasks.find(item => item.id === taskId);
+                          if (task) setTaskPendingDelete(task);
+                        }}
                         onCreateTask={handleAddTask}
                         onOpenTask={setSelectedTaskIdForModal}
                         onInlineUpdate={handleInlineUpdate}
@@ -337,6 +341,52 @@ function KanbanPageContent() {
                 >
                   <CheckCircle2 size={16} />
                   Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </OverlayPortal>
+      )}
+
+      {/* Delete Task Confirmation Dialog */}
+      {taskPendingDelete && (
+        <OverlayPortal>
+          <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" role="alertdialog" aria-modal="true" aria-labelledby="delete-task-title">
+            <div className="w-full max-w-md rounded-2xl border border-cu-border bg-cu-bg p-5 shadow-cu-xl animate-in fade-in zoom-in-95 duration-200">
+              <div className="mb-4 flex items-start gap-3">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-cu-danger/10 text-cu-danger">
+                  <Trash2 size={20} />
+                </div>
+                <div className="min-w-0">
+                  <h3 id="delete-task-title" className="text-[16px] font-bold text-cu-text-primary">Delete task?</h3>
+                  <p className="mt-1 text-[13px] leading-relaxed text-cu-text-secondary">
+                    This will permanently delete{' '}
+                    <span className="font-semibold text-cu-text-primary break-words">
+                      {taskPendingDelete.title}
+                    </span>
+                    .
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col-reverse gap-2 min-[420px]:flex-row min-[420px]:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setTaskPendingDelete(null)}
+                  className="rounded-xl border border-cu-border px-4 py-2.5 text-[14px] font-semibold text-cu-text-secondary transition-colors hover:bg-cu-hover"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const taskId = taskPendingDelete.id;
+                    setTaskPendingDelete(null);
+                    await handleDeleteTask(taskId);
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-cu-danger px-4 py-2.5 text-[14px] font-bold text-white shadow-lg shadow-red-600/20 transition-colors hover:opacity-90"
+                >
+                  <Trash2 size={16} />
+                  Delete
                 </button>
               </div>
             </div>

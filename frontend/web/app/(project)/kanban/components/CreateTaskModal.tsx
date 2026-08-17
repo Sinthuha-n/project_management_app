@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { X, Calendar, User, Plus, Tag, ChevronDown, Flag } from 'lucide-react';
 import { Task, Label } from '../types';
-import { fetchProject, fetchTeamMembers, fetchProjectLabels } from '../api';
+import { fetchProject, fetchTeamMembers, fetchProjectLabels, type TeamMemberOption } from '../api';
 import { formatLocalDate } from '@/lib/date-format';
 import OverlayPortal from '@/components/ui/OverlayPortal';
 
@@ -34,7 +35,7 @@ export default function CreateTaskModal({
   const [assignee, setAssignee] = useState<number | ''>('');
   const [priority, setPriority] = useState<string>('MEDIUM');
   const [selectedLabelId, setSelectedLabelId] = useState<number | null>(null);
-  const [teamMembers, setTeamMembers] = useState<{ id: number; name: string }[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +47,7 @@ export default function CreateTaskModal({
   const assigneeRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
   const safeTeamMembers = Array.isArray(teamMembers) ? teamMembers : [];
+  const selectedAssignee = assignee ? safeTeamMembers.find(m => m.id === assignee) : null;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -135,20 +137,21 @@ export default function CreateTaskModal({
 
   return (
     <OverlayPortal>
-      <div className="fixed inset-0 bg-black/50 z-[var(--cu-z-modal)] flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-cu-bg rounded-2xl shadow-cu-xl border border-cu-border max-w-md w-full overflow-visible">
+      <div className="fixed inset-0 z-[var(--cu-z-modal)] flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm sm:p-4">
+        <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-cu-border bg-cu-bg shadow-cu-xl">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-4 sm:px-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/20">
                 <Plus size={20} className="text-white" />
               </div>
-              <h2 className="text-xl font-semibold text-white">Create New Task</h2>
+              <h2 className="truncate text-lg font-semibold text-white sm:text-xl">Create New Task</h2>
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-white hover:bg-white/30 transition-all duration-200"
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/20 text-white transition-all duration-200 hover:bg-white/30"
+              aria-label="Close create task modal"
             >
               <X size={18} />
             </button>
@@ -156,7 +159,7 @@ export default function CreateTaskModal({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto p-4 sm:p-6">
           {/* Title Field */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-cu-text-primary flex items-center gap-2">
@@ -174,7 +177,7 @@ export default function CreateTaskModal({
                 setTitleLength(e.target.value.length);
               }}
               placeholder="What needs to be done?"
-              className="w-full px-4 py-3 border border-cu-border bg-cu-bg text-cu-text-primary placeholder:text-cu-text-muted rounded-xl focus:outline-none focus:ring-2 focus:ring-cu-primary/40 focus:border-transparent text-sm transition-all duration-200"
+              className="w-full rounded-xl border border-cu-border bg-cu-bg px-4 py-3 text-sm text-cu-text-primary transition-all duration-200 placeholder:text-cu-text-muted focus:border-transparent focus:outline-none focus:ring-2 focus:ring-cu-primary/40"
               disabled={loading}
               autoFocus
             />
@@ -202,7 +205,7 @@ export default function CreateTaskModal({
               placeholder="Add a description... (optional)"
               maxLength={2000}
               rows={3}
-              className="w-full px-4 py-3 border border-cu-border bg-cu-bg text-cu-text-primary placeholder:text-cu-text-muted rounded-xl focus:outline-none focus:ring-2 focus:ring-cu-primary/40 focus:border-transparent text-sm resize-none transition-all duration-200"
+              className="w-full resize-none rounded-xl border border-cu-border bg-cu-bg px-4 py-3 text-sm text-cu-text-primary transition-all duration-200 placeholder:text-cu-text-muted focus:border-transparent focus:outline-none focus:ring-2 focus:ring-cu-primary/40"
               disabled={loading}
             />
             <p className="text-xs text-cu-text-muted text-right">{description.length}/2000</p>
@@ -215,17 +218,17 @@ export default function CreateTaskModal({
               Start Date
               <span className="text-xs text-cu-text-muted font-normal">(Optional)</span>
             </label>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => setShowStartDatePicker(!showStartDatePicker)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all duration-200 ${
+                className={`flex min-w-0 items-center gap-2 rounded-xl border-2 px-4 py-2 transition-all duration-200 ${
                   startDate ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500' : 'border-cu-border bg-cu-bg-secondary text-cu-text-secondary hover:border-cu-primary/40'
                 }`}
                 disabled={loading}
               >
                 <Calendar size={16} />
-                <span className="text-sm">
+                <span className="truncate text-sm">
                   {startDate ? startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Set start date'}
                 </span>
               </button>
@@ -246,11 +249,11 @@ export default function CreateTaskModal({
               <span className="text-xs text-cu-text-muted font-normal">(Optional)</span>
             </label>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => setShowDatePicker(!showDatePicker)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all duration-200 ${
+                className={`flex min-w-0 items-center gap-2 rounded-xl border-2 px-4 py-2 transition-all duration-200 ${
                   dueDate
                     ? 'border-blue-200 bg-blue-50 text-blue-700'
                     : 'border-cu-border bg-cu-bg-secondary text-cu-text-secondary hover:border-cu-primary/40 hover:bg-cu-hover'
@@ -259,7 +262,7 @@ export default function CreateTaskModal({
               >
                 <Calendar size={16} />
                 {dueDate ? (
-                  <span className="text-sm font-medium">
+                  <span className="truncate text-sm font-medium">
                     {dueDate.toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
@@ -314,31 +317,63 @@ export default function CreateTaskModal({
               <button
                 type="button"
                 onClick={() => setAssigneeDropdownOpen(o => !o)}
-                className="w-full flex items-center justify-between px-4 py-3 border border-cu-border rounded-xl text-sm bg-cu-bg text-cu-text-primary hover:bg-cu-hover transition-all duration-200"
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-cu-border bg-cu-bg px-4 py-3 text-sm text-cu-text-primary transition-all duration-200 hover:bg-cu-hover"
                 disabled={loading || loadingMembers}
+                aria-haspopup="listbox"
+                aria-expanded={assigneeDropdownOpen}
               >
-                <span className="text-cu-text-primary">
-                  {assignee ? `👤 ${safeTeamMembers.find(m => m.id === assignee)?.name || 'Selected'}` : '👤 Unassigned'}
+                <span className="flex min-w-0 items-center gap-2 text-cu-text-primary">
+                  <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-cu-bg-tertiary text-[11px] font-semibold text-cu-text-secondary">
+                    {selectedAssignee?.photoUrl ? (
+                      <Image src={selectedAssignee.photoUrl} alt={selectedAssignee.name} width={28} height={28} className="h-full w-full object-cover" unoptimized />
+                    ) : selectedAssignee ? (
+                      selectedAssignee.name.charAt(0).toUpperCase()
+                    ) : (
+                      <User size={14} />
+                    )}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">
+                      {selectedAssignee?.name || 'Unassigned'}
+                    </span>
+                    <span className="block truncate text-xs text-cu-text-muted">
+                      {selectedAssignee ? 'Task owner' : 'Choose a project member'}
+                    </span>
+                  </span>
                 </span>
-                <ChevronDown size={14} className="text-cu-text-muted" />
+                <ChevronDown size={14} className="flex-shrink-0 text-cu-text-muted" />
               </button>
               {assigneeDropdownOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-lg z-[var(--cu-z-modal-popover)] max-h-80 overflow-y-auto">
+                <div className="absolute left-0 right-0 top-full z-[var(--cu-z-modal-popover)] mt-1 max-h-80 overflow-y-auto rounded-xl border border-cu-border bg-cu-bg p-1 shadow-lg" role="listbox">
                   <button
                     type="button"
                     onClick={() => { setAssignee(''); setAssigneeDropdownOpen(false); }}
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-cu-primary/10 hover:text-cu-primary transition-colors ${!assignee ? 'font-semibold text-cu-primary bg-cu-primary/10' : 'text-cu-text-primary'}`}
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-cu-primary/10 hover:text-cu-primary ${!assignee ? 'bg-cu-primary/10 font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
+                    role="option"
+                    aria-selected={!assignee}
                   >
-                    👤 Unassigned
+                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-cu-bg-tertiary text-cu-text-muted">
+                      <User size={14} />
+                    </span>
+                    <span className="min-w-0 truncate">Unassigned</span>
                   </button>
                   {safeTeamMembers.map((member) => (
                     <button
                       key={member.id}
                       type="button"
                       onClick={() => { setAssignee(member.id); setAssigneeDropdownOpen(false); }}
-                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-cu-primary/10 hover:text-cu-primary transition-colors ${assignee === member.id ? 'font-semibold text-cu-primary bg-cu-primary/10' : 'text-cu-text-primary'}`}
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-cu-primary/10 hover:text-cu-primary ${assignee === member.id ? 'bg-cu-primary/10 font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
+                      role="option"
+                      aria-selected={assignee === member.id}
                     >
-                      👤 {member.name}
+                      <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-cu-bg-tertiary text-[11px] font-semibold">
+                        {member.photoUrl ? (
+                          <Image src={member.photoUrl} alt={member.name} width={28} height={28} className="h-full w-full object-cover" unoptimized />
+                        ) : (
+                          member.name.charAt(0).toUpperCase()
+                        )}
+                      </span>
+                      <span className="min-w-0 truncate">{member.name}</span>
                     </button>
                   ))}
                 </div>
@@ -365,20 +400,20 @@ export default function CreateTaskModal({
                 <button
                   type="button"
                   onClick={() => setLabelDropdownOpen(o => !o)}
-                  className="w-full flex items-center justify-between px-4 py-3 border border-cu-border rounded-xl text-sm bg-cu-bg text-cu-text-primary hover:bg-cu-hover transition-all duration-200"
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-cu-border bg-cu-bg px-4 py-3 text-sm text-cu-text-primary transition-all duration-200 hover:bg-cu-hover"
                   disabled={loading}
                 >
-                  <span className="flex items-center gap-2">
+                  <span className="flex min-w-0 items-center gap-2">
                     {selectedLabelId ? (
                       <>
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: labels.find(l => l.id === selectedLabelId)?.color ?? '#6366F1' }} />
-                        <span className="text-cu-text-primary">{labels.find(l => l.id === selectedLabelId)?.name}</span>
+                        <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: labels.find(l => l.id === selectedLabelId)?.color ?? '#6366F1' }} />
+                        <span className="truncate text-cu-text-primary">{labels.find(l => l.id === selectedLabelId)?.name}</span>
                       </>
                     ) : (
                       <span className="text-cu-text-tertiary">No label</span>
                     )}
                   </span>
-                  <ChevronDown size={14} className="text-cu-text-muted" />
+                  <ChevronDown size={14} className="flex-shrink-0 text-cu-text-muted" />
                 </button>
                 {labelDropdownOpen && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
@@ -394,10 +429,10 @@ export default function CreateTaskModal({
                         key={l.id}
                         type="button"
                         onClick={() => { setSelectedLabelId(l.id); setLabelDropdownOpen(false); }}
-                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-cu-primary/10 hover:text-cu-primary transition-colors flex items-center gap-2 ${selectedLabelId === l.id ? 'font-semibold text-cu-primary bg-cu-primary/10' : 'text-cu-text-primary'}`}
+                        className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors hover:bg-cu-primary/10 hover:text-cu-primary ${selectedLabelId === l.id ? 'bg-cu-primary/10 font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
                       >
-                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: l.color ?? '#6366F1' }} />
-                        {l.name}
+                        <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: l.color ?? '#6366F1' }} />
+                        <span className="min-w-0 truncate">{l.name}</span>
                       </button>
                     ))}
                   </div>
@@ -412,7 +447,7 @@ export default function CreateTaskModal({
               <Flag size={14} className="text-cu-text-muted" />
               Priority
             </label>
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-2 gap-1 min-[420px]:grid-cols-4">
               {(['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const).map((p) => {
                 const colors: Record<string, string> = {
                   LOW: 'border-slate-400/40 text-cu-text-tertiary bg-cu-bg-secondary data-[active=true]:bg-slate-500/20 data-[active=true]:border-slate-500 data-[active=true]:text-cu-text-primary',
@@ -426,7 +461,7 @@ export default function CreateTaskModal({
                     type="button"
                     data-active={priority === p}
                     onClick={() => setPriority(p)}
-                    className={`px-2 py-1.5 text-xs font-semibold rounded-lg border-2 transition-all ${colors[p]}`}
+                    className={`min-w-0 rounded-lg border-2 px-2 py-1.5 text-xs font-semibold transition-all ${colors[p]}`}
                     disabled={loading}
                   >
                     {p}
@@ -444,24 +479,24 @@ export default function CreateTaskModal({
               </div>
               <div>
                 <p className="font-medium">Error creating task</p>
-                <p className="text-xs mt-1">{submitError}</p>
+                  <p className="mt-1 break-words text-xs">{submitError}</p>
               </div>
             </div>
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col gap-3 pt-2 min-[420px]:flex-row">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-3 border border-cu-border text-cu-text-secondary rounded-xl font-medium text-sm hover:bg-cu-hover transition-all duration-200"
+              className="flex-1 rounded-xl border border-cu-border px-4 py-3 text-sm font-medium text-cu-text-secondary transition-all duration-200 hover:bg-cu-hover"
               disabled={loading}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-3 bg-gradient-to-r from-cu-primary to-cu-primary-hover text-white rounded-xl font-medium text-sm hover:from-cu-primary-hover hover:to-cu-primary transition-all duration-200 disabled:from-cu-bg-tertiary disabled:to-cu-bg-tertiary disabled:text-cu-text-muted disabled:cursor-not-allowed shadow-cu-md hover:shadow-cu-lg"
+              className="flex-1 rounded-xl bg-gradient-to-r from-cu-primary to-cu-primary-hover px-4 py-3 text-sm font-medium text-white shadow-cu-md transition-all duration-200 hover:from-cu-primary-hover hover:to-cu-primary hover:shadow-cu-lg disabled:cursor-not-allowed disabled:from-cu-bg-tertiary disabled:to-cu-bg-tertiary disabled:text-cu-text-muted"
               disabled={loading}
             >
               {loading ? (
@@ -478,7 +513,7 @@ export default function CreateTaskModal({
             </button>
           </div>
         </form>
-      </div>
+        </div>
       </div>
     </OverlayPortal>
   );
