@@ -4,17 +4,32 @@ import type { ChatRoom } from '@/app/(project)/project/[id]/chat/components/chat
 import { normalizeRoom } from './chat-utils';
 import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
 
+function persistRoomCache(projectId: string, nextRooms: ChatRoom[]) {
+  const roomsKey = buildSessionCacheKey('chat-rooms', [projectId]);
+  if (roomsKey) setSessionCache(roomsKey, nextRooms, 30 * 60_000);
+
+  const initKey = buildSessionCacheKey('chat-init', [projectId]);
+  if (initKey) {
+    const existing = getSessionCache<Record<string, unknown>>(initKey, { allowStale: true });
+    if (existing.data) {
+      setSessionCache(initKey, { ...existing.data, rooms: nextRooms }, 30 * 60_000);
+    }
+  }
+}
+
 export function useChatRooms(projectId: string) {
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
 
-  const loadRooms = useCallback(async (): Promise<ChatRoom[]> => {
-    // Serve from cache immediately then revalidate
-    const cKey = buildSessionCacheKey('chat-rooms', [projectId]);
-    if (cKey) {
-      const cached = getSessionCache<ChatRoom[]>(cKey, { allowStale: true });
-      if (cached.data && cached.data.length > 0) {
-        setRooms(cached.data);
-        if (!cached.isStale) return cached.data;
+  const loadRooms = useCallback(async (options?: { forceRefresh?: boolean }): Promise<ChatRoom[]> => {
+    // Serve from cache immediately then revalidate if not forced
+    if (!options?.forceRefresh) {
+      const cKey = buildSessionCacheKey('chat-rooms', [projectId]);
+      if (cKey) {
+        const cached = getSessionCache<ChatRoom[]>(cKey, { allowStale: true });
+        if (cached.data && cached.data.length > 0) {
+          setRooms(cached.data);
+          if (!cached.isStale) return cached.data;
+        }
       }
     }
     try {
@@ -23,8 +38,7 @@ export function useChatRooms(projectId: string) {
         .map((r) => normalizeRoom(r as unknown as Record<string, unknown>))
         .filter(r => Number.isFinite(r.id));
       setRooms(normalized);
-      const cKey2 = buildSessionCacheKey('chat-rooms', [projectId]);
-      if (cKey2) setSessionCache(cKey2, normalized, 30 * 60_000);
+      persistRoomCache(projectId, normalized);
       return normalized;
     } catch (err) {
       console.error('Failed to load rooms', err);
@@ -54,7 +68,11 @@ export function useChatRooms(projectId: string) {
         };
         if (!Number.isFinite(created.id)) return null;
 
-        setRooms(prev => (prev.some(r => r.id === created.id) ? prev : [...prev, created]));
+        setRooms(prev => {
+          const next = prev.some(r => r.id === created.id) ? prev : [...prev, created];
+          persistRoomCache(projectId, next);
+          return next;
+        });
         return created;
       } catch (err) {
         console.error('Failed to create room', err);
@@ -68,7 +86,12 @@ export function useChatRooms(projectId: string) {
     async (roomId: number) => {
       try {
         await chatApi.deleteRoomRest(projectId, roomId);
-        await loadRooms();
+        setRooms(prev => {
+          const next = prev.filter(r => r.id !== roomId);
+          persistRoomCache(projectId, next);
+          return next;
+        });
+        await loadRooms({ forceRefresh: true });
       } catch (err) {
         console.error('Failed to delete room', err);
       }
@@ -81,7 +104,11 @@ export function useChatRooms(projectId: string) {
       try {
         const raw = await chatApi.updateRoomMetaRest(projectId, roomId, updates);
         const updated = normalizeRoom(raw as unknown as Record<string, unknown>);
-        setRooms(prev => prev.map(r => (r.id === updated.id ? updated : r)));
+        setRooms(prev => {
+          const next = prev.map(r => (r.id === updated.id ? updated : r));
+          persistRoomCache(projectId, next);
+          return next;
+        });
         return updated;
       } catch (err) {
         console.error('Failed to update room metadata', err);
@@ -96,7 +123,11 @@ export function useChatRooms(projectId: string) {
       try {
         const raw = await chatApi.pinRoomMessageRest(projectId, roomId, messageId);
         const updated = normalizeRoom(raw as unknown as Record<string, unknown>);
-        setRooms(prev => prev.map(r => (r.id === updated.id ? updated : r)));
+        setRooms(prev => {
+          const next = prev.map(r => (r.id === updated.id ? updated : r));
+          persistRoomCache(projectId, next);
+          return next;
+        });
         return updated;
       } catch (err) {
         console.error('Failed to pin room message', err);

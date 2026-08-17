@@ -22,6 +22,15 @@ export interface LocalSprintTask {
   selected: boolean;
   assigneeName?: string;
   assigneePhotoUrl?: string | null;
+  assignees?: Array<{
+    id?: number;
+    userId?: number;
+    memberId?: number;
+    name: string;
+    avatar?: string | null;
+    photoUrl?: string | null;
+    profilePicUrl?: string | null;
+  }>;
   status: SprintStatus;
   startDate: string;
   dueDate: string;
@@ -44,6 +53,7 @@ interface UseBacklogCardHandlersArgs {
   onStatusChange?: (taskId: number, status: string) => void;
   onStoryPointsChange?: (taskId: number, points: number) => void;
   onAssignTask?: (taskId: number, name: string, photo: string | null) => void;
+  onAssignMultiple?: (taskId: number, userIds: number[]) => Promise<void> | void;
   onRenameTask?: (taskId: number, title: string) => void;
   onDueDateChange?: (taskId: number, dueDate: string) => Promise<void>;
   projectLabels: Array<{ id: number; name: string; color?: string }>;
@@ -61,6 +71,7 @@ export function useBacklogCardHandlers({
   onStatusChange,
   onStoryPointsChange,
   onAssignTask,
+  onAssignMultiple,
   onRenameTask,
   onDueDateChange,
   projectLabels,
@@ -113,6 +124,7 @@ export function useBacklogCardHandlers({
           selected: task.selected,
           assigneeName: existing?.assigneeName ?? task.assigneeName ?? 'Unassigned',
           assigneePhotoUrl: existing?.assigneePhotoUrl ?? task.assigneePhotoUrl ?? null,
+          assignees: task.assignees ?? existing?.assignees ?? [],
           status: existing?.status ?? (task.status as SprintStatus) ?? 'TODO',
           startDate: task.startDate ?? existing?.startDate ?? '',
           dueDate: task.dueDate ?? existing?.dueDate ?? '',
@@ -206,10 +218,49 @@ export function useBacklogCardHandlers({
       if (member) {
         const name = getMemberDisplayName(member);
         const photo = member.user.profilePicUrl || null;
-        updateTask(taskId, { assigneeName: name, assigneePhotoUrl: photo });
+        updateTask(taskId, {
+          assigneeName: name,
+          assigneePhotoUrl: photo,
+          assignees: [{
+            id: member.user.userId,
+            userId: member.user.userId,
+            name,
+            avatar: photo || undefined,
+            photoUrl: photo,
+            profilePicUrl: photo,
+          }],
+        });
         if (onAssignTask) onAssignTask(taskId, name, photo);
       }
     } catch { /* silent */ }
+  };
+
+  const handleAssignMultiple = async (taskId: number, userIds: number[]) => {
+    try {
+      await tasksApi.assignTaskMultiple(taskId, { assigneeIds: userIds });
+      const assignedMembers = teamMembers.filter((m) => userIds.includes(m.user.userId));
+      const first = assignedMembers[0];
+      const newAssignees = assignedMembers.map((m) => ({
+        id: m.user.userId,
+        userId: m.user.userId,
+        name: getMemberDisplayName(m),
+        avatar: m.user.profilePicUrl || undefined,
+        photoUrl: m.user.profilePicUrl || undefined,
+        profilePicUrl: m.user.profilePicUrl || undefined,
+      }));
+      updateTask(taskId, {
+        assigneeName: first ? getMemberDisplayName(first) : 'Unassigned',
+        assigneePhotoUrl: first?.user?.profilePicUrl || null,
+        assignees: newAssignees,
+      });
+      if (onAssignMultiple) {
+        await onAssignMultiple(taskId, userIds);
+      } else if (onAssignTask) {
+        onAssignTask(taskId, first ? getMemberDisplayName(first) : 'Unassigned', first?.user?.profilePicUrl || null);
+      }
+    } catch {
+      toast('Failed to update assignees.', 'error');
+    }
   };
 
   const handleAddLabel = async (taskId: number, labelId: number) => {
@@ -420,6 +471,7 @@ export function useBacklogCardHandlers({
     handleRenameTask,
     handleDeleteTask,
     handleAssignTask,
+    handleAssignMultiple,
     handleAddLabel,
     handleRemoveLabel,
     handleNameSave,

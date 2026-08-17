@@ -166,4 +166,20 @@ class GithubPullRequestServiceTest {
         assertEquals("PR 1", page.getContent().get(0).getTitle());
         verify(githubApiClient).fetchPullRequests("testowner/testrepo", "gh-token", "all", 1, 100);
     }
+
+    @Test
+    void resolveTaskRef_handlesExceptionFromProxyGracefully() {
+        Project mockProject = mock(Project.class);
+        when(mockProject.getProjectKey()).thenThrow(new org.hibernate.LazyInitializationException("no session"));
+
+        Task task = pullRequestService.resolveTaskRef(mockProject, "fix: #123");
+        assertNull(task);
+    }
+
+    @Test
+    void resolveTaskRef_returnsNullForNullProjectOrEmptyText() {
+        assertNull(pullRequestService.resolveTaskRef(null, "fix: #123"));
+        assertNull(pullRequestService.resolveTaskRef(project, ""));
+        assertNull(pullRequestService.resolveTaskRef(project, null));
+    }
 }

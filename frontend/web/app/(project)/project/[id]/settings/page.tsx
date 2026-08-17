@@ -6,9 +6,10 @@ import Link from 'next/link';
 import {
   AlertTriangle, Trash2, LogOut, Settings2,
   FileText, Shield, Loader2, CheckCircle2,
-  X, Info, ArrowRight, Github, RefreshCw, Figma,
+  X, Info, ArrowRight, Github, RefreshCw, Figma, Copy, Check, ExternalLink,
 } from 'lucide-react';
 import * as projectsApi from '@/services/projects-service';
+import { normalizeExternalUrl, openSafeExternalUrl } from '@/lib/url-utils';
 import { toast } from '@/components/ui';
 import OverlayPortal from '@/components/ui/OverlayPortal';
 import GitHubMark from '@/components/github/GitHubMark';
@@ -605,6 +606,7 @@ export default function ProjectSettingsPage() {
   const [isSavingFigma, setIsSavingFigma] = useState(false);
   const [figmaSaved, setFigmaSaved] = useState(false);
   const [figmaError, setFigmaError] = useState('');
+  const [copiedFigma, setCopiedFigma] = useState(false);
 
   // Delete
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -652,6 +654,18 @@ export default function ProjectSettingsPage() {
 
   useEffect(() => { queueMicrotask(() => void fetchProject()); }, [fetchProject]);
 
+  const handleCopyFigmaLink = async () => {
+    if (!project?.figmaUrl) return;
+    try {
+      await navigator.clipboard.writeText(project.figmaUrl);
+      setCopiedFigma(true);
+      setTimeout(() => setCopiedFigma(false), 2000);
+      toast('Figma link copied to clipboard', 'success');
+    } catch {
+      // Ignore clipboard write error
+    }
+  };
+
   const handleSaveGeneral = async () => {
     if (!project || !isDirtyGeneral) return;
     setIsSavingGeneral(true);
@@ -677,20 +691,22 @@ export default function ProjectSettingsPage() {
 
   const handleSaveFigmaUrl = async () => {
     setFigmaError('');
-    const trimmed = figmaInput.trim();
+    const rawTrimmed = figmaInput.trim();
     let normalized: string | null = null;
-    if (trimmed) {
-      const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-      try {
-        const url = new URL(withProtocol);
-        normalized = url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
-      } catch { /* fall through */ }
-      if (!normalized) { setFigmaError('Enter a valid URL.'); return; }
+    if (rawTrimmed) {
+      normalized = normalizeExternalUrl(rawTrimmed);
+      if (!normalized) {
+        setFigmaError('Enter a valid URL (e.g. https://www.figma.com/file/...).');
+        return;
+      }
     }
     setIsSavingFigma(true);
     try {
       await projectsApi.updateProjectDetails(projectId, { figmaUrl: normalized });
       setProject((prev) => prev ? { ...prev, figmaUrl: normalized } : null);
+      window.dispatchEvent(new CustomEvent('planora:figma-updated', {
+        detail: { projectId, figmaUrl: normalized },
+      }));
       window.dispatchEvent(new Event('storage'));
       setFigmaSaved(true);
       setTimeout(() => setFigmaSaved(false), 3000);
@@ -833,64 +849,81 @@ export default function ProjectSettingsPage() {
                   icon={<Figma size={15} />}
                 >
                   <div className="space-y-4">
-                    {/* Show current link for everyone */}
-                    {project?.figmaUrl && (
-                      <div className="flex items-center gap-2 rounded-xl border border-cu-border bg-cu-bg-secondary px-3.5 py-2.5">
-                        <Figma size={14} className="text-[#F24E1E] shrink-0" />
-                        <a
-                          href={project.figmaUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-cu-primary hover:underline truncate flex-1 font-medium"
-                        >
-                          {project.figmaUrl}
-                        </a>
-                      </div>
-                    )}
-                    {!project?.figmaUrl && !isOwner && (
-                      <p className="text-sm text-cu-text-muted italic">No Figma link configured for this project.</p>
-                    )}
-
-                    {/* Edit form — owner only */}
-                    {isOwner && (
-                      <>
-                        <div>
-                          <label className="block text-xs font-semibold text-cu-text-secondary mb-1.5">
-                            {project?.figmaUrl ? 'Update Figma URL' : 'Add Figma URL'}
-                          </label>
-                          <input
-                            value={figmaInput}
-                            onChange={(e) => { setFigmaInput(e.target.value); setFigmaError(''); }}
-                            placeholder="https://www.figma.com/file/..."
-                            className={`w-full border rounded-xl px-3.5 py-2.5 text-sm text-cu-text-primary placeholder:text-cu-text-muted focus:outline-none focus:ring-2 focus:ring-cu-primary/20 focus:border-cu-primary transition-all bg-cu-bg ${
-                              figmaError ? 'border-red-400' : 'border-cu-border'
-                            }`}
-                          />
-                          {figmaError && <p className="mt-1.5 text-xs text-cu-danger">{figmaError}</p>}
-                          {project?.figmaUrl && (
-                            <p className="mt-1 text-xs text-cu-text-muted">Leave blank and save to remove the link.</p>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between pt-1">
-                          <div className="h-5">
-                            {figmaSaved && (
-                              <span className="flex items-center gap-1.5 text-xs text-cu-success">
-                                <CheckCircle2 size={13} />
-                                Saved
-                              </span>
-                            )}
-                          </div>
+                    {/* Show current link */}
+                    {project?.figmaUrl ? (
+                      <div className="flex items-center justify-between gap-2 rounded-xl border border-cu-border bg-cu-bg-secondary p-3">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <Figma size={16} className="text-[#F24E1E] shrink-0" />
                           <button
-                            onClick={() => void handleSaveFigmaUrl()}
-                            disabled={isSavingFigma}
-                            className="h-9 px-5 bg-cu-primary text-white text-sm font-semibold rounded-xl hover:bg-cu-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shadow-cu-sm"
+                            type="button"
+                            onClick={() => openSafeExternalUrl(project.figmaUrl)}
+                            className="text-sm text-cu-primary hover:underline truncate text-left font-medium"
+                            title="Open Figma link in new tab"
                           >
-                            {isSavingFigma && <Loader2 size={13} className="animate-spin" />}
-                            {isSavingFigma ? 'Saving...' : figmaInput.trim() ? 'Save Link' : (project?.figmaUrl ? 'Remove Link' : 'Save')}
+                            {project.figmaUrl}
                           </button>
                         </div>
-                      </>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={handleCopyFigmaLink}
+                            className="p-1.5 rounded-lg border border-cu-border bg-cu-bg hover:bg-cu-hover text-cu-text-secondary transition-colors"
+                            title="Copy link"
+                            aria-label="Copy Figma link"
+                          >
+                            {copiedFigma ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openSafeExternalUrl(project.figmaUrl)}
+                            className="p-1.5 rounded-lg bg-[#F24E1E]/10 hover:bg-[#F24E1E]/20 text-[#F24E1E] transition-colors"
+                            title="Open in new tab"
+                            aria-label="Open in new tab"
+                          >
+                            <ExternalLink size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-cu-text-muted">Connect a Figma file or prototype URL to make it readily accessible from the TopBar for all team members.</p>
                     )}
+
+                    {/* Edit form — accessible to project members */}
+                    <div>
+                      <label className="block text-xs font-semibold text-cu-text-secondary mb-1.5">
+                        {project?.figmaUrl ? 'Update Figma URL' : 'Add Figma URL'}
+                      </label>
+                      <input
+                        value={figmaInput}
+                        onChange={(e) => { setFigmaInput(e.target.value); setFigmaError(''); }}
+                        placeholder="https://www.figma.com/file/... or figma.com/design/..."
+                        className={`w-full border rounded-xl px-3.5 py-2.5 text-sm text-cu-text-primary placeholder:text-cu-text-muted focus:outline-none focus:ring-2 focus:ring-cu-primary/20 focus:border-cu-primary transition-all bg-cu-bg ${
+                          figmaError ? 'border-red-400' : 'border-cu-border'
+                        }`}
+                      />
+                      {figmaError && <p className="mt-1.5 text-xs text-cu-danger">{figmaError}</p>}
+                      {project?.figmaUrl && (
+                        <p className="mt-1 text-xs text-cu-text-muted">Leave blank and click Save to remove the link.</p>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <div className="h-5">
+                        {figmaSaved && (
+                          <span className="flex items-center gap-1.5 text-xs text-cu-success">
+                            <CheckCircle2 size={13} />
+                            Saved
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => void handleSaveFigmaUrl()}
+                        disabled={isSavingFigma}
+                        className="h-9 px-5 bg-cu-primary text-white text-sm font-semibold rounded-xl hover:bg-cu-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shadow-cu-sm"
+                      >
+                        {isSavingFigma && <Loader2 size={13} className="animate-spin" />}
+                        {isSavingFigma ? 'Saving...' : figmaInput.trim() ? 'Save Link' : (project?.figmaUrl ? 'Remove Link' : 'Save')}
+                      </button>
+                    </div>
                   </div>
                 </SectionCard>
               </div>

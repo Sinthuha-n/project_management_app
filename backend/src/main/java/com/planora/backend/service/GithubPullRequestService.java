@@ -71,13 +71,25 @@ public class GithubPullRequestService {
         log.info("Syncing pull requests for {}", repo);
 
         int page = 1;
+        int maxPages = 2; // Bounded to 200 PRs to ensure fast sync and avoid rate limit exhaustion
         int fetched;
         do {
-            List<JsonNode> nodes = githubApiClient.fetchPullRequests(repo, token, "all", page, 100);
-            fetched = nodes.size();
-            nodes.forEach(node -> upsertPullRequest(integration, node));
-            page++;
-        } while (fetched == 100);
+            try {
+                List<JsonNode> nodes = githubApiClient.fetchPullRequests(repo, token, "all", page, 100);
+                fetched = nodes.size();
+                nodes.forEach(node -> {
+                    try {
+                        upsertPullRequest(integration, node);
+                    } catch (Exception ex) {
+                        log.warn("Failed to upsert PR #{} for {}: {}", node.path("number").asInt(), repo, ex.getMessage());
+                    }
+                });
+                page++;
+            } catch (Exception e) {
+                log.warn("Failed to fetch PRs page {} for {}: {}", page, repo, e.getMessage());
+                break;
+            }
+        } while (fetched == 100 && page <= maxPages);
 
         log.info("Pull request sync complete for {}", repo);
     }
@@ -85,6 +97,8 @@ public class GithubPullRequestService {
     @Transactional
     public void upsertPullRequest(GithubIntegration integration, JsonNode node) {
         int prNumber = node.path("number").asInt();
+        if (prNumber <= 0) return;
+
         Optional<GithubPullRequest> existing = pullRequestRepository
             .findByIntegrationIdAndGithubPrNumber(integration.getId(), prNumber);
 
@@ -92,16 +106,19 @@ public class GithubPullRequestService {
         pr.setIntegration(integration);
         pr.setGithubPrNumber(prNumber);
         pr.setPrNumber(prNumber);
-        pr.setTitle(truncate(node.path("title").asText(""), 500));
+        pr.setTitle(truncate(node.path("title").asText("Untitled PR"), 500));
         pr.setBody(node.path("body").asText(null));
         pr.setState(resolvePrState(node));
 
         String authorLogin = node.path("user").path("login").asText(null);
+        if (authorLogin == null || authorLogin.isBlank()) {
+            authorLogin = "unknown";
+        }
         pr.setAuthorLogin(authorLogin);
         pr.setAuthor(authorLogin);
 
-        String headBranch = node.path("head").path("ref").asText(null);
-        String baseBranch = node.path("base").path("ref").asText(null);
+        String headBranch = node.path("head").path("ref").asText("unknown");
+        String baseBranch = node.path("base").path("ref").asText("unknown");
         String headSha = node.path("head").path("sha").asText(null);
         pr.setHeadBranch(headBranch);
         pr.setBaseBranch(baseBranch);
@@ -113,13 +130,19 @@ public class GithubPullRequestService {
 
         String createdAtStr = node.path("created_at").asText(null);
         LocalDateTime createdAt = parseDateTime(createdAtStr);
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
         pr.setGithubCreatedAt(createdAt);
-        pr.setCreatedAt(createdAtStr);
+        pr.setCreatedAt(createdAtStr != null ? createdAtStr : createdAt.toString());
 
         String updatedAtStr = node.path("updated_at").asText(null);
         LocalDateTime updatedAt = parseDateTime(updatedAtStr);
+        if (updatedAt == null) {
+            updatedAt = createdAt;
+        }
         pr.setGithubUpdatedAt(updatedAt);
-        pr.setUpdatedAt(updatedAtStr);
+        pr.setUpdatedAt(updatedAtStr != null ? updatedAtStr : updatedAt.toString());
 
         String mergedAtStr = node.path("merged_at").asText(null);
         LocalDateTime mergedAt = parseDateTime(mergedAtStr);
@@ -155,7 +178,17 @@ public class GithubPullRequestService {
     public Task resolveTaskRef(Project project, String text) {
         if (project == null || text == null || text.isBlank()) return null;
 
-        String projectKey = project.getProjectKey() != null ? project.getProjectKey() : "TASK";
+        Long projectId;
+        String projectKey;
+        try {
+            projectId = project.getId();
+            projectKey = project.getProjectKey() != null ? project.getProjectKey() : "TASK";
+        } catch (Exception e) {
+            log.debug("Could not resolve project details from proxy: {}", e.getMessage());
+            return null;
+        }
+        if (projectId == null) return null;
+
         Pattern pattern = Pattern.compile(
             "(?:#|" + Pattern.quote(projectKey) + "-|TASK-|task/|issue/|feature/)(\\d+)",
             Pattern.CASE_INSENSITIVE
@@ -165,14 +198,14 @@ public class GithubPullRequestService {
             try {
                 long num = Long.parseLong(matcher.group(1));
                 // 1. Try project-scoped task number
-                Optional<Task> taskByNum = taskRepository.findByProjectIdAndProjectTaskNumber(project.getId(), num);
+                Optional<Task> taskByNum = taskRepository.findByProjectIdAndProjectTaskNumber(projectId, num);
                 if (taskByNum.isPresent()) {
                     return taskByNum.get();
                 }
                 // 2. Try global task ID if it belongs to this project
                 Optional<Task> taskById = taskRepository.findById(num);
                 if (taskById.isPresent() && taskById.get().getProject() != null
-                        && project.getId().equals(taskById.get().getProject().getId())) {
+                        && projectId.equals(taskById.get().getProject().getId())) {
                     return taskById.get();
                 }
             } catch (NumberFormatException ignored) {

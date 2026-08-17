@@ -1369,11 +1369,15 @@ public class TaskService {
             dto.setAssignees(new ArrayList<>(task.getAssignees()).stream()
                 .map(m -> {
                     if (m.getUser() == null) return null;
+                    String fullName = m.getUser().getFullName();
+                    String name = (fullName != null && !fullName.isBlank())
+                            ? fullName
+                            : m.getUser().getUsername();
                     return new TaskResponseDTO.AssigneeDTO(
-                    m.getId(),
-                    m.getUser().getUserId(),
-                    m.getUser().getUsername(),
-                    userService.generatePresignedUrl(m.getUser().getProfilePicUrl()));
+                        m.getId(),
+                        m.getUser().getUserId(),
+                        name,
+                        userService.generatePresignedUrl(m.getUser().getProfilePicUrl()));
                 })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList()));
