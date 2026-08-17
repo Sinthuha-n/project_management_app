@@ -108,6 +108,25 @@ export function useKanbanData(projectId: string | null) {
     );
   }, [projectId]);
 
+  const syncColumnCache = useCallback((updatedColumns: KanbanColumnConfig[]) => {
+    if (!projectId) return;
+    const cKey = buildSessionCacheKey('kanban-board', [projectId]);
+    if (!cKey) return;
+    const existing = getSessionCache<{ columns: KanbanColumnConfig[]; tasks: Task[]; kanbanId: number | null }>(
+      cKey,
+      { allowStale: true }
+    );
+    setSessionCache(
+      cKey,
+      {
+        columns: updatedColumns,
+        tasks: existing.data?.tasks ?? tasksRef.current,
+        kanbanId: existing.data?.kanbanId ?? kanbanIdRef.current,
+      },
+      30 * 60_000
+    );
+  }, [projectId]);
+
   // ── Static Data (Run once per project) ──
 
   const fetchStaticData = useCallback(async () => {
@@ -270,6 +289,7 @@ export function useKanbanData(projectId: string | null) {
     patchTask,
     removeTask,
     syncCache,
+    syncColumnCache,
     forceRefresh: () => void fetchData({ showSpinner: false, forceNetwork: true }),
   };
 }

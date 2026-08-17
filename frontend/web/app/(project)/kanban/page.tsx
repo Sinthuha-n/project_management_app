@@ -37,6 +37,7 @@ function KanbanPageContent() {
     handleDragEnd, handleColumnDragEnd, handleDeleteTask,
     handleAddTask, handleCreateTask, handleOpenCreateModal,
     handleInlineUpdate, handleCompleteBoard,
+    handleAssigneeChange,
     handleColumnRenamed, handleColumnSettingsChanged, handleDeleteColumn,
     handleAddColumn, handleCreateLabel, forceRefresh,
   } = useKanbanBoard(projectId);
@@ -227,6 +228,8 @@ function KanbanPageContent() {
                         onCreateTask={handleAddTask}
                         onOpenTask={setSelectedTaskIdForModal}
                         onInlineUpdate={handleInlineUpdate}
+                        onAssigneeChange={handleAssigneeChange}
+                        teamMembers={teamMembers}
                         usersMap={usersMap}
                         labels={labels}
                         onCreateLabel={handleCreateLabel}

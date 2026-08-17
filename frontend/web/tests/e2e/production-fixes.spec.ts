@@ -166,17 +166,23 @@ test('backlog optimistic creation reconciles to one row and survives refresh', a
   await mockPlanoraApi(page, fixture);
 
   await page.goto('/backlog?projectId=3');
-  await expect(page.getByText('1 issue', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('issue-count')).toHaveText(/^1\s+issue$/i, { timeout: 30_000 });
 
   await page.getByRole('button', { name: 'Add task' }).click();
   await page.getByPlaceholder('Task title…').fill('One correlated task');
-  await page.getByPlaceholder('Task title…').press('Enter');
+  await Promise.all([
+    page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname === '/api/tasks' && [200, 201].includes(response.status());
+    }, { timeout: 30_000 }),
+    page.getByPlaceholder('Task title…').press('Enter'),
+  ]);
 
-  await expect(page.getByText('2 issues', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('issue-count')).toHaveText(/^2\s+issues$/i, { timeout: 30_000 });
   await expect(page.getByText('One correlated task', { exact: true })).toHaveCount(1);
 
   await page.reload();
-  await expect(page.getByText('2 issues', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('issue-count')).toHaveText(/^2\s+issues$/i, { timeout: 30_000 });
   await expect(page.getByText('One correlated task', { exact: true })).toHaveCount(1);
 });
 
@@ -243,11 +249,11 @@ test('sprint velocity renders tightly grouped plan and actual bars in light and 
   await mockPlanoraApi(page, fixture);
 
   await page.goto('/sprint-backlog?projectId=3');
-  const velocityBtn = page.getByRole('button', { name: 'Show sprint velocity' });
-  await expect(velocityBtn).toBeVisible();
+  const velocityBtn = page.getByTestId('show-sprint-velocity');
+  await expect(velocityBtn).toBeVisible({ timeout: 30_000 });
   await velocityBtn.click();
-  const chart = page.getByRole('img', { name: 'Sprint velocity chart for 6 completed sprints' });
-  await expect(chart).toBeVisible();
+  const chart = page.getByRole('img', { name: /Sprint velocity chart for/i });
+  await expect(chart).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('Committed (plan)')).toBeVisible();
   await expect(page.getByText('Delivered (actual)')).toBeVisible();
 

@@ -15,6 +15,7 @@ export interface KanbanBoardResponse {
 
 export interface TeamMemberOption {
   id: number;
+  memberId?: number;
   userId?: number;
   name: string;
   photoUrl?: string | null;
@@ -364,7 +365,7 @@ export async function fetchTeamMembers(teamId: number): Promise<TeamMemberOption
     const results: TeamMemberOption[] = [];
     for (const entry of rawMembers) {
       const member = entry as Record<string, unknown> & { user?: Record<string, unknown> };
-      const id = Number(member?.id);
+      const memberId = Number(member?.id);
       const userId = Number(member?.userId ?? member?.user?.userId);
       const name =
         (member?.name as string) ??
@@ -375,9 +376,11 @@ export async function fetchTeamMembers(teamId: number): Promise<TeamMemberOption
         (member?.user?.email as string) ??
         '';
 
-      if (!Number.isFinite(id) || !name) continue;
+      const assignableId = Number.isFinite(userId) ? userId : memberId;
+      if (!Number.isFinite(assignableId) || !name) continue;
       results.push({
-        id,
+        id: assignableId,
+        memberId: Number.isFinite(memberId) ? memberId : undefined,
         userId: Number.isFinite(userId) ? userId : undefined,
         name,
         photoUrl: resolveProfilePhotoUrl(

@@ -815,6 +815,7 @@ function SprintBacklogPageContent() {
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 pt-0.5">
             <button
               onClick={handleVelocityToggle}
+              data-testid="show-sprint-velocity"
               aria-expanded={showVelocity}
               aria-controls="sprint-velocity-panel"
               aria-label={showVelocity ? 'Hide sprint velocity' : 'Show sprint velocity'}

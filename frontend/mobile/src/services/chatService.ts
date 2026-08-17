@@ -429,4 +429,3 @@ export async function refreshChatDocument(
     throw new Error(apiErrorMessage(error, 'Failed to refresh document link.'));
   }
 }
-

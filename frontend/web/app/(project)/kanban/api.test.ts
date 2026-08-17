@@ -109,6 +109,24 @@ describe('kanban api', () => {
     ).rejects.toThrow('You do not have permission to create tasks in this project.');
   });
 
+  it('createTask keeps assignee optional and sends it only when selected', async () => {
+    mockedAxios.post
+      .mockResolvedValueOnce({ data: { id: 1, title: 'Unassigned task' } })
+      .mockResolvedValueOnce({ data: { id: 2, title: 'Assigned task', assigneeId: 7 } });
+
+    await createTask({ title: 'Unassigned task', projectId: 12, status: 'TODO' });
+    await createTask({ title: 'Assigned task', projectId: 12, status: 'TODO', assigneeId: 7 });
+
+    expect(mockedAxios.post).toHaveBeenNthCalledWith(1, '/api/tasks', expect.objectContaining({
+      title: 'Unassigned task',
+      assigneeId: undefined,
+    }));
+    expect(mockedAxios.post).toHaveBeenNthCalledWith(2, '/api/tasks', expect.objectContaining({
+      title: 'Assigned task',
+      assigneeId: 7,
+    }));
+  });
+
   it('update and delete task call expected endpoints', async () => {
     mockedAxios.patch.mockResolvedValueOnce({ data: { id: 3, status: 'DONE' } });
     mockedAxios.put.mockResolvedValueOnce({ data: { id: 3, title: 'Updated' } });
@@ -146,7 +164,23 @@ describe('kanban api', () => {
     const result = await fetchTeamMembers(10);
 
     expect(mockedAxios.get).toHaveBeenCalledWith('/api/teams/10/members');
-    expect(result).toEqual([{ id: 8, userId: 12, name: 'alice', photoUrl: 'http://localhost:8080/api/auth/users/12/photo' }]);
+    expect(result).toEqual([{ id: 12, memberId: 8, userId: 12, name: 'alice', photoUrl: 'http://localhost:8080/api/auth/users/12/photo' }]);
+  });
+
+  it('fetchTeamMembers returns every valid project member as an assignee option', async () => {
+    mockedAxios.get.mockResolvedValueOnce({
+      data: [
+        { id: 1, user: { userId: 101, username: 'alex' } },
+        { id: 2, user: { userId: 102, username: 'maya' } },
+        { id: 3, user: { userId: 103, fullName: 'Nora Lee' } },
+        { id: 4, user: { userId: 104, email: 'sam@example.com' } },
+      ],
+    });
+
+    const result = await fetchTeamMembers(10);
+
+    expect(result.map(member => member.name)).toEqual(['alex', 'maya', 'Nora Lee', 'sam@example.com']);
+    expect(result.map(member => member.id)).toEqual([101, 102, 103, 104]);
   });
 
   it('moveKanbanTask sends correct payload to /api/tasks/kanban/move', async () => {

@@ -96,6 +96,8 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     boolean existsBySprint_IdAndStatusAndArchivedFalse(Long sprintId, String status);
 
+    long countByKanbanColumnId(Long kanbanColumnId);
+
     @Query("SELECT t FROM Task t WHERE t.parentTask.id = :parentId AND t.archived = false")
     List<Task> findSubtasksByParentId(@Param("parentId") Long parentId);
 

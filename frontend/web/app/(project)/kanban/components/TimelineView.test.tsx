@@ -78,6 +78,23 @@ describe('TimelineView', () => {
     expect(mockedToast).toHaveBeenCalledWith('Task scheduled on the timeline.', 'success');
   });
 
+  it('shows every unscheduled project task from backlog and board in the timeline tray', () => {
+    const unscheduledOnly = Array.from({ length: 10 }, (_, index) => ({
+      id: index + 10,
+      title: `Backlog task ${index + 1}`,
+      status: 'TODO',
+      priority: 'MEDIUM',
+    }));
+
+    render(<TimelineView tasks={unscheduledOnly} />);
+
+    expect(screen.getByText('10 tasks')).toBeInTheDocument();
+    unscheduledOnly.forEach((task) => {
+      expect(screen.getByText(task.title)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Showing 8 of/)).not.toBeInTheDocument();
+  });
+
   it('shows a filtered empty state and can clear filters', () => {
     render(<TimelineView tasks={tasks} />);
 

@@ -2,10 +2,16 @@ package com.planora.backend.service;
 
 import com.planora.backend.dto.KanbanColumnRequestDTO;
 import com.planora.backend.dto.KanbanColumnSettingsDTO;
+import com.planora.backend.exception.BadRequestException;
+import com.planora.backend.exception.ForbiddenException;
 import com.planora.backend.model.Kanban;
 import com.planora.backend.model.KanbanColumn;
+import com.planora.backend.model.Project;
+import com.planora.backend.model.User;
 import com.planora.backend.repository.KanbanColumnRepository;
 import com.planora.backend.repository.KanbanRepository;
+import com.planora.backend.repository.ProjectRepository;
+import com.planora.backend.repository.TaskRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,11 +40,18 @@ class KanbanColumnServiceTest {
     @Mock
     private KanbanRepository kanbanRepository;
 
+    @Mock
+    private ProjectRepository projectRepository;
+
+    @Mock
+    private TaskRepository taskRepository;
+
     @InjectMocks
     private KanbanColumnService kanbanColumnService;
 
     private Kanban testKanban;
     private KanbanColumn testColumn;
+    private Project testProject;
     private KanbanColumnRequestDTO columnRequestDTO;
 
     @BeforeEach
@@ -56,6 +69,12 @@ class KanbanColumnServiceTest {
         testColumn.setColor("#F3F4F6");
         testColumn.setWipLimit(0);
         testColumn.setKanban(testKanban);
+
+        User owner = new User();
+        owner.setUserId(42L);
+        testProject = new Project();
+        testProject.setId(10L);
+        testProject.setOwner(owner);
 
         columnRequestDTO = new KanbanColumnRequestDTO();
         columnRequestDTO.setName("New Column");
@@ -189,11 +208,39 @@ class KanbanColumnServiceTest {
 
     @Test
     void deleteKanbanColumn_Success() {
-        doNothing().when(kanbanColumnRepository).deleteById(1L);
+        when(kanbanColumnRepository.findById(1L)).thenReturn(Optional.of(testColumn));
+        when(projectRepository.findById(10L)).thenReturn(Optional.of(testProject));
+        when(taskRepository.countByKanbanColumnId(1L)).thenReturn(0L);
+        when(kanbanColumnRepository.findByKanbanIdOrderByPosition(1L)).thenReturn(List.of());
 
-        kanbanColumnService.deleteKanbanColumn(1L);
+        kanbanColumnService.deleteKanbanColumn(1L, 42L);
 
-        verify(kanbanColumnRepository, times(1)).deleteById(1L);
+        verify(kanbanColumnRepository, times(1)).delete(testColumn);
+        verify(kanbanColumnRepository, times(1)).saveAll(List.of());
+    }
+
+    @Test
+    void deleteKanbanColumn_NotOwner_ThrowsForbidden() {
+        when(kanbanColumnRepository.findById(1L)).thenReturn(Optional.of(testColumn));
+        when(projectRepository.findById(10L)).thenReturn(Optional.of(testProject));
+
+        assertThrows(ForbiddenException.class,
+            () -> kanbanColumnService.deleteKanbanColumn(1L, 99L));
+
+        verify(taskRepository, never()).countByKanbanColumnId(anyLong());
+        verify(kanbanColumnRepository, never()).delete(any(KanbanColumn.class));
+    }
+
+    @Test
+    void deleteKanbanColumn_WithTasks_ThrowsBadRequest() {
+        when(kanbanColumnRepository.findById(1L)).thenReturn(Optional.of(testColumn));
+        when(projectRepository.findById(10L)).thenReturn(Optional.of(testProject));
+        when(taskRepository.countByKanbanColumnId(1L)).thenReturn(2L);
+
+        assertThrows(BadRequestException.class,
+            () -> kanbanColumnService.deleteKanbanColumn(1L, 42L));
+
+        verify(kanbanColumnRepository, never()).delete(any(KanbanColumn.class));
     }
 
     @Test

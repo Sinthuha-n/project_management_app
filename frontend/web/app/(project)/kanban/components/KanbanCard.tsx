@@ -5,15 +5,19 @@ import Image from 'next/image';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task, Label } from '../types';
-import { Calendar, GitBranch, GitPullRequest, MessageSquare, Paperclip, Check, X, Tag, Plus, ChevronDown, ChevronRight, Lock, RefreshCw } from 'lucide-react';
+import { Calendar, GitBranch, GitPullRequest, MessageSquare, Paperclip, Check, X, Tag, Plus, ChevronDown, ChevronRight, Lock, RefreshCw, Pencil, Trash2 } from 'lucide-react';
 import { CIStatusBadge } from '@/components/ui';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
+import type { TeamMemberOption } from '../api';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 
 interface KanbanCardProps {
   task: Task;
   onDelete?: (taskId: number) => void;
   onOpenTask?: (taskId: number) => void;
   onInlineUpdate?: (taskId: number, updates: Partial<Task>) => Promise<void>;
+  onAssigneeChange?: (taskId: number, assigneeId: number | null) => Promise<void>;
+  teamMembers?: TeamMemberOption[];
   usersMap?: Record<string, string | null>;
   labels?: Label[];
   onCreateLabel?: (name: string, color: string) => Promise<Label | null>;
@@ -31,7 +35,7 @@ const PRIORITY_LIST = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 
 const LABEL_COLORS = ['#6366F1', '#EF4444', '#F59E0B', '#22C55E', '#3B82F6', '#EC4899', '#8B5CF6', '#14B8A6'];
 
-export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate, usersMap, labels: allLabels, onCreateLabel, isSyncing }: KanbanCardProps) {
+export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate, onAssigneeChange, teamMembers = [], usersMap, labels: allLabels, onCreateLabel, isSyncing }: KanbanCardProps) {
   const avatarUrl =
     resolveProfilePhotoUrl(task.assigneePhotoUrl, task.assigneeId) ??
     (task.assigneeName ? resolveProfilePhotoUrl(usersMap?.[task.assigneeName]) : null);
@@ -56,9 +60,13 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
 
   // Inline label picker
   const [showLabelPicker, setShowLabelPicker] = useState(false);
+  const [showAssigneePicker, setShowAssigneePicker] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState(LABEL_COLORS[0]);
   const labelPickerRef = useRef<HTMLDivElement>(null);
+  const assigneePickerRef = useRef<HTMLDivElement>(null);
+  const assigneeMenuRef = useRef<HTMLDivElement>(null);
+  const [assigneeMenuPosition, setAssigneeMenuPosition] = useState<{ top: number; left: number } | null>(null);
 
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -77,6 +85,14 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
     const handler = (e: MouseEvent) => {
       if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node)) setShowDatePicker(false);
       if (labelPickerRef.current && !labelPickerRef.current.contains(e.target as Node)) setShowLabelPicker(false);
+      if (
+        assigneePickerRef.current &&
+        !assigneePickerRef.current.contains(e.target as Node) &&
+        assigneeMenuRef.current &&
+        !assigneeMenuRef.current.contains(e.target as Node)
+      ) {
+        setShowAssigneePicker(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -116,6 +132,64 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
     setShowLabelPicker(false);
   };
 
+  const handleSetAssignee = async (assigneeId: number | null) => {
+    if (!onAssigneeChange) return;
+    await onAssigneeChange(task.id, assigneeId);
+    setShowAssigneePicker(false);
+  };
+
+  const openAssigneePicker = (button: HTMLButtonElement) => {
+    const rect = button.getBoundingClientRect();
+    const menuWidth = 224;
+    setAssigneeMenuPosition({
+      top: Math.min(rect.bottom + 6, window.innerHeight - 48),
+      left: Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)),
+    });
+    setShowAssigneePicker(o => !o);
+  };
+
+  const assigneeMenu = showAssigneePicker && assigneeMenuPosition ? (
+    <OverlayPortal>
+      <div
+        ref={assigneeMenuRef}
+        className="fixed z-[var(--cu-z-modal-popover)] w-56 rounded-xl border border-cu-border bg-cu-bg p-2 shadow-cu-xl"
+        style={{ top: assigneeMenuPosition.top, left: assigneeMenuPosition.left }}
+        onClick={e => e.stopPropagation()}
+      >
+        <p className="mb-1.5 text-[10px] font-medium text-cu-text-muted">Assignee</p>
+        <div className="max-h-80 space-y-0.5 overflow-y-auto">
+          <button
+            type="button"
+            onClick={() => void handleSetAssignee(null)}
+            className={`w-full rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-cu-hover ${!task.assigneeName ? 'font-semibold text-cu-primary' : 'text-cu-text-secondary'}`}
+          >
+            Unassigned
+          </button>
+          {teamMembers.map((member) => {
+            const isSelected = task.assigneeId === member.id || task.assigneeId === member.memberId;
+            return (
+              <button
+                key={member.id}
+                type="button"
+                onClick={() => void handleSetAssignee(member.id)}
+                className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-cu-hover ${isSelected ? 'bg-cu-primary/5 font-semibold text-cu-primary' : 'text-cu-text-secondary'}`}
+              >
+                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-cu-bg-tertiary text-[10px]">
+                  {member.photoUrl ? (
+                    <Image src={member.photoUrl} alt={member.name} width={20} height={20} className="h-full w-full object-cover" unoptimized />
+                  ) : (
+                    member.name.charAt(0).toUpperCase()
+                  )}
+                </span>
+                <span className="truncate">{member.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </OverlayPortal>
+  ) : null;
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id.toString(),
     data: { type: 'task', taskId: task.id },
@@ -135,6 +209,7 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
   const dueDateFormatted = formatDate(task.dueDate);
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date(new Date().toDateString()) && task.status !== 'DONE';
   const isToday = task.dueDate && new Date(task.dueDate).toDateString() === new Date().toDateString();
+  const hasOpenPopover = showDatePicker || showLabelPicker || showAssigneePicker;
 
   // Card background: overdue tasks get subtle reddish tint
   const cardBg = isOverdue ? 'bg-red-500/[0.06] dark:bg-red-500/[0.08]' : '';
@@ -163,6 +238,20 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
             })}
           </div>
         </div>
+        <div className="mb-2">
+          <p className="text-[10px] text-cu-text-muted font-medium mb-1">Assignee</p>
+          <select
+            value={teamMembers.find((member) => task.assigneeId === member.id || task.assigneeId === member.memberId)?.id ?? ''}
+            onChange={(e) => void handleSetAssignee(e.target.value ? Number(e.target.value) : null)}
+            className="w-full rounded-lg border border-cu-border bg-cu-bg px-2 py-1.5 text-xs text-cu-text-primary focus:outline-none focus:ring-2 focus:ring-cu-primary/40"
+            disabled={!onAssigneeChange || saving}
+          >
+            <option value="">Unassigned</option>
+            {teamMembers.map((member) => (
+              <option key={member.id} value={member.id}>{member.name}</option>
+            ))}
+          </select>
+        </div>
         <div className="flex justify-end gap-1.5 pt-1 border-t border-cu-border">
           <button onClick={handleCancelEdit} disabled={saving} className="px-2 py-1 text-xs text-cu-text-secondary hover:text-cu-text-primary rounded transition-colors flex items-center gap-1"><X size={12} /> Cancel</button>
           <button onClick={() => void handleSaveInline()} disabled={saving || !editTitle.trim()}
@@ -187,26 +276,10 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
         transition-all duration-200 cursor-grab active:cursor-grabbing
         ${isDragging ? 'ring-2 ring-cu-primary/50 scale-[1.02] rotate-[1deg]' : ''}
         ${isOverdue ? 'border-red-500/30' : ''}
+        ${hasOpenPopover ? 'z-[var(--cu-z-modal-popover)]' : 'z-auto'}
       `}
     >
-      {/* Hover action bar */}
-      {(onInlineUpdate || onDelete) && (
-        <div className="absolute -top-2.5 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-10 flex items-center gap-0.5 bg-cu-bg border border-cu-border rounded-md shadow-sm px-0.5 py-0.5">
-          {onInlineUpdate && (
-            <button data-action="edit" onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-              className="p-1 text-cu-text-muted hover:text-cu-primary hover:bg-cu-primary/10 rounded transition-colors" title="Edit">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </button>
-          )}
-          {onDelete && (
-            <button data-action="delete" onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
-              className="p-1 text-cu-text-muted hover:text-cu-danger hover:bg-cu-danger/10 rounded transition-colors" title="Delete">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-            </button>
-          )}
-        </div>
-      )}
-
+      {assigneeMenu}
       <div className="p-3">
         {/* Subtle syncing indicator when a background mutation is in-flight for this task */}
         {/** Position absolute to not affect layout */}
@@ -237,7 +310,33 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
               ));
             })()}
           </div>
-          <span className="text-[10px] text-cu-text-muted font-mono whitespace-nowrap flex-shrink-0">#{task.id}</span>
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <span className="text-[10px] text-cu-text-muted font-mono whitespace-nowrap px-1">#{task.id}</span>
+            {onInlineUpdate && (
+              <button
+                data-action="edit"
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-cu-text-muted hover:bg-cu-primary/10 hover:text-cu-primary transition-colors"
+                title="Edit task"
+                aria-label="Edit task"
+              >
+                <Pencil size={12} />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                data-action="delete"
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-cu-text-muted hover:bg-cu-danger/10 hover:text-cu-danger transition-colors"
+                title="Delete task"
+                aria-label="Delete task"
+              >
+                <Trash2 size={12} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Title */}
@@ -315,7 +414,12 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
             <div className="relative" ref={datePickerRef}>
               <button
                 data-action="date"
-                onClick={(e) => { e.stopPropagation(); setShowDatePicker(o => !o); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowLabelPicker(false);
+                  setShowAssigneePicker(false);
+                  setShowDatePicker(o => !o);
+                }}
                 className={`flex items-center gap-1 text-[11px] rounded px-1 py-0.5 transition-colors ${
                   isOverdue ? 'text-red-500 font-semibold bg-red-500/10 hover:bg-red-500/20' :
                   isToday ? 'text-cu-primary font-medium bg-cu-primary/10 hover:bg-cu-primary/20' :
@@ -349,7 +453,12 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
             <div className="relative" ref={labelPickerRef}>
               <button
                 data-action="label"
-                onClick={(e) => { e.stopPropagation(); setShowLabelPicker(o => !o); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDatePicker(false);
+                  setShowAssigneePicker(false);
+                  setShowLabelPicker(o => !o);
+                }}
                 className="flex items-center gap-1 text-[11px] text-cu-text-muted hover:bg-cu-hover rounded px-1 py-0.5 transition-colors"
                 title="Set label"
               >
@@ -437,18 +546,31 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
             )}
           </div>
 
-          {/* Assignee avatar */}
-          {task.assigneeName && (
-            <div className="flex-shrink-0" title={task.assigneeName}>
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[11px] font-bold flex items-center justify-center overflow-hidden ring-2 ring-cu-bg shadow-sm">
-                {avatarUrl ? (
+          {/* Assignee */}
+          <div className="relative flex-shrink-0" ref={assigneePickerRef}>
+            <button
+              data-action="assignee"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDatePicker(false);
+                setShowLabelPicker(false);
+                openAssigneePicker(e.currentTarget);
+              }}
+              className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[11px] font-bold flex items-center justify-center overflow-hidden ring-2 ring-cu-bg shadow-sm hover:ring-cu-primary/40 transition-all"
+              title={task.assigneeName || 'Assign task'}
+            >
+              {task.assigneeName ? (
+                avatarUrl ? (
                   <Image src={avatarUrl} alt={task.assigneeName} width={28} height={28} className="w-full h-full object-cover" unoptimized />
                 ) : (
                   task.assigneeName.charAt(0).toUpperCase()
-                )}
-              </div>
-            </div>
-          )}
+                )
+              ) : (
+                '+'
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

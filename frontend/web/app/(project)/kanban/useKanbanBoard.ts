@@ -24,6 +24,8 @@ export function useKanbanBoard(projectId: string | null) {
     data.patchTask,
     data.removeTask,
     data.syncCache,
+    data.syncColumnCache,
+    data.teamMembers,
   );
 
   // Add a new column (= new status) to the kanban board
@@ -32,7 +34,11 @@ export function useKanbanBoard(projectId: string | null) {
     try {
       const position = data.columnConfigs.length;
       const newCol: KanbanColumnConfig = await createKanbanColumn(data.kanbanId, name.trim(), position);
-      data.setColumnConfigs((prev: KanbanColumnConfig[]) => [...prev, newCol]);
+      data.setColumnConfigs((prev: KanbanColumnConfig[]) => {
+        const next = [...prev, newCol];
+        data.syncColumnCache(next);
+        return next;
+      });
     } catch (err) {
       console.error('Error creating column:', err);
     }
@@ -100,6 +106,7 @@ export function useKanbanBoard(projectId: string | null) {
     handleCreateTask: actions.handleCreateTask,
     handleOpenCreateModal: actions.handleOpenCreateModal,
     handleInlineUpdate: actions.handleInlineUpdate,
+    handleAssigneeChange: actions.handleAssigneeChange,
     handleDeleteTask: actions.handleDeleteTask,
     handleCompleteBoard: actions.handleCompleteBoard,
     handleColumnRenamed: actions.handleColumnRenamed,

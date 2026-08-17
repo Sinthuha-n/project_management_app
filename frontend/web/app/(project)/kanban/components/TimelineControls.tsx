@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react';
 import {
+  AlertTriangle,
   CalendarDays,
+  CalendarClock,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -61,13 +63,13 @@ function SelectControl({
   children: React.ReactNode;
 }) {
   return (
-    <label className="relative inline-flex h-10 items-center rounded-lg border border-cu-border bg-cu-bg-secondary pl-3 pr-8 text-sm font-bold text-cu-text-primary transition-colors hover:bg-cu-hover">
+    <label className="relative inline-flex h-10 min-w-0 max-w-full items-center rounded-lg border border-cu-border bg-cu-bg-secondary pl-3 pr-8 text-sm font-bold text-cu-text-primary transition-colors hover:bg-cu-hover">
       <span className="mr-2 text-cu-text-muted">{icon}</span>
       <span className="sr-only">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="max-w-[11rem] appearance-none bg-transparent text-sm font-bold outline-none"
+        className="min-w-0 max-w-[11rem] appearance-none bg-transparent text-sm font-bold outline-none"
       >
         {children}
       </select>
@@ -125,6 +127,30 @@ export default function TimelineControls({
         ))}
       </SelectControl>
 
+      <SelectControl
+        label="Schedule"
+        icon={<CalendarClock size={15} />}
+        value={filters.schedule}
+        onChange={(value) => patchFilters({ schedule: value as TimelineFilters['schedule'] })}
+      >
+        <option value="">All schedules</option>
+        <option value="scheduled">Scheduled</option>
+        <option value="unscheduled">Unscheduled</option>
+      </SelectControl>
+
+      <SelectControl
+        label="Focus"
+        icon={<AlertTriangle size={15} />}
+        value={filters.focus}
+        onChange={(value) => patchFilters({ focus: value as TimelineFilters['focus'] })}
+      >
+        <option value="">All focus</option>
+        <option value="blocked">Blocked</option>
+        <option value="overdue">Overdue</option>
+        <option value="due-week">Due this week</option>
+        <option value="past-milestone">Past milestone</option>
+      </SelectControl>
+
       <button
         type="button"
         onClick={() => patchFilters({ hideWeekends: !filters.hideWeekends })}
@@ -158,8 +184,8 @@ export default function TimelineControls({
   return (
     <TooltipProvider>
       <div className="rounded-xl border border-cu-border bg-cu-bg p-3 shadow-cu-sm">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+          <div className="flex min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
             <div className="relative min-w-0 flex-1 lg:max-w-sm">
               <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-cu-text-muted" />
               <input
@@ -180,7 +206,7 @@ export default function TimelineControls({
               )}
             </div>
 
-            <div className="hidden items-center gap-2 xl:flex">
+            <div className="hidden min-w-0 flex-wrap items-center gap-2 xl:flex">
               {renderFilterFields()}
               {activeFilterCount > 0 && (
                 <button
@@ -194,7 +220,7 @@ export default function TimelineControls({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={onToday}
@@ -204,7 +230,7 @@ export default function TimelineControls({
               Today
             </button>
 
-            <div className="flex items-center rounded-lg border border-cu-border bg-cu-bg-secondary p-1">
+            <div className="flex min-w-0 items-center rounded-lg border border-cu-border bg-cu-bg-secondary p-1">
               <Tooltip content="Previous range">
                 <button
                   type="button"
@@ -215,7 +241,7 @@ export default function TimelineControls({
                   <ChevronLeft size={17} />
                 </button>
               </Tooltip>
-              <div className="min-w-[8.5rem] px-2 text-center text-sm font-bold text-cu-text-primary sm:min-w-[12rem]">
+              <div className="min-w-[8.5rem] max-w-[15rem] truncate px-2 text-center text-sm font-bold text-cu-text-primary sm:min-w-[12rem]">
                 {currentLabel}
               </div>
               <Tooltip content="Next range">
