@@ -25,6 +25,7 @@ import com.planora.backend.repository.ProjectRepository;
 import com.planora.backend.repository.TeamInvitationRepository;
 import com.planora.backend.repository.TeamMemberRepository;
 import com.planora.backend.repository.UserRepository;
+import com.planora.backend.util.TokenEncryptionUtil;
 
 import lombok.RequiredArgsConstructor;
 
@@ -92,11 +93,14 @@ public class ProjectInvitationService {
         User inviter = userRepository.findById(inviterUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inviter not found"));
 
-        // Save invitation (token generated even though we are not sending link yet)
+        String rawToken = UUID.randomUUID().toString();
+        String hashedToken = TokenEncryptionUtil.hashSha256(rawToken);
+
+        // Save invitation (token hashed in DB, raw token dispatched in email link)
         TeamInvitation invitation = new TeamInvitation();
         invitation.setEmail(inviteeEmail);
         invitation.setTeam(project.getTeam());
-        invitation.setToken(UUID.randomUUID().toString());
+        invitation.setToken(hashedToken);
         invitation.setInvitedAt(LocalDateTime.now());
         invitation.setExpiresAt(LocalDateTime.now().plusDays(7));
         invitation.setStatus("PENDING");
@@ -112,7 +116,7 @@ public class ProjectInvitationService {
                         : inviter.getEmail();
 
         emailService.sendProjectInvitationHtmlEmail(inviteeEmail, inviterName, project.getName(),
-                invitation.getToken());
+                rawToken);
     }
 
     @Transactional(noRollbackFor = InvitationExpiredException.class)
@@ -121,7 +125,8 @@ public class ProjectInvitationService {
             throw new BadRequestException("Invalid invitation token");
         }
 
-        TeamInvitation invitation = teamInvitationRepository.findByTokenWithLock(token)
+        String hashedToken = TokenEncryptionUtil.hashSha256(token);
+        TeamInvitation invitation = teamInvitationRepository.findByTokenOrHashedTokenWithLock(token, hashedToken)
                 .orElseThrow(() -> new ResourceNotFoundException("Invitation not found or invalid"));
 
         Project project = invitation.getTeam().getProjects().stream().findFirst().orElse(null);

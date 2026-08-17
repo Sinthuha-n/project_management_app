@@ -52,7 +52,18 @@ public class GithubTokenService {
     public String resolveToken(GithubIntegration integration) {
         validateGithubIntegration();
         if (integration != null && StringUtils.hasText(integration.getEncryptedAccessToken())) {
-            return decryptToken(integration.getEncryptedAccessToken());
+            String stored = integration.getEncryptedAccessToken();
+            if (TokenEncryptionUtil.isEncrypted(stored, encryptionKey)) {
+                return decryptToken(stored);
+            }
+            if (stored.startsWith("ghp_") || stored.startsWith("gho_") || stored.startsWith("github_pat_")) {
+                log.warn("Found unencrypted token on GitHub integration id={}, auto-encrypting", integration.getId());
+                try {
+                    integration.setEncryptedAccessToken(encryptToken(stored));
+                } catch (Exception ignored) {}
+                return stored;
+            }
+            return decryptToken(stored);
         }
         if (StringUtils.hasText(defaultToken)) {
             return defaultToken;
@@ -87,7 +98,7 @@ public class GithubTokenService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public String getToken(Long userId) {
         validateGithubIntegration();
         if (!StringUtils.hasText(encryptionKey)) {
@@ -99,9 +110,20 @@ public class GithubTokenService {
         if (!StringUtils.hasText(stored)) {
             return null;
         }
+        if (TokenEncryptionUtil.isEncrypted(stored, encryptionKey)) {
+            return decryptToken(stored);
+        }
         try {
             return decryptToken(stored);
         } catch (Exception e) {
+            if (stored.startsWith("ghp_") || stored.startsWith("gho_") || stored.startsWith("github_pat_")) {
+                log.warn("Found unencrypted legacy GitHub token for user {}, re-encrypting", userId);
+                try {
+                    user.setGithubAccessToken(encryptToken(stored));
+                    userRepository.save(user);
+                } catch (Exception ignored) {}
+                return stored;
+            }
             throw new IllegalStateException("Failed to decrypt GitHub token for user " + userId, e);
         }
     }

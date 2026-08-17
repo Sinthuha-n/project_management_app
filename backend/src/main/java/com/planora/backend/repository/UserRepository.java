@@ -24,6 +24,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByGithubUserId(Long githubUserId);
 
     List<User> findByGithubEmailIgnoreCase(String githubEmail);
+
+    List<User> findByGithubAccessTokenIsNotNull();
     
     boolean existsByEmail(String email);
     
