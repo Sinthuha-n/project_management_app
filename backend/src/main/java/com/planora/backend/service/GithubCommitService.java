@@ -38,6 +38,11 @@ public class GithubCommitService {
 
     @Transactional
     public Page<GithubCommitDTO> getCommits(Long projectId, int page, int size) {
+        return getCommits(projectId, page, size, null);
+    }
+
+    @Transactional
+    public Page<GithubCommitDTO> getCommits(Long projectId, int page, int size, Long userId) {
         List<GithubIntegration> integrations = integrationRepository.findByProjectIdAndActiveTrue(projectId);
         if (integrations.isEmpty()) return Page.empty();
 
@@ -46,6 +51,7 @@ public class GithubCommitService {
         // Proactive sync for any integration that has no commits cached yet
         for (GithubIntegration integration : integrations) {
             if (commitRepository.countByIntegrationId(integration.getId()) == 0) {
+                ensureIntegrationToken(integration, userId);
                 if (githubTokenService.hasValidToken(integration)) {
                     try {
                         syncCommits(integration);
@@ -58,6 +64,20 @@ public class GithubCommitService {
 
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "authoredAt"));
         return commitRepository.findByIntegrationIdIn(ids, pageRequest).map(this::toDTO);
+    }
+
+    private void ensureIntegrationToken(GithubIntegration integration, Long userId) {
+        if (!githubTokenService.hasValidToken(integration) && userId != null) {
+            try {
+                String userToken = githubTokenService.getToken(userId);
+                if (userToken != null && !userToken.isBlank()) {
+                    integration.setEncryptedAccessToken(githubTokenService.encryptToken(userToken));
+                    integrationRepository.save(integration);
+                }
+            } catch (Exception e) {
+                log.debug("Could not backfill integration token from user {}: {}", userId, e.getMessage());
+            }
+        }
     }
 
     @Transactional

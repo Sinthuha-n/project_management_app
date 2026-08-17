@@ -128,16 +128,7 @@ export const useChat = (projectId: string) => {
     (incoming: ChatMessage, isOptimistic = false) => {
       const mergeTopLevel = (list: ChatMessage[], item: ChatMessage): ChatMessage[] => {
         if (item.parentMessageId) return list;
-        if (!item.id) return isOptimistic ? [...list, item] : list;
-
-        const index = list.findIndex((message) => message.id === item.id);
-        if (index !== -1) {
-          const next = [...list];
-          next[index] = { ...next[index], ...item };
-          return next;
-        }
-
-        return isOptimistic ? [...list, item] : list;
+        return mergeMessage(list, item);
       };
 
       if (!incoming.roomId && !incoming.recipient && !incoming.parentMessageId) {
@@ -247,8 +238,8 @@ export const useChat = (projectId: string) => {
   );
 
   const createRoom = useCallback(
-    async (name: string, members: string[]) => rmCreate(name, members, currentUser, users),
-    [rmCreate, currentUser, users],
+    async (name: string, members: string[] = []) => rmCreate(name, members, currentUser),
+    [rmCreate, currentUser],
   );
 
   const loadRoomHistory = useCallback(

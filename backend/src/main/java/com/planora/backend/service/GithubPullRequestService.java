@@ -38,6 +38,11 @@ public class GithubPullRequestService {
 
     @Transactional
     public Page<GithubPrDTO> getPullRequests(Long projectId, String state, int page, int size) {
+        return getPullRequests(projectId, state, page, size, null);
+    }
+
+    @Transactional
+    public Page<GithubPrDTO> getPullRequests(Long projectId, String state, int page, int size, Long userId) {
         List<GithubIntegration> integrations = integrationRepository.findByProjectIdAndActiveTrue(projectId);
         if (integrations.isEmpty()) return Page.empty();
 
@@ -46,6 +51,7 @@ public class GithubPullRequestService {
         // Proactive sync for any integration that has no PRs cached yet
         for (GithubIntegration integration : integrations) {
             if (pullRequestRepository.countByIntegrationId(integration.getId()) == 0) {
+                ensureIntegrationToken(integration, userId);
                 if (githubTokenService.hasValidToken(integration)) {
                     try {
                         syncPullRequests(integration);
@@ -62,6 +68,20 @@ public class GithubPullRequestService {
             : pullRequestRepository.findByIntegrationIdInAndState(ids, state.toLowerCase(), pageRequest);
 
         return prs.map(this::toDTO);
+    }
+
+    private void ensureIntegrationToken(GithubIntegration integration, Long userId) {
+        if (!githubTokenService.hasValidToken(integration) && userId != null) {
+            try {
+                String userToken = githubTokenService.getToken(userId);
+                if (userToken != null && !userToken.isBlank()) {
+                    integration.setEncryptedAccessToken(githubTokenService.encryptToken(userToken));
+                    integrationRepository.save(integration);
+                }
+            } catch (Exception e) {
+                log.debug("Could not backfill integration token from user {}: {}", userId, e.getMessage());
+            }
+        }
     }
 
     @Transactional
@@ -227,6 +247,7 @@ public class GithubPullRequestService {
         String author = pr.getAuthorLogin() != null ? pr.getAuthorLogin() : pr.getAuthor();
         String url = pr.getGithubUrl() != null ? pr.getGithubUrl() : pr.getHtmlUrl();
         int prNum = pr.getGithubPrNumber() != null ? pr.getGithubPrNumber() : pr.getPrNumber();
+        LocalDateTime mergedAt = pr.getGithubMergedAt() != null ? pr.getGithubMergedAt() : pr.getMergedAt();
         return GithubPrDTO.builder()
             .id(pr.getId())
             .integrationId(pr.getIntegration() != null ? pr.getIntegration().getId() : null)
@@ -241,7 +262,7 @@ public class GithubPullRequestService {
             .linkedTaskId(pr.getLinkedTaskId() != null ? pr.getLinkedTaskId() : (pr.getTask() != null ? pr.getTask().getId() : null))
             .githubCreatedAt(pr.getGithubCreatedAt())
             .githubUpdatedAt(pr.getGithubUpdatedAt())
-            .mergedAt(pr.getGithubMergedAt())
+            .mergedAt(mergedAt)
             .build();
     }
 

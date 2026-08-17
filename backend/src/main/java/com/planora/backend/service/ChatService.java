@@ -130,7 +130,7 @@ public class ChatService {
         var memberRoomIds = new LinkedHashSet<>(chatRoomMemberRepository.findRoomIdsByUserId(currentUser.getUserId()));
 
         return chatRoomRepository.findByProjectId(projectId).stream()
-                .filter(room -> room.getCreatedBy() != null && room.getCreatedBy().equalsIgnoreCase(username)
+                .filter(room -> isRoomCreator(room, currentUser, username)
                         || memberRoomIds.contains(room.getId()))
                 .filter(room -> includeArchived || !Boolean.TRUE.equals(room.getArchived()))
                 .toList();
@@ -230,7 +230,10 @@ public class ChatService {
                     .filter(identifier -> identifier != null && !identifier.isBlank())
                     .map(String::toLowerCase)
                     .distinct()
-                    .map(teamUsersByIdentifier::get)
+                    .map(id -> {
+                        var u = teamUsersByIdentifier.get(id);
+                        return u != null ? u : userCacheService.resolveUserByEmailOrUsername(id);
+                    })
                     .filter(user -> user != null)
                     .forEach(usersToAdd::add);
         }
@@ -331,6 +334,7 @@ public class ChatService {
             var roomMember = new ChatRoomMember();
             roomMember.setChatRoom(room);
             roomMember.setUser(user);
+            roomMember.setRole(ChatRoomMember.RoomRole.OWNER);
             chatRoomMemberRepository.save(roomMember);
             return;
         }

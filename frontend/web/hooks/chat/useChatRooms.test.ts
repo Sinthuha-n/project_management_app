@@ -72,6 +72,39 @@ describe('useChatRooms', () => {
     ]);
   });
 
+  it('creates a room without any additional members', async () => {
+    const createRoomRestMock = chatApi.createRoomRest as jest.Mock;
+    createRoomRestMock.mockResolvedValue({
+      id: 102,
+      projectId: 42,
+      name: 'announcements',
+      createdBy: 'alice',
+    });
+
+    const { result } = renderHook(() => useChatRooms('42'));
+
+    let created = null;
+    await act(async () => {
+      created = await result.current.createRoom('announcements', [], 'alice');
+    });
+
+    expect(created).toEqual({
+      id: 102,
+      projectId: 42,
+      name: 'announcements',
+      createdBy: 'alice',
+    });
+    expect(createRoomRestMock).toHaveBeenCalledWith('42', 'announcements', []);
+    expect(result.current.rooms).toEqual([
+      {
+        id: 102,
+        projectId: 42,
+        name: 'announcements',
+        createdBy: 'alice',
+      },
+    ]);
+  });
+
   it('serves loadRooms from cache unless forceRefresh is true', async () => {
     fetchRoomsMock.mockResolvedValue([
       { id: 1, projectId: 42, name: 'general', createdBy: 'alice' },

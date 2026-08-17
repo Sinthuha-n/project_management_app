@@ -47,16 +47,13 @@ export function useChatRooms(projectId: string) {
   }, [projectId]);
 
   const createRoom = useCallback(
-    async (name: string, members: string[], currentUser: string, users: string[]): Promise<ChatRoom | null> => {
+    async (name: string, members: string[] = [], currentUser?: string): Promise<ChatRoom | null> => {
       if (!name?.trim()) return null;
 
-      const chosenMembers = members
+      const normalizedCurrentUser = (currentUser || '').trim().toLowerCase();
+      const chosenMembers = (members || [])
         .map(u => u.trim().toLowerCase())
-        .filter(u => u && u !== currentUser && users.includes(u));
-      if (chosenMembers.length === 0) {
-        console.error('Please include at least one valid member.');
-        return null;
-      }
+        .filter(u => u && u !== normalizedCurrentUser);
 
       try {
         const rawRoom = await chatApi.createRoomRest(projectId, name.trim(), chosenMembers);
