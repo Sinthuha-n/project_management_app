@@ -16,10 +16,14 @@ export enum TaskPriority {
 
 // Assignee info
 export interface Assignee {
-  id: number;
+  id?: number;
+  memberId?: number;
+  userId?: number;
   name: string;
   email?: string;
   avatar?: string;
+  photoUrl?: string | null;
+  profilePicUrl?: string | null;
 }
 
 // Label/tag for tasks

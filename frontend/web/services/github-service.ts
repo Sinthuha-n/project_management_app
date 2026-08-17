@@ -245,20 +245,23 @@ export function projectConnectionToLinkRequest(
 }
 
 export function backendPrToGitHubPullRequest(pr: BackendGithubPr): GitHubPullRequest {
+  const prLike = pr as unknown as { author?: string; htmlUrl?: string };
+  const authorLogin = pr.authorLogin ?? prLike.author ?? 'unknown';
+  const htmlUrl = pr.githubUrl ?? prLike.htmlUrl ?? '';
   return {
     id: pr.id,
     number: pr.githubPrNumber,
-    title: pr.title,
-    state: pr.state === 'merged' ? 'closed' : pr.state,
+    title: pr.title || 'Untitled PR',
+    state: pr.state === 'merged' ? 'closed' : ((pr.state as 'open' | 'closed') || 'open'),
     merged_at: pr.mergedAt,
     created_at: pr.githubCreatedAt ?? '',
     updated_at: pr.githubUpdatedAt ?? pr.githubCreatedAt ?? '',
-    html_url: pr.githubUrl ?? '',
+    html_url: htmlUrl,
     draft: false,
     user: {
-      login: pr.authorLogin ?? 'unknown',
+      login: authorLogin,
       avatar_url: '',
-      html_url: pr.authorLogin ? `https://github.com/${pr.authorLogin}` : '',
+      html_url: authorLogin && authorLogin !== 'unknown' ? `https://github.com/${authorLogin}` : '',
     },
     labels: [],
     head: { ref: pr.headBranch ?? '' },
@@ -269,10 +272,11 @@ export function backendPrToGitHubPullRequest(pr: BackendGithubPr): GitHubPullReq
 export function backendCommitToGitHubCommit(commit: BackendGithubCommit): GitHubCommit {
   const commitLike = commit as BackendGithubCommit & {
     author?: string;
+    authorName?: string;
     committedAt?: string;
     htmlUrl?: string;
   };
-  const authorLogin = commit.authorName ?? commitLike.author ?? 'unknown';
+  const authorLogin = commit.authorName ?? commitLike.author ?? commit.author ?? 'unknown';
   const htmlUrl = commit.commitUrl ?? commitLike.htmlUrl ?? '';
   const date = commit.authoredAt ?? commitLike.committedAt ?? '';
 

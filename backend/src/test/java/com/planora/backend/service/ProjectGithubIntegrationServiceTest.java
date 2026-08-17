@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -91,9 +92,9 @@ class ProjectGithubIntegrationServiceTest {
 
         assertEquals("planora/web", service.linkRepository(request, 1L).getRepositoryFullName());
         verify(githubApiClient).fetchRepository("planora/web", "token");
-        verify(pullRequestService).syncPullRequests(any(GithubIntegration.class));
-        verify(commitService).syncCommits(any(GithubIntegration.class));
-        verify(issueService).syncIssues(any(GithubIntegration.class));
+        verify(pullRequestService, timeout(2000)).syncPullRequests(any(GithubIntegration.class));
+        verify(commitService, timeout(2000)).syncCommits(any(GithubIntegration.class));
+        verify(issueService, timeout(2000)).syncIssues(any(GithubIntegration.class));
     }
 
     @Test

@@ -103,21 +103,23 @@ public class ProjectGithubIntegrationService {
     }
 
     private void triggerInitialSync(GithubIntegration integration) {
-        try {
-            pullRequestService.syncPullRequests(integration);
-        } catch (Exception e) {
-            log.warn("Initial PR sync failed for {}: {}", integration.getRepositoryFullName(), e.getMessage());
-        }
-        try {
-            commitService.syncCommits(integration);
-        } catch (Exception e) {
-            log.warn("Initial commit sync failed for {}: {}", integration.getRepositoryFullName(), e.getMessage());
-        }
-        try {
-            issueService.syncIssues(integration);
-        } catch (Exception e) {
-            log.warn("Initial issue sync failed for {}: {}", integration.getRepositoryFullName(), e.getMessage());
-        }
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                pullRequestService.syncPullRequests(integration);
+            } catch (Exception e) {
+                log.warn("Initial PR sync failed for {}: {}", integration.getRepositoryFullName(), e.getMessage());
+            }
+            try {
+                commitService.syncCommits(integration);
+            } catch (Exception e) {
+                log.warn("Initial commit sync failed for {}: {}", integration.getRepositoryFullName(), e.getMessage());
+            }
+            try {
+                issueService.syncIssues(integration);
+            } catch (Exception e) {
+                log.warn("Initial issue sync failed for {}: {}", integration.getRepositoryFullName(), e.getMessage());
+            }
+        });
     }
 
     @Transactional

@@ -440,3 +440,31 @@ export async function createProjectLabel(
     throw error;
   }
 }
+
+/**
+ * Update an existing project label
+ */
+export async function updateProjectLabel(
+  id: number,
+  name: string,
+  color: string
+): Promise<Label> {
+  try {
+    return await labelsApi.update(id, { name, color });
+  } catch (error) {
+    console.error('Error updating project label:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a project label
+ */
+export async function deleteProjectLabel(id: number): Promise<void> {
+  try {
+    await labelsApi.delete(id);
+  } catch (error) {
+    console.error('Error deleting project label:', error);
+    throw error;
+  }
+}

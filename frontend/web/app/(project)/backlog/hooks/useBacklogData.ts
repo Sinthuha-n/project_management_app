@@ -81,16 +81,33 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
 
     const enrichTaskAvatars = useCallback((items: readonly Task[]): Task[] => {
         return items.map((task) => {
-            const taskWithAssignees = task as TaskWithAssignees;
+            const rawAssignees = (task as any).assignees;
             const assigneePhotoUrl =
                 resolveProfilePhotoUrl(task.assigneePhotoUrl, task.assigneeId) ||
                 (task.assigneeId != null ? memberPhotoById[task.assigneeId] : null) ||
                 null;
 
-            const assignees = taskWithAssignees.assignees?.map((assignee) => ({
-                ...assignee,
-                avatar: resolveProfilePhotoUrl(assignee.avatar, assignee.id) || assignee.avatar,
-            }));
+            const assignees = rawAssignees?.map((assignee: any) => {
+                const uid = assignee.userId ?? assignee.id;
+                const mid = assignee.memberId ?? assignee.id;
+                const rawPhoto = assignee.photoUrl ?? assignee.avatar ?? assignee.profilePicUrl;
+                const resolved =
+                    resolveProfilePhotoUrl(rawPhoto, uid) ||
+                    (uid != null ? memberPhotoById[uid] : null) ||
+                    (mid != null ? memberPhotoById[mid] : null) ||
+                    rawPhoto ||
+                    null;
+                return {
+                    ...assignee,
+                    id: uid ?? mid,
+                    userId: uid,
+                    memberId: mid,
+                    name: assignee.name,
+                    email: assignee.email,
+                    avatar: resolved,
+                    photoUrl: resolved,
+                };
+            });
 
             return {
                 ...task,
@@ -182,18 +199,27 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         const task = tasks.find(t => t.id === id);
         if (!task) return;
         const selectedMember = assigneeId != null
-            ? teamMembers.find(member => member.id === assigneeId)
+            ? teamMembers.find(member => member.id === assigneeId || member.memberId === assigneeId || member.userId === assigneeId)
             : null;
         const optimisticPatch: Partial<CanonicalTask> = selectedMember
             ? {
                 assigneeId: selectedMember.memberId ?? selectedMember.id,
                 assigneeName: selectedMember.name,
                 assigneePhotoUrl: selectedMember.photoUrl ?? undefined,
+                assignees: [{
+                    id: selectedMember.userId ?? selectedMember.id,
+                    userId: selectedMember.userId ?? selectedMember.id,
+                    memberId: selectedMember.memberId ?? selectedMember.id,
+                    name: selectedMember.name,
+                    avatar: selectedMember.photoUrl ?? undefined,
+                    photoUrl: selectedMember.photoUrl ?? undefined,
+                }],
             }
             : {
                 assigneeId: undefined,
                 assigneeName: undefined,
                 assigneePhotoUrl: undefined,
+                assignees: [],
             };
 
         try {
@@ -205,6 +231,45 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
             );
         } catch {
             toast('Failed to update assignee', 'error');
+            void forceRefresh();
+        }
+    }, [forceRefresh, taskMutations, tasks, teamMembers]);
+
+    const handleAssignMultiple = useCallback(async (id: number, assigneeUserIds: number[]) => {
+        const task = tasks.find(t => t.id === id);
+        if (!task) return;
+        const selectedMembers = teamMembers.filter(m =>
+            assigneeUserIds.includes(m.userId ?? m.id) || assigneeUserIds.includes(m.memberId ?? m.id) || assigneeUserIds.includes(m.id)
+        );
+        const newAssignees = selectedMembers.map(m => ({
+            id: m.userId ?? m.id,
+            userId: m.userId ?? m.id,
+            memberId: m.memberId ?? m.id,
+            name: m.name,
+            email: m.email,
+            avatar: resolveProfilePhotoUrl(m.photoUrl, m.userId ?? m.id) || m.photoUrl || undefined,
+            photoUrl: resolveProfilePhotoUrl(m.photoUrl, m.userId ?? m.id) || m.photoUrl || undefined,
+        }));
+        const firstMember = selectedMembers[0];
+        const optimisticPatch: Partial<CanonicalTask> = {
+            assigneeId: firstMember ? (firstMember.memberId ?? firstMember.id) : undefined,
+            assigneeName: firstMember ? firstMember.name : undefined,
+            assigneePhotoUrl: firstMember ? (resolveProfilePhotoUrl(firstMember.photoUrl, firstMember.userId) || firstMember.photoUrl || undefined) : undefined,
+            assignees: newAssignees,
+        };
+
+        try {
+            await taskMutations.move(
+                id,
+                optimisticPatch,
+                async () => {
+                    await tasksApi.assignTaskMultiple(id, { assigneeIds: assigneeUserIds });
+                    return { ...task, ...optimisticPatch } as unknown as Task;
+                },
+                task as unknown as CanonicalTask,
+            );
+        } catch {
+            toast('Failed to update assignees', 'error');
             void forceRefresh();
         }
     }, [forceRefresh, taskMutations, tasks, teamMembers]);
@@ -304,7 +369,17 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         }
         if (groupBy === 'assignee') {
             const groups: Record<string, Task[]> = {};
-            filteredTasks.forEach(t => { const k = t.assigneeName || 'Unassigned'; (groups[k] = groups[k] || []).push(t); });
+            filteredTasks.forEach(t => {
+                if (t.assignees && t.assignees.length > 0) {
+                    t.assignees.forEach(a => {
+                        const k = a.name || 'Unassigned';
+                        (groups[k] = groups[k] || []).push(t);
+                    });
+                } else {
+                    const k = t.assigneeName || 'Unassigned';
+                    (groups[k] = groups[k] || []).push(t);
+                }
+            });
             return Object.entries(groups).map(([label, items]) => ({ label, items }));
         }
         const groups: Record<string, Task[]> = {};
@@ -332,7 +407,7 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         selectedIds, setSelectedIds,
         filteredTasks, groupedTasks,
         handleMarkDone, handleDelete, handleAddTask,
-        handleStatusChange, handleAssigneeChange, handleBulkDelete, handleBulkDone,
+        handleStatusChange, handleAssigneeChange, handleAssignMultiple, handleBulkDelete, handleBulkDone,
         handleArchiveTask, handleUnarchiveTask,
         toggleSelect, loadTasks: forceRefresh, handleDateChange, forceRefresh,
     };

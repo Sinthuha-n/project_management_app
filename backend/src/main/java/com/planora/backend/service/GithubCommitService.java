@@ -66,10 +66,19 @@ public class GithubCommitService {
         String repo = integration.getRepositoryFullName();
         log.info("Syncing commits for {}", repo);
 
-        List<JsonNode> commits = githubApiClient.fetchCommits(repo, token, 1, 100);
-        commits.forEach(node -> upsertCommit(integration, node));
-
-        log.info("Commit sync complete for {} ({} fetched)", repo, commits.size());
+        try {
+            List<JsonNode> commits = githubApiClient.fetchCommits(repo, token, 1, 100);
+            commits.forEach(node -> {
+                try {
+                    upsertCommit(integration, node);
+                } catch (Exception ex) {
+                    log.warn("Failed to upsert commit for {}: {}", repo, ex.getMessage());
+                }
+            });
+            log.info("Commit sync complete for {} ({} fetched)", repo, commits.size());
+        } catch (Exception e) {
+            log.warn("Commit sync failed for {}: {}", repo, e.getMessage());
+        }
     }
 
     @Transactional
@@ -83,22 +92,39 @@ public class GithubCommitService {
         commit.setSha(sha);
 
         JsonNode commitNode = node.path("commit");
-        String message = commitNode.path("message").asText(null);
+        String message = commitNode.path("message").asText("No commit message");
         commit.setMessage(message);
 
         String authorName = commitNode.path("author").path("name").asText(null);
+        if (authorName == null || authorName.isBlank()) {
+            authorName = commitNode.path("committer").path("name").asText(null);
+        }
         String authorLogin = node.path("author").path("login").asText(null);
-        String finalAuthor = (authorLogin != null && !authorLogin.isBlank()) ? authorLogin : authorName;
-        commit.setAuthorName(authorName);
+        if (authorLogin == null || authorLogin.isBlank()) {
+            authorLogin = node.path("committer").path("login").asText(null);
+        }
+        String finalAuthor = (authorLogin != null && !authorLogin.isBlank())
+                ? authorLogin
+                : (authorName != null && !authorName.isBlank() ? authorName : "unknown");
+        commit.setAuthorName(authorName != null ? authorName : finalAuthor);
         commit.setAuthor(finalAuthor);
 
         String authorEmail = commitNode.path("author").path("email").asText(null);
+        if (authorEmail == null || authorEmail.isBlank()) {
+            authorEmail = commitNode.path("committer").path("email").asText(null);
+        }
         commit.setAuthorEmail(authorEmail);
 
         String dateStr = commitNode.path("author").path("date").asText(null);
+        if (dateStr == null || dateStr.isBlank()) {
+            dateStr = commitNode.path("committer").path("date").asText(null);
+        }
         LocalDateTime authoredAt = parseDateTime(dateStr);
+        if (authoredAt == null) {
+            authoredAt = LocalDateTime.now();
+        }
         commit.setAuthoredAt(authoredAt);
-        commit.setCommittedAt(dateStr);
+        commit.setCommittedAt(dateStr != null ? dateStr : authoredAt.toString());
 
         String htmlUrl = node.path("html_url").asText(null);
         commit.setCommitUrl(htmlUrl);

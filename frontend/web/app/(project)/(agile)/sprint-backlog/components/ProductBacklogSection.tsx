@@ -37,6 +37,7 @@ interface ProductBacklogSectionProps {
   onCreateSprint: () => void;
   onDropTask: (taskId: number, targetIndex?: number) => void;
   onAssignTask: (taskId: number, assigneeName: string, assigneePhotoUrl: string | null) => void;
+  onAssignMultiple?: (taskId: number, userIds: number[]) => Promise<void> | void;
   onStatusChange: (taskId: number, status: string) => void;
   onDueDateChange?: (taskId: number, dueDate: string) => Promise<void>;
   onRenameTask?: (taskId: number, title: string) => void;
@@ -44,6 +45,8 @@ interface ProductBacklogSectionProps {
   onCloseCreateModal?: () => void;
   projectLabels?: Array<{ id: number; name: string; color?: string }>;
   onCreateLabel?: (name: string) => Promise<{ id: number; name: string; color?: string }>;
+  onUpdateLabel?: (id: number, name: string, color: string) => Promise<{ id: number; name: string; color?: string }>;
+  onDeleteLabel?: (id: number) => Promise<boolean>;
 }
 
 
@@ -61,6 +64,7 @@ export default function ProductBacklogSection({
   onCreateSprint,
   onDropTask,
   onAssignTask,
+  onAssignMultiple,
   onStatusChange,
   onDueDateChange,
   onRenameTask,
@@ -68,6 +72,8 @@ export default function ProductBacklogSection({
   onCloseCreateModal,
   projectLabels = [],
   onCreateLabel,
+  onUpdateLabel,
+  onDeleteLabel,
 }: ProductBacklogSectionProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [showCreateModalInternal, setShowCreateModalInternal] = useState(false);
@@ -146,6 +152,25 @@ export default function ProductBacklogSection({
       if (member) {
         onAssignTask(taskId, getMemberDisplayName(member), member.user.profilePicUrl || null);
       }
+    } catch {
+      toast('Failed to assign task.', 'error');
+    }
+  };
+
+  const handleAssignMultiple = async (taskId: number, userIds: number[]) => {
+    if (props.onAssignMultiple) {
+      await props.onAssignMultiple(taskId, userIds);
+      return;
+    }
+    try {
+      await tasksApi.assignTaskMultiple(taskId, { assigneeIds: userIds });
+      const assignedMembers = teamMembers.filter((m) => userIds.includes(m.user.userId));
+      const first = assignedMembers[0];
+      onAssignTask(
+        taskId,
+        first ? getMemberDisplayName(first) : 'Unassigned',
+        first?.user?.profilePicUrl || null
+      );
     } catch {
       toast('Failed to assign task.', 'error');
     }
@@ -365,6 +390,7 @@ export default function ProductBacklogSection({
                         onStoryPointsChange={onStoryPointsChange}
                         onRenameTask={handleRenameTask}
                         onAssignTask={handleAssignTask}
+                        onAssignMultiple={handleAssignMultiple}
                         onDueDateChange={(taskId, dueDate) => { void onDueDateChange?.(taskId, dueDate); }}
                         onDeleteTask={(id) => setTaskToDeleteId(id)}
                         onOpenTask={(id) => setSelectedTaskId(id)}
@@ -372,6 +398,8 @@ export default function ProductBacklogSection({
                       onAddLabel={handleAddLabel}
                       onRemoveLabel={handleRemoveLabel}
                       onCreateLabel={onCreateLabel}
+                      onUpdateLabel={onUpdateLabel}
+                      onDeleteLabel={onDeleteLabel}
                       onMoveUp={() => onDropTask(task.id, Math.max(0, index - 1))}
                       onMoveDown={() => onDropTask(task.id, Math.min(tasks.length, index + 2))}
                       projectKey={projectKey}
