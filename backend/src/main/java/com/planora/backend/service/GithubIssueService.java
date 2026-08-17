@@ -147,7 +147,17 @@ public class GithubIssueService {
     public Task resolveTaskRef(Project project, String text) {
         if (project == null || text == null || text.isBlank()) return null;
 
-        String projectKey = project.getProjectKey() != null ? project.getProjectKey() : "TASK";
+        Long projectId;
+        String projectKey;
+        try {
+            projectId = project.getId();
+            projectKey = project.getProjectKey() != null ? project.getProjectKey() : "TASK";
+        } catch (Exception e) {
+            log.debug("Could not resolve project details from proxy: {}", e.getMessage());
+            return null;
+        }
+        if (projectId == null) return null;
+
         Pattern pattern = Pattern.compile(
             "(?:#|" + Pattern.quote(projectKey) + "-|TASK-|task/|issue/|feature/)(\\d+)",
             Pattern.CASE_INSENSITIVE
@@ -157,14 +167,14 @@ public class GithubIssueService {
             try {
                 long num = Long.parseLong(matcher.group(1));
                 // 1. Try project-scoped task number
-                Optional<Task> taskByNum = taskRepository.findByProjectIdAndProjectTaskNumber(project.getId(), num);
+                Optional<Task> taskByNum = taskRepository.findByProjectIdAndProjectTaskNumber(projectId, num);
                 if (taskByNum.isPresent()) {
                     return taskByNum.get();
                 }
                 // 2. Try global task ID if it belongs to this project
                 Optional<Task> taskById = taskRepository.findById(num);
                 if (taskById.isPresent() && taskById.get().getProject() != null
-                        && project.getId().equals(taskById.get().getProject().getId())) {
+                        && projectId.equals(taskById.get().getProject().getId())) {
                     return taskById.get();
                 }
             } catch (NumberFormatException ignored) {
