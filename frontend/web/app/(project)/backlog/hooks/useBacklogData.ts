@@ -15,10 +15,6 @@ import { useTaskMutations } from '@/hooks/useTaskMutations';
 import { useProjectTasks } from '@/hooks/useProjectTasks';
 import type { Task as CanonicalTask } from '@/types';
 
-type TaskWithAssignees = Task & {
-    assignees?: Array<{ id?: number; avatar?: string | null }>;
-};
-
 export function useBacklogData(projectId: string | null, showArchived = false) {
     const taskMutations = useTaskMutations(projectId);
     const activeTaskSource = useProjectTasks(projectId, false);
@@ -81,13 +77,13 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
 
     const enrichTaskAvatars = useCallback((items: readonly Task[]): Task[] => {
         return items.map((task) => {
-            const rawAssignees = (task as any).assignees;
+            const rawAssignees = task.assignees;
             const assigneePhotoUrl =
                 resolveProfilePhotoUrl(task.assigneePhotoUrl, task.assigneeId) ||
                 (task.assigneeId != null ? memberPhotoById[task.assigneeId] : null) ||
                 null;
 
-            const assignees = rawAssignees?.map((assignee: any) => {
+            const assignees = rawAssignees?.map((assignee) => {
                 const uid = assignee.userId ?? assignee.id;
                 const mid = assignee.memberId ?? assignee.id;
                 const rawPhoto = assignee.photoUrl ?? assignee.avatar ?? assignee.profilePicUrl;

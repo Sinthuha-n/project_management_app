@@ -15,12 +15,16 @@ const LABEL_PALETTE = [
   '#6366F1', '#8B5CF6', '#EC4899', '#6B7280',
 ];
 
+function getMemberName(m: NonNullable<TaskRowProps['teamMembers']>[number]) {
+  return m.user.fullName || m.user.username;
+}
+
 export default function DesktopTaskRow(props: TaskRowProps) {
   const {
     task, projectKey, teamMembers = [], loadingMembers = false,
     canDelete = true, showCheckbox = false, onToggle, onStatusChange,
     onStoryPointsChange, onAssignTask, onAssignMultiple, onDueDateChange, onDeleteTask,
-    onOpenTask, projectLabels = [], onAddLabel, onRemoveLabel, onCreateLabel,
+    onOpenTask, projectLabels = [], onAddLabel, onCreateLabel,
     onUpdateLabel, onDeleteLabel,
     extraStatuses = [], hideStatus = false,
   } = props;
@@ -51,7 +55,7 @@ export default function DesktopTaskRow(props: TaskRowProps) {
   const currentAssigneeUserIds = React.useMemo(() => {
     if (task.assignees && task.assignees.length > 0) {
       return task.assignees
-        .map((a: any) => a.userId ?? a.memberId ?? a.id)
+        .map((a) => a.userId ?? a.memberId ?? a.id)
         .filter((id): id is number => typeof id === 'number');
     }
     return [];
@@ -86,8 +90,6 @@ export default function DesktopTaskRow(props: TaskRowProps) {
     }
     setAssignOpen(false);
   };
-
-  const getMemberName = (m: NonNullable<typeof teamMembers>[number]) => m.user.fullName || m.user.username;
 
   const filteredMembers = React.useMemo(() => {
     if (!assignSearch.trim()) return teamMembers;

@@ -8,7 +8,7 @@ import { Menu, Plus, Settings, Github, Figma, ExternalLink, Copy, Check } from '
 
 import { useNavigation } from '@/lib/navigation-context';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { getUserFromToken, getValidToken, User, getUserIdFromToken } from '@/lib/auth';
+import { getUserFromToken, getValidToken, User } from '@/lib/auth';
 import * as projectsApi from '@/services/projects-service';
 import { normalizeExternalUrl, openSafeExternalUrl } from '@/lib/url-utils';
 
@@ -35,7 +35,7 @@ function TopBarContent() {
 
   const {
     projectId, projectName, projectType, isAgile, isFavorite, toggleFavorite, switchProject,
-    figmaUrl, projectOwnerId, setFigmaUrl, mutateProject,
+    figmaUrl, setFigmaUrl, mutateProject,
   } = useProjectContext();
 
   const { tabs, activeTab, getTabHref, isProjectPage } = useProjectTabs(projectId, isAgile);

@@ -24,7 +24,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/DropdownMenu';
@@ -212,7 +211,7 @@ function LabelDropdownList({
   const [isSavingEdit, setIsSavingEdit] = React.useState(false);
 
   const [deletingLabelId, setDeletingLabelId] = React.useState<number | null>(null);
-  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [isDeletingLabel, setIsDeletingLabel] = React.useState(false);
 
   const handleCreate = async () => {
     const trimmed = labelInput.trim();
@@ -401,13 +400,13 @@ function LabelDropdownList({
                       onClick={(e) => {
                         e.stopPropagation();
                         if (onDeleteLabel) {
-                          setIsDeleting(true);
+                          setIsDeletingLabel(true);
                           void onDeleteLabel(label.id)
                             .then(() => setDeletingLabelId(null))
-                            .finally(() => setIsDeleting(false));
+                            .finally(() => setIsDeletingLabel(false));
                         }
                       }}
-                      disabled={isDeleting}
+                      disabled={isDeletingLabel}
                       className="px-1.5 py-0.5 text-[9px] font-semibold bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
                     >
                       Delete

@@ -26,7 +26,7 @@ export default function MobileTaskRow(props: TaskRowProps) {
   const currentAssigneeUserIds = React.useMemo(() => {
     if (task.assignees && task.assignees.length > 0) {
       return task.assignees
-        .map((a: any) => a.userId ?? a.memberId ?? a.id)
+        .map((a) => a.userId ?? a.memberId ?? a.id)
         .filter((id): id is number => typeof id === 'number');
     }
     return [];

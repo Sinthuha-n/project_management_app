@@ -55,7 +55,7 @@ export default function BacklogTaskDetail({
                     <p className="text-[11px] text-cu-text-muted mb-1.5 font-medium">Assignees</p>
                     {task.assignees && task.assignees.length > 0 ? (
                         <div className="flex flex-wrap items-center gap-2">
-                            {task.assignees.map((a: any, idx) => (
+                            {task.assignees.map((a, idx) => (
                                 <div key={a.userId ?? a.memberId ?? a.id ?? idx} className="inline-flex items-center gap-1.5 bg-cu-bg border border-cu-border rounded-lg px-2 py-1">
                                     <AssigneeAvatar name={a.name} profilePicUrl={a.photoUrl || a.avatar || a.profilePicUrl} size={20} />
                                     <span className="text-[12px] font-medium text-cu-text-primary truncate max-w-[120px]">{a.name}</span>

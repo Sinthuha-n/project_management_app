@@ -44,7 +44,16 @@ type RawTask = {
   storyPoint: number;
   assigneeName?: string;
   assigneePhotoUrl?: string | null;
-  assignees?: Array<{ id: number; name: string; email?: string; avatar?: string; profilePicUrl?: string | null }>;
+  assignees?: Array<{
+    id?: number;
+    userId?: number;
+    memberId?: number;
+    name: string;
+    email?: string;
+    avatar?: string;
+    photoUrl?: string | null;
+    profilePicUrl?: string | null;
+  }>;
   sprintId?: number | null;
   status?: string;
   startDate?: string;
@@ -136,7 +145,7 @@ function SprintBacklogPageContent() {
     selected: false,
     assigneeName: raw.assigneeName ?? 'Unassigned',
     assigneePhotoUrl: raw.assigneePhotoUrl ?? null,
-    assignees: raw.assignees?.map((a: any) => ({
+    assignees: raw.assignees?.map((a) => ({
       id: a.userId ?? a.memberId ?? a.id,
       userId: a.userId ?? a.id,
       memberId: a.memberId ?? a.id,

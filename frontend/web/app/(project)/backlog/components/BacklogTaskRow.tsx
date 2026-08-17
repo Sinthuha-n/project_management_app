@@ -112,7 +112,7 @@ export default function BacklogTaskRow({
     const currentAssigneeUserIds = React.useMemo(() => {
         if (task.assignees && task.assignees.length > 0) {
             return task.assignees
-                .map((a: any) => a.userId ?? a.memberId ?? a.id)
+                .map((a) => a.userId ?? a.memberId ?? a.id)
                 .filter((id): id is number => typeof id === 'number');
         }
         if (task.assigneeId != null) {
@@ -265,7 +265,7 @@ export default function BacklogTaskRow({
                 >
                     {displayAssignees.length > 1 ? (
                         <div className="flex items-center">
-                            {displayAssignees.slice(0, 3).map((a: any, idx) => (
+                            {displayAssignees.slice(0, 3).map((a, idx) => (
                                 <span
                                     key={a.userId ?? a.memberId ?? a.id ?? idx}
                                     className="inline-block ring-2 ring-cu-bg rounded-full"
