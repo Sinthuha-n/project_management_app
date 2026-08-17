@@ -35,10 +35,10 @@ export default function CalendarEventPopup({ event, position, onClose, onOpenTas
     if (typeof window === 'undefined') return { left: position.x, top: position.y + 10 };
 
     const width = 320;
-    const height = 280;
+    const estimatedHeight = 320;
     return {
       left: Math.max(8, Math.min(position.x, window.innerWidth - width - 8)),
-      top: Math.max(8, Math.min(position.y + 10, window.innerHeight - height - 8)),
+      top: Math.max(8, Math.min(position.y + 10, window.innerHeight - estimatedHeight - 8)),
     };
   }, [position.x, position.y]);
 
@@ -67,9 +67,9 @@ export default function CalendarEventPopup({ event, position, onClose, onOpenTas
       role="dialog"
       aria-label={event.title}
       style={{ position: 'fixed', left: coordinates.left, top: coordinates.top, width: 320, zIndex: 200 }}
-      className="overflow-hidden rounded-xl glass-panel shadow-cu-xl"
+      className="max-h-[calc(100vh-2rem)] sm:max-h-[480px] flex flex-col overflow-hidden rounded-xl glass-panel shadow-cu-xl"
     >
-      <div className="flex items-start gap-3 border-b border-[rgba(232,232,237,0.3)] dark:border-[rgba(39,52,73,0.3)] bg-[rgba(247,248,250,0.3)] dark:bg-[rgba(17,24,39,0.3)] px-4 py-3">
+      <div className="shrink-0 flex items-start gap-3 border-b border-[rgba(232,232,237,0.3)] dark:border-[rgba(39,52,73,0.3)] bg-[rgba(247,248,250,0.3)] dark:bg-[rgba(17,24,39,0.3)] px-4 py-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[rgba(232,232,237,0.5)] dark:border-[rgba(39,52,73,0.5)] bg-[rgba(255,255,255,0.4)] dark:bg-[rgba(11,17,32,0.4)] text-cu-primary backdrop-blur-sm">
           {event.kind === 'sprint' ? <Flag size={16} /> : <CalendarDays size={16} />}
         </div>
@@ -96,7 +96,7 @@ export default function CalendarEventPopup({ event, position, onClose, onOpenTas
         </button>
       </div>
 
-      <div className="space-y-3 px-4 py-3">
+      <div className="flex-1 overflow-y-auto space-y-3 px-4 py-3 min-h-0">
         {dateLabel && (
           <div className="flex items-center gap-2 text-xs text-cu-text-secondary">
             <CalendarDays size={14} className="text-cu-text-muted" />
@@ -110,14 +110,14 @@ export default function CalendarEventPopup({ event, position, onClose, onOpenTas
           </div>
         )}
         {event.description && (
-          <p className="line-clamp-4 rounded-lg border border-[rgba(232,232,237,0.5)] dark:border-[rgba(39,52,73,0.5)] bg-[rgba(247,248,250,0.2)] dark:bg-[rgba(17,24,39,0.2)] px-3 py-2 text-xs leading-relaxed text-cu-text-secondary">
+          <p className="rounded-lg border border-[rgba(232,232,237,0.5)] dark:border-[rgba(39,52,73,0.5)] bg-[rgba(247,248,250,0.2)] dark:bg-[rgba(17,24,39,0.2)] px-3 py-2 text-xs leading-relaxed text-cu-text-secondary whitespace-pre-wrap break-words">
             {event.description}
           </p>
         )}
       </div>
 
       {event.taskId && onOpenTask && (
-        <div className="border-t border-[rgba(232,232,237,0.3)] dark:border-[rgba(39,52,73,0.3)] bg-[rgba(247,248,250,0.3)] dark:bg-[rgba(17,24,39,0.3)] px-4 py-3">
+        <div className="shrink-0 border-t border-[rgba(232,232,237,0.3)] dark:border-[rgba(39,52,73,0.3)] bg-[rgba(247,248,250,0.3)] dark:bg-[rgba(17,24,39,0.3)] px-4 py-3">
           <button
             type="button"
             onClick={() => onOpenTask(event.taskId!)}

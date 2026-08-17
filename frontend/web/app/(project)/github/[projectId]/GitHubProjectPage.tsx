@@ -151,7 +151,7 @@ function timeAgo(dateStr?: string | null): string {
 
 function prStatus(pr: GitHubPullRequest): { label: string; color: string; dot: string; glow: string } {
   if (pr.draft) return { label: 'Draft', color: 'text-slate-400 bg-slate-400/10 border-slate-400/20', dot: 'bg-slate-400', glow: '' };
-  const isMerged = Boolean(pr.merged_at) || (pr as unknown as { rawState?: string }).rawState === 'merged' || pr.state === 'merged';
+  const isMerged = Boolean(pr.merged_at) || (pr as unknown as { rawState?: string }).rawState === 'merged' || (pr.state as string) === 'merged';
   if (isMerged) return { label: 'Merged', color: 'text-purple-300 bg-purple-400/12 border-purple-400/25', dot: 'bg-purple-400', glow: 'shadow-[0_0_10px_rgba(168,85,247,0.35)]' };
   if (pr.state === 'closed') return { label: 'Closed', color: 'text-red-300 bg-red-400/12 border-red-400/25', dot: 'bg-red-400', glow: '' };
   return { label: 'Open', color: 'text-emerald-300 bg-emerald-400/12 border-emerald-400/25', dot: 'bg-emerald-400', glow: 'shadow-[0_0_10px_rgba(52,211,153,0.35)]' };
@@ -1534,7 +1534,7 @@ function ConnectedDashboard({
   const filteredPrs = useMemo(() => {
     return prs.filter((pr) => {
       if (prFilter === 'all') return true;
-      const isMerged = Boolean(pr.merged_at) || (pr as unknown as { rawState?: string }).rawState === 'merged' || pr.state === 'merged';
+      const isMerged = Boolean(pr.merged_at) || (pr as unknown as { rawState?: string }).rawState === 'merged' || (pr.state as string) === 'merged';
       if (prFilter === 'merged') return isMerged;
       if (prFilter === 'open') return pr.state === 'open' && !isMerged;
       if (prFilter === 'closed') return pr.state === 'closed' && !isMerged;

@@ -328,6 +328,7 @@ export const ChatMessages = ({
                   width: '100%',
                   transform: `translateY(${row.start}px)`,
                 }}
+                className={`relative ${isActiveMessage ? 'z-30' : 'hover:z-30'}`}
               >
                 {/* Date separator */}
               {showSeparator && (
@@ -381,12 +382,12 @@ export const ChatMessages = ({
                     }}
                     className="group/message relative cursor-pointer"
                   >
-                    {/* Hover action bar */}
+                    {/* Hover action bar with hover bridge and robust stacking */}
                     {!!msg.id && !msg.deleted && (
                       <div
-                        className={`absolute bottom-full mb-1 ${isMe ? 'right-0' : 'left-0'} z-10 flex items-center gap-1 rounded-xl border border-cu-border bg-cu-bg px-2 py-2 shadow-cu-lg transition-opacity ${
+                        className={`absolute bottom-full mb-1 ${isMe ? 'right-0' : 'left-0'} z-20 flex items-center gap-1 rounded-xl border border-cu-border bg-cu-bg px-2 py-2 shadow-cu-lg transition-opacity before:absolute before:-bottom-3 before:inset-x-0 before:h-4 before:content-[''] ${
                           isActiveMessage
-                            ? 'opacity-100'
+                            ? 'opacity-100 pointer-events-auto'
                             : 'pointer-events-none opacity-0 group-hover/message:pointer-events-auto group-hover/message:opacity-100 group-focus-within/message:pointer-events-auto group-focus-within/message:opacity-100'
                         }`}
                       >
@@ -394,7 +395,11 @@ export const ChatMessages = ({
                         {QUICK_REACTIONS.map((emoji) => (
                           <button
                             key={emoji}
-                            onClick={() => onToggleReaction(msg.id as number, emoji)}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleReaction(msg.id as number, emoji);
+                            }}
                             className="flex h-9 w-9 items-center justify-center rounded-lg text-sm transition-all hover:scale-110 hover:bg-cu-hover active:scale-95"
                             title={`React ${emoji}`}
                           >
@@ -406,7 +411,11 @@ export const ChatMessages = ({
 
                         {/* Thread */}
                         <button
-                          onClick={() => onOpenThread(msg)}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenThread(msg);
+                          }}
                           className="flex min-h-[36px] items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium text-cu-text-muted transition-colors hover:bg-cu-hover hover:text-cu-text-primary"
                           title="Reply in thread"
                         >
@@ -416,7 +425,11 @@ export const ChatMessages = ({
                         {/* Pin/Unpin */}
                         {!!activeRoomId && onPinRoomMessage && (
                           <button
-                            onClick={() => onPinRoomMessage(isPinned ? null : (msg.id as number))}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onPinRoomMessage(isPinned ? null : (msg.id as number));
+                            }}
                             className="flex h-9 w-9 items-center justify-center rounded-lg text-cu-text-muted transition-colors hover:bg-cu-hover hover:text-cu-text-primary"
                             title={isPinned ? 'Unpin' : 'Pin message'}
                           >
@@ -429,7 +442,12 @@ export const ChatMessages = ({
                           <>
                             {!fileDoc && (
                               <button
-                                onClick={() => setEditingMessage(msg)}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  setEditingMessage(msg);
+                                }}
                                 className="flex h-9 w-9 items-center justify-center rounded-lg text-cu-text-muted transition-colors hover:bg-cu-hover hover:text-cu-primary"
                                 title="Edit"
                               >
@@ -437,7 +455,12 @@ export const ChatMessages = ({
                               </button>
                             )}
                             <button
-                              onClick={() => setMessageToDelete(msg.id as number)}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setMessageToDelete(msg.id as number);
+                              }}
                               className="flex h-9 w-9 items-center justify-center rounded-lg text-cu-text-muted transition-colors hover:bg-red-500/10 hover:text-red-500"
                               title="Delete message"
                             >
@@ -450,7 +473,7 @@ export const ChatMessages = ({
 
                     {/* Message bubble */}
                     <div className={`
-                      relative px-4 py-2.5 pr-14 pb-4 text-[13.5px] leading-relaxed shadow-cu-sm
+                      relative px-3.5 py-2 text-[13.5px] leading-relaxed shadow-cu-sm min-w-[72px]
                       ${msg.deleted
                         ? 'bg-cu-bg-secondary text-cu-text-muted italic rounded-2xl'
                         : !msg.id
@@ -477,21 +500,23 @@ export const ChatMessages = ({
                           </span>
                         </a>
                       ) : (
-                        <span className="break-words whitespace-pre-wrap">
+                        <div className="break-words whitespace-pre-wrap">
                           {renderMentionContent(msg.content, aliasSet)}
-                        </span>
+                        </div>
                       )}
 
-                      {/* Time + edited inside bubble */}
+                      {/* Time + edited status metadata */}
                       {!msg.deleted && (
-                        <span className={`absolute bottom-1.5 right-3 flex items-center text-[10px] leading-none ${isMe ? 'text-white/70' : 'text-cu-text-muted'}`}>
-                          {msg.editedAt && <span className="mr-1 italic">edited</span>}
+                        <div className={`mt-1 flex items-center justify-end gap-1.5 text-[10px] leading-none select-none ${isMe ? 'text-white/75' : 'text-cu-text-muted'}`}>
+                          {msg.editedAt && (
+                            <span className="italic font-normal tracking-tight">edited</span>
+                          )}
                           {!msg.id ? (
-                            <><ClockIcon /> Sending...</>
+                            <span className="flex items-center gap-0.5"><ClockIcon /> Sending...</span>
                           ) : msg.timestamp ? (
-                            formatTime(msg.timestamp)
+                            <span>{formatTime(msg.timestamp)}</span>
                           ) : null}
-                        </span>
+                        </div>
                       )}
                     </div>
                   </div>

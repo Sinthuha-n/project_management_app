@@ -52,7 +52,7 @@ describe('useChatRooms', () => {
 
     let created = null;
     await act(async () => {
-      created = await result.current.createRoom('engineering', ['bob'], 'alice', ['bob']);
+      created = await result.current.createRoom('engineering', ['bob'], 'alice');
     });
 
     expect(created).toEqual({

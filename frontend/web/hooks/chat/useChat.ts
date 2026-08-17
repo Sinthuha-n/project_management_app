@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import * as chatApi from '@/services/chat-service';
 import { useGlobalNotifications } from '@/components/providers/GlobalNotificationProvider';
-import { normalizeIdentity, isSameIdentity } from './chat-utils';
+import { normalizeIdentity, isSameIdentity, mergeMessage } from './chat-utils';
 import { useChatMessages } from './useChatMessages';
 import { useChatRooms } from './useChatRooms';
 import { useChatPresence } from './useChatPresence';

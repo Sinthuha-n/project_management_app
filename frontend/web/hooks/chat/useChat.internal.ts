@@ -108,7 +108,11 @@ export function restoreSelectionState(args: SelectionRestoreArgs): void {
       setSelectedUser(parsed.value);
     } else if (parsed.type === 'room') {
       const rid = Number(parsed.value);
-      if (Number.isFinite(rid) && rid > 0) {
+      if (
+        Number.isFinite(rid) &&
+        rid > 0 &&
+        (availableRooms.length === 0 || availableRooms.some((room) => room.id === rid))
+      ) {
         setSelectedRoomId(rid);
       }
     }
