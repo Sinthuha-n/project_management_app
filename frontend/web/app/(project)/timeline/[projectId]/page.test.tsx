@@ -64,10 +64,10 @@ jest.mock('@/app/taskcard/TaskCardModal', () => ({
 
 jest.mock('@/components/shared/CreateTaskModal', () => ({
   __esModule: true,
-  default: ({ isOpen, onCreateTask }: { isOpen: boolean; onCreateTask: (data: { title: string; status: string }) => Promise<void> }) => (
+  default: ({ isOpen, onCreateTask }: { isOpen: boolean; onCreateTask: (data: { title: string; status: string; dueDate?: string }) => Promise<void> }) => (
     isOpen ? (
       <div data-testid="create-task-modal">
-        <button type="button" onClick={() => void onCreateTask({ title: 'New task', status: 'TODO' })}>
+        <button type="button" onClick={() => void onCreateTask({ title: 'New task', status: 'TODO', dueDate: '2026-09-15' })}>
           Submit new task
         </button>
       </div>
@@ -136,10 +136,15 @@ describe('TimelinePage incremental task updates', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create task' }));
     fireEvent.click(screen.getByText('Submit new task'));
 
-    expect(mockedTaskCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ projectId: 42, title: 'New task', status: 'TODO' }),
-      expect.any(Function),
-    );
+    const payload = mockedTaskCreate.mock.calls[0][0];
+    expect(payload).toEqual(expect.objectContaining({
+      projectId: 42,
+      title: 'New task',
+      status: 'TODO',
+      dueDate: '2026-09-15',
+    }));
+    expect(payload).not.toHaveProperty('startDate');
+    expect(mockedTaskCreate).toHaveBeenCalledWith(payload, expect.any(Function));
     expect(mockedCreateTask).toHaveBeenCalledTimes(1);
     expect(mockedFetchTasksByProject).not.toHaveBeenCalled();
   });

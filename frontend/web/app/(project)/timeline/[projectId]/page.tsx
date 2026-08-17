@@ -96,7 +96,6 @@ export default function TimelinePage() {
       storyPoint: data.storyPoint,
       assigneeId: data.assigneeId,
       labelIds: data.labelIds,
-      startDate: data.dueDate || undefined,
       dueDate: data.dueDate,
     };
     taskMutations.create(payload, (request) => createTimelineTask(request as typeof payload));
