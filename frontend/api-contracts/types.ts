@@ -4880,6 +4880,7 @@ export interface components {
             /** Format: date-time */
             createdAt?: string;
             description?: string;
+            figmaUrl?: string;
             githubRepoFullName?: string;
             /** Format: int64 */
             id?: number;
@@ -4943,6 +4944,7 @@ export interface components {
             description?: string;
             /** Format: date-time */
             favoriteMarkedAt?: string;
+            figmaUrl?: string;
             /** Format: int64 */
             id?: number;
             isFavorite?: boolean;
@@ -5722,6 +5724,7 @@ export interface components {
         };
         UpdateProjectDTO: {
             description?: string;
+            figmaUrl?: string;
             name?: string;
         };
         UpdateStatusRequest: {

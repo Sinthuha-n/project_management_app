@@ -136,7 +136,7 @@ export default function CreateTaskModal({
   return (
     <OverlayPortal>
       <div className="fixed inset-0 bg-black/50 z-[var(--cu-z-modal)] flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-cu-bg rounded-2xl shadow-cu-xl border border-cu-border max-w-md w-full overflow-hidden">
+      <div className="bg-cu-bg rounded-2xl shadow-cu-xl border border-cu-border max-w-md w-full overflow-visible">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4">
           <div className="flex items-center justify-between">
@@ -323,7 +323,7 @@ export default function CreateTaskModal({
                 <ChevronDown size={14} className="text-cu-text-muted" />
               </button>
               {assigneeDropdownOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-lg z-[var(--cu-z-modal-popover)] max-h-80 overflow-y-auto">
                   <button
                     type="button"
                     onClick={() => { setAssignee(''); setAssigneeDropdownOpen(false); }}

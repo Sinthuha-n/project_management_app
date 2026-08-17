@@ -449,7 +449,11 @@ export function getValidToken(): string | null {
  * Uses native fetch (not axios) to avoid circular imports.
  * POSTs the current refresh token to /api/auth/refresh, stores the new
  * access token (and refresh token if rotated), and returns the new access token.
- * On failure it clears all tokens and throws.
+ *
+ * IMPORTANT: Only calls clearTokens() on an explicit 401 Unauthorized response,
+ * which means the refresh token is genuinely expired or revoked. On network errors
+ * (ECONNREFUSED, TypeError) or 5xx server errors (backend rebooting/deploying), we
+ * throw WITHOUT clearing credentials so the session survives the outage.
  */
 async function requestRefreshAccessToken(_options: RefreshAccessTokenOptions = {}): Promise<string> {
     if (authLogoutInProgress) {
@@ -468,28 +472,51 @@ async function requestRefreshAccessToken(_options: RefreshAccessTokenOptions = {
             throw new Error('Token refresh cancelled during logout');
         }
 
-        const res = await fetch(`${getApiBaseUrl()}/api/auth/refresh`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-        });
-        if (!res.ok) {
-            clearTokens();
-            throw new Error('Token refresh failed');
+        let res: Response;
+        try {
+            res = await fetch(`${getApiBaseUrl()}/api/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+            });
+        } catch {
+            // Network-level failure (backend down, CORS preflight, etc.).
+            // Do NOT clear tokens — the user is still authenticated; the server is just temporarily unreachable.
+            throw new Error('Token refresh failed: network error');
         }
+
+        if (res.status === 401 || res.status === 403) {
+            // The refresh token is genuinely expired or revoked — force logout.
+            clearTokens();
+            throw new Error('Token refresh failed: session expired');
+        }
+
+        if (!res.ok) {
+            // 4xx (bad request, missing cookie) or 5xx (server error, deploying) —
+            // do NOT clear tokens; the session may still be valid once the issue resolves.
+            throw new Error(`Token refresh failed: server returned ${res.status}`);
+        }
+
         const data = await res.json();
 
         if (authLogoutInProgress || refreshGeneration !== authStateGeneration) {
             throw new Error('Token refresh cancelled during logout');
         }
 
-        saveToken(data.token);
+        const newAccessToken = data?.token || data?.accessToken;
+        if (!newAccessToken) {
+            // Malformed but not a 401, so don't logout.
+            throw new Error('Token refresh response missing access token');
+        }
+
+        saveToken(newAccessToken);
         saveRefreshToken('true', { broadcast: true });
-        return data.token;
+        return newAccessToken;
     } finally {
         releaseRefreshLock();
     }
 }
+
 
 export function refreshAccessToken(options: RefreshAccessTokenOptions = {}): Promise<string> {
     if (!refreshAccessTokenPromise) {

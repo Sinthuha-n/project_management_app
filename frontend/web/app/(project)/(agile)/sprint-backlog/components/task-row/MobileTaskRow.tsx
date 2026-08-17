@@ -179,8 +179,37 @@ export default function MobileTaskRow(props: TaskRowProps) {
 
           {/* Assignee */}
           <div className="flex-shrink-0 flex items-center relative" ref={assignRef} onClick={(e) => e.stopPropagation()}>
-            <button type="button" onClick={() => openAssign()} className="flex items-center active:scale-90 transition-transform">
-              {task.assigneeName && task.assigneeName !== 'Unassigned' ? (
+            <button
+              type="button"
+              onClick={() => openAssign()}
+              className="flex items-center active:scale-90 transition-transform"
+              title={
+                task.assignees && task.assignees.length > 0
+                  ? task.assignees.map((a) => a.name).join(', ')
+                  : (task.assigneeName || 'Assign')
+              }
+            >
+              {task.assignees && task.assignees.length > 0 ? (
+                <div className="flex items-center">
+                  {task.assignees.slice(0, 3).map((a, idx) => (
+                    <span
+                      key={a.id}
+                      className="inline-block ring-2 ring-cu-bg rounded-full"
+                      style={{ marginLeft: idx === 0 ? 0 : -7, zIndex: task.assignees!.length - idx }}
+                    >
+                      <AssigneeAvatar name={a.name} profilePicUrl={a.avatar} size={22} />
+                    </span>
+                  ))}
+                  {task.assignees.length > 3 && (
+                    <span
+                      className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-full bg-cu-bg-tertiary ring-2 ring-cu-bg text-[9px] font-bold text-cu-text-secondary"
+                      style={{ marginLeft: -7 }}
+                    >
+                      +{task.assignees.length - 3}
+                    </span>
+                  )}
+                </div>
+              ) : task.assigneeName && task.assigneeName !== 'Unassigned' ? (
                 <AssigneeAvatar name={task.assigneeName} profilePicUrl={task.assigneePhotoUrl} size={22} />
               ) : (
                 <div className="flex h-11 w-11 items-center justify-center rounded-full border border-dashed border-cu-border text-cu-text-tertiary">
@@ -189,6 +218,7 @@ export default function MobileTaskRow(props: TaskRowProps) {
               )}
             </button>
           </div>
+
 
           {/* Points */}
           <div className="flex-shrink-0 flex items-center justify-center min-w-[32px]" onClick={(e) => e.stopPropagation()}>

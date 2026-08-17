@@ -5,12 +5,16 @@ import { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { Task, KanbanColumnConfig } from '../types';
 import {
+  deleteKanbanColumn,
   moveKanbanTask,
   reorderKanbanColumns,
 } from '../api';
 import { toast } from '@/components/ui';
 import { useTaskMutations } from '@/hooks/useTaskMutations';
 import type { Task as CanonicalTask } from '@/types';
+import { formatLocalDate } from '@/lib/date-format';
+import { tasksApi } from '@/services/tasks-contract';
+import type { TeamMemberOption } from '../api';
 
 // Helper exported for unit testing: performs optimistic update and reverts on failure
 export async function optimisticUpdateTaskStatusHelper(
@@ -43,6 +47,8 @@ export function useKanbanActions(
   patchTask: (id: number, patch: Partial<Task>) => void,
   removeTask: (id: number) => void,
   syncCache: (tasks: Task[]) => void,
+  syncColumnCache: (columns: KanbanColumnConfig[]) => void,
+  teamMembers: TeamMemberOption[] = [],
 ) {
   const taskMutations = useTaskMutations(projectId);
   const [updatingTaskId, setUpdatingTaskId] = useState<number | null>(null);
@@ -204,11 +210,18 @@ export function useKanbanActions(
   const handleCreateTask = useCallback((data: Partial<Task>) => {
     const title = data.title?.trim();
     if (!projectId || !title) return;
+    const today = formatLocalDate(new Date());
+    const startDate = data.startDate ?? (data.dueDate ? today : undefined);
     const result = taskMutations.create({
         projectId: Number(projectId),
         title,
         status: selectedColumnStatus,
+        description: data.description,
         priority: data.priority,
+        startDate,
+        dueDate: data.dueDate,
+        assigneeId: data.assigneeId,
+        labelIds: data.labelId != null ? [data.labelId] : undefined,
     });
     const optimistic = result.optimisticTask as unknown as Task;
     setTasks(prev => { const next = [...prev, optimistic]; syncCache(next); return next; });
@@ -252,6 +265,42 @@ export function useKanbanActions(
       forceRefresh();
     }
   }, [patchTask, setTasks, syncCache, forceRefresh, taskMutations, tasks]);
+
+  const handleAssigneeChange = useCallback(async (taskId: number, assigneeId: number | null) => {
+    const currentTask = tasks.find((task) => task.id === taskId);
+    if (!currentTask) return;
+
+    const selectedMember = assigneeId != null
+      ? teamMembers.find((member) => member.id === assigneeId)
+      : null;
+
+    const optimisticPatch: Partial<Task> = selectedMember
+      ? {
+          assigneeId: selectedMember.memberId ?? selectedMember.id,
+          assigneeName: selectedMember.name,
+          assigneePhotoUrl: selectedMember.photoUrl ?? undefined,
+        }
+      : {
+          assigneeId: undefined,
+          assigneeName: undefined,
+          assigneePhotoUrl: undefined,
+        };
+
+    try {
+      const updatedTask = await taskMutations.move(
+        taskId,
+        optimisticPatch as Partial<CanonicalTask>,
+        () => tasksApi.update(taskId, { title: currentTask.title, assigneeId }),
+        currentTask as unknown as CanonicalTask,
+      );
+      upsertTask(updatedTask as Task);
+      setTasks(current => { syncCache(current); return current; });
+    } catch (err) {
+      console.error('Error updating task assignee:', err);
+      toast('Failed to update assignee. Please try again.', 'error');
+      forceRefresh();
+    }
+  }, [forceRefresh, setTasks, syncCache, taskMutations, tasks, teamMembers, upsertTask]);
 
   // ── Delete task ───────────────────────────────────────────────────────────
 
@@ -343,9 +392,45 @@ export function useKanbanActions(
     [setColumnConfigs]
   );
 
-  const handleDeleteColumn = useCallback((columnId: number) => {
-    setColumnConfigs(prev => prev.filter(c => c.id !== columnId));
-  }, [setColumnConfigs]);
+  const handleDeleteColumn = useCallback(async (columnId: number) => {
+    const column = columnConfigs.find(c => c.id === columnId);
+    if (!column) return;
+
+    const taskCount = tasks.filter(task => task.status === column.status).length;
+    if (taskCount > 0) {
+      setToastMessage('Move all tasks out of this column before deleting it.');
+      setTimeout(() => setToastMessage(null), 4000);
+      return;
+    }
+
+    const previousColumns = columnConfigs;
+    const nextColumns = columnConfigs
+      .filter(c => c.id !== columnId)
+      .map((c, index) => ({ ...c, position: index }));
+
+    setColumnConfigs(nextColumns);
+
+    try {
+      await deleteKanbanColumn(columnId);
+      syncColumnCache(nextColumns);
+      toast('Column deleted permanently.', 'success');
+    } catch (err: unknown) {
+      console.error('Error deleting column:', err);
+      setColumnConfigs(previousColumns);
+      syncColumnCache(previousColumns);
+
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      const message = status === 403
+        ? 'Only the project owner can delete board columns.'
+        : status === 400
+          ? 'Move all tasks out of this column before deleting it.'
+          : 'Failed to delete column. Please try again.';
+
+      setToastMessage(message);
+      setTimeout(() => setToastMessage(null), 4000);
+      forceRefresh();
+    }
+  }, [columnConfigs, tasks, setColumnConfigs, syncColumnCache, forceRefresh]);
 
   return {
     updatingTaskId,
@@ -362,6 +447,7 @@ export function useKanbanActions(
     handleCreateTask,
     handleOpenCreateModal,
     handleInlineUpdate,
+    handleAssigneeChange,
     handleDeleteTask,
     handleCompleteBoard,
     handleColumnRenamed,

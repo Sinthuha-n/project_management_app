@@ -1,43 +1,31 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import TimelineView from '../../kanban/components/TimelineView';
 import { Task } from '../../kanban/types';
-import { createTask as createTimelineTask, fetchTasksByProject } from '../../kanban/api';
+import { createTask as createTimelineTask } from '../../kanban/api';
 import { AlertCircle, CalendarClock, CalendarRange, Diamond, ListChecks, Lock, Plus, RefreshCw } from 'lucide-react';
 import TaskCardModal from '@/app/taskcard/TaskCardModal';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
-import { tasksApi } from '@/services/api-contract';
 import { getMilestones } from '@/services/milestone-service';
 import type { MilestoneResponse } from '@/types';
 import EmptyState from '@/components/shared/EmptyState';
 import CreateTaskModal, { type CreateTaskData } from '@/components/shared/CreateTaskModal';
 import type { TimelineInsight } from '../../kanban/utils/timeline-utils';
-import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
 import { useTaskMutations } from '@/hooks/useTaskMutations';
-
-const TIMELINE_CACHE_TTL_MS = 10 * 60_000;
-
-type TimelineTaskUpdatedDetail = {
-  taskId?: number;
-  task?: Partial<Task> & { id: number };
-  updates?: Partial<Task>;
-};
+import { useProjectTasks } from '@/hooks/useProjectTasks';
 
 export default function TimelinePage() {
   const router = useRouter();
   const { projectId } = useParams<{ projectId: string }>();
   const taskMutations = useTaskMutations(projectId);
+  const projectTasks = useProjectTasks(projectId, false);
 
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [milestones, setMilestones] = useState<MilestoneResponse[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [visibleRangeLabel, setVisibleRangeLabel] = useState('No scheduled range');
-  const tasksRef = useRef<Task[]>([]);
   const [timelineInsights, setTimelineInsights] = useState<TimelineInsight>({
     scheduled: 0,
     unscheduled: 0,
@@ -47,6 +35,9 @@ export default function TimelinePage() {
     milestoneLinked: 0,
     pastMilestone: 0,
   });
+  const tasks = useMemo(() => projectTasks.tasks as unknown as Task[], [projectTasks.tasks]);
+  const loading = projectTasks.loading;
+  const error = projectTasks.error ? 'Failed to load timeline tasks.' : null;
 
   const timelineStats = useMemo(() => {
     return {
@@ -65,87 +56,6 @@ export default function TimelinePage() {
     [milestones],
   );
 
-  const timelineCacheKey = useMemo(() => buildSessionCacheKey('timeline-tasks', [projectId]), [projectId]);
-
-  useEffect(() => {
-    tasksRef.current = tasks;
-  }, [tasks]);
-
-  const setTasksAndCache = useCallback((updater: (current: Task[]) => Task[]) => {
-    setTasks((current) => {
-      const next = updater(current);
-      if (timelineCacheKey) {
-        setSessionCache(timelineCacheKey, next, TIMELINE_CACHE_TTL_MS);
-      }
-      return next;
-    });
-  }, [timelineCacheKey]);
-
-  const parseProjectId = useCallback(() => {
-    const projectIdNum = parseInt(projectId, 10);
-    if (isNaN(projectIdNum)) {
-      throw new Error('Invalid project ID');
-    }
-    return projectIdNum;
-  }, [projectId]);
-
-  const upsertTask = useCallback((task: Partial<Task> & { id: number }) => {
-    const currentProjectId = Number(projectId);
-    if (task.projectId != null && task.projectId !== currentProjectId) return;
-
-    if (task.archived) {
-      setTasksAndCache((prev) => prev.filter((item) => item.id !== task.id));
-      return;
-    }
-
-    setTasksAndCache((prev) => {
-      const exists = prev.some((item) => item.id === task.id);
-      if (exists) {
-        return prev.map((item) => (item.id === task.id ? { ...item, ...task } : item));
-      }
-      return [...prev, task as Task];
-    });
-  }, [projectId, setTasksAndCache]);
-
-  const patchTask = useCallback((taskId: number, updates: Partial<Task>) => {
-    setTasksAndCache((prev) => prev.map((task) => (task.id === taskId ? { ...task, ...updates } : task)));
-  }, [setTasksAndCache]);
-
-  const removeTask = useCallback((taskId: number) => {
-    setTasksAndCache((prev) => prev.filter((task) => task.id !== taskId));
-  }, [setTasksAndCache]);
-
-  const fetchOneTask = useCallback(async (taskId: number) => {
-    try {
-      const task = await tasksApi.get(taskId);
-      upsertTask(task as Task);
-    } catch (err) {
-      console.error('Failed to fetch updated task:', err);
-    }
-  }, [upsertTask]);
-
-  const loadTasks = useCallback(async (options: { showSpinner?: boolean } = {}) => {
-    const { showSpinner = true } = options;
-    if (showSpinner) setLoading(true);
-    setError(null);
-    try {
-      const projectIdNum = parseProjectId();
-      const fetchedTasks = await fetchTasksByProject(projectIdNum);
-      setTasks(fetchedTasks);
-      if (timelineCacheKey) {
-        setSessionCache(timelineCacheKey, fetchedTasks, TIMELINE_CACHE_TTL_MS);
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to load tasks';
-      if (showSpinner || tasksRef.current.length === 0) {
-        setError(errorMsg);
-      }
-      console.error('Failed to fetch tasks:', err);
-    } finally {
-      if (showSpinner) setLoading(false);
-    }
-  }, [parseProjectId, timelineCacheKey]);
-
   const loadMilestones = useCallback(async () => {
     const pid = parseInt(projectId, 10);
     if (isNaN(pid)) return;
@@ -157,34 +67,9 @@ export default function TimelinePage() {
     }
   }, [projectId]);
 
-  useEffect(() => {
-    const cached = timelineCacheKey
-      ? getSessionCache<Task[]>(timelineCacheKey, { allowStale: true })
-      : { data: null };
-
-    if (cached.data) {
-      queueMicrotask(() => {
-        setTasks(cached.data!);
-        setLoading(false);
-        void loadTasks({ showSpinner: false });
-      });
-      return;
-    }
-
-    queueMicrotask(() => void loadTasks({ showSpinner: true }));
-  }, [loadTasks, timelineCacheKey]);
-
   useTaskWebSocket(projectId, (event) => {
-    if ((event.type === 'TASK_UPDATED' || event.type === 'TASK_CREATED') && event.task) {
-      upsertTask(event.task as Task);
-      const existing = tasksRef.current.find((task) => task.id === event.task!.id);
-      if (existing && event.task.milestoneId !== undefined && existing.milestoneId !== event.task.milestoneId) {
-        void loadMilestones();
-      }
-    } else if (event.type === 'TASK_STATUS_CHANGED' && event.taskId != null && event.status) {
-      patchTask(event.taskId, { status: event.status });
-    } else if (event.type === 'TASK_DELETED' && event.taskId != null) {
-      removeTask(event.taskId);
+    if ((event.type === 'TASK_UPDATED' || event.type === 'TASK_CREATED') && event.task?.milestoneId !== undefined) {
+      void loadMilestones();
     }
   });
 
@@ -200,33 +85,6 @@ export default function TimelinePage() {
     };
   }, [loadMilestones]);
 
-  useEffect(() => {
-    const onTaskUpdated = (event: Event) => {
-      const detail = (event as CustomEvent<TimelineTaskUpdatedDetail>).detail;
-      if (!detail) return;
-
-      const taskId = detail.task?.id ?? detail.taskId;
-      const existing = taskId ? tasksRef.current.find((task) => task.id === taskId) : undefined;
-      const nextMilestoneId = detail.task?.milestoneId ?? detail.updates?.milestoneId;
-      const hasMilestoneUpdate = nextMilestoneId !== undefined && existing?.milestoneId !== nextMilestoneId;
-
-      if (detail.task) {
-        upsertTask(detail.task);
-      } else if (detail.taskId != null && detail.updates) {
-        patchTask(detail.taskId, detail.updates);
-      } else if (detail.taskId != null) {
-        void fetchOneTask(detail.taskId);
-      }
-
-      if (hasMilestoneUpdate) {
-        void loadMilestones();
-      }
-    };
-
-    window.addEventListener('planora:task-updated', onTaskUpdated);
-    return () => window.removeEventListener('planora:task-updated', onTaskUpdated);
-  }, [fetchOneTask, loadMilestones, patchTask, upsertTask]);
-
   const handleCreateTask = (data: CreateTaskData) => {
     const projectIdNum = parseInt(projectId, 10);
     if (isNaN(projectIdNum)) return;
@@ -237,14 +95,11 @@ export default function TimelinePage() {
       priority: data.priority,
       storyPoint: data.storyPoint,
       assigneeId: data.assigneeId,
+      labelIds: data.labelIds,
+      startDate: data.dueDate || undefined,
       dueDate: data.dueDate,
     };
-    const result = taskMutations.create(payload, (request) => createTimelineTask(request as typeof payload));
-    const optimistic = result.optimisticTask as unknown as Task;
-    upsertTask(optimistic);
-    void result.completion.then((serverTask) => {
-      setTasks((previous) => previous.map((task) => task.id === optimistic.id ? serverTask as Task : task));
-    }).catch(() => setTasks((previous) => previous.filter((task) => task.id !== optimistic.id)));
+    taskMutations.create(payload, (request) => createTimelineTask(request as typeof payload));
   };
 
   const handleTimelineInsightsChange = useCallback((insights: TimelineInsight, rangeLabel: string) => {
@@ -333,7 +188,7 @@ export default function TimelinePage() {
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <button
                     type="button"
-                    onClick={() => void loadTasks()}
+                    onClick={() => void projectTasks.revalidate()}
                     className="inline-flex items-center gap-2 rounded-xl bg-cu-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-cu-primary-hover transition-colors"
                   >
                     <RefreshCw size={14} />
@@ -362,11 +217,9 @@ export default function TimelinePage() {
           </div>
         ) : (
           <TimelineView
+            projectId={projectId}
             tasks={tasks}
             onOpenTask={setSelectedTaskId}
-            onTaskUpdated={(taskId, updates) => {
-              patchTask(taskId, updates);
-            }}
             milestones={timelineMilestones}
             onInsightsChange={handleTimelineInsightsChange}
             onCreateTask={() => setShowCreateModal(true)}

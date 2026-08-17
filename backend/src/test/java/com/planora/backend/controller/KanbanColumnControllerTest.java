@@ -5,6 +5,8 @@ import com.planora.backend.dto.KanbanColumnRequestDTO;
 import com.planora.backend.dto.KanbanColumnSettingsDTO;
 import com.planora.backend.model.Kanban;
 import com.planora.backend.model.KanbanColumn;
+import com.planora.backend.model.User;
+import com.planora.backend.model.UserPrincipal;
 import com.planora.backend.service.JWTService;
 import com.planora.backend.service.KanbanColumnService;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,8 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -54,7 +54,7 @@ class KanbanColumnControllerTest {
     private KanbanColumn testColumn;
     private Kanban testKanban;
     private KanbanColumnRequestDTO columnRequestDTO;
-    private UserDetails testUser;
+    private UserPrincipal testUser;
 
     @BeforeEach
     void setUp() {
@@ -77,11 +77,13 @@ class KanbanColumnControllerTest {
         columnRequestDTO.setPosition(0);
         columnRequestDTO.setKanbanId(1L);
 
-        testUser = User.builder()
-                .username("testuser")
-                .password("ValidPassword123!")
-                .authorities("ROLE_USER")
-                .build();
+        User user = new User();
+        user.setUserId(42L);
+        user.setUsername("testuser");
+        user.setEmail("testuser@example.com");
+        user.setPassword("ValidPassword123!");
+        user.setVerified(true);
+        testUser = new UserPrincipal(user);
     }
 
     @Test
@@ -189,14 +191,14 @@ class KanbanColumnControllerTest {
 
     @Test
     void deleteKanbanColumn_Returns204NoContent() throws Exception {
-        doNothing().when(kanbanColumnService).deleteKanbanColumn(1L);
+        doNothing().when(kanbanColumnService).deleteKanbanColumn(1L, 42L);
 
         mockMvc.perform(delete("/api/kanban-columns/1")
                 .with(user(testUser))
                 .with(csrf()))
                 .andExpect(status().isNoContent());
 
-        verify(kanbanColumnService, times(1)).deleteKanbanColumn(1L);
+        verify(kanbanColumnService, times(1)).deleteKanbanColumn(1L, 42L);
     }
 
     @Test

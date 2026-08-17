@@ -39,7 +39,7 @@ public class UserController {
     private final UserService service;
     private final JWTService jwtService;
 
-    @Value("${app.cookie.secure:true}")
+    @Value("${app.cookie.secure:false}")
     private boolean cookieSecure;
 
     @Value("${app.cookie.samesite:None}")

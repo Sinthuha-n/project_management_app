@@ -109,7 +109,7 @@ export default function KanbanFilterBar({
             <ChevronDown size={11} className="text-cu-text-muted flex-shrink-0" />
           </button>
           {assigneeFilterOpen && (
-            <div className="absolute top-full left-0 mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-cu-xl z-50 min-w-[180px] max-h-52 overflow-y-auto py-1">
+            <div className="absolute top-full left-0 mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-cu-xl z-[var(--cu-z-modal-popover)] min-w-[220px] max-h-80 overflow-y-auto py-1">
               <button
                 type="button"
                 onClick={() => { setFilterAssignee(''); setAssigneeFilterOpen(false); }}

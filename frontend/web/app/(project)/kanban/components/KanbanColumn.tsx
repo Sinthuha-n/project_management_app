@@ -13,6 +13,7 @@ import { COLUMN_SWATCH_COLORS } from '../constants';
 import {
   renameKanbanColumn,
   updateKanbanColumnSettings,
+  TeamMemberOption,
 } from '../api';
 
 /** Status to accent color for the top indicator bar */
@@ -42,12 +43,14 @@ interface KanbanColumnProps {
   onCreateTask?: (title: string, status: string) => Promise<void> | void;
   onOpenTask?: (taskId: number) => void;
   onInlineUpdate?: (taskId: number, updates: Partial<Task>) => Promise<void>;
+  onAssigneeChange?: (taskId: number, assigneeId: number | null) => Promise<void>;
+  teamMembers?: TeamMemberOption[];
   usersMap?: Record<string, string | null>;
   labels?: Label[];
   onCreateLabel?: (name: string, color: string) => Promise<Label | null>;
   onColumnRenamed?: (columnId: number, name: string) => void;
   onColumnSettingsChanged?: (columnId: number, settings: { color?: string; wipLimit?: number }) => void;
-  onDeleteColumn?: (columnId: number) => void;
+  onDeleteColumn?: (columnId: number) => Promise<void> | void;
   updatingTaskId?: number | null;
 }
 
@@ -62,6 +65,8 @@ export default function KanbanColumn({
   onCreateTask,
   onOpenTask,
   onInlineUpdate,
+  onAssigneeChange,
+  teamMembers = [],
   usersMap,
   labels: allLabels,
   onCreateLabel,
@@ -325,6 +330,8 @@ export default function KanbanColumn({
                 onDelete={onDeleteTask}
                 onOpenTask={onOpenTask}
                 onInlineUpdate={onInlineUpdate}
+                onAssigneeChange={onAssigneeChange}
+                teamMembers={teamMembers}
                 usersMap={usersMap}
                 labels={allLabels}
                 onCreateLabel={onCreateLabel}

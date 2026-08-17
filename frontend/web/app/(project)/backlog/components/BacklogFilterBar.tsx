@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Label, DateFilter } from '../../kanban/types';
 import { TeamMemberOption } from '../../kanban/api';
 import DateRangeFilter from '../../kanban/components/DateRangeFilter';
-import { ChevronDown, Search, X, Layers, Tag, User, Filter } from 'lucide-react';
+import { Archive, ChevronDown, Search, X, Layers, Tag, User, Filter } from 'lucide-react';
 
 const STATUS_OPTIONS = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'];
 
@@ -23,6 +23,8 @@ interface BacklogFilterBarProps {
     setFilterDateRange: (v: DateFilter) => void;
     groupBy: 'none' | 'status' | 'priority' | 'assignee';
     setGroupBy: React.Dispatch<React.SetStateAction<'none' | 'status' | 'priority' | 'assignee'>>;
+    showArchived: boolean;
+    setShowArchived: React.Dispatch<React.SetStateAction<boolean>>;
     teamMembers: TeamMemberOption[];
     labels: Label[];
 }
@@ -35,6 +37,7 @@ export default function BacklogFilterBar({
     filterLabel, setFilterLabel,
     filterDateRange, setFilterDateRange,
     groupBy, setGroupBy,
+    showArchived, setShowArchived,
     teamMembers, labels,
 }: BacklogFilterBarProps) {
     const [filterOpen, setFilterOpen] = useState(false);
@@ -181,7 +184,7 @@ export default function BacklogFilterBar({
                                         <ChevronDown size={12} className="text-cu-text-muted" />
                                     </button>
                                     {assigneeFilterOpen && (
-                                        <div className="absolute top-full left-0 mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-cu-lg z-50 min-w-full max-h-48 overflow-y-auto py-1">
+                                        <div className="absolute top-full left-0 mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-cu-lg z-[var(--cu-z-modal-popover)] min-w-full max-h-80 overflow-y-auto py-1">
                                             <button
                                                 type="button"
                                                 onClick={() => { setFilterAssignee(''); setAssigneeFilterOpen(false); }}
@@ -257,6 +260,17 @@ export default function BacklogFilterBar({
                 {groupBy === 'none' ? 'Group by' : `By ${groupBy}`}
             </button>
 
+            <button
+                onClick={() => setShowArchived(v => !v)}
+                className={`flex items-center gap-1.5 px-3 h-10 text-[12px] rounded-xl border transition-colors ${
+                    showArchived
+                        ? 'bg-amber-400/10 border-amber-400/30 text-amber-500'
+                        : 'bg-cu-bg-secondary border-cu-border text-cu-text-secondary hover:bg-cu-hover hover:border-cu-primary/50 hover:text-cu-text-primary'
+                }`}
+            >
+                <Archive className="w-3.5 h-3.5" />
+                {showArchived ? 'Hide Archived' : 'Show Archived'}
+            </button>
         </div>
     );
 }

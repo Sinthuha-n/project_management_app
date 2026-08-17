@@ -30,4 +30,5 @@ public class ProjectResponseDTO {
     private LocalDateTime favoriteMarkedAt;
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime lastAccessedAt;
+    private String figmaUrl;
 }

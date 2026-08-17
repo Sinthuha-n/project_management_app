@@ -8,7 +8,8 @@ import {
 } from '../../kanban/api';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
 import { type CreateTaskData } from '@/components/shared/CreateTaskModal';
-import { normalizeTaskPriority } from '@/services/tasks-contract';
+import { toast } from '@/components/ui';
+import { normalizeTaskPriority, tasksApi } from '@/services/tasks-contract';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 import { useTaskMutations } from '@/hooks/useTaskMutations';
 import { useProjectTasks } from '@/hooks/useProjectTasks';
@@ -18,9 +19,10 @@ type TaskWithAssignees = Task & {
     assignees?: Array<{ id?: number; avatar?: string | null }>;
 };
 
-export function useBacklogData(projectId: string | null) {
+export function useBacklogData(projectId: string | null, showArchived = false) {
     const taskMutations = useTaskMutations(projectId);
     const activeTaskSource = useProjectTasks(projectId, false);
+    const archivedTaskSource = useProjectTasks(showArchived ? projectId : null, true);
 
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [selectedTaskIdForModal, setSelectedTaskIdForModal] = useState<number | null>(null);
@@ -102,9 +104,18 @@ export function useBacklogData(projectId: string | null) {
         () => enrichTaskAvatars(activeTaskSource.tasks as unknown as Task[]),
         [activeTaskSource.tasks, enrichTaskAvatars],
     );
+    const archivedTasks = useMemo(
+        () => showArchived
+            ? enrichTaskAvatars(archivedTaskSource.tasks as unknown as Task[])
+            : [],
+        [archivedTaskSource.tasks, enrichTaskAvatars, showArchived],
+    );
     const forceRefresh = useCallback(async () => {
-        await activeTaskSource.revalidate();
-    }, [activeTaskSource]);
+        await Promise.all([
+            activeTaskSource.revalidate(),
+            showArchived ? archivedTaskSource.revalidate() : Promise.resolve(),
+        ]);
+    }, [activeTaskSource, archivedTaskSource, showArchived]);
 
     useEffect(() => {
         if (!projectId) return;
@@ -167,6 +178,59 @@ export function useBacklogData(projectId: string | null) {
         }
     }, [tasks, forceRefresh, taskMutations]);
 
+    const handleAssigneeChange = useCallback(async (id: number, assigneeId: number | null) => {
+        const task = tasks.find(t => t.id === id);
+        if (!task) return;
+        const selectedMember = assigneeId != null
+            ? teamMembers.find(member => member.id === assigneeId)
+            : null;
+        const optimisticPatch: Partial<CanonicalTask> = selectedMember
+            ? {
+                assigneeId: selectedMember.memberId ?? selectedMember.id,
+                assigneeName: selectedMember.name,
+                assigneePhotoUrl: selectedMember.photoUrl ?? undefined,
+            }
+            : {
+                assigneeId: undefined,
+                assigneeName: undefined,
+                assigneePhotoUrl: undefined,
+            };
+
+        try {
+            await taskMutations.move(
+                id,
+                optimisticPatch,
+                () => tasksApi.update(id, { title: task.title, assigneeId }),
+                task as unknown as CanonicalTask,
+            );
+        } catch {
+            toast('Failed to update assignee', 'error');
+            void forceRefresh();
+        }
+    }, [forceRefresh, taskMutations, tasks, teamMembers]);
+
+    const handleArchiveTask = useCallback(async (id: number) => {
+        const archivedTask = tasks.find(t => t.id === id);
+        if (!archivedTask) return;
+        try {
+            await taskMutations.archive(archivedTask as unknown as CanonicalTask);
+        } catch {
+            toast('Failed to archive task', 'error');
+            void forceRefresh();
+        }
+    }, [tasks, forceRefresh, taskMutations]);
+
+    const handleUnarchiveTask = useCallback(async (id: number) => {
+        const task = archivedTasks.find(t => t.id === id);
+        if (!task) return;
+        try {
+            await taskMutations.restore(task as unknown as CanonicalTask);
+        } catch {
+            toast('Failed to unarchive task', 'error');
+            void forceRefresh();
+        }
+    }, [archivedTasks, forceRefresh, taskMutations]);
+
     const handleBulkDelete = useCallback(async () => {
         const ids = [...selectedIds];
         setSelectedIds(new Set());
@@ -212,7 +276,12 @@ export function useBacklogData(projectId: string | null) {
         }
         if (filterPriority.length > 0) result = result.filter(t => t.priority && filterPriority.includes(t.priority));
         if (filterStatus.length > 0) result = result.filter(t => filterStatus.includes(t.status));
-        if (filterAssignee) result = result.filter(t => t.assigneeName === filterAssignee);
+        if (filterAssignee) {
+            result = result.filter(t => 
+                (t.assignees && t.assignees.some(a => a.name === filterAssignee)) ||
+                t.assigneeName === filterAssignee
+            );
+        }
         if (filterLabel !== null) result = result.filter(t => t.labels?.some(l => l.id === filterLabel) || t.labelId === filterLabel);
         if (filterDateRange.startDate || filterDateRange.endDate) {
             result = result.filter(t => {
@@ -244,7 +313,8 @@ export function useBacklogData(projectId: string | null) {
     }, [filteredTasks, groupBy]);
 
     return {
-        tasks,
+        tasks, archivedTasks,
+        archivedLoading: archivedTaskSource.loading,
         loading: activeTaskSource.loading,
         error: activeTaskSource.error instanceof Error ? activeTaskSource.error.message : activeTaskSource.error ? 'Failed to load tasks' : null,
         collapsedGroups, toggleGroup,
@@ -262,7 +332,8 @@ export function useBacklogData(projectId: string | null) {
         selectedIds, setSelectedIds,
         filteredTasks, groupedTasks,
         handleMarkDone, handleDelete, handleAddTask,
-        handleStatusChange, handleBulkDelete, handleBulkDone,
+        handleStatusChange, handleAssigneeChange, handleBulkDelete, handleBulkDone,
+        handleArchiveTask, handleUnarchiveTask,
         toggleSelect, loadTasks: forceRefresh, handleDateChange, forceRefresh,
     };
 }

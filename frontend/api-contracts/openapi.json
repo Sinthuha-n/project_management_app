@@ -3195,6 +3195,9 @@
           "description": {
             "type": "string"
           },
+          "figmaUrl": {
+            "type": "string"
+          },
           "githubRepoFullName": {
             "type": "string"
           },
@@ -3375,6 +3378,9 @@
           },
           "favoriteMarkedAt": {
             "format": "date-time",
+            "type": "string"
+          },
+          "figmaUrl": {
             "type": "string"
           },
           "id": {
@@ -5599,6 +5605,11 @@
         "properties": {
           "description": {
             "maxLength": 2000,
+            "minLength": 0,
+            "type": "string"
+          },
+          "figmaUrl": {
+            "maxLength": 1000,
             "minLength": 0,
             "type": "string"
           },

@@ -312,7 +312,6 @@ public class ProjectService {
         return convertToResponseDTO(project, userId);
     }
 
-    // Updates the fields provided in the request.
     @Transactional
     @CacheEvict(cacheNames = { "project-recent", "project-favorites" }, allEntries = true)
     public ProjectResponseDTO updateProject(Long id, UpdateProjectDTO dto) {
@@ -322,6 +321,9 @@ public class ProjectService {
             project.setName(dto.getName());
         if (dto.getDescription() != null)
             project.setDescription(dto.getDescription());
+        // null means "don't touch"; empty string means "remove the link"
+        if (dto.getFigmaUrl() != null)
+            project.setFigmaUrl(dto.getFigmaUrl().isBlank() ? null : dto.getFigmaUrl().strip());
 
         Project updatedProject = projectRepository.save(project);
         return convertToResponseDTO(updatedProject, null);
@@ -435,6 +437,7 @@ public class ProjectService {
                 .isFavorite(favoriteMarkedAt != null)
                 .favoriteMarkedAt(favoriteMarkedAt)
                 .lastAccessedAt(lastAccessedAt)
+                .figmaUrl(project.getFigmaUrl())
                 .build();
     }
 

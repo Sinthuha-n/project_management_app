@@ -164,7 +164,12 @@ api.interceptors.response.use(
                 return api(originalRequest);
             } catch (refreshError) {
                 processQueue(refreshError, null);
-                redirectToLoginOnce();
+                // Only redirect to login if the session is definitively expired (401/403 from refresh).
+                // Network errors or 5xx (backend restarting) should NOT force a logout.
+                const message = refreshError instanceof Error ? refreshError.message : '';
+                if (message.includes('session expired')) {
+                    redirectToLoginOnce();
+                }
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;
@@ -174,5 +179,6 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
 
 export default api;

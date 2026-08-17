@@ -2,10 +2,11 @@ package com.planora.backend.controller;
 
 import com.planora.backend.dto.KanbanColumnRequestDTO;
 import com.planora.backend.dto.KanbanColumnSettingsDTO;
+import com.planora.backend.model.UserPrincipal;
 import com.planora.backend.model.KanbanColumn;
 import com.planora.backend.service.KanbanColumnService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -49,8 +50,10 @@ public class KanbanColumnController {
 
     //delete column
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteKanbanColumn(@PathVariable Long id) {
-        kanbanColumnService.deleteKanbanColumn(id);
+    public ResponseEntity<Void> deleteKanbanColumn(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        kanbanColumnService.deleteKanbanColumn(id, currentUser != null ? currentUser.getUserId() : null);
         return ResponseEntity.noContent().build();
     }
 

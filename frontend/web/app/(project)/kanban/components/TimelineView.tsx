@@ -21,6 +21,13 @@ import TimelineTaskRow from './TimelineTaskRow';
 import { useTimelineDrag } from '../hooks/useTimelineDrag';
 import { updateTaskDates } from '../api';
 import {
+  applyTaskMutation,
+  createMutationId,
+  isLatestTaskMutation,
+  publishTaskMutation,
+  revalidateTaskDependents,
+} from '@/lib/task-cache';
+import {
   TIMELINE_COLUMN_WIDTH,
   ZOOM_WIDTHS,
   buildMonthGroups,
@@ -50,6 +57,7 @@ export interface Milestone {
 }
 
 interface TimelineViewProps {
+  projectId?: string | number;
   tasks: Task[];
   onOpenTask?: (taskId: number) => void;
   onTaskUpdated?: (taskId: number, updates: Partial<Task>) => void;
@@ -63,6 +71,8 @@ const DEFAULT_FILTERS: TimelineFilters = {
   search: '',
   assignee: '',
   milestone: '',
+  schedule: '',
+  focus: '',
   hideWeekends: false,
   showDone: true,
 };
@@ -115,17 +125,31 @@ function RiskStrip({ insights }: { insights: TimelineInsight }) {
   );
 }
 
-function EmptyTimeline({ hasFilters, onClearFilters }: { hasFilters: boolean; onClearFilters: () => void }) {
+function EmptyTimeline({
+  hasFilters,
+  hasUnscheduledTasks,
+  onClearFilters,
+}: {
+  hasFilters: boolean;
+  hasUnscheduledTasks: boolean;
+  onClearFilters: () => void;
+}) {
   return (
     <div className="rounded-xl border border-cu-border bg-cu-bg p-10 text-center shadow-cu-sm">
       {hasFilters ? <Search className="mx-auto h-9 w-9 text-cu-text-muted" /> : <Calendar className="mx-auto h-9 w-9 text-cu-text-muted" />}
       <h3 className="mt-3 text-base font-bold text-cu-text-primary">
-        {hasFilters ? 'No scheduled work matches your filters' : 'No scheduled work yet'}
+        {hasFilters
+          ? 'No scheduled work matches your filters'
+          : hasUnscheduledTasks
+            ? 'No scheduled work yet'
+            : 'No project work yet'}
       </h3>
       <p className="mx-auto mt-1 max-w-md text-sm text-cu-text-secondary">
         {hasFilters
           ? 'Clear filters to bring tasks back into the timeline.'
-          : 'Add a start date or due date to tasks to plan them on the timeline.'}
+          : hasUnscheduledTasks
+            ? 'Backlog and board tasks without dates are listed below so they can be scheduled here.'
+            : 'Create a task from the timeline, backlog, or board to start planning project work.'}
       </p>
       {hasFilters && (
         <button
@@ -216,7 +240,7 @@ function UnscheduledTray({
         </span>
       </div>
       <div className="divide-y divide-cu-border-light">
-        {tasks.slice(0, 8).map((task) => (
+        {tasks.map((task) => (
           <div key={task.id} className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             <div className="min-w-0">
               <p className="truncate text-sm font-bold text-cu-text-primary">{task.title}</p>
@@ -251,17 +275,13 @@ function UnscheduledTray({
             </div>
           </div>
         ))}
-        {tasks.length > 8 && (
-          <div className="px-4 py-3 text-xs font-bold text-cu-text-secondary">
-            Showing 8 of {tasks.length}. Use filters or open backlog for the full list.
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
 export default function TimelineView({
+  projectId,
   tasks,
   onOpenTask,
   onTaskUpdated,
@@ -277,6 +297,7 @@ export default function TimelineView({
   const [manualRange, setManualRange] = useState<{ start: Date; end: Date } | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const numericProjectId = Number(projectId);
 
   const [prevTasks, setPrevTasks] = useState<Task[]>(tasks);
   if (prevTasks !== tasks) {
@@ -285,7 +306,7 @@ export default function TimelineView({
   }
 
   const insights = useMemo(() => getTimelineInsights(localTasks, milestones), [localTasks, milestones]);
-  const filteredTasks = useMemo(() => filterTimelineTasks(localTasks, filters), [localTasks, filters]);
+  const filteredTasks = useMemo(() => filterTimelineTasks(localTasks, filters, milestones), [localTasks, filters, milestones]);
   const scheduledSource = useMemo(() => filteredTasks.filter((task) => Boolean(getTaskSchedule(task))), [filteredTasks]);
   const unscheduledTasks = useMemo(() => filteredTasks.filter((task) => !getTaskSchedule(task)), [filteredTasks]);
   const baseRange = useMemo(() => getTimelineDateRange(scheduledSource), [scheduledSource]);
@@ -306,11 +327,13 @@ export default function TimelineView({
   );
   const groupedTaskRows = useMemo(() => groupTimelineTasks(timelineTasks, groupBy), [timelineTasks, groupBy]);
   const currentRangeLabel = makeRangeLabel(zoomRange);
-  const hasFilters = filters.search !== '' || filters.assignee !== '' || filters.milestone !== '' || filters.hideWeekends || !filters.showDone;
+  const hasFilters = filters.search !== '' || filters.assignee !== '' || filters.milestone !== '' || filters.schedule !== '' || filters.focus !== '' || filters.hideWeekends || !filters.showDone;
   const activeFilterCount = [
     filters.search ? 1 : 0,
     filters.assignee ? 1 : 0,
     filters.milestone ? 1 : 0,
+    filters.schedule ? 1 : 0,
+    filters.focus ? 1 : 0,
     filters.hideWeekends ? 1 : 0,
     !filters.showDone ? 1 : 0,
   ].reduce((sum, count) => sum + count, 0);
@@ -367,16 +390,54 @@ export default function TimelineView({
   const scheduleTask = async (task: Task, preset: 'today' | 'week') => {
     const updates = schedulePresetDates(preset);
     const previous = { startDate: task.startDate, dueDate: task.dueDate };
+    const mutationProjectId = Number.isFinite(Number(task.projectId)) ? Number(task.projectId) : numericProjectId;
+    const mutationId = createMutationId();
     setLocalTasks((prev) => prev.map((item) => item.id === task.id ? { ...item, ...updates } : item));
     onTaskUpdated?.(task.id, updates);
+    if (Number.isFinite(mutationProjectId)) {
+      applyTaskMutation({
+        operation: 'updated',
+        projectId: mutationProjectId,
+        taskId: task.id,
+        mutationId,
+        source: 'optimistic',
+        patch: updates,
+        occurredAt: new Date().toISOString(),
+      });
+    }
     try {
       const updatedTask = await updateTaskDates(task.id, updates.startDate, updates.dueDate);
       setLocalTasks((prev) => prev.map((item) => item.id === task.id ? { ...item, ...updatedTask } : item));
       onTaskUpdated?.(task.id, updatedTask);
+      if (Number.isFinite(mutationProjectId)) {
+        const committed = {
+          operation: 'updated' as const,
+          projectId: mutationProjectId,
+          taskId: task.id,
+          mutationId,
+          source: 'http' as const,
+          task: updatedTask,
+          occurredAt: new Date().toISOString(),
+        };
+        applyTaskMutation(committed);
+        publishTaskMutation(committed);
+        void revalidateTaskDependents(mutationProjectId);
+      }
       toast('Task scheduled on the timeline.', 'success');
     } catch {
       setLocalTasks((prev) => prev.map((item) => item.id === task.id ? { ...item, ...previous } : item));
       onTaskUpdated?.(task.id, previous);
+      if (Number.isFinite(mutationProjectId) && isLatestTaskMutation(task.id, mutationId)) {
+        applyTaskMutation({
+          operation: 'updated',
+          projectId: mutationProjectId,
+          taskId: task.id,
+          mutationId,
+          source: 'rollback',
+          patch: previous,
+          occurredAt: new Date().toISOString(),
+        });
+      }
       toast('Could not schedule task. Reverted the timeline update.', 'error');
     }
   };
@@ -403,12 +464,12 @@ export default function TimelineView({
       <RiskStrip insights={insights} />
 
       {timelineTasks.length === 0 ? (
-        <EmptyTimeline hasFilters={hasFilters} onClearFilters={clearFilters} />
+        <EmptyTimeline hasFilters={hasFilters} hasUnscheduledTasks={unscheduledTasks.length > 0} onClearFilters={clearFilters} />
       ) : (
         <>
           <AgendaFallback tasks={timelineTasks} milestones={milestones} onOpenTask={onOpenTask} />
 
-          <div className="hidden overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-sm lg:block">
+          <div className="hidden max-w-full overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-sm lg:block">
             <div
               ref={scrollContainerRef}
               className="overflow-x-auto overflow-y-hidden custom-scrollbar touch-pan-x"
@@ -417,7 +478,7 @@ export default function TimelineView({
               <div className="min-w-max" style={{ width: `${TIMELINE_COLUMN_WIDTH + timelineWidthPx}px` }}>
                 <div className="sticky top-0 z-20 bg-cu-bg/95 backdrop-blur">
                   <div className="flex border-b border-cu-border">
-                    <div className="w-[320px] flex-shrink-0 border-r border-cu-border bg-cu-bg-secondary px-4 py-3">
+                    <div className="sticky left-0 z-30 w-[320px] flex-shrink-0 border-r border-cu-border bg-cu-bg-secondary px-4 py-3">
                       <p className="text-xs font-black uppercase text-cu-text-secondary">Work item</p>
                     </div>
                     <div className="flex" style={{ width: `${timelineWidthPx}px` }}>
@@ -433,7 +494,7 @@ export default function TimelineView({
                     </div>
                   </div>
                   <div className="flex border-b border-cu-border">
-                    <div className="w-[320px] flex-shrink-0 border-r border-cu-border bg-cu-bg-secondary px-4 py-2">
+                    <div className="sticky left-0 z-30 w-[320px] flex-shrink-0 border-r border-cu-border bg-cu-bg-secondary px-4 py-2">
                       <div className="flex items-center gap-2 text-[11px] font-bold text-cu-text-tertiary">
                         <Clock size={13} />
                         {timelineTasks.length} scheduled
@@ -484,7 +545,8 @@ export default function TimelineView({
                           isDragging={activeDrag?.taskId === task.id}
                           onOpenTask={onOpenTask}
                           onStartDragMove={(event, timelineTask) => startDrag(event, timelineTask, 'move')}
-                          onStartDragResize={(event, timelineTask) => startDrag(event, timelineTask, 'resize')}
+                          onStartDragResizeLeft={(event, timelineTask) => startDrag(event, timelineTask, 'resize-left')}
+                          onStartDragResizeRight={(event, timelineTask) => startDrag(event, timelineTask, 'resize-right')}
                           activeDragTaskId={activeDrag?.taskId}
                         />
                       ))}

@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Task } from '../../kanban/types';
 import {
     ChevronDown, ArrowUp, ArrowRight, ArrowDown, Minus,
-    MoreHorizontal, RefreshCw
+    Archive, ArchiveRestore, MoreHorizontal, RefreshCw
 } from 'lucide-react';
 import { hexToLabelStyle } from '@/components/shared/LabelPicker';
 import AssigneeAvatar from '../../(agile)/sprint-backlog/components/AssigneeAvatar';
@@ -12,7 +12,9 @@ import * as Popover from '@radix-ui/react-popover';
 import { DayPicker } from 'react-day-picker';
 import { format, parseISO } from 'date-fns';
 import { tasksApi } from '@/services/tasks-contract';
+import { ArchiveBadge } from '@/components/ui';
 import { formatLocalDate } from '@/lib/date-format';
+import type { TeamMemberOption } from '../../kanban/api';
 import 'react-day-picker/dist/style.css';
 
 const PRIORITY_CONFIG: Record<string, { color: string; icon: React.ElementType; label: string }> = {
@@ -50,14 +52,19 @@ interface BacklogTaskRowProps {
     onClick: (task: Task) => void;
     onStatusChange: (id: number, status: string) => void;
     onOpenModal: (id: number) => void;
+    onArchive?: (id: number) => void | Promise<void>;
+    onUnarchive?: (id: number) => void | Promise<void>;
+    isArchived?: boolean;
     selected?: boolean;
     onToggleSelect?: (id: number) => void;
     onDateChange?: (id: number, dueDate: string | null) => void;
+    onAssigneeChange?: (id: number, assigneeId: number | null) => void | Promise<void>;
+    teamMembers?: TeamMemberOption[];
 }
 
 export default function BacklogTaskRow({
     task, onDelete, onClick, onStatusChange, onOpenModal,
-    selected, onToggleSelect, onDateChange,
+    onArchive, onUnarchive, selected, onToggleSelect, onDateChange, onAssigneeChange, teamMembers = [], isArchived = false,
 }: BacklogTaskRowProps) {
     const PriorityIcon = task.priority ? (PRIORITY_CONFIG[task.priority]?.icon ?? Minus) : Minus;
     const priorityColor = task.priority ? (PRIORITY_CONFIG[task.priority]?.color ?? '#9CA3AF') : '#9CA3AF';
@@ -65,15 +72,19 @@ export default function BacklogTaskRow({
     const normalizedStatus = (task.status ?? '').toUpperCase();
     const statusClass = STATUS_COLOR[normalizedStatus] ?? 'bg-cu-bg-tertiary text-cu-text-secondary';
     const [statusOpen, setStatusOpen] = useState(false);
+    const [assigneeOpen, setAssigneeOpen] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const statusRef = useRef<HTMLDivElement>(null);
+    const assigneeRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
     const dueClass = classifyBacklogDue(task.dueDate, normalizedStatus);
+    const hasOpenPopover = statusOpen || assigneeOpen || menuOpen;
 
     useEffect(() => {
         const handler = (e: MouseEvent) => {
             if (statusRef.current && !statusRef.current.contains(e.target as Node)) setStatusOpen(false);
+            if (assigneeRef.current && !assigneeRef.current.contains(e.target as Node)) setAssigneeOpen(false);
             if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
         };
         document.addEventListener('mousedown', handler);
@@ -92,6 +103,11 @@ export default function BacklogTaskRow({
         }
     };
 
+    const handleAssigneeChange = async (assigneeId: number | null) => {
+        await onAssigneeChange?.(task.id, assigneeId);
+        setAssigneeOpen(false);
+    };
+
     return (
         <div
             className={`grid grid-cols-[auto_1fr_120px_100px_120px_100px_100px_32px] sm:grid-cols-[auto_1.5fr_140px_110px_130px_110px_120px_32px] items-center gap-x-2 px-3 sm:px-4 min-h-[52px] rounded-lg border cursor-pointer select-none transition-colors ${
@@ -102,9 +118,9 @@ export default function BacklogTaskRow({
                         : dueClass === 'five_days'
                             ? 'bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/15'
                             : 'bg-cu-bg-secondary/70 border-cu-border hover:bg-cu-hover'
-            }`}
+            } ${task.archived || isArchived ? 'opacity-60' : ''} ${hasOpenPopover ? 'relative z-[var(--cu-z-modal-popover)]' : 'relative z-auto'}`}
             onClick={() => {
-                if (statusOpen || menuOpen) return;
+                if (statusOpen || assigneeOpen || menuOpen) return;
                 if (window.innerWidth >= 768) onOpenModal(task.id);
                 else onClick(task);
             }}
@@ -137,6 +153,7 @@ export default function BacklogTaskRow({
                         <span>Recurring{task.recurrenceActive === false ? ' (Paused)' : ''}</span>
                     </span>
                 )}
+                {(task.archived || isArchived) && <ArchiveBadge />}
             </div>
 
             {/* Label */}
@@ -181,11 +198,70 @@ export default function BacklogTaskRow({
             </div>
 
             {/* Assignee */}
-            <div className="min-w-0 flex items-center">
-                {task.assigneeName ? (
-                    <AssigneeAvatar name={task.assigneeName} profilePicUrl={task.assigneePhotoUrl} size={22} />
-                ) : (
-                    <span className="text-[11px] text-cu-text-muted">—</span>
+            <div className="relative min-w-0 flex items-center" ref={assigneeRef} onClick={(e) => e.stopPropagation()}>
+                <button
+                    type="button"
+                    onClick={() => setAssigneeOpen(open => !open)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-transparent px-1.5 py-1 text-[11px] text-cu-text-muted hover:border-cu-primary/30 hover:bg-cu-primary/10 hover:text-cu-primary transition-colors"
+                    title={task.assigneeName || 'Assign task'}
+                >
+                    {task.assignees && task.assignees.length > 0 ? (
+                        <div className="flex items-center" title={task.assignees.map(a => a.name).join(', ')}>
+                            {task.assignees.slice(0, 3).map((a, idx) => (
+                                <span
+                                    key={a.id}
+                                    className="inline-block ring-2 ring-cu-bg rounded-full"
+                                    style={{ marginLeft: idx === 0 ? 0 : -6, zIndex: task.assignees!.length - idx }}
+                                >
+                                    <AssigneeAvatar name={a.name} profilePicUrl={a.avatar} size={22} />
+                                </span>
+                            ))}
+                            {task.assignees.length > 3 && (
+                                <span
+                                    className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-full bg-cu-bg-tertiary ring-2 ring-cu-bg text-[9px] font-bold text-cu-text-secondary"
+                                    style={{ marginLeft: -6 }}
+                                >
+                                    +{task.assignees.length - 3}
+                                </span>
+                            )}
+                            <ChevronDown size={10} className="shrink-0" />
+                        </div>
+                    ) : task.assigneeName ? (
+                        <>
+                            <AssigneeAvatar name={task.assigneeName} profilePicUrl={task.assigneePhotoUrl} size={22} />
+                            <ChevronDown size={10} className="shrink-0" />
+                        </>
+                    ) : (
+                        <>
+                            <span>Unassigned</span>
+                            <ChevronDown size={10} className="shrink-0" />
+                        </>
+                    )}
+                </button>
+                {assigneeOpen && (
+                    <div className="absolute right-0 top-full mt-1 z-[var(--cu-z-modal-popover)] bg-cu-bg border border-cu-border rounded-xl shadow-cu-lg py-1 min-w-[220px] max-h-80 overflow-y-auto">
+                        <button
+                            type="button"
+                            onClick={() => void handleAssigneeChange(null)}
+                            className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors ${!task.assigneeName ? 'font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
+                        >
+                            Unassigned
+                        </button>
+                        {teamMembers.map((member) => {
+                            const isSelected = task.assigneeId === member.id || task.assigneeId === member.memberId;
+                            return (
+                                <button
+                                    key={member.id}
+                                    type="button"
+                                    onClick={() => void handleAssigneeChange(member.id)}
+                                    className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors flex items-center gap-2 ${isSelected ? 'font-semibold text-cu-primary bg-cu-primary/5' : 'text-cu-text-primary'}`}
+                                >
+                                    <AssigneeAvatar name={member.name} profilePicUrl={member.photoUrl} size={20} />
+                                    <span className="truncate">{member.name}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
                 )}
             </div>
 
@@ -200,7 +276,13 @@ export default function BacklogTaskRow({
                                     ? 'border-amber-500/30 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20'
                                     : 'text-cu-text-muted hover:text-cu-primary bg-transparent border-transparent hover:border-cu-primary/30 hover:bg-cu-primary/10'
                         }`}>
-                            {dueClass === 'overdue' ? 'Overdue' : dueClass === 'today' ? 'Due today' : task.dueDate ? format(parseISO(task.dueDate), 'MMM d, yyyy') : 'No date'}
+                            {dueClass === 'overdue'
+                                ? 'Overdue'
+                                : dueClass === 'today'
+                                    ? 'Due today'
+                                    : task.dueDate
+                                        ? format(parseISO(task.dueDate), 'MMM d, yyyy')
+                                        : 'No date'}
                         </button>
                     </Popover.Trigger>
                     <Popover.Portal>
@@ -232,6 +314,33 @@ export default function BacklogTaskRow({
                         >
                             Edit
                         </button>
+                        {!task.parentTaskId && (
+                            !task.archived ? (
+                                <button
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        setMenuOpen(false);
+                                        await onArchive?.(task.id);
+                                    }}
+                                    className="w-full flex items-center text-left px-3 py-1.5 text-[12px] text-amber-500 hover:bg-cu-hover transition-colors"
+                                >
+                                    <Archive className="w-4 h-4 mr-2" />
+                                    Archive task
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        setMenuOpen(false);
+                                        await onUnarchive?.(task.id);
+                                    }}
+                                    className="w-full flex items-center text-left px-3 py-1.5 text-[12px] text-cu-text-primary hover:bg-cu-hover transition-colors"
+                                >
+                                    <ArchiveRestore className="w-4 h-4 mr-2" />
+                                    Unarchive task
+                                </button>
+                            )
+                        )}
                         <button
                             onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(task.id); }}
                             className="w-full text-left px-3 py-1.5 text-[12px] text-cu-danger hover:bg-cu-danger/10 transition-colors"
