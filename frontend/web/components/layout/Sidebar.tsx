@@ -2,7 +2,8 @@
 
 // Core Sidebar component containing all primary navigation links, project lists, and user action buttons.
 import { useEffect, useState, useMemo, useSyncExternalStore, useCallback, useRef } from 'react';
-import { AUTH_TOKEN_CHANGED_EVENT, clearTokens, getUserFromToken, getValidToken, User } from '@/lib/auth';
+import { AUTH_TOKEN_CHANGED_EVENT, getUserFromToken, getValidToken, logout, User } from '@/lib/auth';
+import { LogoutConfirmModal } from '@/components/auth/LogoutConfirmModal';
 import { useRouter, usePathname } from 'next/navigation';
 import { fetchChatInbox, type ChatInboxResponse } from '@/services/chat-service';
 
@@ -157,6 +158,8 @@ export default function Sidebar() {
   const [inboxPanelOpen, setInboxPanelOpen] = useState(false);
   const [notifPanelOpen, setNotifPanelOpen] = useState(false);
   const [loadingInbox, setLoadingInbox] = useState(false);
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // HYDRATION FIX: Both states must start with the same value the server uses.
   // The server has no access to `window` or `localStorage`, so any lazy
@@ -357,7 +360,25 @@ export default function Sidebar() {
   };
 
   /* handlers */
-  const handleLogout = () => { clearTokens(); router.push('/login'); };
+  const handleLogout = () => {
+    closeAll();
+    setLogoutModalOpen(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      setLogoutModalOpen(false);
+      router.push('/login');
+    } catch (error) {
+      console.error('Failed to logout:', error);
+      setLogoutModalOpen(false);
+      router.push('/login');
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   const handleProjectClick = async (project: Project) => {
     await rawProjectClick(project);
@@ -690,6 +711,13 @@ export default function Sidebar() {
           />
         </SidebarPanel>
       </div>
+
+      <LogoutConfirmModal
+        open={logoutModalOpen}
+        onOpenChange={setLogoutModalOpen}
+        onConfirm={handleConfirmLogout}
+        isLoggingOut={isLoggingOut}
+      />
     </>
   );
 }

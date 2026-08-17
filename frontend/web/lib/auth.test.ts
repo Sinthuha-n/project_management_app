@@ -1,4 +1,4 @@
-import { clearTokens, ensureValidToken, getRefreshToken, getValidToken, refreshAccessToken, saveRefreshToken, saveToken, setRememberMe } from './auth';
+import { clearTokens, ensureValidToken, getRefreshToken, getValidToken, logout, refreshAccessToken, saveRefreshToken, saveToken, setRememberMe } from './auth';
 
 function createJwt(payload: Record<string, unknown>): string {
   const encodedPayload = window.btoa(JSON.stringify(payload))
@@ -185,5 +185,42 @@ describe('auth requestRefreshAccessToken URL handling', () => {
 
     await expect(refreshPromise).rejects.toThrow('Token refresh cancelled during logout');
     expect(getValidToken()).toBeNull();
+  });
+
+  it('logout() clears all user storage, caches, and revokes backend session', async () => {
+    saveToken(createJwt({
+      sub: 'person@example.com',
+      username: 'johndoe',
+      exp: Math.floor(Date.now() / 1000) + 60 * 60,
+    }));
+    saveRefreshToken('mock-refresh-token');
+    window.localStorage.setItem('currentProjectId', '42');
+    window.localStorage.setItem('currentProjectName', 'Alpha Project');
+    window.localStorage.setItem('userProfile', JSON.stringify({ username: 'johndoe' }));
+    window.localStorage.setItem('planora:task:123', JSON.stringify({ title: 'Important Task' }));
+    window.localStorage.setItem('planora-theme', 'dark');
+    window.sessionStorage.setItem('tabSpecificData', 'secret');
+
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ success: true }) });
+
+    await logout();
+
+    expect(getValidToken()).toBeNull();
+    expect(window.localStorage.getItem('token')).toBeNull();
+    expect(window.localStorage.getItem('currentProjectId')).toBeNull();
+    expect(window.localStorage.getItem('currentProjectName')).toBeNull();
+    expect(window.localStorage.getItem('userProfile')).toBeNull();
+    expect(window.localStorage.getItem('planora:task:123')).toBeNull();
+    expect(window.sessionStorage.getItem('tabSpecificData')).toBeNull();
+    // Device UI theme is preserved
+    expect(window.localStorage.getItem('planora-theme')).toBe('dark');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/auth/logout'),
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+      })
+    );
   });
 });
