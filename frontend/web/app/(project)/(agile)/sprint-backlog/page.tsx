@@ -558,9 +558,43 @@ function SprintBacklogPageContent() {
       if (cKey) removeSessionCache(cKey);
     } catch {
       toast('Failed to update due date.', 'error');
-      void fetchData({ showSpinner: false, forceNetwork: true });
     }
-  }, [projectId, fetchData]);
+  }, [projectId]);
+
+  const handleAssignTaskInState = useCallback((
+    taskId: number,
+    assigneeName: string,
+    assigneePhotoUrl: string | null,
+    assignees?: TaskItem['assignees']
+  ) => {
+    setProductTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId
+          ? {
+              ...t,
+              assigneeName,
+              assigneePhotoUrl,
+              ...(assignees !== undefined ? { assignees } : {}),
+            }
+          : t
+      )
+    );
+    setSprints((prev) =>
+      prev.map((s) => ({
+        ...s,
+        tasks: s.tasks.map((t) =>
+          t.id === taskId
+            ? {
+                ...t,
+                assigneeName,
+                assigneePhotoUrl,
+                ...(assignees !== undefined ? { assignees } : {}),
+              }
+            : t
+        ),
+      }))
+    );
+  }, []);
 
   const handleSprintDeleted = useCallback((sprintId: number, tasks: SprintItem['tasks']) => {
     setSprints(prev => prev.filter(s => s.id !== sprintId));
@@ -965,12 +999,7 @@ function SprintBacklogPageContent() {
                           }}
                           onStatusChange={handleTaskStatusChange}
                           onStoryPointsChange={updateTaskStoryPoints}
-                          onAssignTask={(taskId, name, photo) => {
-                            setSprints(prev => prev.map(s => ({
-                              ...s,
-                              tasks: s.tasks.map(t => t.id === taskId ? { ...t, assigneeName: name, assigneePhotoUrl: photo } : t)
-                            })));
-                          }}
+                          onAssignTask={handleAssignTaskInState}
                           onRenameTask={async (taskId, title) => {
                             try {
                               await tasksApi.update(taskId, { title });
@@ -1020,9 +1049,7 @@ function SprintBacklogPageContent() {
                   onDropTask={moveTaskToBacklog}
                   onStatusChange={handleTaskStatusChange}
                   onDueDateChange={handleTaskDueDateChange}
-                  onAssignTask={(taskId, assigneeName, assigneePhotoUrl) => {
-                    setProductTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, assigneeName, assigneePhotoUrl } : t)));
-                  }}
+                  onAssignTask={handleAssignTaskInState}
                   onRenameTask={async (taskId, title) => {
                     try {
                       await tasksApi.update(taskId, { title });

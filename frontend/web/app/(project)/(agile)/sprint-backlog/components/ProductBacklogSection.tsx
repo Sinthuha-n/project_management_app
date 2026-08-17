@@ -36,8 +36,8 @@ interface ProductBacklogSectionProps {
   onDeleteTask?: (id: number) => void;
   onCreateSprint: () => void;
   onDropTask: (taskId: number, targetIndex?: number) => void;
-  onAssignTask: (taskId: number, assigneeName: string, assigneePhotoUrl: string | null) => void;
-  onAssignMultiple?: (taskId: number, userIds: number[]) => Promise<void> | void;
+  onAssignTask: (taskId: number, assigneeName: string, assigneePhotoUrl: string | null, assignees?: TaskItem['assignees']) => void;
+  onAssignMultiple?: (taskId: number, userIds: number[], assignees?: TaskItem['assignees']) => Promise<void> | void;
   onStatusChange: (taskId: number, status: string) => void;
   onDueDateChange?: (taskId: number, dueDate: string) => Promise<void>;
   onRenameTask?: (taskId: number, title: string) => void;
@@ -149,27 +149,47 @@ export default function ProductBacklogSection({
     try {
       await tasksApi.assignTaskSingle(taskId, userId);
       const member = teamMembers.find((m) => m.user.userId === userId);
-      if (member) {
-        onAssignTask(taskId, getMemberDisplayName(member), member.user.profilePicUrl || null);
-      }
+      const name = member ? getMemberDisplayName(member) : 'Unassigned';
+      const photo = member?.user?.profilePicUrl || null;
+      const newAssignees = member ? [{
+        id: member.user.userId,
+        userId: member.user.userId,
+        memberId: member.id,
+        name,
+        avatar: photo || undefined,
+        photoUrl: photo,
+        profilePicUrl: photo,
+      }] : [];
+      onAssignTask(taskId, name, photo, newAssignees);
     } catch {
       toast('Failed to assign task.', 'error');
     }
   };
 
   const handleAssignMultiple = async (taskId: number, userIds: number[]) => {
+    const assignedMembers = teamMembers.filter((m) => userIds.includes(m.user.userId));
+    const first = assignedMembers[0];
+    const newAssignees = assignedMembers.map((m) => ({
+      id: m.user.userId,
+      userId: m.user.userId,
+      memberId: m.id,
+      name: getMemberDisplayName(m),
+      avatar: m.user.profilePicUrl || undefined,
+      photoUrl: m.user.profilePicUrl || null,
+      profilePicUrl: m.user.profilePicUrl || null,
+    }));
+
     if (onAssignMultiple) {
-      await onAssignMultiple(taskId, userIds);
+      await onAssignMultiple(taskId, userIds, newAssignees);
       return;
     }
     try {
       await tasksApi.assignTaskMultiple(taskId, { assigneeIds: userIds });
-      const assignedMembers = teamMembers.filter((m) => userIds.includes(m.user.userId));
-      const first = assignedMembers[0];
       onAssignTask(
         taskId,
         first ? getMemberDisplayName(first) : 'Unassigned',
-        first?.user?.profilePicUrl || null
+        first?.user?.profilePicUrl || null,
+        newAssignees
       );
     } catch {
       toast('Failed to assign task.', 'error');
