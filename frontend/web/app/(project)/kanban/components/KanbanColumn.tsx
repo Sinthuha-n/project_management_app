@@ -179,8 +179,8 @@ export default function KanbanColumn({
       />
 
       {/* Column Header: always visible, prominent title */}
-      <div className="px-3.5 py-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center justify-between gap-2 px-3.5 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
           {/* Status dot */}
           <span
             className="w-3 h-3 rounded-full flex-shrink-0 ring-2 ring-cu-bg-secondary"
@@ -192,13 +192,13 @@ export default function KanbanColumn({
           </h3>
           {/* Task count */}
           {wipExceeded ? (
-            <span className="flex items-center gap-0.5 text-[10px] font-bold text-red-500 bg-red-500/10 border border-red-500/30 px-1.5 py-0.5 rounded-full whitespace-nowrap">
-              <AlertTriangle size={10} />
+            <span className="flex flex-shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-bold text-red-500">
+              <AlertTriangle size={10} className="flex-shrink-0" />
               {taskCount}/{wipLimit}
             </span>
           ) : (
             <span
-              className="inline-flex items-center justify-center min-w-[22px] h-[22px] rounded-full text-[12px] font-bold px-1.5"
+              className="inline-flex h-[22px] min-w-[22px] flex-shrink-0 items-center justify-center rounded-full px-1.5 text-[12px] font-bold"
               style={{
                 backgroundColor: accentColor + '18',
                 color: accentColor,
@@ -231,19 +231,22 @@ export default function KanbanColumn({
               </button>
 
               {menuOpen && (
-                <div className="absolute right-0 top-full mt-1 z-50 bg-cu-bg border border-cu-border rounded-xl shadow-cu-xl w-52 py-1">
+                <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-xl border border-cu-border bg-cu-bg py-1 shadow-cu-xl">
                   {menuMode === 'main' && (
                     <>
-                      <button onClick={() => setMenuMode('rename')} className="w-full text-left px-3 py-2 text-sm text-cu-text-primary hover:bg-cu-hover transition-colors">Rename column</button>
-                      <button onClick={() => { setWipValue(String(wipLimit ?? 0)); setMenuMode('wip'); }} className="w-full text-left px-3 py-2 text-sm text-cu-text-primary hover:bg-cu-hover transition-colors">Set WIP limit</button>
-                      <button onClick={() => setMenuMode('color')} className="w-full text-left px-3 py-2 text-sm text-cu-text-primary hover:bg-cu-hover transition-colors">Change color</button>
+                      <button onClick={() => setMenuMode('rename')} className="w-full px-3 py-2 text-left text-sm text-cu-text-primary transition-colors hover:bg-cu-hover">Rename column</button>
+                      <button onClick={() => { setWipValue(String(wipLimit ?? 0)); setMenuMode('wip'); }} className="w-full px-3 py-2 text-left text-sm text-cu-text-primary transition-colors hover:bg-cu-hover">Set WIP limit</button>
+                      <button onClick={() => setMenuMode('color')} className="w-full px-3 py-2 text-left text-sm text-cu-text-primary transition-colors hover:bg-cu-hover">Change color</button>
                       <div className="border-t border-cu-border my-1" />
                       <button
                         onClick={() => { if (taskCount === 0) setMenuMode('confirmDelete'); }}
-                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${taskCount > 0 ? 'text-cu-text-muted/50 cursor-not-allowed' : 'text-cu-danger hover:bg-cu-danger/10'}`}
+                        className={`w-full px-3 py-2 text-left text-sm transition-colors ${taskCount > 0 ? 'cursor-not-allowed text-cu-text-muted/50' : 'text-cu-danger hover:bg-cu-danger/10'}`}
                         title={taskCount > 0 ? 'Move all tasks out first' : undefined}
                       >
-                        Delete column{taskCount > 0 && <span className="ml-1 text-[10px]">(has tasks)</span>}
+                        <span className="inline-flex max-w-full items-center">
+                          <span className="truncate">Delete column</span>
+                          {taskCount > 0 && <span className="ml-1 flex-shrink-0 text-[10px]">(has tasks)</span>}
+                        </span>
                       </button>
                     </>
                   )}
@@ -281,7 +284,7 @@ export default function KanbanColumn({
                             <span className="w-7 h-7 rounded-lg border border-cu-border flex items-center justify-center" style={{ backgroundColor: swatch.value }}>
                               {color === swatch.value && <Check size={12} className="text-cu-text-secondary" />}
                             </span>
-                            <span className="text-[9px] text-cu-text-muted">{swatch.label}</span>
+                            <span className="max-w-full truncate text-[9px] text-cu-text-muted">{swatch.label}</span>
                           </button>
                         ))}
                       </div>
@@ -359,7 +362,7 @@ export default function KanbanColumn({
                   else if (e.key === 'Escape') { setInlineTitle(''); setInlineTitleLength(0); setShowInlineCreate(false); }
                 }}
                 placeholder="Task name..."
-                className="w-full text-sm px-2 py-1.5 border-0 focus:outline-none focus:ring-0 placeholder:text-cu-text-muted bg-transparent text-cu-text-primary"
+                className="w-full border-0 bg-transparent px-2 py-1.5 text-sm text-cu-text-primary placeholder:text-cu-text-muted focus:outline-none focus:ring-0"
               />
               {inlineTitleLength > 200 && (
                 <p className="text-xs text-amber-500 mt-1">
@@ -376,10 +379,10 @@ export default function KanbanColumn({
           ) : (
             <button
               onClick={() => setShowInlineCreate(true)}
-              className="w-full flex items-center gap-1.5 text-[13px] text-cu-text-secondary hover:text-cu-text-primary hover:bg-cu-hover rounded-lg py-1.5 px-2 transition-colors group"
+              className="group flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[13px] text-cu-text-secondary transition-colors hover:bg-cu-hover hover:text-cu-text-primary"
             >
               <Plus size={14} className="text-cu-text-muted group-hover:text-cu-primary transition-colors" />
-              Add task
+              <span className="truncate">Add task</span>
             </button>
           )}
         </div>

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task, Label } from '../types';
-import { Calendar, GitBranch, GitPullRequest, MessageSquare, Paperclip, Check, X, Tag, Plus, ChevronDown, ChevronRight, Lock, RefreshCw, Pencil, Trash2 } from 'lucide-react';
+import { Calendar, GitBranch, GitPullRequest, MessageSquare, Paperclip, Check, X, Tag, Plus, ChevronDown, ChevronRight, Lock, RefreshCw, Pencil, Trash2, UserPen, UserRound } from 'lucide-react';
 import { CIStatusBadge } from '@/components/ui';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 import type { TeamMemberOption } from '../api';
@@ -156,14 +156,17 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
         style={{ top: assigneeMenuPosition.top, left: assigneeMenuPosition.left }}
         onClick={e => e.stopPropagation()}
       >
-        <p className="mb-1.5 text-[10px] font-medium text-cu-text-muted">Assignee</p>
+        <p className="mb-1.5 text-[10px] font-medium text-cu-text-muted">Edit assignee</p>
         <div className="max-h-80 space-y-0.5 overflow-y-auto">
           <button
             type="button"
             onClick={() => void handleSetAssignee(null)}
-            className={`w-full rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-cu-hover ${!task.assigneeName ? 'font-semibold text-cu-primary' : 'text-cu-text-secondary'}`}
+            className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-cu-hover ${!task.assigneeName ? 'font-semibold text-cu-primary' : 'text-cu-text-secondary'}`}
           >
-            Unassigned
+            <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-cu-bg-tertiary text-cu-text-muted">
+              <UserRound size={11} />
+            </span>
+            <span className="min-w-0 truncate">Unassigned</span>
           </button>
           {teamMembers.map((member) => {
             const isSelected = task.assigneeId === member.id || task.assigneeId === member.memberId;
@@ -181,7 +184,7 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
                     member.name.charAt(0).toUpperCase()
                   )}
                 </span>
-                <span className="truncate">{member.name}</span>
+                <span className="min-w-0 truncate">{member.name}</span>
               </button>
             );
           })}
@@ -302,10 +305,10 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
                   ? allLabels.filter(l => l.id === task.labelId)
                   : [];
               return displayLabels.slice(0, 3).map((label) => (
-                <span key={label.id} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
+                <span key={label.id} className="inline-flex max-w-full items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase"
                   style={{ backgroundColor: (label.color ?? '#6366F1') + '18', color: label.color ?? '#6366F1' }}>
                   <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: label.color ?? '#6366F1' }} />
-                  {label.name}
+                  <span className="min-w-0 truncate">{label.name}</span>
                 </span>
               ));
             })()}
@@ -340,7 +343,7 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
         </div>
 
         {/* Title */}
-        <p className="text-[13px] font-medium text-cu-text-primary leading-snug line-clamp-2 mb-2">{task.title}</p>
+        <p className="mb-2 break-words text-[13px] font-medium leading-snug text-cu-text-primary line-clamp-2">{task.title}</p>
 
         {/* Priority and Blocked badges */}
         <div className="flex flex-wrap gap-1.5 mb-2">
@@ -470,7 +473,7 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
                       ? allLabels.find(l => l.id === task.labelId)
                       : null;
                   return currentLabel ? (
-                    <span style={{ color: currentLabel.color ?? '#6366F1' }}>{currentLabel.name}</span>
+              <span className="max-w-[96px] truncate" style={{ color: currentLabel.color ?? '#6366F1' }}>{currentLabel.name}</span>
                   ) : null;
                 })()}
               </button>
@@ -488,7 +491,7 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
                       <button key={l.id} onClick={() => void handleSetLabel(l.id)}
                         className={`w-full text-left px-2 py-1.5 text-xs rounded hover:bg-cu-hover transition-colors flex items-center gap-2 ${task.labelId === l.id ? 'font-semibold text-cu-primary bg-cu-primary/5' : 'text-cu-text-secondary'}`}>
                         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: l.color ?? '#6366F1' }} />
-                        {l.name}
+                        <span className="min-w-0 truncate">{l.name}</span>
                       </button>
                     ))}
                   </div>
@@ -547,7 +550,7 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
           </div>
 
           {/* Assignee */}
-          <div className="relative flex-shrink-0" ref={assigneePickerRef}>
+          <div className="relative min-w-0 flex-shrink-0" ref={assigneePickerRef}>
             <button
               data-action="assignee"
               type="button"
@@ -557,17 +560,18 @@ export default function KanbanCard({ task, onDelete, onOpenTask, onInlineUpdate,
                 setShowLabelPicker(false);
                 openAssigneePicker(e.currentTarget);
               }}
-              className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[11px] font-bold flex items-center justify-center overflow-hidden ring-2 ring-cu-bg shadow-sm hover:ring-cu-primary/40 transition-all"
-              title={task.assigneeName || 'Assign task'}
+              className="group flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-[11px] font-bold text-white shadow-sm ring-2 ring-cu-bg transition-all hover:ring-cu-primary/40"
+              title={task.assigneeName ? `Edit assignee: ${task.assigneeName}` : 'Assign task'}
+              aria-label={task.assigneeName ? `Edit assignee for ${task.title}` : `Assign ${task.title}`}
             >
               {task.assigneeName ? (
                 avatarUrl ? (
-                  <Image src={avatarUrl} alt={task.assigneeName} width={28} height={28} className="w-full h-full object-cover" unoptimized />
+                  <Image src={avatarUrl} alt={task.assigneeName} width={28} height={28} className="h-full w-full object-cover" unoptimized />
                 ) : (
                   task.assigneeName.charAt(0).toUpperCase()
                 )
               ) : (
-                '+'
+                <UserPen size={14} />
               )}
             </button>
           </div>
