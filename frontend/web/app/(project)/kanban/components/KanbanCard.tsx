@@ -184,9 +184,6 @@ export default function KanbanCard({
       setIsDeletingLabel(false);
     }
   };
-    setNewLabelName('');
-    setShowLabelPicker(false);
-  };
 
   const handleSetAssignee = async (assigneeId: number | null) => {
     if (!onAssigneeChange) return;

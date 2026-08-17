@@ -27,7 +27,7 @@ export interface LocalSprintTask {
     userId?: number;
     memberId?: number;
     name: string;
-    avatar?: string;
+    avatar?: string | null;
     photoUrl?: string | null;
     profilePicUrl?: string | null;
   }>;
@@ -71,6 +71,7 @@ export function useBacklogCardHandlers({
   onStatusChange,
   onStoryPointsChange,
   onAssignTask,
+  onAssignMultiple,
   onRenameTask,
   onDueDateChange,
   projectLabels,

@@ -246,7 +246,7 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
             userId: m.userId ?? m.id,
             memberId: m.memberId ?? m.id,
             name: m.name,
-            email: m.email,
+            email: m.email ?? undefined,
             avatar: resolveProfilePhotoUrl(m.photoUrl, m.userId ?? m.id) || m.photoUrl || undefined,
             photoUrl: resolveProfilePhotoUrl(m.photoUrl, m.userId ?? m.id) || m.photoUrl || undefined,
         }));

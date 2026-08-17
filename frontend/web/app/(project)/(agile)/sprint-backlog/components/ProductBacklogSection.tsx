@@ -158,8 +158,8 @@ export default function ProductBacklogSection({
   };
 
   const handleAssignMultiple = async (taskId: number, userIds: number[]) => {
-    if (props.onAssignMultiple) {
-      await props.onAssignMultiple(taskId, userIds);
+    if (onAssignMultiple) {
+      await onAssignMultiple(taskId, userIds);
       return;
     }
     try {

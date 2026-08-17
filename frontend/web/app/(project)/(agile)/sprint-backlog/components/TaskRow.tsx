@@ -20,7 +20,7 @@ export interface TaskRowTask {
     userId?: number;
     memberId?: number;
     name: string;
-    avatar?: string;
+    avatar?: string | null;
     photoUrl?: string | null;
     profilePicUrl?: string | null;
   }>;

@@ -23,7 +23,6 @@ export function useKanbanBoard(projectId: string | null) {
     data.upsertTask,
     data.patchTask,
     data.removeTask,
-    data.rollbackTask,
     data.syncCache,
     data.syncColumnCache,
     data.teamMembers,

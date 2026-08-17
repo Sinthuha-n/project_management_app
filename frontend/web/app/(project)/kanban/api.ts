@@ -18,6 +18,7 @@ export interface TeamMemberOption {
   memberId?: number;
   userId?: number;
   name: string;
+  email?: string | null;
   photoUrl?: string | null;
 }
 

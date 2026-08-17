@@ -276,7 +276,7 @@ export function backendCommitToGitHubCommit(commit: BackendGithubCommit): GitHub
     committedAt?: string;
     htmlUrl?: string;
   };
-  const authorLogin = commit.authorName ?? commitLike.author ?? commit.author ?? 'unknown';
+  const authorLogin = commit.authorName ?? commitLike.author ?? 'unknown';
   const htmlUrl = commit.commitUrl ?? commitLike.htmlUrl ?? '';
   const date = commit.authoredAt ?? commitLike.committedAt ?? '';
 

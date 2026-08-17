@@ -163,7 +163,7 @@ export default function BacklogTaskRow({
     const displayAssignees = task.assignees && task.assignees.length > 0
         ? task.assignees
         : task.assigneeName
-            ? [{ id: task.assigneeId, name: task.assigneeName, photoUrl: task.assigneePhotoUrl, avatar: task.assigneePhotoUrl }]
+            ? [{ id: task.assigneeId, name: task.assigneeName, photoUrl: task.assigneePhotoUrl, avatar: task.assigneePhotoUrl, profilePicUrl: task.assigneePhotoUrl }]
             : [];
 
     return (

@@ -19,8 +19,8 @@ export interface Assignee {
   memberId?: number;
   userId?: number;
   name: string;
-  email?: string;
-  avatar?: string;
+  email?: string | null;
+  avatar?: string | null;
   photoUrl?: string | null;
   profilePicUrl?: string | null;
 }
