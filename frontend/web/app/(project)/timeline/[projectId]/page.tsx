@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import TimelineView from '../../kanban/components/TimelineView';
 import { Task } from '../../kanban/types';
-import { createTask as createTimelineTask } from '../../kanban/api';
+import { createTask as createTimelineTask, fetchProject } from '../../kanban/api';
 import { AlertCircle, CalendarClock, CalendarRange, Diamond, ListChecks, Lock, Plus, RefreshCw } from 'lucide-react';
 import TaskCardModal from '@/app/taskcard/TaskCardModal';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
@@ -15,6 +15,7 @@ import CreateTaskModal, { type CreateTaskData } from '@/components/shared/Create
 import type { TimelineInsight } from '../../kanban/utils/timeline-utils';
 import { useTaskMutations } from '@/hooks/useTaskMutations';
 import { useProjectTasks } from '@/hooks/useProjectTasks';
+import { isAgileProjectType } from '@/components/shared/ProjectTypeIcon';
 
 export default function TimelinePage() {
   const router = useRouter();
@@ -23,6 +24,7 @@ export default function TimelinePage() {
   const projectTasks = useProjectTasks(projectId, false);
 
   const [milestones, setMilestones] = useState<MilestoneResponse[]>([]);
+  const [projectType, setProjectType] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [visibleRangeLabel, setVisibleRangeLabel] = useState('No scheduled range');
@@ -78,6 +80,30 @@ export default function TimelinePage() {
   }, [loadMilestones]);
 
   useEffect(() => {
+    const pid = parseInt(projectId, 10);
+    if (isNaN(pid)) return;
+
+    const storedId = typeof window !== 'undefined' ? localStorage.getItem('currentProjectId') : null;
+    const storedType = typeof window !== 'undefined' && storedId === projectId
+      ? localStorage.getItem('currentProjectType')
+      : null;
+    if (storedType) setProjectType(storedType);
+
+    let cancelled = false;
+    fetchProject(pid)
+      .then((project) => {
+        if (!cancelled) setProjectType(project?.type ?? storedType ?? 'KANBAN');
+      })
+      .catch(() => {
+        if (!cancelled) setProjectType(storedType ?? 'KANBAN');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  useEffect(() => {
     const refreshMilestones = () => { void loadMilestones(); };
     window.addEventListener('planora:milestone-updated', refreshMilestones);
     return () => {
@@ -93,11 +119,13 @@ export default function TimelinePage() {
       title: data.title,
       status: data.status || 'TODO',
       priority: data.priority,
-      storyPoint: data.storyPoint,
       assigneeId: data.assigneeId,
       labelIds: data.labelIds,
       dueDate: data.dueDate,
     };
+    if (isAgileProjectType(projectType)) {
+      Object.assign(payload, { storyPoint: data.storyPoint ?? 0 });
+    }
     taskMutations.create(payload, (request) => createTimelineTask(request as typeof payload));
   };
 
@@ -232,6 +260,7 @@ export default function TimelinePage() {
             onClose={() => setShowCreateModal(false)}
             onCreateTask={handleCreateTask}
             projectId={parseInt(projectId, 10)}
+            showStoryPoints={isAgileProjectType(projectType)}
           />
         )}
 

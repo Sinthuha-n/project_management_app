@@ -338,7 +338,7 @@ function BacklogPageContent() {
                                                 }}
                                                 onKeyDown={async e => {
                                                     if (e.key === 'Enter' && inlineTitle.trim()) {
-                                                        await handleAddTask({ title: inlineTitle.trim(), priority: 'MEDIUM', labelIds: [], storyPoint: 0 });
+                                                        await handleAddTask({ title: inlineTitle.trim(), priority: 'MEDIUM', labelIds: [] });
                                                         setInlineTitle('');
                                                         setInlineTitleLength(0);
                                                         setShowInlineCreate(false);
@@ -360,7 +360,7 @@ function BacklogPageContent() {
                                         <button
                                             onClick={async () => {
                                                 if (inlineTitle.trim()) {
-                                                    await handleAddTask({ title: inlineTitle.trim(), priority: 'MEDIUM', labelIds: [], storyPoint: 0 });
+                                                    await handleAddTask({ title: inlineTitle.trim(), priority: 'MEDIUM', labelIds: [] });
                                                     setInlineTitle('');
                                                     setInlineTitleLength(0);
                                                 }
@@ -505,6 +505,7 @@ function BacklogPageContent() {
                     onClose={() => setShowCreateModal(false)}
                     onCreateTask={handleAddTask}
                     projectId={parseInt(projectId, 10)}
+                    showStoryPoints={false}
                 />
             )}
 

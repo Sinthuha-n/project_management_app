@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import TimelinePage from './page';
-import { createTask, fetchTasksByProject } from '../../kanban/api';
+import { createTask, fetchProject, fetchTasksByProject } from '../../kanban/api';
 import { getMilestones } from '@/services/milestone-service';
 import { useProjectTasks } from '@/hooks/useProjectTasks';
 import { useTaskMutations } from '@/hooks/useTaskMutations';
@@ -12,6 +12,7 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('../../kanban/api', () => ({
   createTask: jest.fn(),
+  fetchProject: jest.fn(),
   fetchTasksByProject: jest.fn(),
 }));
 
@@ -64,10 +65,19 @@ jest.mock('@/app/taskcard/TaskCardModal', () => ({
 
 jest.mock('@/components/shared/CreateTaskModal', () => ({
   __esModule: true,
-  default: ({ isOpen, onCreateTask }: { isOpen: boolean; onCreateTask: (data: { title: string; status: string; dueDate?: string }) => Promise<void> }) => (
+  default: ({
+    isOpen,
+    onCreateTask,
+    showStoryPoints,
+  }: {
+    isOpen: boolean;
+    onCreateTask: (data: { title: string; status: string; dueDate?: string; storyPoint?: number }) => Promise<void>;
+    showStoryPoints?: boolean;
+  }) => (
     isOpen ? (
       <div data-testid="create-task-modal">
-        <button type="button" onClick={() => void onCreateTask({ title: 'New task', status: 'TODO', dueDate: '2026-09-15' })}>
+        <div data-testid="show-story-points">{String(showStoryPoints)}</div>
+        <button type="button" onClick={() => void onCreateTask({ title: 'New task', status: 'TODO', dueDate: '2026-09-15', storyPoint: 5 })}>
           Submit new task
         </button>
       </div>
@@ -77,6 +87,7 @@ jest.mock('@/components/shared/CreateTaskModal', () => ({
 
 const mockedFetchTasksByProject = fetchTasksByProject as jest.Mock;
 const mockedCreateTask = createTask as jest.Mock;
+const mockedFetchProject = fetchProject as jest.Mock;
 const mockedGetMilestones = getMilestones as jest.Mock;
 const mockedUseProjectTasks = useProjectTasks as jest.Mock;
 const mockedUseTaskMutations = useTaskMutations as jest.Mock;
@@ -91,6 +102,7 @@ describe('TimelinePage incremental task updates', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedFetchTasksByProject.mockResolvedValue(initialTasks);
+    mockedFetchProject.mockResolvedValue({ id: 42, type: 'KANBAN' });
     mockedGetMilestones.mockResolvedValue([]);
     mockedUseProjectTasks.mockReturnValue({
       tasks: initialTasks,
@@ -127,13 +139,14 @@ describe('TimelinePage incremental task updates', () => {
     expect(mockedFetchTasksByProject).not.toHaveBeenCalled();
   });
 
-  it('creates through the shared task mutation coordinator', async () => {
+  it('creates Kanban timeline tasks without story points', async () => {
     mockedCreateTask.mockResolvedValue({ id: 2, title: 'New task', status: 'TODO', projectId: 42 });
 
     render(<TimelinePage />);
 
     await screen.findByText('Open first task');
     fireEvent.click(screen.getByRole('button', { name: 'Create task' }));
+    expect(await screen.findByTestId('show-story-points')).toHaveTextContent('false');
     fireEvent.click(screen.getByText('Submit new task'));
 
     const payload = mockedTaskCreate.mock.calls[0][0];
@@ -143,9 +156,28 @@ describe('TimelinePage incremental task updates', () => {
       status: 'TODO',
       dueDate: '2026-09-15',
     }));
+    expect(payload).not.toHaveProperty('storyPoint');
     expect(payload).not.toHaveProperty('startDate');
     expect(mockedTaskCreate).toHaveBeenCalledWith(payload, expect.any(Function));
     expect(mockedCreateTask).toHaveBeenCalledTimes(1);
     expect(mockedFetchTasksByProject).not.toHaveBeenCalled();
+  });
+
+  it('creates Agile timeline tasks with story points', async () => {
+    mockedFetchProject.mockResolvedValue({ id: 42, type: 'AGILE' });
+    mockedCreateTask.mockResolvedValue({ id: 2, title: 'New task', status: 'TODO', projectId: 42 });
+
+    render(<TimelinePage />);
+
+    await screen.findByText('Open first task');
+    fireEvent.click(screen.getByRole('button', { name: 'Create task' }));
+    expect(await screen.findByTestId('show-story-points')).toHaveTextContent('true');
+    fireEvent.click(screen.getByText('Submit new task'));
+
+    expect(mockedTaskCreate.mock.calls[0][0]).toEqual(expect.objectContaining({
+      projectId: 42,
+      title: 'New task',
+      storyPoint: 5,
+    }));
   });
 });

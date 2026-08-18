@@ -13,7 +13,7 @@ export interface CreateTaskData {
   status?: string;
   priority: string;
   assigneeId?: number;
-  storyPoint: number;
+  storyPoint?: number;
   labelIds?: number[];
   dueDate?: string;
 }
@@ -26,6 +26,7 @@ interface CreateTaskModalProps {
   initialDueDate?: string;
   minDate?: string | null;
   maxDate?: string | null;
+  showStoryPoints?: boolean;
 }
 
 const PRIORITY_OPTIONS = [
@@ -45,6 +46,7 @@ export default function CreateTaskModal({
   initialDueDate,
   minDate,
   maxDate,
+  showStoryPoints = true,
 }: CreateTaskModalProps) {
   const [title, setTitle] = useState('');
   const [titleLength, setTitleLength] = useState(0);
@@ -105,15 +107,17 @@ export default function CreateTaskModal({
 
     setSubmitting(true);
     try {
-      const result = onCreateTask({
+      const taskData: CreateTaskData = {
         title: title.trim(),
         status,
         priority,
         assigneeId: assignee || undefined,
-        storyPoint,
         labelIds: selectedLabels.map((l) => l.id),
         dueDate: dueDate || undefined,
-      });
+      };
+      if (showStoryPoints) taskData.storyPoint = storyPoint;
+
+      const result = onCreateTask(taskData);
       // Optimistic coordinators return immediately and own remote error
       // reporting. Legacy async callbacks are still supported.
       if (result && typeof result.then === 'function') await result;
@@ -211,28 +215,29 @@ export default function CreateTaskModal({
                 </div>
               </div>
 
-              {/* Story Points (Fibonacci) */}
-              <div className="space-y-2">
-                <label className="text-[13px] font-bold text-cu-text-primary flex items-center gap-2">
-                  <Hash size={14} className="text-cu-text-muted" /> STORY POINTS
-                </label>
-                <div className="flex gap-1.5 flex-wrap">
-                  {FIBONACCI.map((pt) => (
-                    <button
-                      key={pt}
-                      type="button"
-                      onClick={() => setStoryPoint(pt)}
-                      className={`h-8 w-8 rounded-lg border text-[12px] font-bold transition-all ${
-                        storyPoint === pt
-                          ? 'bg-cu-primary text-white border-cu-primary'
-                          : 'bg-cu-bg text-cu-text-secondary border-cu-border hover:bg-cu-bg-secondary'
-                      }`}
-                    >
-                      {pt}
-                    </button>
-                  ))}
+              {showStoryPoints && (
+                <div className="space-y-2">
+                  <label className="text-[13px] font-bold text-cu-text-primary flex items-center gap-2">
+                    <Hash size={14} className="text-cu-text-muted" /> STORY POINTS
+                  </label>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {FIBONACCI.map((pt) => (
+                      <button
+                        key={pt}
+                        type="button"
+                        onClick={() => setStoryPoint(pt)}
+                        className={`h-8 w-8 rounded-lg border text-[12px] font-bold transition-all ${
+                          storyPoint === pt
+                            ? 'bg-cu-primary text-white border-cu-primary'
+                            : 'bg-cu-bg text-cu-text-secondary border-cu-border hover:bg-cu-bg-secondary'
+                        }`}
+                      >
+                        {pt}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Assignee */}
               <div className="space-y-2">
