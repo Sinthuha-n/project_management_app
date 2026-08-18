@@ -48,6 +48,11 @@ export default function CreateTaskModal({
   const labelRef = useRef<HTMLDivElement>(null);
   const safeTeamMembers = Array.isArray(teamMembers) ? teamMembers : [];
   const selectedAssignee = assignee ? safeTeamMembers.find(m => m.id === assignee) : null;
+  const todayStart = React.useMemo(() => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -65,6 +70,16 @@ export default function CreateTaskModal({
 
     if (!title.trim()) {
       setError('Task name is required');
+      return;
+    }
+
+    if (startDate && startDate < todayStart) {
+      setSubmitError('Start date cannot be in the past.');
+      return;
+    }
+
+    if (dueDate && dueDate < todayStart) {
+      setSubmitError('Due date cannot be in the past.');
       return;
     }
 
@@ -238,7 +253,7 @@ export default function CreateTaskModal({
             </div>
             {showStartDatePicker && (
               <div className="bg-cu-bg-secondary rounded-xl p-4 border border-cu-border">
-                <DatePicker selected={startDate} onChange={(d: Date | null) => { setStartDate(d); setShowStartDatePicker(false); }} dateFormat="MMM d, yyyy" inline disabled={loading} />
+                <DatePicker selected={startDate} onChange={(d: Date | null) => { setStartDate(d); setShowStartDatePicker(false); }} dateFormat="MMM d, yyyy" minDate={todayStart} inline disabled={loading} />
               </div>
             )}
           </div>
@@ -296,7 +311,7 @@ export default function CreateTaskModal({
                     setShowDatePicker(false);
                   }}
                   dateFormat="MMM d, yyyy"
-                  minDate={new Date()}
+                  minDate={todayStart}
                   maxDate={new Date(2030, 11, 31)}
                   inline
                   disabled={loading}

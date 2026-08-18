@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
     AlertCircle, Plus, ChevronDown, ChevronUp,
@@ -19,6 +19,13 @@ import { useBacklogData } from './hooks/useBacklogData';
 import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 import { stripQueryParam } from '@/lib/url';
 import { fetchProject } from '../kanban/api';
+import TimelinePagination from '../kanban/components/TimelinePagination';
+import {
+    DEFAULT_TIMELINE_PAGE_SIZE,
+    TIMELINE_PAGE_SIZE_OPTIONS,
+    paginateTimelineTasks,
+} from '../kanban/utils/timeline-utils';
+import { formatStatusLabel } from './status-options';
 function BacklogPageContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -54,6 +61,8 @@ function BacklogPageContent() {
     const [inlineTitle, setInlineTitle] = useState('');
     const [inlineTitleLength, setInlineTitleLength] = useState(0);
     const [showArchived, setShowArchived] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState<number>(DEFAULT_TIMELINE_PAGE_SIZE);
     const {
         tasks, archivedTasks, archivedLoading, loading, error, collapsedGroups, toggleGroup,
         selectedTask, setSelectedTask,
@@ -66,14 +75,77 @@ function BacklogPageContent() {
         filterLabel, setFilterLabel,
         filterDateRange, setFilterDateRange,
         groupBy, setGroupBy,
-        teamMembers, labels,
+        teamMembers, labels, statusOptions,
         selectedIds, setSelectedIds,
-        groupedTasks,
+        filteredTasks,
         handleMarkDone, handleDelete, handleAddTask,
         handleStatusChange, handleAssigneeChange, handleAssignMultiple, handleBulkDelete, handleBulkDone,
         handleArchiveTask, handleUnarchiveTask,
         toggleSelect, loadTasks, handleDateChange
     } = useBacklogData(projectId, showArchived);
+
+    const totalItems = filteredTasks.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+    const startIndex = totalItems === 0 ? 0 : (safeCurrentPage - 1) * pageSize;
+    const endIndex = totalItems === 0 ? 0 : Math.min(startIndex + pageSize, totalItems);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterPriority, filterStatus, filterAssignee, filterLabel, filterDateRange, groupBy]);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
+    const paginatedFilteredTasks = useMemo(
+        () => paginateTimelineTasks(filteredTasks, safeCurrentPage, pageSize),
+        [filteredTasks, safeCurrentPage, pageSize],
+    );
+
+    const statusTitleByStatus = useMemo(
+        () => new Map(statusOptions.map(option => [option.status, option.title])),
+        [statusOptions],
+    );
+
+    const paginatedGroupedTasks = useMemo(() => {
+        if (groupBy === 'none') {
+            return [{ label: 'Backlog', items: paginatedFilteredTasks }];
+        }
+        if (groupBy === 'status') {
+            const groups: Record<string, typeof paginatedFilteredTasks> = {};
+            paginatedFilteredTasks.forEach((task) => {
+                (groups[task.status] = groups[task.status] || []).push(task);
+            });
+            return Object.entries(groups).map(([status, items]) => ({
+                label: statusTitleByStatus.get(status) ?? formatStatusLabel(status),
+                items,
+            }));
+        }
+        if (groupBy === 'assignee') {
+            const groups: Record<string, typeof paginatedFilteredTasks> = {};
+            paginatedFilteredTasks.forEach((task) => {
+                if (task.assignees && task.assignees.length > 0) {
+                    task.assignees.forEach((assignee) => {
+                        const key = assignee.name || 'Unassigned';
+                        (groups[key] = groups[key] || []).push(task);
+                    });
+                } else {
+                    const key = task.assigneeName || 'Unassigned';
+                    (groups[key] = groups[key] || []).push(task);
+                }
+            });
+            return Object.entries(groups).map(([label, items]) => ({ label, items }));
+        }
+        const groups: Record<string, typeof paginatedFilteredTasks> = {};
+        paginatedFilteredTasks.forEach((task) => {
+            const key = task.priority || 'NONE';
+            (groups[key] = groups[key] || []).push(task);
+        });
+        return Object.entries(groups).map(([label, items]) => ({ label, items }));
+    }, [groupBy, paginatedFilteredTasks, statusTitleByStatus]);
 
     // Handle action triggers from TopBar (e.g. ?action=add-task)
     useEffect(() => {
@@ -162,6 +234,7 @@ function BacklogPageContent() {
                 groupBy={groupBy} setGroupBy={setGroupBy}
                 showArchived={showArchived} setShowArchived={setShowArchived}
                 teamMembers={teamMembers} labels={labels}
+                statusOptions={statusOptions}
             />
 
             {/* ── Error ── */}
@@ -186,20 +259,20 @@ function BacklogPageContent() {
             )}
 
             {/* ── Backlog section(s) ── */}
-            {groupedTasks.map(group => (
-              <div key={group.label} className="bg-cu-bg rounded-2xl border border-cu-border overflow-hidden mb-4 shadow-cu-sm">
-                <button
-                    onClick={() => toggleGroup(group.label)}
-                    className="sticky-section-header w-full flex items-center gap-3 px-4 py-3 border-b border-cu-border bg-cu-bg/95 hover:bg-cu-hover transition-colors"
-                >
-                    <span className="text-[13px] font-semibold text-cu-text-primary">{group.label}</span>
-                    <span className="text-[11px] font-semibold text-cu-text-tertiary bg-cu-bg-tertiary px-2 py-0.5 rounded-full">
-                        {group.items.length}
-                    </span>
-                    <span className="ml-auto text-cu-text-tertiary">
-                        {collapsedGroups[group.label] ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-                    </span>
-                </button>
+            {paginatedGroupedTasks.map(group => (
+                <div key={group.label} className="bg-cu-bg rounded-2xl border border-cu-border overflow-hidden mb-4 shadow-cu-sm">
+                    <button
+                        onClick={() => toggleGroup(group.label)}
+                        className="sticky-section-header w-full flex items-center gap-3 px-4 py-3 border-b border-cu-border bg-cu-bg/95 hover:bg-cu-hover transition-colors"
+                    >
+                        <span className="text-[13px] font-semibold text-cu-text-primary">{group.label}</span>
+                        <span className="text-[11px] font-semibold text-cu-text-tertiary bg-cu-bg-tertiary px-2 py-0.5 rounded-full">
+                            {group.items.length}
+                        </span>
+                        <span className="ml-auto text-cu-text-tertiary">
+                            {collapsedGroups[group.label] ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                        </span>
+                    </button>
 
                 <AnimatePresence initial={false}>
                     {!collapsedGroups[group.label] && (
@@ -245,6 +318,7 @@ function BacklogPageContent() {
                                             onAssigneeChange={handleAssigneeChange}
                                             onAssignMultiple={handleAssignMultiple}
                                             teamMembers={teamMembers}
+                                            statusOptions={statusOptions}
                                         />
                                     ))}
                                 </div>
@@ -264,7 +338,7 @@ function BacklogPageContent() {
                                                 }}
                                                 onKeyDown={async e => {
                                                     if (e.key === 'Enter' && inlineTitle.trim()) {
-                                                        await handleAddTask({ title: inlineTitle.trim(), priority: 'MEDIUM', labelIds: [], storyPoint: 0 });
+                                                        await handleAddTask({ title: inlineTitle.trim(), priority: 'MEDIUM', labelIds: [] });
                                                         setInlineTitle('');
                                                         setInlineTitleLength(0);
                                                         setShowInlineCreate(false);
@@ -286,7 +360,7 @@ function BacklogPageContent() {
                                         <button
                                             onClick={async () => {
                                                 if (inlineTitle.trim()) {
-                                                    await handleAddTask({ title: inlineTitle.trim(), priority: 'MEDIUM', labelIds: [], storyPoint: 0 });
+                                                    await handleAddTask({ title: inlineTitle.trim(), priority: 'MEDIUM', labelIds: [] });
                                                     setInlineTitle('');
                                                     setInlineTitleLength(0);
                                                 }
@@ -317,8 +391,27 @@ function BacklogPageContent() {
                         </motion.div>
                     )}
                 </AnimatePresence>
-              </div>
+                </div>
             ))}
+
+            <TimelinePagination
+                currentPage={safeCurrentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalItems={totalItems}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                pageSizeOptions={TIMELINE_PAGE_SIZE_OPTIONS}
+                itemsPerPageLabel="Tasks per page:"
+                itemNounSingular="backlog task"
+                itemNounPlural="backlog tasks"
+                paginationAriaLabel="Backlog pagination"
+                onPageChange={setCurrentPage}
+                onPageSizeChange={(newSize) => {
+                    setPageSize(newSize);
+                    setCurrentPage(1);
+                }}
+            />
 
             {showArchived && (
                 <div className="mt-6">
@@ -352,6 +445,7 @@ function BacklogPageContent() {
                                     onAssigneeChange={handleAssigneeChange}
                                     onAssignMultiple={handleAssignMultiple}
                                     teamMembers={teamMembers}
+                                    statusOptions={statusOptions}
                                 />
                             ))}
                         </div>
@@ -399,6 +493,7 @@ function BacklogPageContent() {
                         onDelete={handleDelete}
                         onOpenModal={setSelectedTaskIdForModal}
                         onClose={() => setSelectedTask(null)}
+                        statusOptions={statusOptions}
                     />
                 )}
             </BottomSheet>
@@ -410,6 +505,8 @@ function BacklogPageContent() {
                     onClose={() => setShowCreateModal(false)}
                     onCreateTask={handleAddTask}
                     projectId={parseInt(projectId, 10)}
+                    showStoryPoints={false}
+                    disablePastDueDates
                 />
             )}
 

@@ -4,14 +4,13 @@ import React from 'react';
 import { Task } from '../../kanban/types';
 import { Check, Trash2 } from 'lucide-react';
 import AssigneeAvatar from '../../(agile)/sprint-backlog/components/AssigneeAvatar';
+import { BacklogStatusOption, normalizeBacklogStatusOptions } from '../status-options';
 
 const PRIORITY_CONFIG: Record<string, { label: string }> = {
     HIGH:   { label: 'High'   },
     MEDIUM: { label: 'Medium' },
     LOW:    { label: 'Low'    },
 };
-
-const STATUS_OPTIONS = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'];
 
 interface BacklogTaskDetailProps {
     task: Task;
@@ -20,24 +19,27 @@ interface BacklogTaskDetailProps {
     onDelete: (id: number) => void;
     onOpenModal: (id: number) => void;
     onClose: () => void;
+    statusOptions: BacklogStatusOption[];
 }
 
 export default function BacklogTaskDetail({
-    task, onStatusChange, onMarkDone, onDelete, onOpenModal, onClose,
+    task, onStatusChange, onMarkDone, onDelete, onOpenModal, onClose, statusOptions,
 }: BacklogTaskDetailProps) {
+    const statusChoices = normalizeBacklogStatusOptions(statusOptions, task.status);
+
     return (
         <div className="flex flex-col gap-4">
             {/* Status selector */}
             <div>
                 <p className="text-[11px] text-cu-text-muted mb-2 font-medium uppercase tracking-wide">Status</p>
                 <div className="flex gap-2 flex-wrap">
-                    {STATUS_OPTIONS.map((s) => (
+                    {statusChoices.map((option) => (
                         <button
-                            key={s}
-                            onClick={() => onStatusChange(task.id, s)}
-                            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${task.status === s ? 'border-cu-primary/50 bg-cu-primary/10 text-cu-primary font-semibold' : 'border-cu-border text-cu-text-secondary hover:border-cu-primary/60 hover:bg-cu-hover'}`}
+                            key={option.status}
+                            onClick={() => onStatusChange(task.id, option.status)}
+                            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${task.status === option.status ? 'border-cu-primary/50 bg-cu-primary/10 text-cu-primary font-semibold' : 'border-cu-border text-cu-text-secondary hover:border-cu-primary/60 hover:bg-cu-hover'}`}
                         >
-                            {s.replace(/_/g, ' ')}
+                            {option.title}
                         </button>
                     ))}
                 </div>

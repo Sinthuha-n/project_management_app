@@ -7,13 +7,14 @@ import type { Label } from '@/types';
 import { useProjectStatuses } from '@/hooks/useProjectStatuses';
 import { useProjectAssigneeOptions } from '@/hooks/projects/useProjectAssigneeOptions';
 import OverlayPortal from '@/components/ui/OverlayPortal';
+import { formatLocalDate } from '@/lib/date-format';
 
 export interface CreateTaskData {
   title: string;
   status?: string;
   priority: string;
   assigneeId?: number;
-  storyPoint: number;
+  storyPoint?: number;
   labelIds?: number[];
   dueDate?: string;
 }
@@ -26,6 +27,8 @@ interface CreateTaskModalProps {
   initialDueDate?: string;
   minDate?: string | null;
   maxDate?: string | null;
+  showStoryPoints?: boolean;
+  disablePastDueDates?: boolean;
 }
 
 const PRIORITY_OPTIONS = [
@@ -45,6 +48,8 @@ export default function CreateTaskModal({
   initialDueDate,
   minDate,
   maxDate,
+  showStoryPoints = true,
+  disablePastDueDates = false,
 }: CreateTaskModalProps) {
   const [title, setTitle] = useState('');
   const [titleLength, setTitleLength] = useState(0);
@@ -56,6 +61,10 @@ export default function CreateTaskModal({
   const [selectedLabels, setSelectedLabels] = useState<Label[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const todayDateKey = formatLocalDate(new Date());
+  const effectiveMinDate = disablePastDueDates
+    ? (minDate && minDate > todayDateKey ? minDate : todayDateKey)
+    : minDate;
   const { statuses } = useProjectStatuses(projectId);
   const {
     members: teamMembers,
@@ -93,6 +102,10 @@ export default function CreateTaskModal({
     }
 
     if (dueDate) {
+      if (disablePastDueDates && dueDate < todayDateKey) {
+        setError('Due date cannot be in the past.');
+        return;
+      }
       if (minDate && dueDate < minDate) {
         setError('Task date cannot be before the sprint start date.');
         return;
@@ -105,15 +118,17 @@ export default function CreateTaskModal({
 
     setSubmitting(true);
     try {
-      const result = onCreateTask({
+      const taskData: CreateTaskData = {
         title: title.trim(),
         status,
         priority,
         assigneeId: assignee || undefined,
-        storyPoint,
         labelIds: selectedLabels.map((l) => l.id),
         dueDate: dueDate || undefined,
-      });
+      };
+      if (showStoryPoints) taskData.storyPoint = storyPoint;
+
+      const result = onCreateTask(taskData);
       // Optimistic coordinators return immediately and own remote error
       // reporting. Legacy async callbacks are still supported.
       if (result && typeof result.then === 'function') await result;
@@ -211,28 +226,29 @@ export default function CreateTaskModal({
                 </div>
               </div>
 
-              {/* Story Points (Fibonacci) */}
-              <div className="space-y-2">
-                <label className="text-[13px] font-bold text-cu-text-primary flex items-center gap-2">
-                  <Hash size={14} className="text-cu-text-muted" /> STORY POINTS
-                </label>
-                <div className="flex gap-1.5 flex-wrap">
-                  {FIBONACCI.map((pt) => (
-                    <button
-                      key={pt}
-                      type="button"
-                      onClick={() => setStoryPoint(pt)}
-                      className={`h-8 w-8 rounded-lg border text-[12px] font-bold transition-all ${
-                        storyPoint === pt
-                          ? 'bg-cu-primary text-white border-cu-primary'
-                          : 'bg-cu-bg text-cu-text-secondary border-cu-border hover:bg-cu-bg-secondary'
-                      }`}
-                    >
-                      {pt}
-                    </button>
-                  ))}
+              {showStoryPoints && (
+                <div className="space-y-2">
+                  <label className="text-[13px] font-bold text-cu-text-primary flex items-center gap-2">
+                    <Hash size={14} className="text-cu-text-muted" /> STORY POINTS
+                  </label>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {FIBONACCI.map((pt) => (
+                      <button
+                        key={pt}
+                        type="button"
+                        onClick={() => setStoryPoint(pt)}
+                        className={`h-8 w-8 rounded-lg border text-[12px] font-bold transition-all ${
+                          storyPoint === pt
+                            ? 'bg-cu-primary text-white border-cu-primary'
+                            : 'bg-cu-bg text-cu-text-secondary border-cu-border hover:bg-cu-bg-secondary'
+                        }`}
+                      >
+                        {pt}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Assignee */}
               <div className="space-y-2">
@@ -282,7 +298,8 @@ export default function CreateTaskModal({
                 <label className="text-[13px] font-bold text-cu-text-primary">DUE DATE (optional)</label>
                 <input
                   type="date"
-                  min={minDate || undefined}
+                  aria-label="Due date"
+                  min={effectiveMinDate || undefined}
                   max={maxDate || undefined}
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}

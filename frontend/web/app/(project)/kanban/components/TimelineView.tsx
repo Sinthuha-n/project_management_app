@@ -573,7 +573,6 @@ export default function TimelineView({
                           isDragging={activeDrag?.taskId === task.id}
                           onOpenTask={onOpenTask}
                           onStartDragMove={(event, timelineTask) => startDrag(event, timelineTask, 'move')}
-                          onStartDragResizeLeft={(event, timelineTask) => startDrag(event, timelineTask, 'resize-left')}
                           onStartDragResizeRight={(event, timelineTask) => startDrag(event, timelineTask, 'resize-right')}
                           activeDragTaskId={activeDrag?.taskId}
                         />

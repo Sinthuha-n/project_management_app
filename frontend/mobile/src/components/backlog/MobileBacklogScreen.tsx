@@ -1153,6 +1153,126 @@ function FilterBar({
   );
 }
 
+function MobileBacklogPaginationControls({
+  currentPage,
+  totalPages,
+  pageSize,
+  totalItems,
+  startIndex,
+  endIndex,
+  pageSizeOptions,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+  totalItems: number;
+  startIndex: number;
+  endIndex: number;
+  pageSizeOptions: readonly number[];
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+}) {
+  if (totalItems === 0) return null;
+
+  const fromItem = totalItems === 0 ? 0 : startIndex + 1;
+  const toItem = totalItems === 0 ? 0 : endIndex;
+
+  const pageNumbers = (() => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, idx) => idx + 1);
+    if (currentPage <= 4) return [1, 2, 3, 4, 5, -1, totalPages];
+    if (currentPage >= totalPages - 3) {
+      return [1, -1, totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, -1, currentPage - 1, currentPage, currentPage + 1, -1, totalPages];
+  })();
+
+  return (
+    <View style={styles.paginationWrap}>
+      <View style={styles.paginationTopRow}>
+        <Text style={styles.paginationMeta}>
+          Showing {fromItem}{fromItem !== toItem ? `-${toItem}` : ''} of {totalItems} backlog tasks
+        </Text>
+      </View>
+
+      <View style={styles.paginationBottomRow}>
+        <View style={styles.pageSizeRow}>
+          <Text style={styles.pageSizeLabel}>Tasks per page:</Text>
+          <View style={styles.pageSizeChips}>
+            {pageSizeOptions.map((size) => {
+              const active = size === pageSize;
+              return (
+                <TouchableOpacity
+                  key={size}
+                  activeOpacity={0.8}
+                  onPress={() => onPageSizeChange(size)}
+                  style={[styles.pageSizeChip, active && styles.pageSizeChipActive]}
+                >
+                  <Text style={[styles.pageSizeChipText, active && styles.pageSizeChipTextActive]}>{size}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.paginationButtonsRow}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            disabled={currentPage <= 1}
+            onPress={() => onPageChange(1)}
+            style={[styles.pageButton, currentPage <= 1 && styles.pageButtonDisabled]}
+          >
+            <Text style={styles.pageButtonText}>First</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            disabled={currentPage <= 1}
+            onPress={() => onPageChange(currentPage - 1)}
+            style={[styles.pageButton, currentPage <= 1 && styles.pageButtonDisabled]}
+          >
+            <Text style={styles.pageButtonText}>Prev</Text>
+          </TouchableOpacity>
+
+          {pageNumbers.map((page, idx) => {
+            if (page === -1) return <Text key={`ellipsis-${idx}`} style={styles.pageEllipsis}>...</Text>;
+            const active = page === currentPage;
+            return (
+              <TouchableOpacity
+                key={`page-${page}`}
+                activeOpacity={0.8}
+                onPress={() => onPageChange(page)}
+                style={[styles.pageButton, active && styles.pageButtonActive]}
+              >
+                <Text style={[styles.pageButtonText, active && styles.pageButtonTextActive]}>{page}</Text>
+              </TouchableOpacity>
+            );
+          })}
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            disabled={currentPage >= totalPages}
+            onPress={() => onPageChange(currentPage + 1)}
+            style={[styles.pageButton, currentPage >= totalPages && styles.pageButtonDisabled]}
+          >
+            <Text style={styles.pageButtonText}>Next</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            disabled={currentPage >= totalPages}
+            onPress={() => onPageChange(totalPages)}
+            style={[styles.pageButton, currentPage >= totalPages && styles.pageButtonDisabled]}
+          >
+            <Text style={styles.pageButtonText}>Last</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export default function MobileBacklogScreen({
   projectId,
   isAgile,
@@ -1565,7 +1685,7 @@ export default function MobileBacklogScreen({
           </View>
         ) : (
           <View style={styles.sections}>
-            {backlog.groupedProductTasks.map((group) => (
+            {backlog.kanbanPagination.groupedTasks.map((group) => (
               <View key={group.label} style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <View>
@@ -1595,6 +1715,18 @@ export default function MobileBacklogScreen({
                 ))}
               </View>
             ))}
+
+            <MobileBacklogPaginationControls
+              currentPage={backlog.kanbanPagination.currentPage}
+              totalPages={backlog.kanbanPagination.totalPages}
+              pageSize={backlog.kanbanPagination.pageSize}
+              totalItems={backlog.kanbanPagination.totalItems}
+              startIndex={backlog.kanbanPagination.startIndex}
+              endIndex={backlog.kanbanPagination.endIndex}
+              pageSizeOptions={backlog.kanbanPagination.pageSizeOptions}
+              onPageChange={backlog.kanbanPagination.setCurrentPage}
+              onPageSizeChange={backlog.kanbanPagination.setPageSize}
+            />
           </View>
         )}
 
@@ -1744,6 +1876,98 @@ const styles = StyleSheet.create({
   filterBtnActive: { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' },
   filterLetter: { fontSize: 13, fontWeight: '900', color: '#64748B' },
   filterLetterActive: { color: T.primary },
+  paginationWrap: {
+    marginTop: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: '#FFFFFF',
+    padding: 10,
+    gap: 8,
+  },
+  paginationTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  paginationMeta: {
+    color: T.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  paginationBottomRow: {
+    gap: 10,
+  },
+  pageSizeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  pageSizeLabel: {
+    color: T.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  pageSizeChips: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  pageSizeChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  pageSizeChipActive: {
+    borderColor: T.primary,
+    backgroundColor: T.primary,
+  },
+  pageSizeChipText: {
+    color: T.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  pageSizeChipTextActive: {
+    color: '#FFFFFF',
+  },
+  paginationButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  pageButton: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  pageButtonActive: {
+    borderColor: T.primary,
+    backgroundColor: T.primary,
+  },
+  pageButtonDisabled: {
+    opacity: 0.45,
+  },
+  pageButtonText: {
+    color: T.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  pageButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  pageEllipsis: {
+    color: T.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    paddingHorizontal: 2,
+  },
   errorBox: { borderRadius: 14, borderWidth: 1, borderColor: '#FECACA', backgroundColor: '#FEF2F2', padding: 12 },
   errorTitle: { fontSize: 13, fontWeight: '900', color: '#991B1B' },
   errorText: { fontSize: 12, fontWeight: '700', color: '#B91C1C', marginTop: 2 },

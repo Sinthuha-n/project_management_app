@@ -234,7 +234,7 @@ export function buildTimelineTasks(
   visibleDays: Date[],
   dayColumnWidth: number,
   milestones: Milestone[],
-  activeDrag?: { taskId: number; type: 'move' | 'resize-left' | 'resize-right' } | null,
+  activeDrag?: { taskId: number; type: 'move' | 'resize-right' } | null,
   dragOffset = 0,
   today = startOfDay(new Date()),
 ) {
@@ -278,11 +278,6 @@ export function buildTimelineTasks(
       if (activeDrag?.taskId === task.id && dragOffset !== 0) {
         if (activeDrag.type === 'move') previewStart = startIndex + dragOffset;
         else if (activeDrag.type === 'resize-right') previewDuration = Math.max(duration + dragOffset, 1);
-        else {
-          const nextStart = startIndex + dragOffset;
-          previewStart = Math.min(nextStart, endIndex);
-          previewDuration = Math.max(endIndex - previewStart + 1, 1);
-        }
       }
 
       return {
@@ -393,4 +388,3 @@ export function paginateTimelineTasks<T>(
   const startIndex = (safePage - 1) * pageSize;
   return items.slice(startIndex, startIndex + pageSize);
 }
-
