@@ -55,16 +55,18 @@ function SelectControl({
   value,
   onChange,
   children,
+  className = '',
 }: {
   label: string;
   icon: React.ReactNode;
   value: string;
   onChange: (value: string) => void;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <label className="relative inline-flex h-10 min-w-0 max-w-full items-center rounded-lg border border-cu-border bg-cu-bg-secondary pl-3 pr-8 text-sm font-bold text-cu-text-primary transition-colors hover:bg-cu-hover">
-      <span className="mr-2 text-cu-text-muted">{icon}</span>
+    <label className={`relative inline-flex h-10 min-w-[10.5rem] max-w-[15rem] shrink-0 items-center rounded-lg border border-cu-border bg-cu-bg-secondary pl-3 pr-8 text-sm font-bold text-cu-text-primary transition-colors hover:bg-cu-hover ${className}`}>
+      <span className="mr-2 shrink-0 text-cu-text-muted">{icon}</span>
       <span className="sr-only">{label}</span>
       <select
         value={value}
@@ -100,13 +102,14 @@ export default function TimelineControls({
     onFiltersChange({ ...filters, ...updates });
   };
 
-  const renderFilterFields = () => (
+  const renderFilterFields = ({ stretch = false }: { stretch?: boolean } = {}) => (
     <>
       <SelectControl
         label="Assignee"
         icon={<Filter size={15} />}
         value={filters.assignee}
         onChange={(value) => patchFilters({ assignee: value })}
+        className={stretch ? 'w-full max-w-full' : ''}
       >
         <option value="">All assignees</option>
         {assigneeOptions.map((assignee) => (
@@ -119,6 +122,7 @@ export default function TimelineControls({
         icon={<CalendarDays size={15} />}
         value={filters.milestone}
         onChange={(value) => patchFilters({ milestone: value })}
+        className={stretch ? 'w-full max-w-full' : ''}
       >
         <option value="">All milestones</option>
         <option value="__none__">No milestone</option>
@@ -132,6 +136,7 @@ export default function TimelineControls({
         icon={<CalendarClock size={15} />}
         value={filters.schedule}
         onChange={(value) => patchFilters({ schedule: value as TimelineFilters['schedule'] })}
+        className={stretch ? 'w-full max-w-full' : ''}
       >
         <option value="">All schedules</option>
         <option value="scheduled">Scheduled</option>
@@ -143,6 +148,7 @@ export default function TimelineControls({
         icon={<AlertTriangle size={15} />}
         value={filters.focus}
         onChange={(value) => patchFilters({ focus: value as TimelineFilters['focus'] })}
+        className={stretch ? 'w-full max-w-full' : ''}
       >
         <option value="">All focus</option>
         <option value="blocked">Blocked</option>
@@ -155,7 +161,7 @@ export default function TimelineControls({
         type="button"
         onClick={() => patchFilters({ hideWeekends: !filters.hideWeekends })}
         className={[
-          'inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-bold transition-colors',
+          'inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border px-3 text-sm font-bold transition-colors',
           filters.hideWeekends
             ? 'border-cu-primary/30 bg-cu-primary/10 text-cu-primary'
             : 'border-cu-border bg-cu-bg-secondary text-cu-text-primary hover:bg-cu-hover',
@@ -169,7 +175,7 @@ export default function TimelineControls({
         type="button"
         onClick={() => patchFilters({ showDone: !filters.showDone })}
         className={[
-          'inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-bold transition-colors',
+          'inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border px-3 text-sm font-bold transition-colors',
           filters.showDone
             ? 'border-cu-primary/30 bg-cu-primary/10 text-cu-primary'
             : 'border-cu-border bg-cu-bg-secondary text-cu-text-primary hover:bg-cu-hover',
@@ -184,59 +190,44 @@ export default function TimelineControls({
   return (
     <TooltipProvider>
       <div className="rounded-xl border border-cu-border bg-cu-bg p-3 shadow-cu-sm">
-        <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
-          <div className="flex min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
-            <div className="relative min-w-0 flex-1 lg:max-w-sm">
-              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-cu-text-muted" />
-              <input
-                value={filters.search}
-                onChange={(event) => patchFilters({ search: event.target.value })}
-                placeholder="Search tasks, assignees, milestones"
-                className="h-10 w-full rounded-lg border border-cu-border bg-cu-bg-secondary pl-9 pr-9 text-sm text-cu-text-primary outline-none transition-colors placeholder:text-cu-text-muted focus:border-cu-primary focus:bg-cu-bg focus:ring-2 focus:ring-cu-primary/15"
-              />
-              {filters.search && (
-                <button
-                  type="button"
-                  onClick={() => patchFilters({ search: '' })}
-                  aria-label="Clear search"
-                  className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-cu-text-muted hover:bg-cu-hover hover:text-cu-text-primary"
-                >
-                  <X size={13} />
-                </button>
-              )}
-            </div>
-
-            <div className="hidden min-w-0 flex-wrap items-center gap-2 xl:flex">
-              {renderFilterFields()}
-              {activeFilterCount > 0 && (
-                <button
-                  type="button"
-                  onClick={onClearFilters}
-                  className="inline-flex h-10 items-center rounded-lg border border-cu-border bg-cu-bg px-3 text-sm font-bold text-cu-text-secondary transition-colors hover:bg-cu-hover hover:text-cu-text-primary"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="relative min-w-0 flex-1 xl:max-w-md">
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-cu-text-muted" />
+            <input
+              value={filters.search}
+              onChange={(event) => patchFilters({ search: event.target.value })}
+              placeholder="Search tasks, assignees, milestones"
+              className="h-10 w-full rounded-lg border border-cu-border bg-cu-bg-secondary pl-9 pr-9 text-sm text-cu-text-primary outline-none transition-colors placeholder:text-cu-text-muted focus:border-cu-primary focus:bg-cu-bg focus:ring-2 focus:ring-cu-primary/15"
+            />
+            {filters.search && (
+              <button
+                type="button"
+                onClick={() => patchFilters({ search: '' })}
+                aria-label="Clear search"
+                className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-cu-text-muted hover:bg-cu-hover hover:text-cu-text-primary"
+              >
+                <X size={13} />
+              </button>
+            )}
           </div>
 
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 xl:justify-end">
             <button
               type="button"
               onClick={onToday}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-cu-border bg-cu-bg-secondary px-3 text-sm font-bold text-cu-text-primary transition-colors hover:bg-cu-hover"
+              className="inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-cu-border bg-cu-bg-secondary px-3 text-sm font-bold text-cu-text-primary transition-colors hover:bg-cu-hover"
             >
               <CalendarDays size={15} />
               Today
             </button>
 
-            <div className="flex min-w-0 items-center rounded-lg border border-cu-border bg-cu-bg-secondary p-1">
+            <div className="flex min-w-0 shrink-0 items-center rounded-lg border border-cu-border bg-cu-bg-secondary p-1">
               <Tooltip content="Previous range">
                 <button
                   type="button"
                   onClick={onPreviousRange}
                   aria-label="Previous timeline range"
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-cu-text-secondary transition-colors hover:bg-cu-bg hover:text-cu-primary"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-cu-text-secondary transition-colors hover:bg-cu-bg hover:text-cu-primary"
                 >
                   <ChevronLeft size={17} />
                 </button>
@@ -249,7 +240,7 @@ export default function TimelineControls({
                   type="button"
                   onClick={onNextRange}
                   aria-label="Next timeline range"
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-cu-text-secondary transition-colors hover:bg-cu-bg hover:text-cu-primary"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-cu-text-secondary transition-colors hover:bg-cu-bg hover:text-cu-primary"
                 >
                   <ChevronRight size={17} />
                 </button>
@@ -267,7 +258,7 @@ export default function TimelineControls({
               ))}
             </SelectControl>
 
-            <div className="hidden rounded-lg border border-cu-border bg-cu-bg-secondary p-1 sm:inline-flex">
+            <div className="hidden shrink-0 rounded-lg border border-cu-border bg-cu-bg-secondary p-1 sm:inline-flex">
               {ZOOM_OPTIONS.map((option) => (
                 <button
                   key={option.value}
@@ -286,7 +277,7 @@ export default function TimelineControls({
             <button
               type="button"
               onClick={() => setFilterSheetOpen(true)}
-              className="relative inline-flex h-10 items-center gap-2 rounded-lg border border-cu-border bg-cu-bg-secondary px-3 text-sm font-bold text-cu-text-primary transition-colors hover:bg-cu-hover xl:hidden"
+              className="relative inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-cu-border bg-cu-bg-secondary px-3 text-sm font-bold text-cu-text-primary transition-colors hover:bg-cu-hover xl:hidden"
             >
               <Filter size={15} />
               Filters
@@ -296,6 +287,21 @@ export default function TimelineControls({
                 </span>
               )}
             </button>
+          </div>
+        </div>
+
+        <div className="mt-3 hidden overflow-x-auto rounded-lg border border-cu-border-light bg-cu-bg-secondary/60 p-2 custom-scrollbar xl:block">
+          <div className="flex min-w-max flex-nowrap items-center gap-2">
+            {renderFilterFields()}
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                onClick={onClearFilters}
+                className="inline-flex h-10 shrink-0 items-center whitespace-nowrap rounded-lg border border-cu-border bg-cu-bg px-3 text-sm font-bold text-cu-text-secondary transition-colors hover:bg-cu-hover hover:text-cu-text-primary"
+              >
+                Clear
+              </button>
+            )}
           </div>
         </div>
 
@@ -328,7 +334,7 @@ export default function TimelineControls({
             />
           </div>
           <div className="grid gap-3">
-            {renderFilterFields()}
+            {renderFilterFields({ stretch: true })}
           </div>
           <div className="flex gap-2">
             <button
