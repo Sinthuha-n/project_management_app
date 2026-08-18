@@ -19,7 +19,7 @@ interface TimelineTaskLike {
   projectId?: number;
 }
 
-export type TimelineDragType = 'move' | 'resize-left' | 'resize-right';
+export type TimelineDragType = 'move' | 'resize-right';
 
 export function useTimelineDrag(
   dayColumnWidth: number,
@@ -56,10 +56,6 @@ export function useTimelineDrag(
       const newDue = addDays(origDue, dragOffset);
       if (newDue < origStart) { setActiveDrag(null); setDragOffset(0); return; }
       newDueDate = format(newDue, 'yyyy-MM-dd');
-    } else {
-      const newStart = addDays(origStart, dragOffset);
-      if (newStart > origDue) { setActiveDrag(null); setDragOffset(0); return; }
-      newStartDate = format(newStart, 'yyyy-MM-dd');
     }
 
     const updates: Partial<Task> = {};

@@ -8,6 +8,7 @@ import { Task, Label } from '../types';
 import { Calendar, GitBranch, GitPullRequest, MessageSquare, Paperclip, Check, X, Tag, Plus, ChevronDown, ChevronRight, Lock, RefreshCw, Pencil, Trash2, UserPen, UserRound } from 'lucide-react';
 import { CIStatusBadge } from '@/components/ui';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
+import { formatLocalDate } from '@/lib/date-format';
 import type { TeamMemberOption } from '../api';
 import OverlayPortal from '@/components/ui/OverlayPortal';
 
@@ -137,6 +138,7 @@ export default function KanbanCard({
 
   const handleSetDueDate = async (date: string | undefined) => {
     if (!onInlineUpdate) return;
+    if (date && date < todayDateKey) return;
     await onInlineUpdate(task.id, { dueDate: date, title: task.title });
     setShowDatePicker(false);
   };
@@ -263,6 +265,7 @@ export default function KanbanCard({
   };
 
   const dueDateFormatted = formatDate(task.dueDate);
+  const todayDateKey = formatLocalDate(new Date());
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date(new Date().toDateString()) && task.status !== 'DONE';
   const isToday = task.dueDate && new Date(task.dueDate).toDateString() === new Date().toDateString();
   const hasOpenPopover = showDatePicker || showLabelPicker || showAssigneePicker;
@@ -493,7 +496,9 @@ export default function KanbanCard({
                   <p className="text-[10px] font-medium text-cu-text-muted mb-1.5">Due date</p>
                   <input
                     type="date"
+                    aria-label="Due date"
                     value={task.dueDate || ''}
+                    min={todayDateKey}
                     onChange={(e) => void handleSetDueDate(e.target.value || undefined)}
                     className="w-full px-2 py-1.5 border border-cu-border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-cu-primary/40 bg-cu-bg text-cu-text-primary"
                   />

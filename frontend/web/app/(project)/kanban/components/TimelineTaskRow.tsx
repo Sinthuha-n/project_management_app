@@ -31,7 +31,6 @@ interface TimelineTaskRowProps {
   isDragging: boolean;
   onOpenTask?: (taskId: number) => void;
   onStartDragMove: (e: React.MouseEvent, task: TimelineTaskModel) => void;
-  onStartDragResizeLeft: (e: React.MouseEvent, task: TimelineTaskModel) => void;
   onStartDragResizeRight: (e: React.MouseEvent, task: TimelineTaskModel) => void;
   activeDragTaskId?: number;
 }
@@ -46,7 +45,6 @@ export default function TimelineTaskRow({
   isDragging,
   onOpenTask,
   onStartDragMove,
-  onStartDragResizeLeft,
   onStartDragResizeRight,
   activeDragTaskId,
 }: TimelineTaskRowProps) {
@@ -160,14 +158,6 @@ export default function TimelineTaskRow({
           onClick={() => { if (!activeDragTaskId) onOpenTask?.(task.id); }}
           title={`${task.title} - drag to move`}
         >
-          <div
-            className="absolute left-0 top-0 h-full w-2 cursor-ew-resize rounded-l-lg hover:bg-white/20"
-            onMouseDown={(event) => {
-              event.stopPropagation();
-              onStartDragResizeLeft(event, task);
-            }}
-            title="Drag to resize start"
-          />
           <span className="flex h-full items-center gap-1.5 truncate px-2">
             {task.isBlocked && <Lock size={11} className="flex-shrink-0" />}
             <span className="truncate">{task.title}</span>

@@ -56,6 +56,9 @@ const DEFAULT_FILTERS: MobileBacklogFilters = {
   groupBy: 'none',
 };
 
+const KANBAN_PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+const DEFAULT_KANBAN_PAGE_SIZE = KANBAN_PAGE_SIZE_OPTIONS[0];
+
 function normalizeTask(raw: MobileTask): MobileTask {
   return {
     ...raw,
@@ -79,6 +82,8 @@ export function useMobileBacklog(projectId: number) {
   const [projectKey, setProjectKey] = useState('');
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [filters, setFilters] = useState<MobileBacklogFilters>(DEFAULT_FILTERS);
+  const [kanbanCurrentPage, setKanbanCurrentPage] = useState(1);
+  const [kanbanPageSize, setKanbanPageSize] = useState<number>(DEFAULT_KANBAN_PAGE_SIZE);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -218,6 +223,62 @@ export function useMobileBacklog(projectId: number) {
 
     return Object.entries(groups).map(([label, grouped]) => ({ label, tasks: grouped }));
   }, [filteredProductTasks, filters.groupBy]);
+
+  useEffect(() => {
+    setKanbanCurrentPage(1);
+  }, [filters.search, filters.status, filters.priority, filters.assignee, filters.label, filters.groupBy]);
+
+  const kanbanPagination = useMemo(() => {
+    const totalItems = filteredProductTasks.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / kanbanPageSize));
+    const currentPage = Math.min(Math.max(1, kanbanCurrentPage), totalPages);
+    const startIndex = totalItems === 0 ? 0 : (currentPage - 1) * kanbanPageSize;
+    const endIndex = totalItems === 0 ? 0 : Math.min(startIndex + kanbanPageSize, totalItems);
+    const pageItems = filteredProductTasks.slice(startIndex, endIndex);
+
+    const groupedTasks = (() => {
+      const groupBy = filters.groupBy;
+      if (groupBy === 'none') return [{ label: 'Backlog', tasks: pageItems }];
+
+      const groups: Record<string, MobileTask[]> = {};
+      pageItems.forEach((task) => {
+        const key = groupBy === 'status'
+          ? (task.status || 'TODO').replace(/_/g, ' ')
+          : groupBy === 'priority'
+            ? task.priority || 'NONE'
+            : task.assigneeName || 'Unassigned';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(task);
+      });
+      return Object.entries(groups).map(([label, tasks]) => ({ label, tasks }));
+    })();
+
+    return {
+      totalItems,
+      totalPages,
+      currentPage,
+      pageSize: kanbanPageSize,
+      startIndex,
+      endIndex,
+      pageItems,
+      groupedTasks,
+      pageSizeOptions: KANBAN_PAGE_SIZE_OPTIONS,
+      setCurrentPage: (page: number) => {
+        const safe = Math.min(Math.max(1, page), totalPages);
+        setKanbanCurrentPage(safe);
+      },
+      setPageSize: (size: number) => {
+        setKanbanPageSize(size);
+        setKanbanCurrentPage(1);
+      },
+    };
+  }, [filteredProductTasks, filters.groupBy, kanbanCurrentPage, kanbanPageSize]);
+
+  useEffect(() => {
+    if (kanbanCurrentPage > kanbanPagination.totalPages) {
+      setKanbanCurrentPage(kanbanPagination.totalPages);
+    }
+  }, [kanbanCurrentPage, kanbanPagination.totalPages]);
 
   const selectedIds = useMemo(
     () => tasks.filter((task) => task.selected).map((task) => task.id),
@@ -522,6 +583,7 @@ export function useMobileBacklog(projectId: number) {
     filteredSprints,
     filteredProductTasks,
     groupedProductTasks,
+    kanbanPagination,
     allAssigneeNames,
     allLabels,
     currentUserRole,

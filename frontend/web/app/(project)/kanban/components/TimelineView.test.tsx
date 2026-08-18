@@ -130,6 +130,30 @@ describe('TimelineView', () => {
     expect(mockedToast).toHaveBeenCalledWith('Timeline dates updated.', 'success');
   });
 
+  it('only exposes the due date resize handle on timeline bars', async () => {
+    render(<TimelineView tasks={tasks} />);
+
+    expect(screen.queryByTitle('Drag to resize start')).not.toBeInTheDocument();
+    expect(screen.getByTitle('Drag to resize due date')).toBeInTheDocument();
+  });
+
+  it('persists due date resize updates from the end handle', async () => {
+    render(<TimelineView tasks={tasks} />);
+
+    const dueHandle = screen.getByTitle('Drag to resize due date');
+    fireEvent.mouseDown(dueHandle, { clientX: 100 });
+    fireEvent.mouseMove(document, { clientX: 138 });
+    fireEvent.mouseUp(document);
+
+    await waitFor(() => {
+      expect(mockedUpdateTaskDates).toHaveBeenCalledWith(
+        1,
+        undefined,
+        expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      );
+    });
+  });
+
   it('paginates scheduled tasks and navigates across pages', () => {
     const manyScheduledTasks: Task[] = Array.from({ length: 25 }, (_, index) => ({
       id: index + 100,
@@ -194,4 +218,3 @@ describe('TimelineView', () => {
     expect(screen.queryByText('Feature 15')).not.toBeInTheDocument();
   });
 });
-

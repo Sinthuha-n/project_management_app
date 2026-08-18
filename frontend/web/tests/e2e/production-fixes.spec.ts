@@ -51,8 +51,20 @@ async function mockPlanoraApi(page: Page, fixture: ApiFixture) {
     if (path === '/api/tasks/project/3/all' && method === 'GET') {
       return json(route, url.searchParams.get('archived') === 'true' ? [] : fixture.tasks);
     }
+    if (path === '/api/labels/project/3' && method === 'GET') {
+      return json(route, []);
+    }
+    if (path === '/api/teams/1/members' && method === 'GET') {
+      return json(route, []);
+    }
     if (path === '/api/sprints/project/3' && method === 'GET') {
       return json(route, []);
+    }
+    if (path === '/api/sprints/project/3/backlog' && method === 'GET') {
+      return json(route, []);
+    }
+    if (path === '/api/sprints/project/3/active' && method === 'GET') {
+      return json(route, null);
     }
     if (path === '/api/burndown/project/3/velocity' && method === 'GET') {
       return json(route, Array.from({ length: 6 }, (_, index) => ({

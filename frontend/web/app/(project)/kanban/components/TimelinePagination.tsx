@@ -12,6 +12,10 @@ export interface TimelinePaginationProps {
   startIndex: number;
   endIndex: number;
   pageSizeOptions?: readonly number[];
+  itemsPerPageLabel?: string;
+  itemNounSingular?: string;
+  itemNounPlural?: string;
+  paginationAriaLabel?: string;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   disabled?: boolean;
@@ -25,6 +29,10 @@ export function TimelinePagination({
   startIndex,
   endIndex,
   pageSizeOptions = TIMELINE_PAGE_SIZE_OPTIONS,
+  itemsPerPageLabel = 'Tasks per page:',
+  itemNounSingular = 'scheduled task',
+  itemNounPlural = 'scheduled tasks',
+  paginationAriaLabel = 'Timeline pagination',
   onPageChange,
   onPageSizeChange,
   disabled = false,
@@ -40,7 +48,7 @@ export function TimelinePagination({
 
   return (
     <nav
-      aria-label="Timeline pagination"
+      aria-label={paginationAriaLabel}
       className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border border-cu-border rounded-xl bg-cu-bg px-4 py-3 sm:px-6 shadow-cu-sm"
     >
       {/* Left side: Page size selector and items count */}
@@ -50,7 +58,7 @@ export function TimelinePagination({
             htmlFor="timeline-page-size-select"
             className="text-xs font-medium text-cu-text-secondary whitespace-nowrap"
           >
-            Tasks per page:
+            {itemsPerPageLabel}
           </label>
           <select
             id="timeline-page-size-select"
@@ -79,7 +87,7 @@ export function TimelinePagination({
               –<span className="font-bold text-cu-text-primary">{toItem}</span>
             </>
           )}{' '}
-          of <span className="font-bold text-cu-text-primary">{totalItems}</span> scheduled task{totalItems === 1 ? '' : 's'}
+          of <span className="font-bold text-cu-text-primary">{totalItems}</span> {totalItems === 1 ? itemNounSingular : itemNounPlural}
         </div>
       </div>
 

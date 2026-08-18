@@ -39,11 +39,11 @@ interface DmsDocumentsTableProps {
     onView: (documentId: number) => void;
     onDownload: (documentId: number) => void;
     onRename: (document: DocumentItem) => void;
-    onSoftDelete: (documentId: number) => void;
+    onSoftDelete: (document: DocumentItem) => void;
     onToggleVersions: (documentId: number) => void;
     onOpenInfo: (document: DocumentItem) => void;
     onRestore: (documentId: number) => void;
-    onPermanentDelete: (documentId: number) => void;
+    onPermanentDelete: (document: DocumentItem) => void;
 }
 
 const columns: Array<{ key: DocumentSortKey; label: string; className?: string }> = [
@@ -113,7 +113,7 @@ function DocumentActions({
                 <ActionButton label="Restore" disabled={busy} onClick={() => onRestore(doc.id)}>
                     <RotateCcw size={14} />
                 </ActionButton>
-                <ActionButton label="Delete forever" danger disabled={busy} onClick={() => onPermanentDelete(doc.id)}>
+                <ActionButton label="Delete forever" danger disabled={busy} onClick={() => onPermanentDelete(doc)}>
                     <Trash2 size={14} />
                 </ActionButton>
             </div>
@@ -137,7 +137,7 @@ function DocumentActions({
             <ActionButton label="Info" disabled={busy} onClick={() => onOpenInfo(doc)}>
                 <Info size={14} />
             </ActionButton>
-            <ActionButton label="Delete" danger disabled={busy} onClick={() => onSoftDelete(doc.id)}>
+            <ActionButton label="Delete" danger disabled={busy} onClick={() => onSoftDelete(doc)}>
                 <Trash2 size={14} />
             </ActionButton>
         </div>

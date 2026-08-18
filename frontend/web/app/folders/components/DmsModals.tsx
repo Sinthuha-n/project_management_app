@@ -9,7 +9,8 @@ import {
 } from '@/lib/dms';
 import { 
     Info, Pencil, X, Lock, Shield, Check, Loader2, 
-    ArrowLeftRight, FileText, Download, Eye, Clock 
+    ArrowLeftRight, FileText, Download, Eye, Clock,
+    Trash2, AlertTriangle, AlertOctagon 
 } from 'lucide-react';
 import { formatBytes, toDateLabel } from '@/app/folders/components/dmsUtils';
 import OverlayPortal from '@/components/ui/OverlayPortal';
@@ -29,6 +30,12 @@ interface DmsModalsProps {
     setRenameName: (value: string) => void;
     onConfirmRename: () => Promise<void>;
     onCancelRename: () => void;
+    deleteDoc?: DocumentItem | null;
+    onConfirmSoftDelete?: () => Promise<void>;
+    onCancelSoftDelete?: () => void;
+    permanentDeleteDoc?: DocumentItem | null;
+    onConfirmPermanentDelete?: () => Promise<void>;
+    onCancelPermanentDelete?: () => void;
     busy?: boolean;
 
     // Permissions Props
@@ -60,6 +67,12 @@ export default function DmsModals({
     setRenameName,
     onConfirmRename,
     onCancelRename,
+    deleteDoc = null,
+    onConfirmSoftDelete = async () => {},
+    onCancelSoftDelete = () => {},
+    permanentDeleteDoc = null,
+    onConfirmPermanentDelete = async () => {},
+    onCancelPermanentDelete = () => {},
     busy = false,
 
     selectedPermsFolder,
@@ -326,6 +339,8 @@ export default function DmsModals({
     // If no modals should show, return null
     const isModalOpen = 
         renameDoc !== null || 
+        deleteDoc !== null ||
+        permanentDeleteDoc !== null ||
         isUploading || 
         selectedVersionsDocId !== null || 
         selectedInfoDoc !== null || 
@@ -384,6 +399,168 @@ export default function DmsModals({
                             >
                                 {busy ? <Loader2 size={12} className="animate-spin inline mr-1" /> : null}
                                 Rename
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 1b. SOFT DELETE CONFIRMATION MODAL */}
+            {deleteDoc !== null && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="soft-delete-modal-title"
+                    className="w-full max-w-md rounded-xl border border-cu-border bg-cu-bg shadow-2xl overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200"
+                >
+                    <div className="flex items-center justify-between border-b border-cu-border px-5 py-4 bg-cu-bg-secondary">
+                        <div className="inline-flex items-center gap-2 text-cu-text-primary">
+                            <Trash2 size={16} className="text-amber-500" />
+                            <h3 id="soft-delete-modal-title" className="text-sm font-semibold">Move to Trash?</h3>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={onCancelSoftDelete}
+                            disabled={busy}
+                            className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-cu-border text-cu-text-secondary hover:bg-cu-hover transition-colors disabled:opacity-50"
+                            title="Close"
+                            aria-label="Close dialog"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                    <div className="px-5 py-5 space-y-4">
+                        <div className="flex items-start gap-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 flex items-center justify-center shrink-0">
+                                <Trash2 size={20} />
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-semibold text-cu-text-primary">
+                                    Move &ldquo;{deleteDoc.name}&rdquo; to Trash?
+                                </h4>
+                                <p className="text-xs text-cu-text-secondary mt-1 leading-relaxed">
+                                    This document will be moved to the Trash folder. You can restore it to its original folder at any time or delete it permanently later.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="rounded-lg border border-cu-border bg-cu-bg-secondary/40 p-3 text-xs space-y-1.5">
+                            <div className="flex justify-between text-cu-text-secondary">
+                                <span className="text-cu-text-tertiary">Folder</span>
+                                <span className="font-medium text-cu-text-primary truncate max-w-[200px]">{deleteDoc.folderName ?? getFolderName(deleteDoc.folderId)}</span>
+                            </div>
+                            <div className="flex justify-between text-cu-text-secondary">
+                                <span className="text-cu-text-tertiary">Size</span>
+                                <span className="font-medium text-cu-text-primary">{deleteDoc.humanReadableSize ?? formatBytes(deleteDoc.fileSize)}</span>
+                            </div>
+                            <div className="flex justify-between text-cu-text-secondary">
+                                <span className="text-cu-text-tertiary">Current version</span>
+                                <span className="font-medium text-cu-text-primary">v{deleteDoc.latestVersionNumber}</span>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-cu-border">
+                            <button
+                                type="button"
+                                onClick={onCancelSoftDelete}
+                                disabled={busy}
+                                className="px-4 py-2 text-xs font-semibold border border-cu-border text-cu-text-secondary rounded-lg hover:bg-cu-hover transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => void onConfirmSoftDelete()}
+                                disabled={busy}
+                                className="px-4 py-2 text-xs font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 active:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1.5 shadow-sm shadow-red-500/20"
+                            >
+                                {busy ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={13} />}
+                                Move to Trash
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 1c. PERMANENT DELETE CONFIRMATION MODAL */}
+            {permanentDeleteDoc !== null && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="permanent-delete-modal-title"
+                    className="w-full max-w-md rounded-xl border border-cu-border bg-cu-bg shadow-2xl overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200"
+                >
+                    <div className="flex items-center justify-between border-b border-cu-border px-5 py-4 bg-red-500/5">
+                        <div className="inline-flex items-center gap-2 text-red-600">
+                            <AlertTriangle size={16} />
+                            <h3 id="permanent-delete-modal-title" className="text-sm font-semibold">Permanently Delete Document?</h3>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={onCancelPermanentDelete}
+                            disabled={busy}
+                            className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-cu-border text-cu-text-secondary hover:bg-cu-hover transition-colors disabled:opacity-50"
+                            title="Close"
+                            aria-label="Close dialog"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                    <div className="px-5 py-5 space-y-4">
+                        <div className="flex items-start gap-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 flex items-center justify-center shrink-0 ring-4 ring-red-500/5">
+                                <Trash2 size={20} />
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-semibold text-cu-text-primary">
+                                    Permanently delete &ldquo;{permanentDeleteDoc.name}&rdquo;?
+                                </h4>
+                                <p className="text-xs text-cu-text-secondary mt-1 leading-relaxed">
+                                    This action cannot be undone. Restoring this document will be impossible, all version histories will be wiped, and the file bytes will be permanently deleted from cloud storage.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-700 dark:text-red-400 flex items-start gap-2">
+                            <AlertOctagon size={16} className="shrink-0 mt-0.5" />
+                            <p>
+                                <strong className="font-semibold block mb-0.5">Permanent Deletion Warning:</strong>
+                                All metadata, revision logs, and physical file assets will be permanently destroyed.
+                            </p>
+                        </div>
+
+                        <div className="rounded-lg border border-cu-border bg-cu-bg-secondary/40 p-3 text-xs space-y-1.5">
+                            <div className="flex justify-between text-cu-text-secondary">
+                                <span className="text-cu-text-tertiary">Document ID</span>
+                                <span className="font-mono text-cu-text-primary">{permanentDeleteDoc.id}</span>
+                            </div>
+                            <div className="flex justify-between text-cu-text-secondary">
+                                <span className="text-cu-text-tertiary">Size</span>
+                                <span className="font-medium text-cu-text-primary">{permanentDeleteDoc.humanReadableSize ?? formatBytes(permanentDeleteDoc.fileSize)}</span>
+                            </div>
+                            <div className="flex justify-between text-cu-text-secondary">
+                                <span className="text-cu-text-tertiary">Total versions</span>
+                                <span className="font-medium text-cu-text-primary">{permanentDeleteDoc.latestVersionNumber} version(s)</span>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-cu-border">
+                            <button
+                                type="button"
+                                onClick={onCancelPermanentDelete}
+                                disabled={busy}
+                                className="px-4 py-2 text-xs font-semibold border border-cu-border text-cu-text-secondary rounded-lg hover:bg-cu-hover transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => void onConfirmPermanentDelete()}
+                                disabled={busy}
+                                className="px-4 py-2 text-xs font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 active:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1.5 shadow-sm shadow-red-500/20"
+                            >
+                                {busy ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={13} />}
+                                Delete Forever
                             </button>
                         </div>
                     </div>
