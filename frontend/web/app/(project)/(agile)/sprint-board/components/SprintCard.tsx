@@ -29,6 +29,8 @@ interface SprintCardProps {
   onRenameTask?: (taskId: number, title: string) => Promise<void> | void;
   onDeleteTask?: (taskId: number) => Promise<void> | void;
   teamMembers?: SprintTeamMemberOption[];
+  minDate?: string | null;
+  maxDate?: string | null;
 }
 
 export default function SprintCard({
@@ -44,6 +46,8 @@ export default function SprintCard({
   onRenameTask,
   onDeleteTask,
   teamMembers = [],
+  minDate,
+  maxDate,
 }: SprintCardProps) {
   const {
     attributes,
@@ -327,6 +331,8 @@ export default function SprintCard({
           >
             <input
               type="date"
+              min={minDate || undefined}
+              max={maxDate || undefined}
               defaultValue={task.dueDate?.slice(0, 10)}
               className="rounded-md border border-cu-border px-2 py-1 text-xs bg-cu-bg text-cu-text-primary"
               onChange={(e) => {

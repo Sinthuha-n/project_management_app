@@ -185,13 +185,30 @@ export function useBacklogCardHandlers({
 
   const handleDueDateChange = async (taskId: number, date: string) => {
     const normalizedDate = date ? String(date).slice(0, 10) : '';
-    const previousDate = localTasks.find((task) => task.id === taskId)?.dueDate ?? '';
+    const task = localTasks.find((t) => t.id === taskId);
+    const previousDate = task?.dueDate ?? '';
+
+    if (normalizedDate) {
+      if (sprint.startDate && normalizedDate < sprint.startDate) {
+        toast('Task date cannot be before the sprint start date.', 'error');
+        return;
+      }
+      if (sprint.endDate && normalizedDate > sprint.endDate) {
+        toast('Task date cannot be after the sprint end date.', 'error');
+        return;
+      }
+    }
+
     updateTask(taskId, { dueDate: normalizedDate });
     try {
       if (onDueDateChange) await onDueDateChange(taskId, normalizedDate);
       else await tasksApi.updateDates(taskId, { dueDate: normalizedDate || null });
-    } catch {
+    } catch (err: unknown) {
       updateTask(taskId, { dueDate: previousDate });
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      if (axiosErr?.response?.data?.message) {
+        toast(axiosErr.response.data.message, 'error');
+      }
     }
   };
 
@@ -370,16 +387,67 @@ export function useBacklogCardHandlers({
     const endDate = new Date(baseDate.getTime());
     endDate.setDate(baseDate.getDate() + durationDays);
 
+    const todayStr = formatLocalDate(new Date());
+    const formattedStartDate = formatLocalDate(baseDate);
+    const formattedEndDate = formatLocalDate(endDate);
+
+    if (formattedStartDate < todayStr) {
+      const msg = 'Sprint start date cannot be before today. Please select today or a future date.';
+      setStartSprintError(msg);
+      toast(msg, 'error');
+      setStartingSprintLoading(false);
+      return;
+    }
+
+    if (formattedEndDate < formattedStartDate) {
+      const msg = 'Sprint end date cannot be before the sprint start date.';
+      setStartSprintError(msg);
+      toast(msg, 'error');
+      setStartingSprintLoading(false);
+      return;
+    }
+
+    for (const task of localTasks) {
+      if (task.startDate && task.startDate < formattedStartDate) {
+        const msg = 'Task date cannot be before the sprint start date.';
+        setStartSprintError(msg);
+        toast(msg, 'error');
+        setStartingSprintLoading(false);
+        return;
+      }
+      if (task.startDate && task.startDate > formattedEndDate) {
+        const msg = 'Task date cannot be after the sprint end date.';
+        setStartSprintError(msg);
+        toast(msg, 'error');
+        setStartingSprintLoading(false);
+        return;
+      }
+      if (task.dueDate && task.dueDate < formattedStartDate) {
+        const msg = 'Task date cannot be before the sprint start date.';
+        setStartSprintError(msg);
+        toast(msg, 'error');
+        setStartingSprintLoading(false);
+        return;
+      }
+      if (task.dueDate && task.dueDate > formattedEndDate) {
+        const msg = 'Task date cannot be after the sprint end date.';
+        setStartSprintError(msg);
+        toast(msg, 'error');
+        setStartingSprintLoading(false);
+        return;
+      }
+    }
+
     try {
       await sprintsApi.start(sprint.id, {
-        startDate: formatLocalDate(baseDate),
-        endDate: formatLocalDate(endDate),
+        startDate: formattedStartDate,
+        endDate: formattedEndDate,
       });
       setShowStartSprintModal(false);
       onSprintUpdated(sprint.id, {
         status: 'ACTIVE',
-        startDate: formatLocalDate(baseDate),
-        endDate: formatLocalDate(endDate),
+        startDate: formattedStartDate,
+        endDate: formattedEndDate,
       });
       const sbKey = buildSessionCacheKey('sprint-board-v2', [projectId]);
       if (sbKey) removeSessionCache(sbKey);

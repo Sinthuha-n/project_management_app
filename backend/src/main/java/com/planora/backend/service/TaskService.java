@@ -26,6 +26,7 @@ import com.planora.backend.dto.TaskRequestDTO;
 import com.planora.backend.dto.TaskResponseDTO;
 import com.planora.backend.dto.TaskResponseDTO.DependencyDTO;
 import com.planora.backend.dto.TaskResponseDTO.SubtaskDTO;
+import com.planora.backend.exception.BadRequestException;
 import com.planora.backend.exception.ForbiddenException;
 import com.planora.backend.exception.ResourceNotFoundException;
 import com.planora.backend.model.Comment;
@@ -112,6 +113,30 @@ public class TaskService {
 
     private final SimpMessagingTemplate messagingTemplate;
 
+    public void validateTaskDatesAgainstSprint(LocalDate taskStartDate, LocalDate taskDueDate, Sprint sprint) {
+        if (sprint != null) {
+            if (sprint.getStartDate() != null) {
+                if (taskStartDate != null && taskStartDate.isBefore(sprint.getStartDate())) {
+                    throw new BadRequestException("Task date cannot be before the sprint start date.");
+                }
+                if (taskDueDate != null && taskDueDate.isBefore(sprint.getStartDate())) {
+                    throw new BadRequestException("Task date cannot be before the sprint start date.");
+                }
+            }
+            if (sprint.getEndDate() != null) {
+                if (taskStartDate != null && taskStartDate.isAfter(sprint.getEndDate())) {
+                    throw new BadRequestException("Task date cannot be after the sprint end date.");
+                }
+                if (taskDueDate != null && taskDueDate.isAfter(sprint.getEndDate())) {
+                    throw new BadRequestException("Task date cannot be after the sprint end date.");
+                }
+            }
+        }
+        if (taskStartDate != null && taskDueDate != null && taskDueDate.isBefore(taskStartDate)) {
+            throw new BadRequestException("Task due date cannot be before the task start date.");
+        }
+    }
+
     // ── 1. CREATE TASK ──────────────────────────────────────────────────────────
 
     // Creates a new task and intelligently places it in either a Sprint or the general Backlog.
@@ -150,12 +175,14 @@ public class TaskService {
         if(request.getSprintId() != null){
             Sprint sprint = sprintRepository.findById(request.getSprintId())
                     .orElseThrow(()-> new ResourceNotFoundException("Sprint not found"));
+            validateTaskDatesAgainstSprint(request.getStartDate(), request.getDueDate(), sprint);
             task.setSprint(sprint);
             // Append to the bottom of the Sprint board.
             projectRepository.findByIdWithLock(project.getId()); // serialise concurrent position assignments
             task.setSprintPosition(taskRepository.findMaxSprintPositionBySprintId(sprint.getId()) + 1);
             task.setBacklogPosition(null);
         } else {
+            validateTaskDatesAgainstSprint(request.getStartDate(), request.getDueDate(), null);
             // Append to the bottom of the Backlog.
             projectRepository.findByIdWithLock(project.getId()); // serialise concurrent position assignments
             task.setBacklogPosition(taskRepository.findMaxBacklogPositionByProjectId(project.getId()) + 1);
@@ -349,9 +376,22 @@ public class TaskService {
             }
         }
         if(request.getStoryPoint() != null) task.setStoryPoint(request.getStoryPoint());
+
+        Sprint effectiveSprint = task.getSprint();
+        if(request.isSprintIdProvided()){
+            if (request.getSprintId() == null) {
+                effectiveSprint = null;
+            } else {
+                effectiveSprint = sprintRepository.findById(request.getSprintId())
+                        .orElseThrow(()->new ResourceNotFoundException("Sprint not found"));
+            }
+        }
+        LocalDate effectiveStartDate = request.getStartDate() != null ? request.getStartDate() : task.getStartDate();
+        LocalDate effectiveDueDate = request.getDueDate() != null ? request.getDueDate() : task.getDueDate();
+        validateTaskDatesAgainstSprint(effectiveStartDate, effectiveDueDate, effectiveSprint);
+
         if(request.getStartDate() != null) task.setStartDate(request.getStartDate());
         if(request.getDueDate() != null) task.setDueDate(request.getDueDate());
-
 
         // Step 4. Handle moving the task between Sprints and Backlog.
         if(request.isSprintIdProvided()){
@@ -363,12 +403,10 @@ public class TaskService {
                 task.setBacklogPosition(taskRepository.findMaxBacklogPositionByProjectId(task.getProject().getId()) + 1);
             } else {
                 // Sent to a new Sprint
-                Sprint sprint = sprintRepository.findById(request.getSprintId())
-                        .orElseThrow(()->new ResourceNotFoundException("Sprint not found"));
-                task.setSprint(sprint);
+                task.setSprint(effectiveSprint);
                 task.setBacklogPosition(null);
                 projectRepository.findByIdWithLock(task.getProject().getId()); // serialise concurrent position assignments
-                task.setSprintPosition(taskRepository.findMaxSprintPositionBySprintId(sprint.getId()) + 1);
+                task.setSprintPosition(taskRepository.findMaxSprintPositionBySprintId(effectiveSprint.getId()) + 1);
             }
         }
 
@@ -491,6 +529,10 @@ public class TaskService {
     ) {
         Task task = findTaskWithProjectTeam(taskId);
         requireMinimumRole(task.getProject().getTeam().getId(), currentUserId, TeamRole.MEMBER);
+        LocalDate effectiveStartDate = startDateProvided ? startDate : task.getStartDate();
+        LocalDate effectiveDueDate = dueDateProvided ? dueDate : task.getDueDate();
+        validateTaskDatesAgainstSprint(effectiveStartDate, effectiveDueDate, task.getSprint());
+
         if (startDateProvided) task.setStartDate(startDate);
         if (dueDateProvided) task.setDueDate(dueDate);
         task.setLastModifiedBy(userRepository.findById(currentUserId).orElseThrow());
@@ -1663,6 +1705,7 @@ public class TaskService {
                 task.setBacklogPosition(index);
                 task.setSprintPosition(null);
             } else {
+                validateTaskDatesAgainstSprint(task.getStartDate(), task.getDueDate(), targetSprint);
                 task.setSprint(targetSprint);
                 task.setBacklogPosition(null);
                 task.setSprintPosition(index);

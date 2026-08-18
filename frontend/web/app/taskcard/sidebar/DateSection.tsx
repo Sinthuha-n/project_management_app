@@ -6,6 +6,7 @@ import { CalendarIcon, X } from 'lucide-react';
 import 'react-day-picker/dist/style.css';
 import { formatDateTime } from '@/lib/date-time';
 import { useTimeZone } from '@/components/providers/TimeZoneProvider';
+import { toast } from '@/components/ui';
 
 interface DateSectionProps {
   dates: {
@@ -14,11 +15,19 @@ interface DateSectionProps {
     dueDate: string | null;
     startDate?: string | null;
   };
+  sprintStartDate?: string | null;
+  sprintEndDate?: string | null;
   onUpdateDueDate?: (dueDate: string | null) => void;
   onUpdateStartDate?: (startDate: string | null) => void;
 }
 
-const DateSection: React.FC<DateSectionProps> = ({ dates, onUpdateDueDate, onUpdateStartDate }) => {
+const DateSection: React.FC<DateSectionProps> = ({
+  dates,
+  sprintStartDate,
+  sprintEndDate,
+  onUpdateDueDate,
+  onUpdateStartDate,
+}) => {
   const { timeZone } = useTimeZone();
   const [open, setOpen] = useState(false);
   const [startOpen, setStartOpen] = useState(false);
@@ -32,10 +41,30 @@ const DateSection: React.FC<DateSectionProps> = ({ dates, onUpdateDueDate, onUpd
     return parsedDueDate < today;
   }, [parsedDueDate]);
 
+  const disabledDays = useMemo(() => {
+    const matchers: Array<{ before?: Date; after?: Date }> = [];
+    if (sprintStartDate) {
+      matchers.push({ before: parseISO(sprintStartDate) });
+    }
+    if (sprintEndDate) {
+      matchers.push({ after: parseISO(sprintEndDate) });
+    }
+    return matchers.length > 0 ? matchers : undefined;
+  }, [sprintStartDate, sprintEndDate]);
+
   const handleSelect = (date: Date | undefined) => {
     if (onUpdateDueDate) {
       if (date) {
-        onUpdateDueDate(format(date, 'yyyy-MM-dd'));
+        const formatted = format(date, 'yyyy-MM-dd');
+        if (sprintStartDate && formatted < sprintStartDate) {
+          toast('Task date cannot be before the sprint start date.', 'error');
+          return;
+        }
+        if (sprintEndDate && formatted > sprintEndDate) {
+          toast('Task date cannot be after the sprint end date.', 'error');
+          return;
+        }
+        onUpdateDueDate(formatted);
       } else {
         onUpdateDueDate(null);
       }
@@ -46,7 +75,16 @@ const DateSection: React.FC<DateSectionProps> = ({ dates, onUpdateDueDate, onUpd
   const handleStartSelect = (date: Date | undefined) => {
     if (onUpdateStartDate) {
       if (date) {
-        onUpdateStartDate(format(date, 'yyyy-MM-dd'));
+        const formatted = format(date, 'yyyy-MM-dd');
+        if (sprintStartDate && formatted < sprintStartDate) {
+          toast('Task date cannot be before the sprint start date.', 'error');
+          return;
+        }
+        if (sprintEndDate && formatted > sprintEndDate) {
+          toast('Task date cannot be after the sprint end date.', 'error');
+          return;
+        }
+        onUpdateStartDate(formatted);
       } else {
         onUpdateStartDate(null);
       }
@@ -76,6 +114,7 @@ const DateSection: React.FC<DateSectionProps> = ({ dates, onUpdateDueDate, onUpd
                           mode="single"
                           selected={parsedDueDate}
                           onSelect={handleSelect}
+                          disabled={disabledDays}
                           showOutsideDays
                         />
                       </Popover.Content>
@@ -118,7 +157,13 @@ const DateSection: React.FC<DateSectionProps> = ({ dates, onUpdateDueDate, onUpd
                   </Popover.Trigger>
                   <Popover.Portal>
                     <Popover.Content className="z-[var(--cu-z-modal-popover)] p-3 bg-cu-bg rounded-xl shadow-cu-xl border border-cu-border" sideOffset={5} align="end">
-                      <DayPicker mode="single" selected={parsedStartDate} onSelect={handleStartSelect} showOutsideDays />
+                      <DayPicker
+                        mode="single"
+                        selected={parsedStartDate}
+                        onSelect={handleStartSelect}
+                        disabled={disabledDays}
+                        showOutsideDays
+                      />
                     </Popover.Content>
                   </Popover.Portal>
                 </Popover.Root>

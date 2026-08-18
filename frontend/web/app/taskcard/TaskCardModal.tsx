@@ -76,6 +76,8 @@ interface LabelOption {
 interface SprintOption {
   id: number;
   name: string;
+  startDate?: string | null;
+  endDate?: string | null;
 }
 
 interface TaskCardModalProps {
@@ -216,11 +218,11 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
       );
       const labelsRaw = (labelsRes || []) as Array<{ id: number; name: string; color?: string | null }>;
       setProjectLabels(labelsRaw.map((label) => ({ id: label.id, name: label.name, color: label.color })));
-      const sprintsRaw = (sprintsRes || []) as Array<{ id: number; name: string; status?: string }>;
+      const sprintsRaw = (sprintsRes || []) as Array<{ id: number; name: string; status?: string; startDate?: string | null; endDate?: string | null }>;
       setProjectSprints(
         sprintsRaw
           .filter((sprint) => sprint.status !== 'COMPLETED')
-          .map((sprint) => ({ id: sprint.id, name: sprint.name })),
+          .map((sprint) => ({ id: sprint.id, name: sprint.name, startDate: sprint.startDate, endDate: sprint.endDate })),
       );
       if (!teamId) {
         setCanEdit(true);
@@ -314,6 +316,36 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
     labelIds: number[];
   }>) => {
     if (!taskData) return;
+    const targetSprintId = updates.sprintId !== undefined ? updates.sprintId : taskData.sprintId;
+    const targetDueDate = updates.dueDate !== undefined ? updates.dueDate : taskData.dueDate;
+    const targetStartDate = updates.startDate !== undefined ? updates.startDate : taskData.startDate;
+    if (targetSprintId) {
+      const sprint = projectSprints.find((s) => s.id === targetSprintId);
+      if (sprint) {
+        if (targetStartDate) {
+          const norm = targetStartDate.slice(0, 10);
+          if (sprint.startDate && norm < sprint.startDate) {
+            toast('Task date cannot be before the sprint start date.', 'error');
+            return;
+          }
+          if (sprint.endDate && norm > sprint.endDate) {
+            toast('Task date cannot be after the sprint end date.', 'error');
+            return;
+          }
+        }
+        if (targetDueDate) {
+          const norm = targetDueDate.slice(0, 10);
+          if (sprint.startDate && norm < sprint.startDate) {
+            toast('Task date cannot be before the sprint start date.', 'error');
+            return;
+          }
+          if (sprint.endDate && norm > sprint.endDate) {
+            toast('Task date cannot be after the sprint end date.', 'error');
+            return;
+          }
+        }
+      }
+    }
     const mutationId = createMutationId();
     const previousTask = { ...taskData };
     // Optimistic: apply locally before the API call so the UI reflects the change without latency
@@ -598,6 +630,8 @@ export default function TaskCardModal({ taskId, onClose }: TaskCardModalProps) {
                   members={projectMembers}
                   allLabels={projectLabels}
                   sprints={projectSprints}
+                  sprintStartDate={projectSprints.find((s) => s.id === taskData.sprintId)?.startDate}
+                  sprintEndDate={projectSprints.find((s) => s.id === taskData.sprintId)?.endDate}
                   canChangeReporter={canChangeReporter}
                   onUpdateReporter={(reporterId) => canChangeReporter && updateTask({ reporterId })}
                   onUpdateSprint={(sprintId) => canEdit && updateTask({ sprintId })}

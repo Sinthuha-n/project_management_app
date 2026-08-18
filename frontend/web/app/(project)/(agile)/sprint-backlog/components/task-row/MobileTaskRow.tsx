@@ -19,6 +19,7 @@ export default function MobileTaskRow(props: TaskRowProps) {
     onAssignTask, onAssignMultiple, onDueDateChange, onDeleteTask,
     canDelete = true, projectLabels = [], onAddLabel, onRemoveLabel, onCreateLabel, extraStatuses = [],
     hideStatus = false, projectKey, onMoveUp, onMoveDown,
+    minDate, maxDate,
   } = props;
 
   const [assignMode, setAssignMode] = React.useState<'single' | 'multi'>('multi');
@@ -324,6 +325,8 @@ export default function MobileTaskRow(props: TaskRowProps) {
               <input
                 ref={dateRef}
                 type="date"
+                min={minDate || undefined}
+                max={maxDate || undefined}
                 value={task.dueDate || ''}
                 onChange={(e) => onDueDateChange(task.id, e.target.value)}
                 className="sr-only"

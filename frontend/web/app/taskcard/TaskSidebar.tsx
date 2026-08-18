@@ -84,7 +84,9 @@ interface TaskSidebarProps {
   canChangeReporter?: boolean;
   members?: Array<{ memberId: number; userId: number; name: string; photoUrl?: string | null }>;
   allLabels?: Array<{ id: number; name: string; color?: string | null }>;
-  sprints?: Array<{ id: number; name: string }>;
+  sprints?: Array<{ id: number; name: string; startDate?: string | null; endDate?: string | null }>;
+  sprintStartDate?: string | null;
+  sprintEndDate?: string | null;
   onCreateGitHubIssue?: () => void;
 }
 
@@ -101,7 +103,8 @@ const TaskSidebar: React.FC<TaskSidebarProps> = ({
   onUpdateStatus, onUpdatePriority, onUpdateStoryPoint, onUpdateDueDate, onUpdateMilestone,
   onUpdateRecurrence, onUnassign, onAssigneesChanged, onUpdateReporter, onUpdateSprint, onUpdateLabels, onUpdateStartDate,
   onCreateLabel, onUpdateLabel, onDeleteLabel,
-  canEdit = true, canChangeReporter = false, members = [], allLabels = [], sprints = [], onCreateGitHubIssue,
+  canEdit = true, canChangeReporter = false, members = [], allLabels = [], sprints = [],
+  sprintStartDate, sprintEndDate, onCreateGitHubIssue,
 }) => {
   const [sections, setSections] = React.useState<Record<string, boolean>>({
     details: true,
@@ -615,7 +618,15 @@ const TaskSidebar: React.FC<TaskSidebarProps> = ({
         <button onClick={() => toggleSection('dates')} className="w-full px-4 py-2.5 border-b border-cu-border text-[10px] font-bold text-cu-text-muted uppercase tracking-wider flex items-center justify-between bg-cu-bg/90">
           Schedule <ChevronDown size={14} className={`transition-transform ${sections.dates ? '' : '-rotate-90'}`} />
         </button>
-        {sections.dates && <DateSection dates={dates} onUpdateDueDate={canEdit ? onUpdateDueDate : undefined} onUpdateStartDate={canEdit ? onUpdateStartDate : undefined} />}
+        {sections.dates && (
+          <DateSection
+            dates={dates}
+            sprintStartDate={sprintStartDate}
+            sprintEndDate={sprintEndDate}
+            onUpdateDueDate={canEdit ? onUpdateDueDate : undefined}
+            onUpdateStartDate={canEdit ? onUpdateStartDate : undefined}
+          />
+        )}
       </div>
       {taskId != null && (
         <TaskGitHubSection

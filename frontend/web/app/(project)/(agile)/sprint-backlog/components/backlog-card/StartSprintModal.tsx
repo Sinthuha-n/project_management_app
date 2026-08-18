@@ -95,6 +95,7 @@ export default function StartSprintModal({ open, sprintName, loading, error, onS
               <input
                 type="date"
                 value={startDate}
+                min={formatLocalDate(new Date())}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="w-full rounded-lg border border-cu-border bg-cu-bg text-cu-text-primary pl-9 pr-3 py-2.5 text-[14px] outline-none transition-all duration-150 hover:border-cu-text-muted focus:border-cu-primary focus:ring-2 focus:ring-cu-primary/20"
               />

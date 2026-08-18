@@ -3,6 +3,7 @@ package com.planora.backend.service;
 import com.planora.backend.dto.CommentRequestDTO;
 import com.planora.backend.dto.TaskRequestDTO;
 import com.planora.backend.dto.TaskResponseDTO;
+import com.planora.backend.exception.BadRequestException;
 import com.planora.backend.exception.ForbiddenException;
 import com.planora.backend.exception.ResourceNotFoundException;
 import com.planora.backend.model.Comment;
@@ -10,6 +11,7 @@ import com.planora.backend.model.KanbanColumn;
 import com.planora.backend.model.Label;
 import com.planora.backend.model.Priority;
 import com.planora.backend.model.Project;
+import com.planora.backend.model.Sprint;
 import com.planora.backend.model.Task;
 import com.planora.backend.model.Team;
 import com.planora.backend.model.TeamMember;
@@ -946,5 +948,89 @@ class TaskServiceTest {
         assertNotNull(result);
         assertEquals(1, result.size());
         assertEquals(71L, result.getFirst().getId());
+    }
+
+    @Test
+    void createTask_withDateBeforeSprintStart_throwsBadRequestException() {
+        Sprint sprint = new Sprint();
+        sprint.setId(30L);
+        sprint.setStartDate(LocalDate.now().plusDays(5));
+        sprint.setEndDate(LocalDate.now().plusDays(15));
+
+        TaskRequestDTO request = new TaskRequestDTO();
+        request.setProjectId(10L);
+        request.setTitle("Task before sprint start");
+        request.setSprintId(30L);
+        request.setStartDate(LocalDate.now().plusDays(4)); // 1 day before sprint start
+
+        when(projectRepository.findById(10L)).thenReturn(Optional.of(project));
+        when(sprintRepository.findById(30L)).thenReturn(Optional.of(sprint));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> taskService.createTask(request, 100L));
+
+        assertEquals("Task date cannot be before the sprint start date.", ex.getMessage());
+    }
+
+    @Test
+    void createTask_withDateAfterSprintEnd_throwsBadRequestException() {
+        Sprint sprint = new Sprint();
+        sprint.setId(30L);
+        sprint.setStartDate(LocalDate.now().plusDays(5));
+        sprint.setEndDate(LocalDate.now().plusDays(15));
+
+        TaskRequestDTO request = new TaskRequestDTO();
+        request.setProjectId(10L);
+        request.setTitle("Task after sprint end");
+        request.setSprintId(30L);
+        request.setDueDate(LocalDate.now().plusDays(16)); // 1 day after sprint end
+
+        when(projectRepository.findById(10L)).thenReturn(Optional.of(project));
+        when(sprintRepository.findById(30L)).thenReturn(Optional.of(sprint));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> taskService.createTask(request, 100L));
+
+        assertEquals("Task date cannot be after the sprint end date.", ex.getMessage());
+    }
+
+    @Test
+    void patchTaskDates_withDateOutsideSprint_throwsBadRequestException() {
+        Sprint sprint = new Sprint();
+        sprint.setId(30L);
+        sprint.setStartDate(LocalDate.now().plusDays(5));
+        sprint.setEndDate(LocalDate.now().plusDays(15));
+
+        Task task = buildTask(90L);
+        task.setSprint(sprint);
+
+        when(taskRepository.findByIdWithProjectTeam(90L)).thenReturn(Optional.of(task));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> taskService.patchTaskDates(90L, LocalDate.now().plusDays(2), true, null, false, 100L));
+
+        assertEquals("Task date cannot be before the sprint start date.", ex.getMessage());
+    }
+
+    @Test
+    void updateTask_movingToSprintWithIncompatibleDates_throwsBadRequestException() {
+        Sprint sprint = new Sprint();
+        sprint.setId(30L);
+        sprint.setStartDate(LocalDate.now().plusDays(5));
+        sprint.setEndDate(LocalDate.now().plusDays(15));
+
+        Task task = buildTask(91L);
+        task.setDueDate(LocalDate.now().plusDays(20)); // outside sprint 30
+
+        TaskRequestDTO request = new TaskRequestDTO();
+        request.setSprintId(30L);
+
+        when(taskRepository.findByIdForUpdate(91L)).thenReturn(Optional.of(task));
+        when(sprintRepository.findById(30L)).thenReturn(Optional.of(sprint));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> taskService.updateTask(91L, request, 100L));
+
+        assertEquals("Task date cannot be after the sprint end date.", ex.getMessage());
     }
 }

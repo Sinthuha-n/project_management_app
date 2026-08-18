@@ -269,19 +269,21 @@ function BacklogCard({ sprint, projectId, projectKey, currentUserRole, available
                           onAssignTask={handlers.handleAssignTask}
                           onAssignMultiple={handlers.handleAssignMultiple}
                           onDueDateChange={handlers.handleDueDateChange}
-                        onDeleteTask={(id) => handlers.setTaskToDeleteId(id)}
-                        onOpenTask={(id) => handlers.setSelectedTaskId(id)}
-                        projectLabels={projectLabels}
-                        onAddLabel={handlers.handleAddLabel}
-                        onRemoveLabel={handlers.handleRemoveLabel}
-                        onCreateLabel={onCreateLabel}
-                        onUpdateLabel={onUpdateLabel}
-                        onDeleteLabel={onDeleteLabel}
-                        extraStatuses={extraStatuses}
-                        onMoveUp={() => onDropTask(task.id, sprint.id, Math.max(0, index - 1))}
-                        onMoveDown={() => onDropTask(task.id, sprint.id, Math.min(handlers.localTasks.length, index + 2))}
-                        projectKey={projectKey}
-                      />
+                          onDeleteTask={(id) => handlers.setTaskToDeleteId(id)}
+                          onOpenTask={(id) => handlers.setSelectedTaskId(id)}
+                          projectLabels={projectLabels}
+                          onAddLabel={handlers.handleAddLabel}
+                          onRemoveLabel={handlers.handleRemoveLabel}
+                          onCreateLabel={onCreateLabel}
+                          onUpdateLabel={onUpdateLabel}
+                          onDeleteLabel={onDeleteLabel}
+                          extraStatuses={extraStatuses}
+                          onMoveUp={() => onDropTask(task.id, sprint.id, Math.max(0, index - 1))}
+                          onMoveDown={() => onDropTask(task.id, sprint.id, Math.min(handlers.localTasks.length, index + 2))}
+                          projectKey={projectKey}
+                          minDate={sprint.startDate}
+                          maxDate={sprint.endDate}
+                        />
                     </div>
                   </motion.div>
                 </React.Fragment>

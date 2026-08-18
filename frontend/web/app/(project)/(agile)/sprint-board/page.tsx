@@ -363,6 +363,8 @@ function SprintBoardPageContent() {
                             onDeleteColumn={actions.handleDeleteColumn}
                             teamMembers={teamMembers}
                             projectKey={projectKey}
+                            minDate={activeSprint?.startDate}
+                            maxDate={activeSprint?.endDate}
                           />
                         ))}
                       </div>
