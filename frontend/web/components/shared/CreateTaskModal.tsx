@@ -7,6 +7,7 @@ import type { Label } from '@/types';
 import { useProjectStatuses } from '@/hooks/useProjectStatuses';
 import { useProjectAssigneeOptions } from '@/hooks/projects/useProjectAssigneeOptions';
 import OverlayPortal from '@/components/ui/OverlayPortal';
+import { formatLocalDate } from '@/lib/date-format';
 
 export interface CreateTaskData {
   title: string;
@@ -27,6 +28,7 @@ interface CreateTaskModalProps {
   minDate?: string | null;
   maxDate?: string | null;
   showStoryPoints?: boolean;
+  disablePastDueDates?: boolean;
 }
 
 const PRIORITY_OPTIONS = [
@@ -47,6 +49,7 @@ export default function CreateTaskModal({
   minDate,
   maxDate,
   showStoryPoints = true,
+  disablePastDueDates = false,
 }: CreateTaskModalProps) {
   const [title, setTitle] = useState('');
   const [titleLength, setTitleLength] = useState(0);
@@ -58,6 +61,10 @@ export default function CreateTaskModal({
   const [selectedLabels, setSelectedLabels] = useState<Label[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const todayDateKey = formatLocalDate(new Date());
+  const effectiveMinDate = disablePastDueDates
+    ? (minDate && minDate > todayDateKey ? minDate : todayDateKey)
+    : minDate;
   const { statuses } = useProjectStatuses(projectId);
   const {
     members: teamMembers,
@@ -95,6 +102,10 @@ export default function CreateTaskModal({
     }
 
     if (dueDate) {
+      if (disablePastDueDates && dueDate < todayDateKey) {
+        setError('Due date cannot be in the past.');
+        return;
+      }
       if (minDate && dueDate < minDate) {
         setError('Task date cannot be before the sprint start date.');
         return;
@@ -287,7 +298,8 @@ export default function CreateTaskModal({
                 <label className="text-[13px] font-bold text-cu-text-primary">DUE DATE (optional)</label>
                 <input
                   type="date"
-                  min={minDate || undefined}
+                  aria-label="Due date"
+                  min={effectiveMinDate || undefined}
                   max={maxDate || undefined}
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}

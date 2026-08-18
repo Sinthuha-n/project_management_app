@@ -40,6 +40,8 @@ export default function TimelinePage() {
   const tasks = useMemo(() => projectTasks.tasks as unknown as Task[], [projectTasks.tasks]);
   const loading = projectTasks.loading;
   const error = projectTasks.error ? 'Failed to load timeline tasks.' : null;
+  const isAgileTimeline = isAgileProjectType(projectType);
+  const isKnownKanbanTimeline = projectType !== null && !isAgileTimeline;
 
   const timelineStats = useMemo(() => {
     return {
@@ -123,7 +125,7 @@ export default function TimelinePage() {
       labelIds: data.labelIds,
       dueDate: data.dueDate,
     };
-    if (isAgileProjectType(projectType)) {
+    if (isAgileTimeline) {
       Object.assign(payload, { storyPoint: data.storyPoint ?? 0 });
     }
     taskMutations.create(payload, (request) => createTimelineTask(request as typeof payload));
@@ -260,7 +262,8 @@ export default function TimelinePage() {
             onClose={() => setShowCreateModal(false)}
             onCreateTask={handleCreateTask}
             projectId={parseInt(projectId, 10)}
-            showStoryPoints={isAgileProjectType(projectType)}
+            showStoryPoints={isAgileTimeline}
+            disablePastDueDates={isKnownKanbanTimeline}
           />
         )}
 

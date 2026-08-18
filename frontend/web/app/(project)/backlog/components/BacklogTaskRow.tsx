@@ -85,6 +85,11 @@ export default function BacklogTaskRow({
 
     const dueClass = classifyBacklogDue(task.dueDate, normalizedStatus);
     const hasOpenPopover = statusOpen || assigneeOpen || menuOpen;
+    const todayStart = React.useMemo(() => {
+        const date = new Date();
+        date.setHours(0, 0, 0, 0);
+        return date;
+    }, []);
 
     useEffect(() => {
         const handler = (e: MouseEvent) => {
@@ -100,6 +105,11 @@ export default function BacklogTaskRow({
     }, []);
 
     const handleDateChange = async (date: Date | undefined) => {
+        if (date) {
+            const selected = new Date(date);
+            selected.setHours(0, 0, 0, 0);
+            if (selected < todayStart) return;
+        }
         const formattedDate = date ? formatLocalDate(date) : null;
         // Optimistic update
         onDateChange?.(task.id, formattedDate);
@@ -401,6 +411,7 @@ export default function BacklogTaskRow({
                                 mode="single"
                                 selected={task.dueDate ? parseISO(task.dueDate) : undefined}
                                 onSelect={handleDateChange}
+                                disabled={{ before: todayStart }}
                                 showOutsideDays
                             />
                         </Popover.Content>

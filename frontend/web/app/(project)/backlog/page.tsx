@@ -506,6 +506,7 @@ function BacklogPageContent() {
                     onCreateTask={handleAddTask}
                     projectId={parseInt(projectId, 10)}
                     showStoryPoints={false}
+                    disablePastDueDates
                 />
             )}
 

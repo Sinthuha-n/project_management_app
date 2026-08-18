@@ -1,9 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import CreateTaskModal from './CreateTaskModal';
+import { formatLocalDate } from '@/lib/date-format';
 
 jest.mock('@/hooks/useProjectStatuses', () => ({
   useProjectStatuses: () => ({
-    statuses: [{ name: 'To Do', status: 'TODO', color: 'bg-gray-100 text-gray-700' }],
+    statuses: [],
     loading: false,
   }),
 }));
@@ -23,6 +24,12 @@ jest.mock('@/components/shared/LabelPicker', () => ({
 }));
 
 describe('CreateTaskModal story points', () => {
+  const dateOffset = (days: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    return formatLocalDate(date);
+  };
+
   const fillTitleAndSubmit = async (title = 'New task') => {
     fireEvent.change(screen.getByPlaceholderText(/design new landing page/i), { target: { value: title } });
     fireEvent.click(screen.getByRole('button', { name: /^Create Task$/i }));
@@ -77,5 +84,63 @@ describe('CreateTaskModal story points', () => {
       status: 'TODO',
       priority: 'MEDIUM',
     }));
+  });
+
+  it('sets today as the minimum due date when past due dates are disabled', () => {
+    render(
+      <CreateTaskModal
+        isOpen
+        onClose={jest.fn()}
+        onCreateTask={jest.fn()}
+        projectId={42}
+        disablePastDueDates
+      />,
+    );
+
+    expect(screen.getByLabelText(/due date/i)).toHaveAttribute('min', dateOffset(0));
+  });
+
+  it('blocks past due dates when past due dates are disabled', () => {
+    const onCreateTask = jest.fn();
+
+    render(
+      <CreateTaskModal
+        isOpen
+        onClose={jest.fn()}
+        onCreateTask={onCreateTask}
+        projectId={42}
+        disablePastDueDates
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/design new landing page/i), { target: { value: 'Past task' } });
+    fireEvent.change(screen.getByLabelText(/due date/i), { target: { value: dateOffset(-1) } });
+    fireEvent.submit(screen.getByRole('button', { name: /^Create Task$/i }).closest('form') as HTMLFormElement);
+
+    expect(screen.getByText(/due date cannot be in the past/i)).toBeInTheDocument();
+    expect(onCreateTask).not.toHaveBeenCalled();
+  });
+
+  it('allows today and future due dates when past due dates are disabled', async () => {
+    const onCreateTask = jest.fn();
+
+    render(
+      <CreateTaskModal
+        isOpen
+        onClose={jest.fn()}
+        onCreateTask={onCreateTask}
+        projectId={42}
+        disablePastDueDates
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/design new landing page/i), { target: { value: 'Future task' } });
+    fireEvent.change(screen.getByLabelText(/due date/i), { target: { value: dateOffset(2) } });
+    fireEvent.click(screen.getByRole('button', { name: /^Create Task$/i }));
+
+    await waitFor(() => expect(onCreateTask).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Future task',
+      dueDate: dateOffset(2),
+    })));
   });
 });

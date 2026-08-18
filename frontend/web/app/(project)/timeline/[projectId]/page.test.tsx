@@ -69,14 +69,17 @@ jest.mock('@/components/shared/CreateTaskModal', () => ({
     isOpen,
     onCreateTask,
     showStoryPoints,
+    disablePastDueDates,
   }: {
     isOpen: boolean;
     onCreateTask: (data: { title: string; status: string; dueDate?: string; storyPoint?: number }) => Promise<void>;
     showStoryPoints?: boolean;
+    disablePastDueDates?: boolean;
   }) => (
     isOpen ? (
       <div data-testid="create-task-modal">
         <div data-testid="show-story-points">{String(showStoryPoints)}</div>
+        <div data-testid="disable-past-due-dates">{String(disablePastDueDates)}</div>
         <button type="button" onClick={() => void onCreateTask({ title: 'New task', status: 'TODO', dueDate: '2026-09-15', storyPoint: 5 })}>
           Submit new task
         </button>
@@ -147,6 +150,7 @@ describe('TimelinePage incremental task updates', () => {
     await screen.findByText('Open first task');
     fireEvent.click(screen.getByRole('button', { name: 'Create task' }));
     expect(await screen.findByTestId('show-story-points')).toHaveTextContent('false');
+    expect(screen.getByTestId('disable-past-due-dates')).toHaveTextContent('true');
     fireEvent.click(screen.getByText('Submit new task'));
 
     const payload = mockedTaskCreate.mock.calls[0][0];
@@ -172,6 +176,7 @@ describe('TimelinePage incremental task updates', () => {
     await screen.findByText('Open first task');
     fireEvent.click(screen.getByRole('button', { name: 'Create task' }));
     expect(await screen.findByTestId('show-story-points')).toHaveTextContent('true');
+    expect(screen.getByTestId('disable-past-due-dates')).toHaveTextContent('false');
     fireEvent.click(screen.getByText('Submit new task'));
 
     expect(mockedTaskCreate.mock.calls[0][0]).toEqual(expect.objectContaining({
@@ -179,5 +184,17 @@ describe('TimelinePage incremental task updates', () => {
       title: 'New task',
       storyPoint: 5,
     }));
+  });
+
+  it('does not enable Kanban date validation before project type is known', async () => {
+    mockedFetchProject.mockReturnValue(new Promise(() => undefined));
+
+    render(<TimelinePage />);
+
+    await screen.findByText('Open first task');
+    fireEvent.click(screen.getByRole('button', { name: 'Create task' }));
+
+    expect(await screen.findByTestId('show-story-points')).toHaveTextContent('false');
+    expect(screen.getByTestId('disable-past-due-dates')).toHaveTextContent('false');
   });
 });
