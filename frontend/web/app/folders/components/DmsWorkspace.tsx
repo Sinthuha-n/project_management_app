@@ -33,6 +33,8 @@ export default function DmsWorkspace({ mode }: DmsWorkspaceProps) {
         selectedVersionsDocId, setSelectedVersionsDocId,
         selectedVersionsDoc, selectedInfoDoc, setSelectedInfoDoc,
         renameDoc, renameName, setRenameName,
+        deleteDoc, onConfirmSoftDelete, onCancelSoftDelete,
+        permanentDeleteDoc, onConfirmPermanentDelete, onCancelPermanentDelete,
         versions,
         withProjectId, getFolderName,
         onCreateFolder, onDeleteFolder, onUpload, onDrop,
@@ -255,7 +257,10 @@ export default function DmsWorkspace({ mode }: DmsWorkspaceProps) {
                 selectedInfoDoc={selectedInfoDoc} setSelectedInfoDoc={setSelectedInfoDoc}
                 getFolderName={getFolderName}
                 renameDoc={renameDoc} renameName={renameName} setRenameName={setRenameName}
-                onConfirmRename={onConfirmRename} onCancelRename={onCancelRename} busy={busy}
+                onConfirmRename={onConfirmRename} onCancelRename={onCancelRename}
+                deleteDoc={deleteDoc} onConfirmSoftDelete={onConfirmSoftDelete} onCancelSoftDelete={onCancelSoftDelete}
+                permanentDeleteDoc={permanentDeleteDoc} onConfirmPermanentDelete={onConfirmPermanentDelete} onCancelPermanentDelete={onCancelPermanentDelete}
+                busy={busy}
                 selectedPermsFolder={selectedPermsFolder} folderPermissions={folderPermissions}
                 loadingPerms={loadingPerms} savingPerms={savingPerms}
                 onSaveFolderPermissions={onSaveFolderPermissions} onCloseFolderPermissions={onCloseFolderPermissions}

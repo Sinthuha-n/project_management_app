@@ -129,6 +129,8 @@ export function useDmsWorkspace(mode: ViewMode) {
     const [loadingPerms, setLoadingPerms] = useState(false);
     const [savingPerms, setSavingPerms] = useState(false);
     const [previewDoc, setPreviewDoc] = useState<DocumentItem | null>(null);
+    const [deleteDoc, setDeleteDoc] = useState<DocumentItem | null>(null);
+    const [permanentDeleteDoc, setPermanentDeleteDoc] = useState<DocumentItem | null>(null);
 
     const isTrashMode = mode === 'trash';
 
@@ -497,11 +499,48 @@ export function useDmsWorkspace(mode: ViewMode) {
 
     const onCancelRename = () => { setRenameDoc(null); setRenameName(''); };
 
-    const onSoftDelete = async (documentId: number) => {
-        if (!projectId) return;
-        try { setBusy(true); await softDeleteDocument(projectId, documentId); await refresh(); }
-        catch (err) { setError(getDmsErrorMessage(err, 'Failed to delete document. You may need Owner/Admin permission.')); }
-        finally { setBusy(false); }
+    const onRequestSoftDelete = (document: DocumentItem) => {
+        setDeleteDoc(document);
+    };
+
+    const onConfirmSoftDelete = async () => {
+        if (!projectId || !deleteDoc) return;
+        try {
+            setBusy(true);
+            await softDeleteDocument(projectId, deleteDoc.id);
+            setDeleteDoc(null);
+            await refresh();
+        } catch (err) {
+            setError(getDmsErrorMessage(err, 'Failed to delete document. You may need Owner/Admin permission.'));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const onCancelSoftDelete = () => {
+        setDeleteDoc(null);
+    };
+
+    const onRequestPermanentDelete = (document: DocumentItem) => {
+        setPermanentDeleteDoc(document);
+    };
+
+    const onConfirmPermanentDelete = async () => {
+        if (!projectId || !permanentDeleteDoc) return;
+        try {
+            setBusy(true);
+            await permanentDeleteDocument(projectId, permanentDeleteDoc.id);
+            setPermanentDeleteDoc(null);
+            await refresh();
+        } catch (err) {
+            setError(getDmsErrorMessage(err, 'Failed to permanently delete document.'));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const onCancelPermanentDelete = () => {
+        setPermanentDeleteDoc(null);
     };
 
     const onRestore = async (documentId: number) => {
@@ -510,15 +549,6 @@ export function useDmsWorkspace(mode: ViewMode) {
         if (!window.confirm(msg)) return;
         try { setBusy(true); await restoreDocument(projectId, documentId); await refresh(); }
         catch (err) { setError(getDmsErrorMessage(err, 'Failed to restore document.')); }
-        finally { setBusy(false); }
-    };
-
-    const onPermanentDelete = async (documentId: number) => {
-        if (!projectId) return;
-        const msg = "WARNING: Permanent Deletion!\n\nThis action cannot be undone. Restoring the document will be impossible, all version histories will be wiped, and the file bytes will be permanently deleted from S3 storage.\n\nAre you sure you want to proceed?";
-        if (!window.confirm(msg)) return;
-        try { setBusy(true); await permanentDeleteDocument(projectId, documentId); await refresh(); }
-        catch (err) { setError(getDmsErrorMessage(err, 'Failed to permanently delete document.')); }
         finally { setBusy(false); }
     };
 
@@ -590,6 +620,10 @@ export function useDmsWorkspace(mode: ViewMode) {
         selectedVersionsDocId, setSelectedVersionsDocId, selectedVersionsDoc,
         selectedInfoDoc, setSelectedInfoDoc,
         renameDoc, renameName, setRenameName,
+        deleteDoc, setDeleteDoc,
+        permanentDeleteDoc, setPermanentDeleteDoc,
+        onRequestSoftDelete, onConfirmSoftDelete, onCancelSoftDelete,
+        onRequestPermanentDelete, onConfirmPermanentDelete, onCancelPermanentDelete,
         versions, favoriteIds,
         searchQuery: documentFilters.search, setSearchQuery,
         documentFilters, updateDocumentFilters, clearDocumentFilters,
@@ -601,8 +635,11 @@ export function useDmsWorkspace(mode: ViewMode) {
         folderCount: folders.length,
         withProjectId, getFolderName,
         onCreateFolder, onDeleteFolder, onUpload, onDrop,
-        onDownload, onView, onRename, onConfirmRename, onCancelRename, onSoftDelete, onRestore,
-        onPermanentDelete, onToggleFavorite, onToggleVersions, onOpenInfo,
+        onDownload, onView, onRename, onConfirmRename, onCancelRename,
+        onSoftDelete: onRequestSoftDelete,
+        onRestore,
+        onPermanentDelete: onRequestPermanentDelete,
+        onToggleFavorite, onToggleVersions, onOpenInfo,
         isDragOver, setIsDragOver, refresh,
         uploadQueue, uploadCapabilities, isInitializingUploads,
         cancelUpload, cancelRemainingUploads, retryUploads, clearFinishedUploads,
