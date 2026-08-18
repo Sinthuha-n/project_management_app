@@ -1,5 +1,5 @@
 // Pure utility functions for formatting and transforming chat inbox data.
-import type { ChatInboxActivity, ChatInboxResponse } from '@/services/chat-service';
+import type { ChatInboxActivity, ChatInboxProjectGroup, ChatInboxResponse } from '@/services/chat-service';
 
 // =====================================================
 // FORMATTING & UI HELPERS
@@ -126,3 +126,58 @@ export function markAllActivitiesAsRead(state: ChatInboxResponse | null): ChatIn
     totalUnread: 0,
   };
 }
+
+// =====================================================
+// PAGINATION HELPERS
+// =====================================================
+
+export function getPageNumbers(
+  currentPage: number,
+  totalPages: number,
+  maxVisible = 7
+): (number | string)[] {
+  if (totalPages <= 0) return [];
+  if (totalPages <= maxVisible) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  const safeCurrent = Math.min(Math.max(1, currentPage), totalPages);
+
+  if (safeCurrent <= 4) {
+    return [1, 2, 3, 4, 5, '...', totalPages];
+  }
+
+  if (safeCurrent >= totalPages - 3) {
+    return [
+      1,
+      '...',
+      totalPages - 4,
+      totalPages - 3,
+      totalPages - 2,
+      totalPages - 1,
+      totalPages,
+    ];
+  }
+
+  return [
+    1,
+    '...',
+    safeCurrent - 1,
+    safeCurrent,
+    safeCurrent + 1,
+    '...',
+    totalPages,
+  ];
+}
+
+export function paginateProjectGroups(
+  groups: ChatInboxProjectGroup[],
+  currentPage: number,
+  pageSize: number
+): ChatInboxProjectGroup[] {
+  if (pageSize <= 0) return groups;
+  const safePage = Math.max(1, currentPage);
+  const startIndex = (safePage - 1) * pageSize;
+  return groups.slice(startIndex, startIndex + pageSize);
+}
+

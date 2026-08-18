@@ -6,9 +6,11 @@ import { toast } from '@/components/ui/Toast';
 import { NotificationFilters } from './components/NotificationFilters';
 import { NotificationHeader } from './components/NotificationHeader';
 import { NotificationsList } from './components/NotificationsList';
+import { NotificationsPagination } from './components/NotificationsPagination';
 import { NotificationStats } from './components/NotificationStats';
 import { useNotificationTaskProjectLinks } from './hooks/useNotificationTaskProjectLinks';
 import type { NotificationFilter } from './types';
+import { paginateNotifications } from './utils';
 
 export default function DashboardNotificationsPage() {
   const {
@@ -21,6 +23,8 @@ export default function DashboardNotificationsPage() {
   } = useGlobalNotifications();
 
   const [filter, setFilter] = useState<NotificationFilter>('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<number[]>([]);
 
@@ -37,9 +41,27 @@ export default function DashboardNotificationsPage() {
     if (filter === 'unread') return sortedNotifications.filter((item) => !item.read);
     return sortedNotifications.filter((item) => item.read);
   }, [filter, sortedNotifications]);
+
+  const totalFilteredCount = visibleNotifications.length;
+  const totalPages = Math.max(1, Math.ceil(totalFilteredCount / Math.max(1, pageSize)));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalFilteredCount);
+
+  const paginatedNotifications = useMemo(
+    () => paginateNotifications(visibleNotifications, currentPage, pageSize),
+    [visibleNotifications, currentPage, pageSize]
+  );
+
   const taskProjectLinks = useNotificationTaskProjectLinks(sortedNotifications);
 
   const readCount = notifications.length - unreadCount;
+
+  const handleFilterChange = (newFilter: NotificationFilter) => {
+    setFilter(newFilter);
+    setPage(1);
+  };
 
   const handleDeleteSingle = async (
     event: ReactMouseEvent<HTMLButtonElement>,
@@ -103,17 +125,33 @@ export default function DashboardNotificationsPage() {
 
       <NotificationFilters
         filter={filter}
-        onFilterChange={setFilter}
+        onFilterChange={handleFilterChange}
       />
 
       <NotificationsList
-        notifications={visibleNotifications}
+        notifications={paginatedNotifications}
         filter={filter}
         pendingDeleteIds={pendingDeleteIds}
         taskProjectLinks={taskProjectLinks}
+        pagination={
+          <NotificationsPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalFilteredCount}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            onPageChange={setPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+          />
+        }
         onMarkAsRead={(notificationId) => void markAsRead(notificationId)}
         onDeleteSingle={(event, notificationId) => void handleDeleteSingle(event, notificationId)}
       />
     </div>
   );
 }
+

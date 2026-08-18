@@ -191,4 +191,68 @@ describe('members utils', () => {
       expect(canRemoveMember('MEMBER', 102, 'other@example.com', targetMember)).toBe(false);
     });
   });
+
+  describe('getMembersCacheKey', () => {
+    it('returns the prefixed cache key for a project id', () => {
+      expect(getMembersCacheKey('123')).toBe('planora:members:123');
+      expect(getMembersCacheKey('proj-abc')).toBe('planora:members:proj-abc');
+    });
+  });
+
+  describe('timeAgo', () => {
+    it('returns "-" when dateString is empty or undefined', () => {
+      expect(timeAgo(undefined)).toBe('-');
+      expect(timeAgo('')).toBe('-');
+    });
+
+    it('formats relative time correctly for various intervals', () => {
+      const now = Date.now();
+      const thirtySecsAgo = new Date(now - 30 * 1000).toISOString();
+      const tenMinsAgo = new Date(now - 10 * 60 * 1000).toISOString();
+      const twoHoursAgo = new Date(now - 2 * 60 * 60 * 1000).toISOString();
+      const oneDayAgo = new Date(now - 30 * 60 * 60 * 1000).toISOString();
+      const fiveDaysAgo = new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString();
+
+      expect(timeAgo(thirtySecsAgo)).toBe('30 seconds ago');
+      expect(timeAgo(tenMinsAgo)).toBe('10 minutes ago');
+      expect(timeAgo(twoHoursAgo)).toBe('2 hours ago');
+      expect(timeAgo(oneDayAgo)).toBe('1 day ago');
+      expect(timeAgo(fiveDaysAgo)).toBe('5 days ago');
+    });
+  });
+
+  describe('resolveProjectOwnerId', () => {
+    it('returns null for non-object inputs', () => {
+      expect(resolveProjectOwnerId(null)).toBeNull();
+      expect(resolveProjectOwnerId(undefined)).toBeNull();
+      expect(resolveProjectOwnerId('project')).toBeNull();
+    });
+
+    it('resolves owner id from candidate keys at root level', () => {
+      expect(resolveProjectOwnerId({ ownerId: 42 })).toBe(42);
+      expect(resolveProjectOwnerId({ createdByUserId: 88 })).toBe(88);
+      expect(resolveProjectOwnerId({ createdById: '99' })).toBe(99);
+    });
+
+    it('resolves owner id from nested owner object', () => {
+      expect(resolveProjectOwnerId({ owner: { userId: 50 } })).toBe(50);
+      expect(resolveProjectOwnerId({ owner: { id: '75' } })).toBe(75);
+    });
+
+    it('returns null when no valid owner id is found', () => {
+      expect(resolveProjectOwnerId({})).toBeNull();
+      expect(resolveProjectOwnerId({ title: 'My Project' })).toBeNull();
+    });
+  });
+
+  describe('resolveProfilePicUrl', () => {
+    it('returns empty string when profilePicUrl is not provided', () => {
+      expect(resolveProfilePicUrl(undefined)).toBe('');
+      expect(resolveProfilePicUrl('')).toBe('');
+    });
+
+    it('resolves profile picture url correctly when provided', () => {
+      expect(resolveProfilePicUrl('https://example.com/avatar.png')).toBe('https://example.com/avatar.png');
+    });
+  });
 });
