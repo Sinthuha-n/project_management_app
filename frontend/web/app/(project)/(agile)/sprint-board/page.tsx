@@ -29,7 +29,13 @@ import { useSprintBoardStore } from './hooks/useSprintBoardStore';
 import { useSprintBoardActions } from './hooks/useSprintBoardActions';
 import { useVisibilityInterval } from '@/hooks/useVisibilityInterval';
 
-type SprintSummary = { id: number; status: string; sprintName?: string };
+type SprintSummary = {
+  id: number;
+  status: string;
+  sprintName?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+};
 type SprintBoardCache = { activeList: SprintSummary[]; boards: SprintboardFullResponse[] };
 
 function SprintBoardPageContent() {
@@ -363,6 +369,8 @@ function SprintBoardPageContent() {
                             onDeleteColumn={actions.handleDeleteColumn}
                             teamMembers={teamMembers}
                             projectKey={projectKey}
+                            minDate={activeSprint?.startDate}
+                            maxDate={activeSprint?.endDate}
                           />
                         ))}
                       </div>

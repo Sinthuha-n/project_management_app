@@ -46,6 +46,8 @@ interface SprintColumnProps {
   onDeleteColumn?: (columnId: number) => Promise<void> | void;
   teamMembers?: SprintTeamMemberOption[];
   projectKey?: string;
+  minDate?: string | null;
+  maxDate?: string | null;
 }
 
 export default function SprintColumn({
@@ -68,6 +70,8 @@ export default function SprintColumn({
   onDeleteColumn,
   teamMembers = [],
   projectKey,
+  minDate,
+  maxDate,
 }: SprintColumnProps) {
   const [inlineOpen, setInlineOpen] = useState(false);
   const [inlineTitle, setInlineTitle] = useState('');
@@ -441,6 +445,8 @@ export default function SprintColumn({
                   onDeleteTask={onDeleteTask}
                   teamMembers={teamMembers}
                   projectKey={projectKey}
+                  minDate={minDate}
+                  maxDate={maxDate}
                 />
               ))
             ) : (

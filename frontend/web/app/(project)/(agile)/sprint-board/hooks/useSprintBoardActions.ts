@@ -22,7 +22,13 @@ import { useTaskMutations } from '@/hooks/useTaskMutations';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type SprintSummary = { id: number; status: string; sprintName?: string };
+type SprintSummary = {
+  id: number;
+  status: string;
+  sprintName?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+};
 
 interface UseSprintBoardActionsArgs {
   projectIdStr: string | null;
@@ -222,6 +228,17 @@ export function useSprintBoardActions({
   }, [projectIdStr, activeSprint, selectedIdx, setAllBoards, taskMutations]);
 
   const handleInlineDueDateChange = useCallback(async (taskId: number, dueDate: string | null) => {
+    if (dueDate && activeSprint) {
+      const normalized = dueDate.slice(0, 10);
+      if (activeSprint.startDate && normalized < activeSprint.startDate) {
+        toast('Task date cannot be before the sprint start date.', 'error');
+        return;
+      }
+      if (activeSprint.endDate && normalized > activeSprint.endDate) {
+        toast('Task date cannot be after the sprint end date.', 'error');
+        return;
+      }
+    }
     try {
       await patchTaskDueDate(taskId, dueDate);
       setAllBoards((prev) => prev.map((entry, idx) => idx !== selectedIdx ? entry : {
@@ -231,7 +248,7 @@ export function useSprintBoardActions({
       toast(normalizeApiError(err, 'Failed to update due date.'), 'error');
       forceRefresh();
     }
-  }, [selectedIdx, forceRefresh, setAllBoards]);
+  }, [selectedIdx, activeSprint, forceRefresh, setAllBoards]);
 
   // Instant 0ms optimistic single assign
   const handleInlineAssignSingle = useCallback(async (taskId: number, userId: number) => {

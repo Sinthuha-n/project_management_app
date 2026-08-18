@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { X, Rocket, Calendar, Target } from 'lucide-react';
 import OverlayPortal from '@/components/ui/OverlayPortal';
+import { toast } from '@/components/ui';
+import { formatLocalDate } from '@/lib/date-format';
 
 interface CreateSprintModalProps {
   isOpen: boolean;
@@ -24,6 +26,7 @@ export default function CreateSprintModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const todayStr = useMemo(() => formatLocalDate(new Date()), []);
   const nameInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
@@ -52,8 +55,16 @@ export default function CreateSprintModal({
       setError('Sprint name is required');
       return;
     }
+    if (startDate && startDate < todayStr) {
+      const msg = 'Sprint start date cannot be before today. Please select today or a future date.';
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
     if (startDate && endDate && endDate < startDate) {
-      setError('End date must be on or after start date');
+      const msg = 'Sprint end date cannot be before the sprint start date.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -118,6 +129,7 @@ export default function CreateSprintModal({
               <input
                 type="date"
                 value={startDate}
+                min={todayStr}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="w-full px-4 py-3 bg-cu-bg-secondary border border-cu-border rounded-xl text-sm text-cu-text-primary focus:outline-none focus:ring-2 focus:ring-cu-primary/20 focus:border-cu-primary transition-all cursor-pointer"
               />
@@ -129,6 +141,7 @@ export default function CreateSprintModal({
               <input
                 type="date"
                 value={endDate}
+                min={startDate || todayStr}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="w-full px-4 py-3 bg-cu-bg-secondary border border-cu-border rounded-xl text-sm text-cu-text-primary focus:outline-none focus:ring-2 focus:ring-cu-primary/20 focus:border-cu-primary transition-all cursor-pointer"
               />

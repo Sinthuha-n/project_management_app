@@ -547,6 +547,21 @@ function SprintBacklogPageContent() {
 
   const handleTaskDueDateChange = useCallback(async (taskId: number, dueDate: string) => {
     const normalized = dueDate ? dueDate.slice(0, 10) : '';
+    if (normalized) {
+      for (const sprint of sprints) {
+        if (sprint.tasks.some((t) => t.id === taskId)) {
+          if (sprint.startDate && normalized < sprint.startDate) {
+            toast('Task date cannot be before the sprint start date.', 'error');
+            return;
+          }
+          if (sprint.endDate && normalized > sprint.endDate) {
+            toast('Task date cannot be after the sprint end date.', 'error');
+            return;
+          }
+          break;
+        }
+      }
+    }
     setProductTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, dueDate: normalized } : t));
     setSprints((prev) => prev.map((s) => ({
       ...s,
@@ -556,10 +571,12 @@ function SprintBacklogPageContent() {
       await tasksApi.updateDates(taskId, { dueDate: normalized || null });
       const cKey = buildSessionCacheKey('sprint-backlog', [projectId]);
       if (cKey) removeSessionCache(cKey);
-    } catch {
-      toast('Failed to update due date.', 'error');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      toast(axiosErr?.response?.data?.message || 'Failed to update due date.', 'error');
+      void fetchData({ showSpinner: false, forceNetwork: true });
     }
-  }, [projectId]);
+  }, [projectId, sprints, fetchData]);
 
   const handleAssignTaskInState = useCallback((
     taskId: number,

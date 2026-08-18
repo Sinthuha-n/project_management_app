@@ -69,6 +69,8 @@ export interface TaskRowProps {
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   hideStatus?: boolean;
+  minDate?: string | null;
+  maxDate?: string | null;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────

@@ -71,8 +71,8 @@ class SprintServiceVelocityTest {
 
         sprintService.startSprint(
                 7L,
-                LocalDate.of(2026, 8, 1),
-                LocalDate.of(2026, 8, 14),
+                LocalDate.now(),
+                LocalDate.now().plusDays(14),
                 99L
         );
 

@@ -18,6 +18,7 @@ import { toast } from '@/components/ui';
 import type { Task } from '../types';
 import TimelineControls from './TimelineControls';
 import TimelineTaskRow from './TimelineTaskRow';
+import TimelinePagination from './TimelinePagination';
 import { useTimelineDrag } from '../hooks/useTimelineDrag';
 import { updateTaskDates } from '../api';
 import {
@@ -28,7 +29,9 @@ import {
   revalidateTaskDependents,
 } from '@/lib/task-cache';
 import {
+  DEFAULT_TIMELINE_PAGE_SIZE,
   TIMELINE_COLUMN_WIDTH,
+  TIMELINE_PAGE_SIZE_OPTIONS,
   ZOOM_WIDTHS,
   buildMonthGroups,
   buildTimelineTasks,
@@ -41,6 +44,7 @@ import {
   getTimelineDateRange,
   getTimelineInsights,
   groupTimelineTasks,
+  paginateTimelineTasks,
   schedulePresetDates,
   statusLabel,
   type TimelineFilters,
@@ -293,6 +297,8 @@ export default function TimelineView({
   const [zoom, setZoom] = useState<TimelineZoom>('day');
   const [groupBy, setGroupBy] = useState<TimelineGroupBy>('none');
   const [filters, setFilters] = useState<TimelineFilters>(DEFAULT_FILTERS);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_TIMELINE_PAGE_SIZE);
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
   const [manualRange, setManualRange] = useState<{ start: Date; end: Date } | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -325,7 +331,17 @@ export default function TimelineView({
     () => buildTimelineTasks(scheduledSource, visibleDays, dayColumnWidth, milestones, activeDrag, dragOffset),
     [scheduledSource, visibleDays, dayColumnWidth, milestones, activeDrag, dragOffset]
   );
-  const groupedTaskRows = useMemo(() => groupTimelineTasks(timelineTasks, groupBy), [timelineTasks, groupBy]);
+  const totalScheduledTasks = timelineTasks.length;
+  const totalPages = Math.max(1, Math.ceil(totalScheduledTasks / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalScheduledTasks);
+
+  const paginatedTimelineTasks = useMemo(
+    () => paginateTimelineTasks(timelineTasks, safeCurrentPage, pageSize),
+    [timelineTasks, safeCurrentPage, pageSize]
+  );
+  const groupedTaskRows = useMemo(() => groupTimelineTasks(paginatedTimelineTasks, groupBy), [paginatedTimelineTasks, groupBy]);
   const currentRangeLabel = makeRangeLabel(zoomRange);
   const hasFilters = filters.search !== '' || filters.assignee !== '' || filters.milestone !== '' || filters.schedule !== '' || filters.focus !== '' || filters.hideWeekends || !filters.showDone;
   const activeFilterCount = [
@@ -352,10 +368,19 @@ export default function TimelineView({
   );
 
   useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
     onInsightsChange?.(insights, currentRangeLabel);
   }, [insights, currentRangeLabel, onInsightsChange]);
 
-  const clearFilters = () => setFilters(DEFAULT_FILTERS);
+  const clearFilters = () => {
+    setFilters(DEFAULT_FILTERS);
+    setCurrentPage(1);
+  };
 
   const scrollToToday = () => {
     if (todayOffset >= 0 && scrollContainerRef.current) {
@@ -450,7 +475,10 @@ export default function TimelineView({
         groupBy={groupBy}
         onGroupByChange={setGroupBy}
         filters={filters}
-        onFiltersChange={setFilters}
+        onFiltersChange={(newFilters) => {
+          setFilters(newFilters);
+          setCurrentPage(1);
+        }}
         assigneeOptions={assigneeOptions}
         milestoneOptions={milestoneOptions}
         currentLabel={currentRangeLabel}
@@ -467,7 +495,7 @@ export default function TimelineView({
         <EmptyTimeline hasFilters={hasFilters} hasUnscheduledTasks={unscheduledTasks.length > 0} onClearFilters={clearFilters} />
       ) : (
         <>
-          <AgendaFallback tasks={timelineTasks} milestones={milestones} onOpenTask={onOpenTask} />
+          <AgendaFallback tasks={paginatedTimelineTasks} milestones={milestones} onOpenTask={onOpenTask} />
 
           <div className="hidden max-w-full overflow-hidden rounded-xl border border-cu-border bg-cu-bg shadow-cu-sm lg:block">
             <div
@@ -556,6 +584,21 @@ export default function TimelineView({
               </div>
             </div>
           </div>
+
+          <TimelinePagination
+            currentPage={safeCurrentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalScheduledTasks}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            pageSizeOptions={TIMELINE_PAGE_SIZE_OPTIONS}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
+          />
         </>
       )}
 

@@ -24,6 +24,8 @@ interface CreateTaskModalProps {
   onCreateTask: (taskData: CreateTaskData) => Promise<void> | void;
   projectId: number;
   initialDueDate?: string;
+  minDate?: string | null;
+  maxDate?: string | null;
 }
 
 const PRIORITY_OPTIONS = [
@@ -41,6 +43,8 @@ export default function CreateTaskModal({
   onCreateTask,
   projectId,
   initialDueDate,
+  minDate,
+  maxDate,
 }: CreateTaskModalProps) {
   const [title, setTitle] = useState('');
   const [titleLength, setTitleLength] = useState(0);
@@ -86,6 +90,17 @@ export default function CreateTaskModal({
     if (!title.trim()) {
       setError('Task name is required');
       return;
+    }
+
+    if (dueDate) {
+      if (minDate && dueDate < minDate) {
+        setError('Task date cannot be before the sprint start date.');
+        return;
+      }
+      if (maxDate && dueDate > maxDate) {
+        setError('Task date cannot be after the sprint end date.');
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -267,6 +282,8 @@ export default function CreateTaskModal({
                 <label className="text-[13px] font-bold text-cu-text-primary">DUE DATE (optional)</label>
                 <input
                   type="date"
+                  min={minDate || undefined}
+                  max={maxDate || undefined}
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
                   className="w-full px-4 py-3 bg-cu-bg-secondary border border-cu-border rounded-xl text-sm text-cu-text-secondary focus:ring-2 focus:ring-cu-primary/20 focus:outline-none transition-all"

@@ -64,6 +64,8 @@ export const ZOOM_WIDTHS: Record<TimelineZoom, number> = {
   week: 22,
   month: 12,
 };
+export const TIMELINE_PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
+export const DEFAULT_TIMELINE_PAGE_SIZE = 10;
 
 export function safeParseDate(value?: string | null) {
   if (!value) return null;
@@ -341,3 +343,54 @@ export function getTimelineBoundsForZoom(range: { start: Date; end: Date } | nul
   }
   return range;
 }
+
+export function getPageNumbers(
+  currentPage: number,
+  totalPages: number,
+  maxVisible = 7
+): (number | string)[] {
+  if (totalPages <= 0) return [];
+  if (totalPages <= maxVisible) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  const safeCurrent = Math.min(Math.max(1, currentPage), totalPages);
+
+  if (safeCurrent <= 4) {
+    return [1, 2, 3, 4, 5, '...', totalPages];
+  }
+
+  if (safeCurrent >= totalPages - 3) {
+    return [
+      1,
+      '...',
+      totalPages - 4,
+      totalPages - 3,
+      totalPages - 2,
+      totalPages - 1,
+      totalPages,
+    ];
+  }
+
+  return [
+    1,
+    '...',
+    safeCurrent - 1,
+    safeCurrent,
+    safeCurrent + 1,
+    '...',
+    totalPages,
+  ];
+}
+
+export function paginateTimelineTasks<T>(
+  items: T[],
+  currentPage: number,
+  pageSize: number
+): T[] {
+  if (pageSize <= 0) return items;
+  const safePage = Math.max(1, currentPage);
+  const startIndex = (safePage - 1) * pageSize;
+  return items.slice(startIndex, startIndex + pageSize);
+}
+

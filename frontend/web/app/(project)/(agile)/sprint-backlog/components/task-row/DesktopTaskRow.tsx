@@ -27,6 +27,7 @@ export default function DesktopTaskRow(props: TaskRowProps) {
     onOpenTask, projectLabels = [], onAddLabel, onCreateLabel,
     onUpdateLabel, onDeleteLabel,
     extraStatuses = [], hideStatus = false,
+    minDate, maxDate,
   } = props;
 
   const [assignMode, setAssignMode] = React.useState<'single' | 'multi'>('multi');
@@ -398,7 +399,7 @@ export default function DesktopTaskRow(props: TaskRowProps) {
             <CalendarDays size={10} className="flex-shrink-0 opacity-60" />
             <span className="truncate">{dueClass === 'overdue' ? 'Overdue' : formatDate(task.dueDate)}</span>
           </button>
-          <input ref={dateRef} type="date" value={task.dueDate || ''} onChange={(e) => onDueDateChange(task.id, e.target.value)} className="sr-only" />
+          <input ref={dateRef} type="date" min={minDate || undefined} max={maxDate || undefined} value={task.dueDate || ''} onChange={(e) => onDueDateChange(task.id, e.target.value)} className="sr-only" />
         </div>
       )}
 

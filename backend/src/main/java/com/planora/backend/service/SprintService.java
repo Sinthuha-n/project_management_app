@@ -2,6 +2,7 @@ package com.planora.backend.service;
 
 import com.planora.backend.dto.SprintCreateRequestDTO;
 import com.planora.backend.dto.SprintResponseDTO;
+import com.planora.backend.exception.BadRequestException;
 import com.planora.backend.exception.ConflictException;
 import com.planora.backend.exception.ForbiddenException;
 import com.planora.backend.exception.ResourceNotFoundException;
@@ -116,9 +117,13 @@ public class SprintService {
     public SprintResponseDTO createSprint(SprintCreateRequestDTO request, Long currentUserId) {
         requireConfigureBoard(request.getProId(), currentUserId);
 
+        if (request.getStartDate() != null && request.getStartDate().isBefore(LocalDate.now())) {
+            throw new BadRequestException("Sprint start date cannot be before today. Please select today or a future date.");
+        }
+
         if (request.getStartDate() != null && request.getEndDate() != null
-                && request.getStartDate().isAfter(request.getEndDate())) {
-            throw new IllegalArgumentException("Start date cannot be after end date");
+                && request.getEndDate().isBefore(request.getStartDate())) {
+            throw new BadRequestException("Sprint end date cannot be before the sprint start date.");
         }
 
         Project project = projectRepository.findById(request.getProId())
@@ -176,6 +181,18 @@ public class SprintService {
             }
             existing.setName(request.getName());
         }
+
+        LocalDate newStartDate = request.getStartDate() != null ? request.getStartDate() : existing.getStartDate();
+        LocalDate newEndDate = request.getEndDate() != null ? request.getEndDate() : existing.getEndDate();
+
+        if (request.getStartDate() != null && request.getStartDate().isBefore(LocalDate.now()) && existing.getStatus() != SprintStatus.COMPLETED) {
+            throw new BadRequestException("Sprint start date cannot be before today. Please select today or a future date.");
+        }
+
+        if (newStartDate != null && newEndDate != null && newEndDate.isBefore(newStartDate)) {
+            throw new BadRequestException("Sprint end date cannot be before the sprint start date.");
+        }
+
         if (request.getStartDate() != null) existing.setStartDate(request.getStartDate());
         if (request.getEndDate() != null) existing.setEndDate(request.getEndDate());
         if (request.getGoal() != null) existing.setGoal(request.getGoal());
@@ -183,9 +200,26 @@ public class SprintService {
             throw new IllegalArgumentException("Use the sprint start and complete endpoints to change status");
         }
 
-        if (existing.getStartDate() != null && existing.getEndDate() != null
-                && existing.getStartDate().isAfter(existing.getEndDate())) {
-            throw new IllegalArgumentException("Start date cannot be after end date");
+        if (existing.getStartDate() != null || existing.getEndDate() != null) {
+            List<Task> sprintTasks = taskRepository.findBySprintIdWithScalars(id);
+            for (Task task : sprintTasks) {
+                if (task.getStartDate() != null) {
+                    if (existing.getStartDate() != null && task.getStartDate().isBefore(existing.getStartDate())) {
+                        throw new BadRequestException("Task date cannot be before the sprint start date.");
+                    }
+                    if (existing.getEndDate() != null && task.getStartDate().isAfter(existing.getEndDate())) {
+                        throw new BadRequestException("Task date cannot be after the sprint end date.");
+                    }
+                }
+                if (task.getDueDate() != null) {
+                    if (existing.getStartDate() != null && task.getDueDate().isBefore(existing.getStartDate())) {
+                        throw new BadRequestException("Task date cannot be before the sprint start date.");
+                    }
+                    if (existing.getEndDate() != null && task.getDueDate().isAfter(existing.getEndDate())) {
+                        throw new BadRequestException("Task date cannot be after the sprint end date.");
+                    }
+                }
+            }
         }
 
         return toDTO(sprintRepository.save(existing));
@@ -221,11 +255,34 @@ public class SprintService {
         if (sprint.getStatus() == SprintStatus.COMPLETED) {
             throw new ConflictException("Cannot start a COMPLETED sprint");
         }
-        if (startDate == null || endDate == null) {
-            throw new IllegalArgumentException("Start date and end date are required");
+        if (startDate == null) {
+            throw new BadRequestException("Sprint start date is required");
         }
-        if (startDate.isAfter(endDate)) {
-            throw new IllegalArgumentException("Start date cannot be after end date");
+        if (startDate.isBefore(LocalDate.now())) {
+            throw new BadRequestException("Sprint start date cannot be before today. Please select today or a future date.");
+        }
+        if (endDate != null && endDate.isBefore(startDate)) {
+            throw new BadRequestException("Sprint end date cannot be before the sprint start date.");
+        }
+
+        List<Task> sprintTasks = taskRepository.findBySprintIdWithScalars(sprintId);
+        for (Task task : sprintTasks) {
+            if (task.getStartDate() != null) {
+                if (task.getStartDate().isBefore(startDate)) {
+                    throw new BadRequestException("Task date cannot be before the sprint start date.");
+                }
+                if (endDate != null && task.getStartDate().isAfter(endDate)) {
+                    throw new BadRequestException("Task date cannot be after the sprint end date.");
+                }
+            }
+            if (task.getDueDate() != null) {
+                if (task.getDueDate().isBefore(startDate)) {
+                    throw new BadRequestException("Task date cannot be before the sprint start date.");
+                }
+                if (endDate != null && task.getDueDate().isAfter(endDate)) {
+                    throw new BadRequestException("Task date cannot be after the sprint end date.");
+                }
+            }
         }
 
         sprint.setStartDate(startDate);
