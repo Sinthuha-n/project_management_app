@@ -45,7 +45,7 @@ describe('useDmsWorkspace hook pagination', () => {
         jest.clearAllMocks();
         mockedDmsLib.listFolders.mockResolvedValue([]);
         mockedDmsLib.listDocuments.mockResolvedValue(mockDocuments);
-        mockedDmsLib.listUserProjects.mockResolvedValue([{ id: 16, name: 'Project 16' } as any]);
+        mockedDmsLib.listUserProjects.mockResolvedValue([{ id: 16, name: 'Project 16' }]);
         mockedDmsLib.getProjectStorageQuota.mockResolvedValue({
             usedBytes: 1000,
             quotaBytes: 10000,
