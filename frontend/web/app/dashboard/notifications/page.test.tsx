@@ -184,4 +184,50 @@ describe('NotificationsPage', () => {
     expect(screen.getByText('Catching up...')).toBeInTheDocument();
     expect(screen.getByText('You have no notifications yet.')).toBeInTheDocument();
   });
+
+  it('paginates notifications and handles page changes and page size changes', () => {
+    const manyNotifications = Array.from({ length: 15 }, (_, i) =>
+      buildNotification({
+        id: i + 1,
+        message: `Notification number ${i + 1}`,
+        read: false,
+        createdAt: `2026-04-${String(i + 1).padStart(2, '0')}T10:00:00.000Z`,
+      })
+    );
+
+    useGlobalNotificationsMock.mockReturnValue({
+      notifications: manyNotifications,
+      unreadCount: 15,
+      markAsRead: jest.fn().mockResolvedValue(undefined),
+      markAllAsRead: jest.fn().mockResolvedValue(undefined),
+      deleteNotificationById: jest.fn().mockResolvedValue(undefined),
+      deleteAllNotifications: jest.fn().mockResolvedValue({ deleted: 15, failed: 0 }),
+    });
+
+    render(<NotificationsPage />);
+
+    // Default pageSize is 10, so items 1..10 should be visible, items 11..15 should not
+    expect(screen.getByText('Notification number 15')).toBeInTheDocument();
+    expect(screen.getByText('Notification number 6')).toBeInTheDocument();
+    expect(screen.queryByText('Notification number 5')).not.toBeInTheDocument();
+
+    expect(screen.getByText(/Showing/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Page 1$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Page 2$/i })).toBeInTheDocument();
+
+    // Navigate to page 2
+    fireEvent.click(screen.getByRole('button', { name: /^Page 2$/i }));
+    expect(screen.getByText('Notification number 5')).toBeInTheDocument();
+    expect(screen.getByText('Notification number 1')).toBeInTheDocument();
+    expect(screen.queryByText('Notification number 15')).not.toBeInTheDocument();
+
+    // Change page size to 20
+    const select = screen.getByRole('combobox', { name: /Rows per page/i });
+    fireEvent.change(select, { target: { value: '20' } });
+
+    // Now all 15 should be visible on page 1
+    expect(screen.getByText('Notification number 15')).toBeInTheDocument();
+    expect(screen.getByText('Notification number 1')).toBeInTheDocument();
+  });
 });
+

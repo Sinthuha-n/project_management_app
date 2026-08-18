@@ -149,3 +149,54 @@ export function canRemoveMember(
 export function resolveProfilePicUrl(profilePicUrl?: string): string {
   return resolveProfilePhotoUrl(profilePicUrl) || '';
 }
+
+export function getPageNumbers(
+  currentPage: number,
+  totalPages: number,
+  maxVisible = 7
+): (number | string)[] {
+  if (totalPages <= 0) return [];
+  if (totalPages <= maxVisible) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  const safeCurrent = Math.min(Math.max(1, currentPage), totalPages);
+
+  if (safeCurrent <= 4) {
+    return [1, 2, 3, 4, 5, '...', totalPages];
+  }
+
+  if (safeCurrent >= totalPages - 3) {
+    return [
+      1,
+      '...',
+      totalPages - 4,
+      totalPages - 3,
+      totalPages - 2,
+      totalPages - 1,
+      totalPages,
+    ];
+  }
+
+  return [
+    1,
+    '...',
+    safeCurrent - 1,
+    safeCurrent,
+    safeCurrent + 1,
+    '...',
+    totalPages,
+  ];
+}
+
+export function paginateMembers(
+  members: MemberCombined[],
+  currentPage: number,
+  pageSize: number
+): MemberCombined[] {
+  if (pageSize <= 0) return members;
+  const safePage = Math.max(1, currentPage);
+  const startIndex = (safePage - 1) * pageSize;
+  return members.slice(startIndex, startIndex + pageSize);
+}
+

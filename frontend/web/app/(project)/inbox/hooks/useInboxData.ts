@@ -11,8 +11,8 @@ import {
   type ChatInboxActivity,
   type ChatInboxResponse,
 } from '@/services/chat-service';
-import { PROJECT_BATCH_SIZE } from '../constants';
-import { buildChatHref, markActivityAsRead, markAllActivitiesAsRead } from '../utils';
+import { DEFAULT_INBOX_PAGE_SIZE } from '../constants';
+import { buildChatHref, markActivityAsRead, markAllActivitiesAsRead, paginateProjectGroups } from '../utils';
 import { buildSessionCacheKey, getSessionCache, setSessionCache } from '@/lib/session-cache';
 
 const INBOX_CACHE_TTL_MS = 60_000;
@@ -27,7 +27,8 @@ export function useInboxData() {
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
-  const [visibleProjectCount, setVisibleProjectCount] = useState(PROJECT_BATCH_SIZE);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_INBOX_PAGE_SIZE);
   const inboxCacheKey = buildSessionCacheKey('inbox', ['overview']);
 
   // Refreshes inbox data from the server, optionally in the background (silent mode) without triggering loading states.
@@ -167,17 +168,22 @@ export function useInboxData() {
     [allActivities],
   );
 
-  useEffect(() => {
-    queueMicrotask(() => setVisibleProjectCount(PROJECT_BATCH_SIZE));
-  }, [filter, groupedProjects.length]);
+  const totalProjectsCount = groupedProjects.length;
+  const totalPages = Math.max(1, Math.ceil(totalProjectsCount / Math.max(1, pageSize)));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
 
-  // Limits the number of projects rendered at once to improve performance.
-  const visibleProjects = useMemo(
-    () => groupedProjects.slice(0, visibleProjectCount),
-    [groupedProjects, visibleProjectCount],
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalProjectsCount);
+
+  // Derives paginated projects based on current page and page size
+  const paginatedProjects = useMemo(
+    () => paginateProjectGroups(groupedProjects, currentPage, pageSize),
+    [groupedProjects, currentPage, pageSize],
   );
 
-  const hasMoreProjects = visibleProjects.length < groupedProjects.length;
+  useEffect(() => {
+    queueMicrotask(() => setPage(1));
+  }, [filter]);
 
   // =====================================================
   // ACTIONS: OPEN ACTIVITY & MARK READ
@@ -267,9 +273,15 @@ export function useInboxData() {
     isMarkingAllRead,
     unreadCount,
     groupedProjects,
-    visibleProjects,
-    hasMoreProjects,
-    setVisibleProjectCount,
+    paginatedProjects,
+    currentPage,
+    totalPages,
+    pageSize,
+    setPage,
+    setPageSize,
+    startIndex,
+    endIndex,
+    totalProjectsCount,
     openActivity,
     markAllAsRead,
     refreshInbox,

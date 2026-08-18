@@ -17,6 +17,7 @@ interface NotificationsListProps {
   filter: NotificationFilter;
   pendingDeleteIds: number[];
   taskProjectLinks: TaskProjectLinkMap;
+  pagination?: React.ReactNode;
   onMarkAsRead: (notificationId: number) => void;
   onDeleteSingle: (event: ReactMouseEvent<HTMLButtonElement>, notificationId: number) => void;
 }
@@ -26,6 +27,7 @@ export function NotificationsList({
   filter,
   pendingDeleteIds,
   taskProjectLinks,
+  pagination,
   onMarkAsRead,
   onDeleteSingle,
 }: NotificationsListProps) {
@@ -137,6 +139,7 @@ export function NotificationsList({
           })}
         </ul>
       )}
+      {pagination}
     </section>
   );
 }

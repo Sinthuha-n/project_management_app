@@ -1,5 +1,11 @@
-import type { ChatInboxActivity, ChatInboxResponse } from '@/services/chat-service';
-import { buildChatHref, markActivityAsRead, markAllActivitiesAsRead } from './utils';
+import type { ChatInboxActivity, ChatInboxProjectGroup, ChatInboxResponse } from '@/services/chat-service';
+import {
+  buildChatHref,
+  getPageNumbers,
+  markActivityAsRead,
+  markAllActivitiesAsRead,
+  paginateProjectGroups,
+} from './utils';
 
 function createActivity(overrides: Partial<ChatInboxActivity> = {}): ChatInboxActivity {
   return {
@@ -61,4 +67,63 @@ describe('inbox utils', () => {
     expect(next?.projects[0].unreadCount).toBe(0);
     expect(next?.projects[0].activities.every((item) => !item.unread)).toBe(true);
   });
+
+  describe('getPageNumbers', () => {
+    it('returns empty array when totalPages <= 0', () => {
+      expect(getPageNumbers(1, 0)).toEqual([]);
+      expect(getPageNumbers(1, -3)).toEqual([]);
+    });
+
+    it('returns all pages when totalPages <= maxVisible', () => {
+      expect(getPageNumbers(1, 5, 7)).toEqual([1, 2, 3, 4, 5]);
+      expect(getPageNumbers(3, 7, 7)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    });
+
+    it('returns start block with ellipsis at end when near the start', () => {
+      expect(getPageNumbers(1, 10, 7)).toEqual([1, 2, 3, 4, 5, '...', 10]);
+      expect(getPageNumbers(4, 10, 7)).toEqual([1, 2, 3, 4, 5, '...', 10]);
+    });
+
+    it('returns end block with ellipsis at start when near the end', () => {
+      expect(getPageNumbers(7, 10, 7)).toEqual([1, '...', 6, 7, 8, 9, 10]);
+      expect(getPageNumbers(10, 10, 7)).toEqual([1, '...', 6, 7, 8, 9, 10]);
+    });
+
+    it('returns middle block with ellipses on both sides', () => {
+      expect(getPageNumbers(5, 10, 7)).toEqual([1, '...', 4, 5, 6, '...', 10]);
+      expect(getPageNumbers(6, 12, 7)).toEqual([1, '...', 5, 6, 7, '...', 12]);
+    });
+  });
+
+  describe('paginateProjectGroups', () => {
+    const sampleGroups: ChatInboxProjectGroup[] = [
+      { projectId: 1, projectName: 'Project 1', unreadCount: 0, totalItems: 1, activities: [] },
+      { projectId: 2, projectName: 'Project 2', unreadCount: 0, totalItems: 1, activities: [] },
+      { projectId: 3, projectName: 'Project 3', unreadCount: 0, totalItems: 1, activities: [] },
+      { projectId: 4, projectName: 'Project 4', unreadCount: 0, totalItems: 1, activities: [] },
+      { projectId: 5, projectName: 'Project 5', unreadCount: 0, totalItems: 1, activities: [] },
+    ];
+
+    it('returns full array if pageSize <= 0', () => {
+      expect(paginateProjectGroups(sampleGroups, 1, 0)).toEqual(sampleGroups);
+      expect(paginateProjectGroups(sampleGroups, 1, -1)).toEqual(sampleGroups);
+    });
+
+    it('paginates groups properly by page and pageSize', () => {
+      const page1 = paginateProjectGroups(sampleGroups, 1, 2);
+      expect(page1.map((p) => p.projectId)).toEqual([1, 2]);
+
+      const page2 = paginateProjectGroups(sampleGroups, 2, 2);
+      expect(page2.map((p) => p.projectId)).toEqual([3, 4]);
+
+      const page3 = paginateProjectGroups(sampleGroups, 3, 2);
+      expect(page3.map((p) => p.projectId)).toEqual([5]);
+    });
+
+    it('handles out of bound pages safely', () => {
+      const outOfBounds = paginateProjectGroups(sampleGroups, 10, 2);
+      expect(outOfBounds).toEqual([]);
+    });
+  });
 });
+

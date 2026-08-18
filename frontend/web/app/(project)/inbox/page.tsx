@@ -3,7 +3,7 @@
 'use client';
 
 import { Menu, RefreshCw } from 'lucide-react';
-import { PROJECT_BATCH_SIZE } from './constants';
+import { InboxPagination } from './components/InboxPagination';
 import { ProjectSection } from './components/ProjectSection';
 import { useInboxData } from './hooks/useInboxData';
 import Link from 'next/link';
@@ -20,9 +20,15 @@ export default function InboxPage() {
     isMarkingAllRead,
     unreadCount,
     groupedProjects,
-    visibleProjects,
-    hasMoreProjects,
-    setVisibleProjectCount,
+    paginatedProjects,
+    currentPage,
+    totalPages,
+    pageSize,
+    setPage,
+    setPageSize,
+    startIndex,
+    endIndex,
+    totalProjectsCount,
     openActivity,
     markAllAsRead,
     refreshInbox,
@@ -126,7 +132,7 @@ export default function InboxPage() {
         </div>
       ) : (
         <div className="w-full flex flex-col gap-4">
-          {visibleProjects.map((group) => (
+          {paginatedProjects.map((group) => (
             <ProjectSection
               key={group.projectId}
               group={group}
@@ -134,19 +140,22 @@ export default function InboxPage() {
             />
           ))}
 
-          {hasMoreProjects && (
-            <div className="flex justify-center pt-1">
-              <button
-                type="button"
-                onClick={() => setVisibleProjectCount((prev) => prev + PROJECT_BATCH_SIZE)}
-                className="px-4 py-2 rounded-lg text-[12px] font-semibold border border-cu-border bg-cu-bg text-cu-text-secondary hover:bg-cu-hover hover:text-cu-text-primary"
-              >
-                Load more projects ({groupedProjects.length - visibleProjects.length} remaining)
-              </button>
-            </div>
-          )}
+          <InboxPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalProjectsCount}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            onPageChange={setPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+          />
         </div>
       )}
     </div>
   );
 }
+

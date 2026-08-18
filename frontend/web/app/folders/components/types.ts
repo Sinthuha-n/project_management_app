@@ -29,3 +29,15 @@ export interface UploadQueueItem {
     errorCode?: string;
     errorMessage?: string;
 }
+
+export const DMS_PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
+export type DmsPageSize = (typeof DMS_PAGE_SIZE_OPTIONS)[number];
+
+export interface DmsPaginationState {
+    currentPage: number;
+    pageSize: number;
+    totalPages: number;
+    totalItems: number;
+    startIndex: number;
+    endIndex: number;
+}

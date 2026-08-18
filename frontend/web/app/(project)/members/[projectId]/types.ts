@@ -32,3 +32,7 @@ export interface MembersCachePayload {
   projectOwnerId?: number | null;
   timestamp: number;
 }
+
+export const MEMBERS_PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
+export type MembersPageSizeOption = (typeof MEMBERS_PAGE_SIZE_OPTIONS)[number];
+

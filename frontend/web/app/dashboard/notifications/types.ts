@@ -15,3 +15,7 @@ export type NotificationDeleteHandler = (
 ) => void;
 
 export type NotificationRow = Notification;
+
+export const NOTIFICATIONS_PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
+export type NotificationsPageSizeOption = (typeof NOTIFICATIONS_PAGE_SIZE_OPTIONS)[number];
+

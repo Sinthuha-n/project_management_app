@@ -1,11 +1,13 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { ChevronDown, ChevronLeft, ChevronRight, Clock3, ListChecks, Mail, Trash2 } from 'lucide-react';
+import { ChevronDown, Clock3, ListChecks, Mail, Trash2 } from 'lucide-react';
 import { ROLE_COLORS, ROLE_LABELS, STATUS_COLORS, ICONS } from '../constants';
 import type { AssignableTeamRole, Member, MemberCombined } from '../types';
-import { timeAgo } from '../utils';
+import { paginateMembers, timeAgo } from '../utils';
+import { MembersPagination } from './MembersPagination';
 import { Tooltip, TooltipProvider } from '@/components/ui/Tooltip';
+
 
 interface MembersTableProps {
   filteredMembers: MemberCombined[];
@@ -183,122 +185,41 @@ export function MembersTable({
 }: MembersTableProps) {
   const isMobile = useIsMobileMembersView();
   const [page, setPage] = useState(1);
+  const [activePageSize, setActivePageSize] = useState(pageSize);
 
-  // Reset page to 1 if search filters reduce the results count
-  // Note: currentPage below is derived via Math.min(page, totalPages), so no effect needed.
+  useEffect(() => {
+    if (typeof pageSize === 'number' && pageSize > 0) {
+      setActivePageSize(pageSize);
+    }
+  }, [pageSize]);
 
-  const safePageSize = Math.max(1, pageSize);
+  const safePageSize = Math.max(1, activePageSize);
   const totalFilteredCount = filteredMembers.length;
   const totalPages = Math.max(1, Math.ceil(totalFilteredCount / safePageSize));
-  
+
   // Safe page correction if the list shrinks under current page
   const currentPage = Math.min(page, totalPages);
 
   const startIndex = (currentPage - 1) * safePageSize;
-  const paginatedMembers = filteredMembers.slice(startIndex, startIndex + safePageSize);
+  const endIndex = Math.min(startIndex + safePageSize, totalFilteredCount);
+  const paginatedMembers = paginateMembers(filteredMembers, currentPage, safePageSize);
 
-  const getPageNumbers = () => {
-    const pages: (number | string)[] = [];
-    const maxVisible = 5;
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      pages.push(1);
-      
-      let start = Math.max(2, currentPage - 1);
-      let end = Math.min(totalPages - 1, currentPage + 1);
-      
-      if (currentPage <= 3) {
-        end = 4;
-      } else if (currentPage >= totalPages - 2) {
-        start = totalPages - 3;
-      }
-      
-      if (start > 2) {
-        pages.push('...');
-      }
-      
-      for (let i = start; i <= end; i++) {
-        pages.push(i);
-      }
-      
-      if (end < totalPages - 1) {
-        pages.push('...');
-      }
-      
-      pages.push(totalPages);
-    }
-    return pages;
-  };
+  const renderPagination = () => (
+    <MembersPagination
+      currentPage={currentPage}
+      totalPages={totalPages}
+      pageSize={safePageSize}
+      totalItems={totalFilteredCount}
+      startIndex={startIndex}
+      endIndex={endIndex}
+      onPageChange={setPage}
+      onPageSizeChange={(newSize) => {
+        setActivePageSize(newSize);
+        setPage(1);
+      }}
+    />
+  );
 
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
-
-    return (
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-6 py-4 border-t border-cu-border bg-cu-bg-secondary/20">
-        <div className="text-sm text-cu-text-muted text-center sm:text-left">
-          Showing <span className="font-semibold text-cu-text-primary">{startIndex + 1}</span> to{' '}
-          <span className="font-semibold text-cu-text-primary">
-            {Math.min(startIndex + safePageSize, totalFilteredCount)}
-          </span>{' '}
-          of <span className="font-semibold text-cu-text-primary">{totalFilteredCount}</span> members
-        </div>
-        <div className="flex items-center justify-center gap-1.5">
-          <button
-            onClick={() => setPage(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-cu-md border border-cu-border bg-cu-bg text-cu-text-secondary transition-all hover:bg-cu-bg-secondary hover:text-cu-text-primary disabled:pointer-events-none disabled:opacity-40"
-            aria-label="Previous Page"
-          >
-            <ChevronLeft size={16} />
-          </button>
-
-          {getPageNumbers().map((pg, idx) => {
-            if (pg === '...') {
-              return (
-                <span
-                  key={`ellipsis-${idx}`}
-                  className="inline-flex h-9 w-9 items-center justify-center text-sm text-cu-text-muted select-none"
-                >
-                  &hellip;
-                </span>
-              );
-            }
-
-            const pageNum = pg as number;
-            const isActive = pageNum === currentPage;
-
-            return (
-              <button
-                key={`page-${pageNum}`}
-                onClick={() => setPage(pageNum)}
-                className={`inline-flex h-9 w-9 items-center justify-center rounded-cu-md border text-sm font-semibold transition-all shadow-cu-sm ${
-                  isActive
-                    ? 'border-cu-primary bg-cu-primary text-white'
-                    : 'border-cu-border bg-cu-bg text-cu-text-secondary hover:bg-cu-bg-secondary hover:text-cu-text-primary'
-                }`}
-                aria-current={isActive ? 'page' : undefined}
-                aria-label={`Page ${pageNum}`}
-              >
-                {pageNum}
-              </button>
-            );
-          })}
-
-          <button
-            onClick={() => setPage(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-cu-md border border-cu-border bg-cu-bg text-cu-text-secondary transition-all hover:bg-cu-bg-secondary hover:text-cu-text-primary disabled:pointer-events-none disabled:opacity-40"
-            aria-label="Next Page"
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      </div>
-    );
-  };
 
   if (isMobile) {
     return (
