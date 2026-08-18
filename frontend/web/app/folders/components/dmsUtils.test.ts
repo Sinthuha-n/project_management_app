@@ -3,6 +3,8 @@ import {
   filterDocuments,
   formatBytes,
   getDocumentTypeFilter,
+  getPageNumbers,
+  paginateDocuments,
   sortDocuments,
   toDateLabel,
 } from './dmsUtils';
@@ -134,5 +136,28 @@ describe('dmsUtils', () => {
     expect(sortDocuments(documents, 'fileSize', 'desc', {}).map((doc) => doc.id)).toEqual([2, 3, 1]);
     expect(sortDocuments(documents, 'updatedAt', 'desc', {}).map((doc) => doc.id)).toEqual([1, 3, 2]);
     expect(sortDocuments(documents, 'latestVersionNumber', 'asc', {}).map((doc) => doc.id)).toEqual([2, 3, 1]);
+  });
+
+  describe('pagination utilities', () => {
+    it('generates page numbers correctly for few pages', () => {
+      expect(getPageNumbers(1, 4)).toEqual([1, 2, 3, 4]);
+      expect(getPageNumbers(3, 7)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+      expect(getPageNumbers(1, 0)).toEqual([]);
+    });
+
+    it('generates page numbers with ellipsis for many pages', () => {
+      // Beginning
+      expect(getPageNumbers(2, 20)).toEqual([1, 2, 3, 4, 5, '...', 20]);
+      // End
+      expect(getPageNumbers(19, 20)).toEqual([1, '...', 16, 17, 18, 19, 20]);
+      // Middle
+      expect(getPageNumbers(10, 20)).toEqual([1, '...', 9, 10, 11, '...', 20]);
+    });
+
+    it('paginates document lists accurately', () => {
+      expect(paginateDocuments(documents, 1, 2).map((d) => d.id)).toEqual([1, 2]);
+      expect(paginateDocuments(documents, 2, 2).map((d) => d.id)).toEqual([3]);
+      expect(paginateDocuments(documents, 3, 2)).toEqual([]);
+    });
   });
 });

@@ -5,6 +5,7 @@ import { FileSearch, Loader2, RefreshCw, UploadCloud } from 'lucide-react';
 import DmsHeader from '@/app/folders/components/DmsHeader';
 import DmsSidebar from '@/app/folders/components/DmsSidebar';
 import DmsDocumentsTable from '@/app/folders/components/DmsDocumentsTable';
+import DmsPagination from '@/app/folders/components/DmsPagination';
 import DmsModals from '@/app/folders/components/DmsModals';
 import DmsDocumentToolbar from '@/app/folders/components/DmsDocumentToolbar';
 import { ViewMode } from '@/app/folders/components/types';
@@ -22,6 +23,8 @@ export default function DmsWorkspace({ mode }: DmsWorkspaceProps) {
         folders, selectedFolderId, setSelectedFolderId,
         newFolderName, setNewFolderName, folderCount,
         filteredDocuments, favoriteIds,
+        currentPage, pageSize, totalPages, startIndex, endIndex, paginatedDocuments, totalFilteredCount,
+        setPage, setPageSize,
         setSearchQuery,
         documentFilters, updateDocumentFilters, clearDocumentFilters,
         sortKey, setSortKey, sortDirection, setSortDirection,
@@ -161,8 +164,11 @@ export default function DmsWorkspace({ mode }: DmsWorkspaceProps) {
                             uploaderOptions={uploaderOptions}
                             activeFilterCount={activeFilterCount}
                             hasActiveFilters={hasActiveFilters}
-                            visibleCount={filteredDocuments.length}
+                            visibleCount={paginatedDocuments.length}
                             totalCount={totalDocumentCount}
+                            startIndex={startIndex}
+                            endIndex={endIndex}
+                            totalFilteredCount={totalFilteredCount}
                             busy={busy}
                             onFiltersChange={updateDocumentFilters}
                             onSearchChange={setSearchQuery}
@@ -214,17 +220,30 @@ export default function DmsWorkspace({ mode }: DmsWorkspaceProps) {
                                 />
                             </div>
                         ) : (
-                            <DmsDocumentsTable
-                                filteredDocuments={filteredDocuments} favoriteIds={favoriteIds}
-                                isTrashMode={isTrashMode} mode={mode} busy={busy}
-                                sortKey={sortKey} sortDirection={sortDirection}
-                                getDocumentFolderName={getDocumentFolderName}
-                                onSortChange={onSortChange}
-                                onToggleFavorite={onToggleFavorite} onView={onView} onDownload={onDownload}
-                                onRename={onRename} onSoftDelete={onSoftDelete}
-                                onToggleVersions={onToggleVersions} onOpenInfo={onOpenInfo}
-                                onRestore={onRestore} onPermanentDelete={onPermanentDelete}
-                            />
+                            <>
+                                <DmsDocumentsTable
+                                    filteredDocuments={paginatedDocuments} favoriteIds={favoriteIds}
+                                    isTrashMode={isTrashMode} mode={mode} busy={busy}
+                                    sortKey={sortKey} sortDirection={sortDirection}
+                                    getDocumentFolderName={getDocumentFolderName}
+                                    onSortChange={onSortChange}
+                                    onToggleFavorite={onToggleFavorite} onView={onView} onDownload={onDownload}
+                                    onRename={onRename} onSoftDelete={onSoftDelete}
+                                    onToggleVersions={onToggleVersions} onOpenInfo={onOpenInfo}
+                                    onRestore={onRestore} onPermanentDelete={onPermanentDelete}
+                                />
+                                <DmsPagination
+                                    currentPage={currentPage}
+                                    totalPages={totalPages}
+                                    pageSize={pageSize}
+                                    totalItems={totalFilteredCount}
+                                    startIndex={startIndex}
+                                    endIndex={endIndex}
+                                    onPageChange={setPage}
+                                    onPageSizeChange={setPageSize}
+                                    disabled={busy}
+                                />
+                            </>
                         )}
                     </section>
                 </div>

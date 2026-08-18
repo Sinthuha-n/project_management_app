@@ -26,6 +26,9 @@ interface DmsDocumentToolbarProps {
     hasActiveFilters: boolean;
     visibleCount: number;
     totalCount: number;
+    startIndex?: number;
+    endIndex?: number;
+    totalFilteredCount?: number;
     busy: boolean;
     onFiltersChange: (next: Partial<DocumentFilters>) => void;
     onSearchChange: (value: string) => void;
@@ -52,6 +55,9 @@ export default function DmsDocumentToolbar({
     hasActiveFilters,
     visibleCount,
     totalCount,
+    startIndex,
+    endIndex,
+    totalFilteredCount,
     busy,
     onFiltersChange,
     onSearchChange,
@@ -175,7 +181,25 @@ export default function DmsDocumentToolbar({
 
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <p className="text-[12px] font-semibold text-cu-text-secondary">
-                        Showing <span className="text-cu-text-primary">{visibleCount}</span> of <span className="text-cu-text-primary">{totalCount}</span> documents
+                        {startIndex !== undefined && endIndex !== undefined && totalFilteredCount !== undefined ? (
+                            totalFilteredCount === 0 ? (
+                                <>Showing <span className="text-cu-text-primary">0</span> documents</>
+                            ) : (
+                                <>
+                                    Showing <span className="text-cu-text-primary">{startIndex + 1}{startIndex + 1 !== endIndex ? `–${endIndex}` : ''}</span> of{' '}
+                                    <span className="text-cu-text-primary">{totalFilteredCount}</span>
+                                    {hasActiveFilters || totalFilteredCount !== totalCount ? (
+                                        <> filtered documents <span className="text-cu-text-tertiary">({totalCount} total)</span></>
+                                    ) : (
+                                        <> documents</>
+                                    )}
+                                </>
+                            )
+                        ) : (
+                            <>
+                                Showing <span className="text-cu-text-primary">{visibleCount}</span> of <span className="text-cu-text-primary">{totalCount}</span> documents
+                            </>
+                        )}
                     </p>
 
                     <div className="flex flex-wrap items-center gap-2">

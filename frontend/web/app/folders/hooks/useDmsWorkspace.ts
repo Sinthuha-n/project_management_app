@@ -120,6 +120,8 @@ export function useDmsWorkspace(mode: ViewMode) {
     const [currentProjectName, setCurrentProjectName] = useState<string | null>(null);
     const [renameDoc, setRenameDoc] = useState<DocumentItem | null>(null);
     const [renameName, setRenameName] = useState('');
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     const [quota, setQuota] = useState<ProjectStorageQuotaResponse | null>(null);
     const [selectedPermsFolder, setSelectedPermsFolder] = useState<DocumentFolder | null>(null);
@@ -183,10 +185,12 @@ export function useDmsWorkspace(mode: ViewMode) {
     const setSelectedFolder = (folderId: number | undefined) => {
         setSelectedFolderId(folderId);
         setDocumentFilters((prev) => ({ ...prev, folderId: folderId ?? 'all' }));
+        setPage(1);
     };
 
     const setSearchQuery = (search: string) => {
         setDocumentFilters((prev) => ({ ...prev, search }));
+        setPage(1);
     };
 
     const updateDocumentFilters = (next: Partial<DocumentFilters>) => {
@@ -194,11 +198,13 @@ export function useDmsWorkspace(mode: ViewMode) {
             setSelectedFolderId(typeof next.folderId === 'number' ? next.folderId : undefined);
         }
         setDocumentFilters((prev) => ({ ...prev, ...next }));
+        setPage(1);
     };
 
     const clearDocumentFilters = () => {
         setSelectedFolderId(undefined);
         setDocumentFilters(DEFAULT_FILTERS);
+        setPage(1);
     };
 
     const baseDocuments = useMemo(() => {
@@ -217,6 +223,27 @@ export function useDmsWorkspace(mode: ViewMode) {
         }
         return sortDocuments(result, sortKey, sortDirection, folderNameMap);
     }, [baseDocuments, documentFilters, favoriteIds, folderNameMap, mode, sortDirection, sortKey]);
+
+    const totalFilteredCount = filteredDocuments.length;
+    const safePageSize = Math.max(1, pageSize);
+    const totalPages = Math.max(1, Math.ceil(totalFilteredCount / safePageSize));
+    const currentPage = Math.min(Math.max(1, page), totalPages);
+    const startIndex = totalFilteredCount === 0 ? 0 : (currentPage - 1) * safePageSize;
+    const endIndex = Math.min(startIndex + safePageSize, totalFilteredCount);
+
+    const paginatedDocuments = useMemo(() => {
+        return filteredDocuments.slice(startIndex, startIndex + safePageSize);
+    }, [filteredDocuments, startIndex, safePageSize]);
+
+    const handleSetPage = (newPage: number) => {
+        setPage(Math.min(Math.max(1, newPage), totalPages));
+    };
+
+    const handleSetPageSize = (newPageSize: number) => {
+        const validSize = Math.max(1, newPageSize);
+        setPageSize(validSize);
+        setPage(1);
+    };
 
     const activeFilterCount = useMemo(() => {
         return Number(documentFilters.search.trim().length > 0)
@@ -568,6 +595,8 @@ export function useDmsWorkspace(mode: ViewMode) {
         documentFilters, updateDocumentFilters, clearDocumentFilters,
         sortKey, setSortKey, sortDirection, setSortDirection,
         filteredDocuments, baseDocuments, totalDocumentCount, activeFilterCount, hasActiveFilters,
+        currentPage, pageSize: safePageSize, totalPages, startIndex, endIndex, paginatedDocuments, totalFilteredCount,
+        setPage: handleSetPage, setPageSize: handleSetPageSize,
         uploaderOptions, getDocumentFolderName, title,
         folderCount: folders.length,
         withProjectId, getFolderName,
