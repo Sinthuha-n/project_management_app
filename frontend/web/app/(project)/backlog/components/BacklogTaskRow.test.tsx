@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import BacklogTaskRow from './BacklogTaskRow';
 import type { Task } from '../../kanban/types';
 import type { TeamMemberOption } from '../../kanban/api';
+import { DEFAULT_BACKLOG_STATUS_OPTIONS } from '../status-options';
 
 const mockTask: Task = {
   id: 101,
@@ -37,6 +38,7 @@ describe('BacklogTaskRow', () => {
         onStatusChange={jest.fn()}
         onOpenModal={jest.fn()}
         teamMembers={mockTeamMembers}
+        statusOptions={DEFAULT_BACKLOG_STATUS_OPTIONS}
       />
     );
 
@@ -66,6 +68,7 @@ describe('BacklogTaskRow', () => {
         onStatusChange={jest.fn()}
         onOpenModal={jest.fn()}
         teamMembers={mockTeamMembers}
+        statusOptions={DEFAULT_BACKLOG_STATUS_OPTIONS}
       />
     );
 
@@ -84,6 +87,7 @@ describe('BacklogTaskRow', () => {
         onOpenModal={jest.fn()}
         onAssignMultiple={onAssignMultiple}
         teamMembers={mockTeamMembers}
+        statusOptions={DEFAULT_BACKLOG_STATUS_OPTIONS}
       />
     );
 
@@ -111,6 +115,7 @@ describe('BacklogTaskRow', () => {
         onOpenModal={jest.fn()}
         onAssignMultiple={onAssignMultiple}
         teamMembers={mockTeamMembers}
+        statusOptions={DEFAULT_BACKLOG_STATUS_OPTIONS}
       />
     );
 
@@ -123,5 +128,29 @@ describe('BacklogTaskRow', () => {
     // Click Unassigned
     fireEvent.click(screen.getByText('Unassigned'));
     expect(onAssignMultiple).toHaveBeenCalledWith(101, []);
+  });
+
+  it('renders custom status options and changes to a custom status', () => {
+    const onStatusChange = jest.fn();
+
+    render(
+      <BacklogTaskRow
+        task={mockTask}
+        onDelete={jest.fn()}
+        onClick={jest.fn()}
+        onStatusChange={onStatusChange}
+        onOpenModal={jest.fn()}
+        teamMembers={mockTeamMembers}
+        statusOptions={[
+          ...DEFAULT_BACKLOG_STATUS_OPTIONS,
+          { status: 'QA_READY', title: 'QA Ready' },
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /to do/i }));
+    fireEvent.click(screen.getByRole('button', { name: /qa ready/i }));
+
+    expect(onStatusChange).toHaveBeenCalledWith(101, 'QA_READY');
   });
 });

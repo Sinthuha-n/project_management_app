@@ -25,6 +25,7 @@ import {
     TIMELINE_PAGE_SIZE_OPTIONS,
     paginateTimelineTasks,
 } from '../kanban/utils/timeline-utils';
+import { formatStatusLabel } from './status-options';
 function BacklogPageContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -74,7 +75,7 @@ function BacklogPageContent() {
         filterLabel, setFilterLabel,
         filterDateRange, setFilterDateRange,
         groupBy, setGroupBy,
-        teamMembers, labels,
+        teamMembers, labels, statusOptions,
         selectedIds, setSelectedIds,
         filteredTasks,
         handleMarkDone, handleDelete, handleAddTask,
@@ -104,6 +105,11 @@ function BacklogPageContent() {
         [filteredTasks, safeCurrentPage, pageSize],
     );
 
+    const statusTitleByStatus = useMemo(
+        () => new Map(statusOptions.map(option => [option.status, option.title])),
+        [statusOptions],
+    );
+
     const paginatedGroupedTasks = useMemo(() => {
         if (groupBy === 'none') {
             return [{ label: 'Backlog', items: paginatedFilteredTasks }];
@@ -113,7 +119,10 @@ function BacklogPageContent() {
             paginatedFilteredTasks.forEach((task) => {
                 (groups[task.status] = groups[task.status] || []).push(task);
             });
-            return Object.entries(groups).map(([label, items]) => ({ label: label.replace(/_/g, ' '), items }));
+            return Object.entries(groups).map(([status, items]) => ({
+                label: statusTitleByStatus.get(status) ?? formatStatusLabel(status),
+                items,
+            }));
         }
         if (groupBy === 'assignee') {
             const groups: Record<string, typeof paginatedFilteredTasks> = {};
@@ -136,7 +145,7 @@ function BacklogPageContent() {
             (groups[key] = groups[key] || []).push(task);
         });
         return Object.entries(groups).map(([label, items]) => ({ label, items }));
-    }, [groupBy, paginatedFilteredTasks]);
+    }, [groupBy, paginatedFilteredTasks, statusTitleByStatus]);
 
     // Handle action triggers from TopBar (e.g. ?action=add-task)
     useEffect(() => {
@@ -225,6 +234,7 @@ function BacklogPageContent() {
                 groupBy={groupBy} setGroupBy={setGroupBy}
                 showArchived={showArchived} setShowArchived={setShowArchived}
                 teamMembers={teamMembers} labels={labels}
+                statusOptions={statusOptions}
             />
 
             {/* ── Error ── */}
@@ -308,6 +318,7 @@ function BacklogPageContent() {
                                             onAssigneeChange={handleAssigneeChange}
                                             onAssignMultiple={handleAssignMultiple}
                                             teamMembers={teamMembers}
+                                            statusOptions={statusOptions}
                                         />
                                     ))}
                                 </div>
@@ -434,6 +445,7 @@ function BacklogPageContent() {
                                     onAssigneeChange={handleAssigneeChange}
                                     onAssignMultiple={handleAssignMultiple}
                                     teamMembers={teamMembers}
+                                    statusOptions={statusOptions}
                                 />
                             ))}
                         </div>
@@ -481,6 +493,7 @@ function BacklogPageContent() {
                         onDelete={handleDelete}
                         onOpenModal={setSelectedTaskIdForModal}
                         onClose={() => setSelectedTask(null)}
+                        statusOptions={statusOptions}
                     />
                 )}
             </BottomSheet>

@@ -4,6 +4,7 @@ import {
     fetchProjectLabels,
     fetchProject,
     fetchTeamMembers,
+    fetchKanbanBoard,
     TeamMemberOption,
 } from '../../kanban/api';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
@@ -14,6 +15,7 @@ import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 import { useTaskMutations } from '@/hooks/useTaskMutations';
 import { useProjectTasks } from '@/hooks/useProjectTasks';
 import type { Task as CanonicalTask } from '@/types';
+import { DEFAULT_BACKLOG_STATUS_OPTIONS, formatStatusLabel, statusOptionsFromColumns } from '../status-options';
 
 export function useBacklogData(projectId: string | null, showArchived = false) {
     const taskMutations = useTaskMutations(projectId);
@@ -35,6 +37,7 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
 
     const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([]);
     const [labels, setLabels] = useState<Label[]>([]);
+    const [statusOptions, setStatusOptions] = useState(DEFAULT_BACKLOG_STATUS_OPTIONS);
     const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
     const toggleGroup = useCallback((label: string) => {
@@ -50,17 +53,20 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         const pid = parseInt(projectId, 10);
         if (isNaN(pid)) return;
         try {
-            const [labelsData, project] = await Promise.all([
+            const [labelsData, project, board] = await Promise.all([
                 fetchProjectLabels(pid),
                 fetchProject(pid),
+                fetchKanbanBoard(pid),
             ]);
             setLabels(labelsData);
+            setStatusOptions(statusOptionsFromColumns(board?.columns));
             if (project?.teamId) {
                 const members = await fetchTeamMembers(project.teamId as number);
                 setTeamMembers(members);
             }
         } catch (err) {
             console.error('Error loading static backlog data:', err);
+            setStatusOptions(DEFAULT_BACKLOG_STATUS_OPTIONS);
         }
     }, [projectId]);
 
@@ -361,7 +367,11 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         if (groupBy === 'status') {
             const groups: Record<string, Task[]> = {};
             filteredTasks.forEach(t => { (groups[t.status] = groups[t.status] || []).push(t); });
-            return Object.entries(groups).map(([label, items]) => ({ label: label.replace(/_/g, ' '), items }));
+            const statusTitleByStatus = new Map(statusOptions.map(option => [option.status, option.title]));
+            return Object.entries(groups).map(([status, items]) => ({
+                label: statusTitleByStatus.get(status) ?? formatStatusLabel(status),
+                items,
+            }));
         }
         if (groupBy === 'assignee') {
             const groups: Record<string, Task[]> = {};
@@ -381,7 +391,7 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         const groups: Record<string, Task[]> = {};
         filteredTasks.forEach(t => { const k = t.priority || 'NONE'; (groups[k] = groups[k] || []).push(t); });
         return Object.entries(groups).map(([label, items]) => ({ label, items }));
-    }, [filteredTasks, groupBy]);
+    }, [filteredTasks, groupBy, statusOptions]);
 
     return {
         tasks, archivedTasks,
@@ -399,7 +409,7 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         filterLabel, setFilterLabel,
         filterDateRange, setFilterDateRange,
         groupBy, setGroupBy,
-        teamMembers, labels,
+        teamMembers, labels, statusOptions,
         selectedIds, setSelectedIds,
         filteredTasks, groupedTasks,
         handleMarkDone, handleDelete, handleAddTask,

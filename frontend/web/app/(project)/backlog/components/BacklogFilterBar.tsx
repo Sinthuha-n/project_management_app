@@ -6,8 +6,7 @@ import { TeamMemberOption } from '../../kanban/api';
 import DateRangeFilter from '../../kanban/components/DateRangeFilter';
 import { Archive, ChevronDown, Search, X, Layers, Tag, User, Filter } from 'lucide-react';
 import AssigneeAvatar from '../../(agile)/sprint-backlog/components/AssigneeAvatar';
-
-const STATUS_OPTIONS = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'];
+import { BacklogStatusOption, formatStatusLabel, normalizeBacklogStatusOptions } from '../status-options';
 
 interface BacklogFilterBarProps {
     searchTerm: string;
@@ -28,6 +27,7 @@ interface BacklogFilterBarProps {
     setShowArchived: React.Dispatch<React.SetStateAction<boolean>>;
     teamMembers: TeamMemberOption[];
     labels: Label[];
+    statusOptions: BacklogStatusOption[];
 }
 
 export default function BacklogFilterBar({
@@ -39,7 +39,7 @@ export default function BacklogFilterBar({
     filterDateRange, setFilterDateRange,
     groupBy, setGroupBy,
     showArchived, setShowArchived,
-    teamMembers, labels,
+    teamMembers, labels, statusOptions,
 }: BacklogFilterBarProps) {
     const [filterOpen, setFilterOpen] = useState(false);
     const [statusFilterOpen, setStatusFilterOpen] = useState(false);
@@ -63,6 +63,8 @@ export default function BacklogFilterBar({
 
     const hasActiveFilters = !!(filterPriority.length > 0 || filterStatus.length > 0 || filterAssignee || filterLabel !== null || filterDateRange.startDate || filterDateRange.endDate);
     const activeCount = (filterPriority.length > 0 ? 1 : 0) + (filterStatus.length > 0 ? 1 : 0) + (filterAssignee ? 1 : 0) + (filterLabel !== null ? 1 : 0) + (filterDateRange.startDate || filterDateRange.endDate ? 1 : 0);
+    const statusChoices = normalizeBacklogStatusOptions(statusOptions, filterStatus[0]);
+    const selectedStatusLabel = statusChoices.find(option => option.status === filterStatus[0])?.title;
 
     return (
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4 rounded-2xl border border-cu-border bg-cu-bg/95 p-3 sm:p-4 shadow-cu-sm">
@@ -145,7 +147,7 @@ export default function BacklogFilterBar({
                                     onClick={() => setStatusFilterOpen(o => !o)}
                                     className="flex items-center justify-between w-full gap-1.5 px-2.5 py-1.5 text-[12px] border border-cu-border rounded-lg bg-cu-bg-secondary text-cu-text-primary hover:bg-cu-hover transition-colors"
                                 >
-                                    <span>{filterStatus[0] ? filterStatus[0].replace(/_/g, ' ') : 'All Status'}</span>
+                                    <span>{filterStatus[0] ? selectedStatusLabel ?? formatStatusLabel(filterStatus[0]) : 'All Status'}</span>
                                     <ChevronDown size={12} className="text-cu-text-muted" />
                                 </button>
                                 {statusFilterOpen && (
@@ -155,13 +157,13 @@ export default function BacklogFilterBar({
                                             onClick={() => { setFilterStatus([]); setStatusFilterOpen(false); }}
                                             className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors ${filterStatus.length === 0 ? 'font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
                                         >All Status</button>
-                                        {STATUS_OPTIONS.map(s => (
+                                        {statusChoices.map(option => (
                                             <button
-                                                key={s}
+                                                key={option.status}
                                                 type="button"
-                                                onClick={() => { setFilterStatus([s]); setStatusFilterOpen(false); }}
-                                                className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors ${filterStatus[0] === s ? 'font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
-                                            >{s.replace(/_/g, ' ')}</button>
+                                                onClick={() => { setFilterStatus([option.status]); setStatusFilterOpen(false); }}
+                                                className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors ${filterStatus[0] === option.status ? 'font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
+                                            >{option.title}</button>
                                         ))}
                                     </div>
                                 )}

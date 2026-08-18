@@ -15,6 +15,7 @@ import { tasksApi } from '@/services/tasks-contract';
 import { ArchiveBadge } from '@/components/ui';
 import { formatLocalDate } from '@/lib/date-format';
 import type { TeamMemberOption } from '../../kanban/api';
+import { BacklogStatusOption, formatStatusLabel, normalizeBacklogStatusOptions } from '../status-options';
 import 'react-day-picker/dist/style.css';
 
 const PRIORITY_CONFIG: Record<string, { color: string; icon: React.ElementType; label: string }> = {
@@ -30,8 +31,6 @@ const STATUS_COLOR: Record<string, string> = {
     IN_REVIEW:   'bg-amber-400/15 text-amber-500',
     DONE:        'bg-emerald-500/15 text-emerald-500',
 };
-
-const STATUS_OPTIONS = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'];
 
 function classifyBacklogDue(dueDate?: string | null, status?: string | null): 'overdue' | 'today' | 'five_days' | 'future' | 'none' {
     if (!dueDate || status?.toUpperCase() === 'DONE') return 'none';
@@ -61,17 +60,20 @@ interface BacklogTaskRowProps {
     onAssigneeChange?: (id: number, assigneeId: number | null) => void | Promise<void>;
     onAssignMultiple?: (id: number, assigneeIds: number[]) => void | Promise<void>;
     teamMembers?: TeamMemberOption[];
+    statusOptions: BacklogStatusOption[];
 }
 
 export default function BacklogTaskRow({
     task, onDelete, onClick, onStatusChange, onOpenModal,
-    onArchive, onUnarchive, selected, onToggleSelect, onDateChange, onAssigneeChange, onAssignMultiple, teamMembers = [], isArchived = false,
+    onArchive, onUnarchive, selected, onToggleSelect, onDateChange, onAssigneeChange, onAssignMultiple, teamMembers = [], statusOptions, isArchived = false,
 }: BacklogTaskRowProps) {
     const PriorityIcon = task.priority ? (PRIORITY_CONFIG[task.priority]?.icon ?? Minus) : Minus;
     const priorityColor = task.priority ? (PRIORITY_CONFIG[task.priority]?.color ?? '#9CA3AF') : '#9CA3AF';
     const priorityLabel = task.priority ? (PRIORITY_CONFIG[task.priority]?.label ?? task.priority) : '—';
     const normalizedStatus = (task.status ?? '').toUpperCase();
     const statusClass = STATUS_COLOR[normalizedStatus] ?? 'bg-cu-bg-tertiary text-cu-text-secondary';
+    const statusChoices = normalizeBacklogStatusOptions(statusOptions, normalizedStatus);
+    const currentStatusLabel = statusChoices.find(option => option.status === normalizedStatus)?.title ?? formatStatusLabel(normalizedStatus);
     const [statusOpen, setStatusOpen] = useState(false);
     const [assigneeOpen, setAssigneeOpen] = useState(false);
     const [assignSearch, setAssignSearch] = useState('');
@@ -237,18 +239,18 @@ export default function BacklogTaskRow({
                     onClick={(e) => { e.stopPropagation(); setStatusOpen(s => !s); }}
                     className={`text-[10px] sm:text-[11px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1 ${statusClass} whitespace-nowrap ring-1 ring-inset ring-current/10`}
                 >
-                    <span className="max-w-[70px] truncate">{normalizedStatus.replace(/_/g, ' ')}</span>
+                    <span className="max-w-[70px] truncate">{currentStatusLabel}</span>
                     <ChevronDown size={10} className="shrink-0" />
                 </button>
                 {statusOpen && (
                     <div className="absolute right-0 top-full mt-1 z-50 bg-cu-bg border border-cu-border rounded-xl shadow-cu-lg py-1 min-w-[130px]">
-                        {STATUS_OPTIONS.map((s) => (
+                        {statusChoices.map((option) => (
                             <button
-                                key={s}
-                                onClick={(e) => { e.stopPropagation(); onStatusChange(task.id, s); setStatusOpen(false); }}
-                                className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors ${normalizedStatus === s ? 'font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
+                                key={option.status}
+                                onClick={(e) => { e.stopPropagation(); onStatusChange(task.id, option.status); setStatusOpen(false); }}
+                                className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors ${normalizedStatus === option.status ? 'font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
                             >
-                                {s.replace(/_/g, ' ')}
+                                {option.title}
                             </button>
                         ))}
                     </div>
