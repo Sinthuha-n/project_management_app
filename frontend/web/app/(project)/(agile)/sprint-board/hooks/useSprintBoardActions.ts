@@ -22,7 +22,13 @@ import { useTaskMutations } from '@/hooks/useTaskMutations';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type SprintSummary = { id: number; status: string; sprintName?: string };
+type SprintSummary = {
+  id: number;
+  status: string;
+  sprintName?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+};
 
 interface UseSprintBoardActionsArgs {
   projectIdStr: string | null;

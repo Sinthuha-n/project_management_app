@@ -222,5 +222,11 @@ describe('timeline utils', () => {
       expect(paginateTimelineTasks(sample, 1, 0)).toEqual(sample);
     });
   });
+
+  describe('TIMELINE_PAGE_SIZE_OPTIONS', () => {
+    it('provides standard page size options', () => {
+      expect(TIMELINE_PAGE_SIZE_OPTIONS).toEqual([10, 20, 50, 100]);
+    });
+  });
 });
 

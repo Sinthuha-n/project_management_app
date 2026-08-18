@@ -8,6 +8,8 @@ interface SprintSummary {
   id: number;
   status: string;
   sprintName?: string;
+  startDate?: string | null;
+  endDate?: string | null;
 }
 
 interface SprintBoardHeaderProps {

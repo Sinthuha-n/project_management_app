@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { DayPicker } from 'react-day-picker';
+import { DayPicker, type Matcher } from 'react-day-picker';
 import { format, parseISO } from 'date-fns';
 import { CalendarIcon, X } from 'lucide-react';
 import 'react-day-picker/dist/style.css';
@@ -41,8 +41,8 @@ const DateSection: React.FC<DateSectionProps> = ({
     return parsedDueDate < today;
   }, [parsedDueDate]);
 
-  const disabledDays = useMemo(() => {
-    const matchers: Array<{ before?: Date; after?: Date }> = [];
+  const disabledDays = useMemo<Matcher[] | undefined>(() => {
+    const matchers: Matcher[] = [];
     if (sprintStartDate) {
       matchers.push({ before: parseISO(sprintStartDate) });
     }
