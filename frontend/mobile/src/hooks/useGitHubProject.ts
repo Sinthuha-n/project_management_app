@@ -22,7 +22,6 @@ import {
   saveGitHubAccount,
   setProjectGitHubRepo,
   syncProjectGitHub,
-  unlinkProjectGitHubRepository,
   type GitHubNotification,
   type GitHubRepository,
   type GitHubUser,
