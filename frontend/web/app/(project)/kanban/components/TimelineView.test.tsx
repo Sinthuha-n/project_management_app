@@ -129,4 +129,69 @@ describe('TimelineView', () => {
     });
     expect(mockedToast).toHaveBeenCalledWith('Timeline dates updated.', 'success');
   });
+
+  it('paginates scheduled tasks and navigates across pages', () => {
+    const manyScheduledTasks: Task[] = Array.from({ length: 25 }, (_, index) => ({
+      id: index + 100,
+      title: `Scheduled task ${index + 1}`,
+      status: 'IN_PROGRESS',
+      priority: 'MEDIUM',
+      startDate: format(addDays(today, -2), 'yyyy-MM-dd'),
+      dueDate: format(addDays(today, 2), 'yyyy-MM-dd'),
+      assigneeName: 'Developer',
+    }));
+
+    render(<TimelineView tasks={manyScheduledTasks} />);
+
+    // Total count shows 25 scheduled
+    expect(screen.getByText('25 scheduled')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Timeline pagination' })).toBeInTheDocument();
+
+    // Page 1 shows first 10 tasks
+    expect(screen.getAllByText('Scheduled task 1').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Scheduled task 10').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Scheduled task 11')).not.toBeInTheDocument();
+
+    // Navigate to page 2
+    fireEvent.click(screen.getByRole('button', { name: /^Page 2$/i }));
+
+    expect(screen.queryByText('Scheduled task 1')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Scheduled task 11').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Scheduled task 20').length).toBeGreaterThan(0);
+
+    // Change tasks per page to 50
+    const select = screen.getByRole('combobox', { name: /Tasks per page/i });
+    fireEvent.change(select, { target: { value: '50' } });
+
+    // Now all 25 should be visible on page 1
+    expect(screen.getAllByText('Scheduled task 1').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Scheduled task 25').length).toBeGreaterThan(0);
+  });
+
+  it('resets to page 1 when filtering scheduled tasks', () => {
+    const manyScheduledTasks: Task[] = Array.from({ length: 15 }, (_, index) => ({
+      id: index + 200,
+      title: `Feature ${index + 1}`,
+      status: 'TODO',
+      priority: 'HIGH',
+      startDate: format(addDays(today, -1), 'yyyy-MM-dd'),
+      dueDate: format(addDays(today, 1), 'yyyy-MM-dd'),
+      assigneeName: index === 14 ? 'SpecialAssignee' : 'StandardDev',
+    }));
+
+    render(<TimelineView tasks={manyScheduledTasks} />);
+
+    // Navigate to page 2
+    fireEvent.click(screen.getByRole('button', { name: /^Page 2$/i }));
+    expect(screen.getAllByText('Feature 15').length).toBeGreaterThan(0);
+
+    // Filter by search query that only matches Feature 1
+    fireEvent.change(screen.getByPlaceholderText('Search tasks, assignees, milestones'), {
+      target: { value: 'Feature 10' },
+    });
+
+    expect(screen.getAllByText('Feature 10').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Feature 15')).not.toBeInTheDocument();
+  });
 });
+

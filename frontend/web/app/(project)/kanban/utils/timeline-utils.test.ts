@@ -3,10 +3,13 @@ import {
   buildTimelineTasks,
   dateToKey,
   filterTimelineTasks,
+  getPageNumbers,
   getTaskSchedule,
   getTimelineInsights,
   groupTimelineTasks,
+  paginateTimelineTasks,
   schedulePresetDates,
+  TIMELINE_PAGE_SIZE_OPTIONS,
   type TimelineFilters,
 } from './timeline-utils';
 
@@ -167,4 +170,57 @@ describe('timeline utils', () => {
       dueDate: '2026-07-11',
     });
   });
+
+  describe('getPageNumbers', () => {
+    it('returns empty array when totalPages <= 0', () => {
+      expect(getPageNumbers(1, 0)).toEqual([]);
+      expect(getPageNumbers(1, -3)).toEqual([]);
+    });
+
+    it('returns all pages when totalPages <= maxVisible', () => {
+      expect(getPageNumbers(1, 5, 7)).toEqual([1, 2, 3, 4, 5]);
+      expect(getPageNumbers(3, 7, 7)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    });
+
+    it('returns left-anchored pages with right ellipsis when current page is low', () => {
+      expect(getPageNumbers(1, 10, 7)).toEqual([1, 2, 3, 4, 5, '...', 10]);
+      expect(getPageNumbers(4, 10, 7)).toEqual([1, 2, 3, 4, 5, '...', 10]);
+    });
+
+    it('returns right-anchored pages with left ellipsis when current page is high', () => {
+      expect(getPageNumbers(7, 10, 7)).toEqual([1, '...', 6, 7, 8, 9, 10]);
+      expect(getPageNumbers(10, 10, 7)).toEqual([1, '...', 6, 7, 8, 9, 10]);
+    });
+
+    it('returns middle window with dual ellipses when current page is in the middle', () => {
+      expect(getPageNumbers(5, 10, 7)).toEqual([1, '...', 4, 5, 6, '...', 10]);
+      expect(getPageNumbers(6, 12, 7)).toEqual([1, '...', 5, 6, 7, '...', 12]);
+    });
+  });
+
+  describe('paginateTimelineTasks', () => {
+    const sample = Array.from({ length: 25 }, (_, i) => ({ id: i + 1, title: `Task ${i + 1}` }));
+
+    it('returns correct slice of tasks for requested page', () => {
+      const page1 = paginateTimelineTasks(sample, 1, 10);
+      expect(page1).toHaveLength(10);
+      expect(page1[0].id).toBe(1);
+      expect(page1[9].id).toBe(10);
+
+      const page2 = paginateTimelineTasks(sample, 2, 10);
+      expect(page2).toHaveLength(10);
+      expect(page2[0].id).toBe(11);
+      expect(page2[9].id).toBe(20);
+
+      const page3 = paginateTimelineTasks(sample, 3, 10);
+      expect(page3).toHaveLength(5);
+      expect(page3[0].id).toBe(21);
+      expect(page3[4].id).toBe(25);
+    });
+
+    it('returns full array when pageSize <= 0', () => {
+      expect(paginateTimelineTasks(sample, 1, 0)).toEqual(sample);
+    });
+  });
 });
+
