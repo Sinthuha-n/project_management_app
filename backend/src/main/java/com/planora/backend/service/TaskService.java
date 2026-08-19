@@ -1417,10 +1417,18 @@ public class TaskService {
             dto.setSprintName(task.getSprint().getName());
         }
 
-        if(task.getAssignee() != null && task.getAssignee().getUser() != null){
-            dto.setAssigneeId(task.getAssignee().getId());
-            dto.setAssigneeName(task.getAssignee().getUser().getUsername());
-            dto.setAssigneePhotoUrl(userService.generatePresignedUrl(task.getAssignee().getUser().getProfilePicUrl()));
+        // Ensure primary assignee fields are set even when task only has assignees collection or multi-assignees
+        TeamMember primaryAssignee = task.getAssignee();
+        if ((primaryAssignee == null || primaryAssignee.getUser() == null) && task.getAssignees() != null && !task.getAssignees().isEmpty()) {
+            primaryAssignee = task.getAssignees().iterator().next();
+        }
+        if (primaryAssignee != null && primaryAssignee.getUser() != null) {
+            dto.setAssigneeId(primaryAssignee.getId());
+            String fullName = primaryAssignee.getUser().getFullName();
+            dto.setAssigneeName((fullName != null && !fullName.isBlank())
+                    ? fullName
+                    : primaryAssignee.getUser().getUsername());
+            dto.setAssigneePhotoUrl(userService.generatePresignedUrl(primaryAssignee.getUser().getProfilePicUrl()));
         }
 
         // Map multiple assignees (V4)

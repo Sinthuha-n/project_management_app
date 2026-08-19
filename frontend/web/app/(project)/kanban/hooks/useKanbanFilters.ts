@@ -2,10 +2,91 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { Task, KanbanColumn as KanbanColumnType, KanbanColumnConfig, DateFilter } from '../types';
+import type { TeamMemberOption } from '../api';
+
+export function matchesTaskAssignees(
+  task: Task,
+  selectedAssignees: string[],
+  teamMembers: TeamMemberOption[] = []
+): boolean {
+  if (selectedAssignees.length === 0) return true;
+
+  const memberLookup = new Map<string, TeamMemberOption>();
+  for (const m of teamMembers) {
+    if (m.name) memberLookup.set(m.name.toLowerCase(), m);
+    if (m.id != null) memberLookup.set(String(m.id), m);
+    if (m.userId != null) memberLookup.set(String(m.userId), m);
+    if (m.memberId != null) memberLookup.set(String(m.memberId), m);
+  }
+
+  const taskAssigneeNames: string[] = [];
+  const taskAssigneeIds = new Set<number>();
+
+  if (task.assigneeName && task.assigneeName !== 'Unassigned') {
+    taskAssigneeNames.push(task.assigneeName.toLowerCase());
+  }
+  if (task.assignee?.name && task.assignee.name !== 'Unassigned') {
+    taskAssigneeNames.push(task.assignee.name.toLowerCase());
+  }
+  if (task.assigneeId != null) taskAssigneeIds.add(task.assigneeId);
+  if (task.assignee?.id != null) taskAssigneeIds.add(task.assignee.id);
+  if (task.assignee?.userId != null) taskAssigneeIds.add(task.assignee.userId);
+  if (task.assignee?.memberId != null) taskAssigneeIds.add(task.assignee.memberId);
+
+  if (Array.isArray(task.assigneeIds)) {
+    task.assigneeIds.forEach((id) => {
+      if (id != null) taskAssigneeIds.add(id);
+    });
+  }
+
+  if (Array.isArray(task.assignees)) {
+    task.assignees.forEach((a) => {
+      if (a.name && a.name !== 'Unassigned') {
+        taskAssigneeNames.push(a.name.toLowerCase());
+      }
+      if (a.id != null) taskAssigneeIds.add(a.id);
+      if (a.userId != null) taskAssigneeIds.add(a.userId);
+      if (a.memberId != null) taskAssigneeIds.add(a.memberId);
+    });
+  }
+
+  const isUnassigned = taskAssigneeNames.length === 0 && taskAssigneeIds.size === 0;
+
+  return selectedAssignees.some((selected) => {
+    if (selected === 'Unassigned') {
+      return isUnassigned;
+    }
+    const selLower = selected.toLowerCase();
+
+    // 1. Direct name match (case-insensitive)
+    if (taskAssigneeNames.includes(selLower)) return true;
+
+    // 2. Check if selected matches a team member, then check IDs or names of that member
+    const member = memberLookup.get(selLower) || memberLookup.get(selected);
+    if (member) {
+      if (member.id != null && taskAssigneeIds.has(member.id)) return true;
+      if (member.userId != null && taskAssigneeIds.has(member.userId)) return true;
+      if (member.memberId != null && taskAssigneeIds.has(member.memberId)) return true;
+      if (member.name && taskAssigneeNames.includes(member.name.toLowerCase())) return true;
+    }
+
+    // 3. Check if selected is numeric ID
+    const numericId = Number(selected);
+    if (!Number.isNaN(numericId) && taskAssigneeIds.has(numericId)) {
+      return true;
+    }
+
+    // 4. Fuzzy / substring / word match (e.g. username vs full name)
+    return taskAssigneeNames.some(
+      (name) => name === selLower || name.includes(selLower) || selLower.includes(name)
+    );
+  });
+}
 
 export function useKanbanFilters(
   tasks: Task[],
-  columnConfigs: KanbanColumnConfig[]
+  columnConfigs: KanbanColumnConfig[],
+  teamMembers: TeamMemberOption[] = []
 ) {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [filterPriority, setFilterPriority] = useState<string[]>([]);
@@ -31,18 +112,7 @@ export function useKanbanFilters(
     }
 
     if (filterAssignees.length > 0) {
-      result = result.filter(t => {
-        const taskAssigneeNames = [
-          t.assigneeName,
-          ...(t.assignees?.map(a => a.name) || [])
-        ].filter((n): n is string => Boolean(n) && n !== 'Unassigned');
-
-        return filterAssignees.some(selected =>
-          selected === 'Unassigned'
-            ? taskAssigneeNames.length === 0
-            : taskAssigneeNames.includes(selected)
-        );
-      });
+      result = result.filter(t => matchesTaskAssignees(t, filterAssignees, teamMembers));
     }
 
     if (filterLabel !== null) {
@@ -62,7 +132,7 @@ export function useKanbanFilters(
     }
 
     return result;
-  }, [tasks, searchTerm, filterPriority, filterAssignees, filterLabel, filterDateRange]);
+  }, [tasks, searchTerm, filterPriority, filterAssignees, filterLabel, filterDateRange, teamMembers]);
 
   const columns = useMemo<KanbanColumnType[]>(() => {
     return columnConfigs.map(cfg => {

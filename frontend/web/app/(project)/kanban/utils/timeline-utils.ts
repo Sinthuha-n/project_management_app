@@ -162,17 +162,47 @@ export function filterTimelineTasks(tasks: Task[], filters: TimelineFilters, mil
     if (filters.focus === 'past-milestone' && !isTaskPastMilestone(task, milestones)) return false;
 
     if (selectedAssignees.length > 0) {
-      const taskAssignees = [
-        task.assigneeName,
-        task.assignee?.name,
-        ...(task.assignees?.map((a) => a.name) || []),
-      ].filter((n): n is string => Boolean(n) && n !== 'Unassigned');
+      const taskAssigneeNames: string[] = [];
+      const taskAssigneeIds = new Set<number>();
 
-      const matchesAssignee = selectedAssignees.some((sel) =>
-        sel === 'Unassigned'
-          ? taskAssignees.length === 0
-          : taskAssignees.includes(sel)
-      );
+      if (task.assigneeName && task.assigneeName !== 'Unassigned') {
+        taskAssigneeNames.push(task.assigneeName.toLowerCase());
+      }
+      if (task.assignee?.name && task.assignee.name !== 'Unassigned') {
+        taskAssigneeNames.push(task.assignee.name.toLowerCase());
+      }
+      if (task.assigneeId != null) taskAssigneeIds.add(task.assigneeId);
+      if (task.assignee?.id != null) taskAssigneeIds.add(task.assignee.id);
+      if (task.assignee?.userId != null) taskAssigneeIds.add(task.assignee.userId);
+      if (task.assignee?.memberId != null) taskAssigneeIds.add(task.assignee.memberId);
+
+      if (Array.isArray(task.assigneeIds)) {
+        task.assigneeIds.forEach((id) => {
+          if (id != null) taskAssigneeIds.add(id);
+        });
+      }
+
+      if (Array.isArray(task.assignees)) {
+        task.assignees.forEach((a) => {
+          if (a.name && a.name !== 'Unassigned') taskAssigneeNames.push(a.name.toLowerCase());
+          if (a.id != null) taskAssigneeIds.add(a.id);
+          if (a.userId != null) taskAssigneeIds.add(a.userId);
+          if (a.memberId != null) taskAssigneeIds.add(a.memberId);
+        });
+      }
+
+      const isUnassigned = taskAssigneeNames.length === 0 && taskAssigneeIds.size === 0;
+
+      const matchesAssignee = selectedAssignees.some((sel) => {
+        if (sel === 'Unassigned') return isUnassigned;
+        const selLower = sel.toLowerCase();
+        if (taskAssigneeNames.includes(selLower)) return true;
+        const numericId = Number(sel);
+        if (!Number.isNaN(numericId) && taskAssigneeIds.has(numericId)) return true;
+        return taskAssigneeNames.some(
+          (name) => name === selLower || name.includes(selLower) || selLower.includes(name)
+        );
+      });
       if (!matchesAssignee) return false;
     }
 

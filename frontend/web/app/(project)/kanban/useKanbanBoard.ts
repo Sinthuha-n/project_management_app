@@ -10,7 +10,7 @@ export { DEFAULT_COLUMN_CONFIGS } from './hooks/useKanbanData';
 
 export function useKanbanBoard(projectId: string | null) {
   const data = useKanbanData(projectId);
-  const filters = useKanbanFilters(data.tasks, data.columnConfigs);
+  const filters = useKanbanFilters(data.tasks, data.columnConfigs, data.teamMembers);
   const actions = useKanbanActions(
     projectId,
     data.tasks,
