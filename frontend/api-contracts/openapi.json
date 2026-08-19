@@ -15092,6 +15092,18 @@
           },
           {
             "in": "query",
+            "name": "assigneeIds",
+            "required": false,
+            "schema": {
+              "items": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
             "name": "priority",
             "required": false,
             "schema": {
