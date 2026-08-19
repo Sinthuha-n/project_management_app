@@ -20,7 +20,7 @@ import TimelineControls from './TimelineControls';
 import TimelineTaskRow from './TimelineTaskRow';
 import TimelinePagination from './TimelinePagination';
 import { useTimelineDrag } from '../hooks/useTimelineDrag';
-import { updateTaskDates } from '../api';
+import { updateTaskDates, type TeamMemberOption } from '../api';
 import {
   applyTaskMutation,
   createMutationId,
@@ -66,6 +66,7 @@ interface TimelineViewProps {
   onOpenTask?: (taskId: number) => void;
   onTaskUpdated?: (taskId: number, updates: Partial<Task>) => void;
   milestones?: Milestone[];
+  teamMembers?: TeamMemberOption[];
   onInsightsChange?: (insights: TimelineInsight, rangeLabel: string) => void;
   onCreateTask?: () => void;
   onOpenBacklog?: () => void;
@@ -291,6 +292,7 @@ export default function TimelineView({
   onOpenTask,
   onTaskUpdated,
   milestones = [],
+  teamMembers = [],
   onInsightsChange,
   onCreateTask,
   onOpenBacklog,
@@ -357,8 +359,12 @@ export default function TimelineView({
 
   const assigneeOptions = useMemo(() => {
     const names = new Set<string>();
+    teamMembers.forEach((member) => {
+      if (member.name && member.name !== 'Unassigned') names.add(member.name);
+    });
     localTasks.forEach((task) => {
       if (task.assigneeName && task.assigneeName !== 'Unassigned') names.add(task.assigneeName);
+      if (task.assignee?.name && task.assignee.name !== 'Unassigned') names.add(task.assignee.name);
       if (task.assignees && task.assignees.length > 0) {
         task.assignees.forEach((a) => {
           if (a.name && a.name !== 'Unassigned') names.add(a.name);
@@ -366,7 +372,7 @@ export default function TimelineView({
       }
     });
     return Array.from(names).sort();
-  }, [localTasks]);
+  }, [localTasks, teamMembers]);
 
   const milestoneOptions = useMemo(
     () => milestones.map((milestone) => ({ id: milestone.id, name: milestone.name })),

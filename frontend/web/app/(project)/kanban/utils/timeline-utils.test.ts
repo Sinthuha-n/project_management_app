@@ -98,6 +98,16 @@ describe('timeline utils', () => {
     expect(filterTimelineTasks(multiTasks, { ...baseFilters, assignees: ['Unassigned'] }).map((t) => t.id)).toEqual([40]);
   });
 
+  it('filters and searches by nested assignee object', () => {
+    const nestedTasks: Task[] = [
+      { id: 50, title: 'Nested Assignee Task', status: 'TODO', assignee: { id: 7, name: 'Elena' } },
+      { id: 51, title: 'Other Task', status: 'TODO' },
+    ];
+
+    expect(filterTimelineTasks(nestedTasks, { ...baseFilters, assignees: ['Elena'] }).map((t) => t.id)).toEqual([50]);
+    expect(filterTimelineTasks(nestedTasks, { ...baseFilters, search: 'elena' }).map((t) => t.id)).toEqual([50]);
+  });
+
   it('builds timeline models and groups them by status, assignee, and milestone', () => {
     const visibleDays = [
       new Date(2026, 6, 6),
@@ -112,6 +122,60 @@ describe('timeline utils', () => {
     expect(groupTimelineTasks(models, 'status').map((group) => group.label)).toEqual(expect.arrayContaining(['IN PROGRESS']));
     expect(groupTimelineTasks(models, 'assignee').map((group) => group.label)).toEqual(expect.arrayContaining(['Asha']));
     expect(groupTimelineTasks(models, 'milestone').map((group) => group.label)).toEqual(expect.arrayContaining(['MVP']));
+  });
+
+  it('groups multi-assignee and nested assignee tasks properly into each assignee group', () => {
+    const visibleDays = [
+      new Date(2026, 6, 6),
+      new Date(2026, 6, 7),
+      new Date(2026, 6, 8),
+    ];
+    const testTasks: Task[] = [
+      {
+        id: 101,
+        title: 'Joint Task',
+        status: 'IN_PROGRESS',
+        startDate: '2026-07-06',
+        dueDate: '2026-07-08',
+        assignees: [{ name: 'Asha' }, { name: 'Ben' }],
+      },
+      {
+        id: 102,
+        title: 'Nested Task',
+        status: 'TODO',
+        startDate: '2026-07-06',
+        dueDate: '2026-07-07',
+        assignee: { id: 3, name: 'Charlie' },
+      },
+      {
+        id: 103,
+        title: 'Unassigned Task',
+        status: 'TODO',
+        startDate: '2026-07-06',
+        dueDate: '2026-07-07',
+      },
+    ];
+
+    const models = buildTimelineTasks(testTasks, visibleDays, 38, [], null, 0, new Date('2026-07-07T00:00:00'));
+    const grouped = groupTimelineTasks(models, 'assignee');
+    const groupLabels = grouped.map((g) => g.label);
+
+    expect(groupLabels).toContain('Asha');
+    expect(groupLabels).toContain('Ben');
+    expect(groupLabels).toContain('Charlie');
+    expect(groupLabels).toContain('Unassigned');
+
+    const ashaGroup = grouped.find((g) => g.label === 'Asha');
+    expect(ashaGroup?.tasks.map((t) => t.id)).toContain(101);
+
+    const benGroup = grouped.find((g) => g.label === 'Ben');
+    expect(benGroup?.tasks.map((t) => t.id)).toContain(101);
+
+    const charlieGroup = grouped.find((g) => g.label === 'Charlie');
+    expect(charlieGroup?.tasks.map((t) => t.id)).toContain(102);
+
+    const unassignedGroup = grouped.find((g) => g.label === 'Unassigned');
+    expect(unassignedGroup?.tasks.map((t) => t.id)).toContain(103);
   });
 
   it('uses date-only parsing and rejects missing or negative schedules', () => {

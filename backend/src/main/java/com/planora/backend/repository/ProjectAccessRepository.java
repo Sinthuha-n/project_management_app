@@ -27,7 +27,6 @@ public interface ProjectAccessRepository extends JpaRepository<ProjectAccess, Lo
             VALUES (:projectId, :userId, CURRENT_TIMESTAMP)
             ON CONFLICT (project_id, user_id)
             DO UPDATE SET last_accessed_at = EXCLUDED.last_accessed_at
-            WHERE project_access.last_accessed_at < CURRENT_TIMESTAMP - INTERVAL '5 minutes'
             """, nativeQuery = true)
     int upsertThrottledAccess(@Param("projectId") Long projectId, @Param("userId") Long userId);
 

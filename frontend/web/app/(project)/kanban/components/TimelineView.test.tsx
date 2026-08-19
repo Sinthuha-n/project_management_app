@@ -217,4 +217,65 @@ describe('TimelineView', () => {
     expect(screen.getAllByText('Feature 10').length).toBeGreaterThan(0);
     expect(screen.queryByText('Feature 15')).not.toBeInTheDocument();
   });
+
+  it('filters tasks using the visible assignee dropdown', () => {
+    const mixedTasks: Task[] = [
+      {
+        id: 301,
+        title: 'Asha task',
+        status: 'IN_PROGRESS',
+        startDate: format(addDays(today, -1), 'yyyy-MM-dd'),
+        dueDate: format(addDays(today, 1), 'yyyy-MM-dd'),
+        assigneeName: 'Asha',
+      },
+      {
+        id: 302,
+        title: 'Ben task',
+        status: 'TODO',
+        startDate: format(addDays(today, -1), 'yyyy-MM-dd'),
+        dueDate: format(addDays(today, 1), 'yyyy-MM-dd'),
+        assignees: [{ name: 'Ben' }],
+      },
+      {
+        id: 303,
+        title: 'Unassigned task',
+        status: 'TODO',
+        startDate: format(addDays(today, -1), 'yyyy-MM-dd'),
+        dueDate: format(addDays(today, 1), 'yyyy-MM-dd'),
+      },
+    ];
+
+    render(<TimelineView tasks={mixedTasks} />);
+
+    // Open Assignee filter dropdown
+    const assigneeFilterBtn = screen.getByRole('button', { name: /all assignees/i });
+    expect(assigneeFilterBtn).toBeInTheDocument();
+    fireEvent.click(assigneeFilterBtn);
+
+    // Filter by Asha
+    const ashaOption = screen.getByRole('button', { name: /^Asha$/i });
+    fireEvent.click(ashaOption);
+
+    expect(screen.getAllByText('Asha task').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Ben task')).not.toBeInTheDocument();
+    expect(screen.queryByText('Unassigned task')).not.toBeInTheDocument();
+
+    // Also select Ben
+    const benOption = screen.getByRole('button', { name: /^Ben$/i });
+    fireEvent.click(benOption);
+
+    expect(screen.getAllByText('Asha task').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Ben task').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Unassigned task')).not.toBeInTheDocument();
+
+    // Toggle Asha off and select Unassigned
+    fireEvent.click(ashaOption);
+    fireEvent.click(benOption);
+    const unassignedOption = screen.getByRole('button', { name: 'Unassigned' });
+    fireEvent.click(unassignedOption);
+
+    expect(screen.queryByText('Asha task')).not.toBeInTheDocument();
+    expect(screen.queryByText('Ben task')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Unassigned task').length).toBeGreaterThan(0);
+  });
 });

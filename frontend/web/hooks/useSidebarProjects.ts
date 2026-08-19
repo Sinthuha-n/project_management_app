@@ -12,22 +12,26 @@ interface Project {
 type ProjectEventName =
   | 'planora:project-created'
   | 'planora:project-updated'
-  | 'planora:project-deleted';
+  | 'planora:project-deleted'
+  | 'planora:project-accessed'
+  | 'planora:favorite-toggled';
 
 const PROJECT_REFRESH_EVENTS: ProjectEventName[] = [
   'planora:project-created',
   'planora:project-updated',
   'planora:project-deleted',
+  'planora:project-accessed',
+  'planora:favorite-toggled',
 ];
 
 export function useSidebarProjects() {
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<number | null>(null);
 
-  // Cache recent projects and avoid revalidating on every route change.
+  // Cache recent projects and keep them responsive to project switches
   const { data: recentData, isLoading: loadingRecent, mutate: mutateRecent } = useSWR<Project[]>(
     'projects-recent',
     () => projectsApi.getRecent(),
-    { revalidateOnFocus: false, dedupingInterval: 30000 }
+    { revalidateOnFocus: true, dedupingInterval: 5000 }
   );
 
   const { data: favoritesData, isLoading: loadingFav, mutate: mutateFav } = useSWR<Project[]>(
@@ -40,7 +44,7 @@ export function useSidebarProjects() {
   const favoriteProjects = favoritesData || [];
   const loading = loadingRecent || loadingFav;
 
-  // Refresh recent projects only when create/update/delete events happen.
+  // Refresh recent and favorite projects when relevant project events happen
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -63,7 +67,15 @@ export function useSidebarProjects() {
   const handleProjectClick = useCallback(async (project: Project) => {
     localStorage.setItem('currentProjectName', project.name);
     localStorage.setItem('currentProjectId', project.id.toString());
-  }, []);
+    window.dispatchEvent(new CustomEvent('planora:project-accessed'));
+
+    // Optimistically bring the accessed project to the top of the recent list
+    mutateRecent((prev) => {
+      const list = prev || [];
+      const filtered = list.filter((p) => p.id !== project.id);
+      return [project, ...filtered];
+    }, false);
+  }, [mutateRecent]);
 
   const handleToggleFavourite = useCallback(
     async (e: React.MouseEvent, project: Project) => {

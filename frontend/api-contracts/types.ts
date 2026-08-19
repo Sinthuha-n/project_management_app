@@ -11827,6 +11827,7 @@ export interface operations {
             query?: {
                 status?: string;
                 assigneeId?: number;
+                assigneeIds?: number[];
                 priority?: string;
                 sprintId?: number;
                 milestoneId?: number;

@@ -162,23 +162,58 @@ export function filterTimelineTasks(tasks: Task[], filters: TimelineFilters, mil
     if (filters.focus === 'past-milestone' && !isTaskPastMilestone(task, milestones)) return false;
 
     if (selectedAssignees.length > 0) {
-      const taskAssignees = [
-        task.assigneeName,
-        ...(task.assignees?.map((a) => a.name) || []),
-      ].filter((n): n is string => Boolean(n) && n !== 'Unassigned');
+      const taskAssigneeNames: string[] = [];
+      const taskAssigneeIds = new Set<number>();
 
-      const matchesAssignee = selectedAssignees.some((sel) =>
-        sel === 'Unassigned'
-          ? taskAssignees.length === 0
-          : taskAssignees.includes(sel)
-      );
+      if (task.assigneeName && task.assigneeName !== 'Unassigned') {
+        taskAssigneeNames.push(task.assigneeName.toLowerCase());
+      }
+      if (task.assignee?.name && task.assignee.name !== 'Unassigned') {
+        taskAssigneeNames.push(task.assignee.name.toLowerCase());
+      }
+      if (task.assigneeId != null) taskAssigneeIds.add(task.assigneeId);
+      if (task.assignee?.id != null) taskAssigneeIds.add(task.assignee.id);
+      if (task.assignee?.userId != null) taskAssigneeIds.add(task.assignee.userId);
+      if (task.assignee?.memberId != null) taskAssigneeIds.add(task.assignee.memberId);
+
+      if (Array.isArray(task.assigneeIds)) {
+        task.assigneeIds.forEach((id) => {
+          if (id != null) taskAssigneeIds.add(id);
+        });
+      }
+
+      if (Array.isArray(task.assignees)) {
+        task.assignees.forEach((a) => {
+          if (a.name && a.name !== 'Unassigned') taskAssigneeNames.push(a.name.toLowerCase());
+          if (a.id != null) taskAssigneeIds.add(a.id);
+          if (a.userId != null) taskAssigneeIds.add(a.userId);
+          if (a.memberId != null) taskAssigneeIds.add(a.memberId);
+        });
+      }
+
+      const isUnassigned = taskAssigneeNames.length === 0 && taskAssigneeIds.size === 0;
+
+      const matchesAssignee = selectedAssignees.some((sel) => {
+        if (sel === 'Unassigned') return isUnassigned;
+        const selLower = sel.toLowerCase();
+        if (taskAssigneeNames.includes(selLower)) return true;
+        const numericId = Number(sel);
+        if (!Number.isNaN(numericId) && taskAssigneeIds.has(numericId)) return true;
+        return taskAssigneeNames.some(
+          (name) => name === selLower || name.includes(selLower) || selLower.includes(name)
+        );
+      });
       if (!matchesAssignee) return false;
     }
 
     if (filters.milestone === '__none__' && task.milestoneId != null) return false;
     if (filters.milestone && filters.milestone !== '__none__' && String(task.milestoneId ?? '') !== filters.milestone) return false;
     if (!query) return true;
-    const allAssigneeNames = [task.assigneeName, ...(task.assignees?.map((a) => a.name) || [])].filter(Boolean);
+    const allAssigneeNames = [
+      task.assigneeName,
+      task.assignee?.name,
+      ...(task.assignees?.map((a) => a.name) || []),
+    ].filter(Boolean);
     return [
       task.title,
       task.status,
@@ -319,16 +354,39 @@ export function buildTimelineTasks(
 export function groupTimelineTasks(tasks: TimelineTaskModel[], groupBy: TimelineGroupBy) {
   if (groupBy === 'none') return [{ key: 'all', label: 'All scheduled work', tasks }];
   const groups = new Map<string, TimelineTaskModel[]>();
-  tasks.forEach((task) => {
-    const key = groupBy === 'status'
-      ? statusLabel(task.status)
-      : groupBy === 'assignee'
-        ? task.assigneeName || 'Unassigned'
+
+  if (groupBy === 'assignee') {
+    tasks.forEach((task) => {
+      const assignees = [
+        task.assigneeName,
+        task.assignee?.name,
+        ...(task.assignees?.map((a) => a.name) || []),
+      ].filter((n): n is string => Boolean(n) && n !== 'Unassigned');
+
+      const uniqueAssignees = Array.from(new Set(assignees));
+      if (uniqueAssignees.length === 0) {
+        const current = groups.get('Unassigned') ?? [];
+        current.push(task);
+        groups.set('Unassigned', current);
+      } else {
+        uniqueAssignees.forEach((name) => {
+          const current = groups.get(name) ?? [];
+          current.push(task);
+          groups.set(name, current);
+        });
+      }
+    });
+  } else {
+    tasks.forEach((task) => {
+      const key = groupBy === 'status'
+        ? statusLabel(task.status)
         : task.milestoneName || task.milestoneTitle || 'No milestone';
-    const current = groups.get(key) ?? [];
-    current.push(task);
-    groups.set(key, current);
-  });
+      const current = groups.get(key) ?? [];
+      current.push(task);
+      groups.set(key, current);
+    });
+  }
+
   return Array.from(groups.entries()).map(([label, groupedTasks]) => ({
     key: `${groupBy}-${label}`,
     label,

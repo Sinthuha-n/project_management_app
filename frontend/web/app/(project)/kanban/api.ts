@@ -369,12 +369,12 @@ export async function fetchTeamMembers(teamId: number): Promise<TeamMemberOption
       const memberId = Number(member?.id);
       const userId = Number(member?.userId ?? member?.user?.userId);
       const name =
-        (member?.name as string) ??
-        (member?.username as string) ??
-        (member?.fullName as string) ??
-        (member?.user?.username as string) ??
-        (member?.user?.fullName as string) ??
-        (member?.user?.email as string) ??
+        (member?.user?.fullName as string) ||
+        (member?.user?.username as string) ||
+        (member?.fullName as string) ||
+        (member?.name as string) ||
+        (member?.username as string) ||
+        (member?.user?.email as string) ||
         '';
 
       const assignableId = Number.isFinite(userId) ? userId : memberId;

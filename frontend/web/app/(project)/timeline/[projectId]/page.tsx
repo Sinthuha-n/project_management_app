@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import TimelineView from '../../kanban/components/TimelineView';
 import { Task } from '../../kanban/types';
-import { createTask as createTimelineTask, fetchProject } from '../../kanban/api';
+import { createTask as createTimelineTask, fetchProject, fetchTeamMembers, type TeamMemberOption } from '../../kanban/api';
 import { AlertCircle, CalendarClock, CalendarRange, Diamond, ListChecks, Lock, Plus, RefreshCw } from 'lucide-react';
 import TaskCardModal from '@/app/taskcard/TaskCardModal';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
@@ -24,6 +24,7 @@ export default function TimelinePage() {
   const projectTasks = useProjectTasks(projectId, false);
 
   const [milestones, setMilestones] = useState<MilestoneResponse[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([]);
   const [projectType, setProjectType] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -93,8 +94,17 @@ export default function TimelinePage() {
 
     let cancelled = false;
     fetchProject(pid)
-      .then((project) => {
+      .then(async (project) => {
         if (!cancelled) setProjectType(project?.type ?? storedType ?? 'KANBAN');
+        const teamId = Number(project?.teamId ?? (project as { team?: { id?: number } })?.team?.id ?? pid);
+        if (Number.isFinite(teamId) && teamId > 0) {
+          try {
+            const members = await fetchTeamMembers(teamId);
+            if (!cancelled) setTeamMembers(members);
+          } catch {
+            // team members fetch failure is non-fatal
+          }
+        }
       })
       .catch(() => {
         if (!cancelled) setProjectType(storedType ?? 'KANBAN');
@@ -251,6 +261,7 @@ export default function TimelinePage() {
             tasks={tasks}
             onOpenTask={setSelectedTaskId}
             milestones={timelineMilestones}
+            teamMembers={teamMembers}
             onInsightsChange={handleTimelineInsightsChange}
             onCreateTask={() => setShowCreateModal(true)}
             onOpenBacklog={() => router.push(`/backlog?projectId=${projectId}`)}
