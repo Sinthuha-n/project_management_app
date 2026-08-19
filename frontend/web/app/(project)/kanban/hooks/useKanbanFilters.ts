@@ -26,7 +26,10 @@ export function useKanbanFilters(
     }
 
     if (filterAssignee) {
-      result = result.filter(t => t.assigneeName === filterAssignee);
+      result = result.filter(t =>
+        t.assigneeName === filterAssignee ||
+        t.assignees?.some(a => a.name === filterAssignee)
+      );
     }
 
     if (filterLabel !== null) {

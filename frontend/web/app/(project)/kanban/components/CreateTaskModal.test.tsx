@@ -93,6 +93,7 @@ describe('Kanban CreateTaskModal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+<<<<<<< HEAD
   it('sets today as the due date picker minimum', () => {
     render(
       <CreateTaskModal
@@ -127,17 +128,27 @@ describe('Kanban CreateTaskModal', () => {
 
   it('blocks submitting a past start date', async () => {
     const onCreateTask = jest.fn().mockResolvedValue(undefined);
+=======
+  it('submits multiple assigneeIds when multiple assignees are selected', async () => {
+    const onCreateTask = jest.fn().mockResolvedValue(undefined);
+    const onClose = jest.fn();
+>>>>>>> f3640a84 (feat: implement restore document confirmation modal and add multi-assignee selection support to task creation modal)
 
     render(
       <CreateTaskModal
         isOpen
+<<<<<<< HEAD
         onClose={jest.fn()}
+=======
+        onClose={onClose}
+>>>>>>> f3640a84 (feat: implement restore document confirmation modal and add multi-assignee selection support to task creation modal)
         onCreateTask={onCreateTask}
         columnStatus="TODO"
         projectId={12}
       />
     );
 
+<<<<<<< HEAD
     fireEvent.change(screen.getByPlaceholderText('What needs to be done?'), {
       target: { value: 'Past start task' },
     });
@@ -197,5 +208,35 @@ describe('Kanban CreateTaskModal', () => {
       title: 'Future due task',
       dueDate: dateOffset(1),
     })));
+=======
+    await waitFor(() => expect(mockedFetchTeamMembers).toHaveBeenCalledWith(4));
+
+    fireEvent.change(screen.getByPlaceholderText('What needs to be done?'), {
+      target: { value: 'Multi-assignee feature' },
+    });
+
+    // Open assignee dropdown
+    fireEvent.click(screen.getByRole('button', { name: /unassigned choose a project member/i }));
+
+    // Select Ada Lovelace
+    fireEvent.click(screen.getByRole('option', { name: /ada lovelace/i }));
+
+    // Select Grace Hopper
+    fireEvent.click(screen.getByRole('option', { name: /grace hopper/i }));
+
+    // Submit form
+    fireEvent.click(screen.getByRole('button', { name: /^create task$/i }));
+
+    await waitFor(() => {
+      expect(onCreateTask).toHaveBeenCalledWith(expect.objectContaining({
+        title: 'Multi-assignee feature',
+        status: 'TODO',
+        projectId: 12,
+        assigneeId: 101,
+        assigneeIds: expect.arrayContaining([101, 102]),
+      }));
+    });
+    expect(onClose).toHaveBeenCalled();
+>>>>>>> f3640a84 (feat: implement restore document confirmation modal and add multi-assignee selection support to task creation modal)
   });
 });

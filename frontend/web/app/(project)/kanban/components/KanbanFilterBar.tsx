@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { X, ChevronDown, Filter } from 'lucide-react';
 import { Label } from '../types';
 import { TeamMemberOption } from '../api';
@@ -124,10 +125,14 @@ export default function KanbanFilterBar({
                   onClick={() => { setFilterAssignee(m.name); setAssigneeFilterOpen(false); }}
                   className={`w-full text-left px-3 py-2 text-xs hover:bg-cu-hover transition-colors flex items-center gap-2 ${filterAssignee === m.name ? 'font-semibold text-cu-primary bg-cu-primary/5' : 'text-cu-text-primary'}`}
                 >
-                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0">
-                    {m.name.charAt(0).toUpperCase()}
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {m.photoUrl ? (
+                      <Image src={m.photoUrl} alt={m.name} width={20} height={20} className="w-full h-full object-cover" unoptimized />
+                    ) : (
+                      m.name.charAt(0).toUpperCase()
+                    )}
                   </div>
-                  {m.name}
+                  <span className="truncate">{m.name}</span>
                 </button>
               ))}
             </div>

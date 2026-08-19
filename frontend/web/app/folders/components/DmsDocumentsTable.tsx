@@ -42,7 +42,7 @@ interface DmsDocumentsTableProps {
     onSoftDelete: (document: DocumentItem) => void;
     onToggleVersions: (documentId: number) => void;
     onOpenInfo: (document: DocumentItem) => void;
-    onRestore: (documentId: number) => void;
+    onRestore: (document: DocumentItem) => void;
     onPermanentDelete: (document: DocumentItem) => void;
 }
 
@@ -110,7 +110,7 @@ function DocumentActions({
     if (isTrashMode) {
         return (
             <div className="flex items-center gap-1.5 whitespace-nowrap">
-                <ActionButton label="Restore" disabled={busy} onClick={() => onRestore(doc.id)}>
+                <ActionButton label="Restore" disabled={busy} onClick={() => onRestore(doc)}>
                     <RotateCcw size={14} />
                 </ActionButton>
                 <ActionButton label="Delete forever" danger disabled={busy} onClick={() => onPermanentDelete(doc)}>

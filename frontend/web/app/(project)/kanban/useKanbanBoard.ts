@@ -155,6 +155,7 @@ export function useKanbanBoard(projectId: string | null) {
     handleOpenCreateModal: actions.handleOpenCreateModal,
     handleInlineUpdate: actions.handleInlineUpdate,
     handleAssigneeChange: actions.handleAssigneeChange,
+    handleAssigneesChange: actions.handleAssigneesChange,
     handleDeleteTask: actions.handleDeleteTask,
     handleCompleteBoard: actions.handleCompleteBoard,
     handleColumnRenamed: actions.handleColumnRenamed,

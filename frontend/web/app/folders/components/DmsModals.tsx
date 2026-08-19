@@ -10,7 +10,7 @@ import {
 import { 
     Info, Pencil, X, Lock, Shield, Check, Loader2, 
     ArrowLeftRight, FileText, Download, Eye, Clock,
-    Trash2, AlertTriangle, AlertOctagon 
+    Trash2, AlertTriangle, AlertOctagon, RotateCcw 
 } from 'lucide-react';
 import { formatBytes, toDateLabel } from '@/app/folders/components/dmsUtils';
 import OverlayPortal from '@/components/ui/OverlayPortal';
@@ -36,6 +36,9 @@ interface DmsModalsProps {
     permanentDeleteDoc?: DocumentItem | null;
     onConfirmPermanentDelete?: () => Promise<void>;
     onCancelPermanentDelete?: () => void;
+    restoreDoc?: DocumentItem | null;
+    onConfirmRestore?: () => Promise<void>;
+    onCancelRestore?: () => void;
     busy?: boolean;
 
     // Permissions Props
@@ -73,6 +76,9 @@ export default function DmsModals({
     permanentDeleteDoc = null,
     onConfirmPermanentDelete = async () => {},
     onCancelPermanentDelete = () => {},
+    restoreDoc = null,
+    onConfirmRestore = async () => {},
+    onCancelRestore = () => {},
     busy = false,
 
     selectedPermsFolder,
@@ -341,6 +347,7 @@ export default function DmsModals({
         renameDoc !== null || 
         deleteDoc !== null ||
         permanentDeleteDoc !== null ||
+        restoreDoc !== null ||
         isUploading || 
         selectedVersionsDocId !== null || 
         selectedInfoDoc !== null || 
@@ -561,6 +568,83 @@ export default function DmsModals({
                             >
                                 {busy ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={13} />}
                                 Delete Forever
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 1d. RESTORE DOCUMENT CONFIRMATION MODAL */}
+            {restoreDoc !== null && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="restore-document-modal-title"
+                    className="w-full max-w-md rounded-xl border border-cu-border bg-cu-bg shadow-2xl overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200"
+                >
+                    <div className="flex items-center justify-between border-b border-cu-border px-5 py-4 bg-cu-bg-secondary">
+                        <div className="inline-flex items-center gap-2 text-cu-text-primary">
+                            <RotateCcw size={16} className="text-emerald-600 dark:text-emerald-400" />
+                            <h3 id="restore-document-modal-title" className="text-sm font-semibold">Restore document</h3>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={onCancelRestore}
+                            disabled={busy}
+                            className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-cu-border text-cu-text-secondary hover:bg-cu-hover transition-colors disabled:opacity-50"
+                            title="Close"
+                            aria-label="Close dialog"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                    <div className="px-5 py-5 space-y-4">
+                        <div className="flex items-start gap-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 ring-4 ring-emerald-500/5">
+                                <RotateCcw size={20} />
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-semibold text-cu-text-primary">
+                                    Restore &ldquo;{restoreDoc.name}&rdquo;?
+                                </h4>
+                                <p className="text-xs text-cu-text-secondary mt-1 leading-relaxed">
+                                    This will recover the document from the Trash and place it back into its original folder as an active asset.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="rounded-lg border border-cu-border bg-cu-bg-secondary/40 p-3 text-xs space-y-1.5">
+                            <div className="flex justify-between text-cu-text-secondary">
+                                <span className="text-cu-text-tertiary">Destination Folder</span>
+                                <span className="font-medium text-cu-text-primary truncate max-w-[200px]">{restoreDoc.folderName ?? getFolderName(restoreDoc.folderId)}</span>
+                            </div>
+                            <div className="flex justify-between text-cu-text-secondary">
+                                <span className="text-cu-text-tertiary">Size</span>
+                                <span className="font-medium text-cu-text-primary">{restoreDoc.humanReadableSize ?? formatBytes(restoreDoc.fileSize)}</span>
+                            </div>
+                            <div className="flex justify-between text-cu-text-secondary">
+                                <span className="text-cu-text-tertiary">Version</span>
+                                <span className="font-medium text-cu-text-primary">v{restoreDoc.latestVersionNumber}</span>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-cu-border">
+                            <button
+                                type="button"
+                                onClick={onCancelRestore}
+                                disabled={busy}
+                                className="px-4 py-2 text-xs font-semibold border border-cu-border text-cu-text-secondary rounded-lg hover:bg-cu-hover transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => void onConfirmRestore()}
+                                disabled={busy}
+                                className="px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1.5 shadow-sm shadow-emerald-500/20"
+                            >
+                                {busy ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={13} />}
+                                Restore Document
                             </button>
                         </div>
                     </div>

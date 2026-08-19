@@ -131,6 +131,7 @@ export function useDmsWorkspace(mode: ViewMode) {
     const [previewDoc, setPreviewDoc] = useState<DocumentItem | null>(null);
     const [deleteDoc, setDeleteDoc] = useState<DocumentItem | null>(null);
     const [permanentDeleteDoc, setPermanentDeleteDoc] = useState<DocumentItem | null>(null);
+    const [restoreDoc, setRestoreDoc] = useState<DocumentItem | null>(null);
 
     const isTrashMode = mode === 'trash';
 
@@ -543,13 +544,26 @@ export function useDmsWorkspace(mode: ViewMode) {
         setPermanentDeleteDoc(null);
     };
 
-    const onRestore = async (documentId: number) => {
-        if (!projectId) return;
-        const msg = "Restore Document?\n\nThis will recover the document from the Trash and place it back into its original folder as an active asset.";
-        if (!window.confirm(msg)) return;
-        try { setBusy(true); await restoreDocument(projectId, documentId); await refresh(); }
-        catch (err) { setError(getDmsErrorMessage(err, 'Failed to restore document.')); }
-        finally { setBusy(false); }
+    const onRequestRestore = (document: DocumentItem) => {
+        setRestoreDoc(document);
+    };
+
+    const onConfirmRestore = async () => {
+        if (!projectId || !restoreDoc) return;
+        try {
+            setBusy(true);
+            await restoreDocument(projectId, restoreDoc.id);
+            setRestoreDoc(null);
+            await refresh();
+        } catch (err) {
+            setError(getDmsErrorMessage(err, 'Failed to restore document.'));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const onCancelRestore = () => {
+        setRestoreDoc(null);
     };
 
     const onToggleFavorite = (documentId: number) => {
@@ -622,8 +636,10 @@ export function useDmsWorkspace(mode: ViewMode) {
         renameDoc, renameName, setRenameName,
         deleteDoc, setDeleteDoc,
         permanentDeleteDoc, setPermanentDeleteDoc,
+        restoreDoc, setRestoreDoc,
         onRequestSoftDelete, onConfirmSoftDelete, onCancelSoftDelete,
         onRequestPermanentDelete, onConfirmPermanentDelete, onCancelPermanentDelete,
+        onRequestRestore, onConfirmRestore, onCancelRestore,
         versions, favoriteIds,
         searchQuery: documentFilters.search, setSearchQuery,
         documentFilters, updateDocumentFilters, clearDocumentFilters,
@@ -637,7 +653,7 @@ export function useDmsWorkspace(mode: ViewMode) {
         onCreateFolder, onDeleteFolder, onUpload, onDrop,
         onDownload, onView, onRename, onConfirmRename, onCancelRename,
         onSoftDelete: onRequestSoftDelete,
-        onRestore,
+        onRestore: onRequestRestore,
         onPermanentDelete: onRequestPermanentDelete,
         onToggleFavorite, onToggleVersions, onOpenInfo,
         isDragOver, setIsDragOver, refresh,
