@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { Task, KanbanColumnConfig } from '../types';
@@ -269,12 +269,18 @@ export function useKanbanActions(
     }
   }, [patchTask, setTasks, syncCache, forceRefresh, taskMutations, tasks]);
 
+  const pendingAssigneeUpdates = useRef<Map<number, number[]>>(new Map());
+  const inFlightAssigneeTasks = useRef<Set<number>>(new Set());
+
   const handleAssigneesChange = useCallback(async (taskId: number, assigneeIds: number[]) => {
     const currentTask = tasks.find((task) => task.id === taskId);
     if (!currentTask) return;
 
+    const uniqueAssigneeIds = Array.from(new Set(assigneeIds));
     const selectedMembers = teamMembers.filter((m) =>
-      assigneeIds.includes(m.userId ?? m.id) || assigneeIds.includes(m.id) || (m.memberId != null && assigneeIds.includes(m.memberId))
+      uniqueAssigneeIds.includes(m.userId ?? m.id) ||
+      uniqueAssigneeIds.includes(m.id) ||
+      (m.memberId != null && uniqueAssigneeIds.includes(m.memberId))
     );
     const firstMember = selectedMembers[0];
     const newAssignees = selectedMembers.map((m) => ({
@@ -300,13 +306,47 @@ export function useKanbanActions(
       return next;
     });
 
+    const resolvedUserIds = Array.from(
+      new Set(
+        selectedMembers
+          .map((m) => m.userId ?? m.id)
+          .filter((id): id is number => typeof id === 'number' && Number.isFinite(id))
+      )
+    );
+
+    pendingAssigneeUpdates.current.set(taskId, resolvedUserIds);
+
+    if (inFlightAssigneeTasks.current.has(taskId)) {
+      // A request is already in flight for this task; it will consume the latest pending state
+      return;
+    }
+
+    inFlightAssigneeTasks.current.add(taskId);
+
     try {
-      const resolvedUserIds = selectedMembers.map((m) => m.userId ?? m.id);
-      await tasksApi.assignTaskMultiple(taskId, { assigneeIds: resolvedUserIds });
-    } catch (err) {
+      while (pendingAssigneeUpdates.current.has(taskId)) {
+        const nextUserIds = pendingAssigneeUpdates.current.get(taskId)!;
+        pendingAssigneeUpdates.current.delete(taskId);
+        await tasksApi.assignTaskMultiple(taskId, { assigneeIds: nextUserIds });
+      }
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        // If optimistic lock occurs due to another simultaneous save, retry once
+        try {
+          const freshUserIds = pendingAssigneeUpdates.current.get(taskId) ?? resolvedUserIds;
+          pendingAssigneeUpdates.current.delete(taskId);
+          await tasksApi.assignTaskMultiple(taskId, { assigneeIds: freshUserIds });
+          return;
+        } catch (retryErr) {
+          console.error('Error updating task assignees after retry:', retryErr);
+        }
+      }
       console.error('Error updating task assignees:', err);
       toast('Failed to update assignees. Please try again.', 'error');
       forceRefresh();
+    } finally {
+      inFlightAssigneeTasks.current.delete(taskId);
     }
   }, [forceRefresh, patchTask, setTasks, syncCache, tasks, teamMembers]);
 

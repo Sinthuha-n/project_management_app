@@ -106,7 +106,7 @@ export default function KanbanCard({
   const currentAssigneeIds = Array.from(
     new Set(
       assigneesList
-        .flatMap((a) => [a.id, a.memberId, a.userId])
+        .map((a) => a.userId ?? a.id)
         .filter((id): id is number => typeof id === 'number' && Number.isFinite(id))
     )
   );
@@ -245,27 +245,39 @@ export default function KanbanCard({
   const [assigneeSearch, setAssigneeSearch] = useState('');
 
   const handleToggleAssignee = async (memberId: number) => {
+    const targetMember = teamMembers.find(
+      (m) => m.id === memberId || m.userId === memberId || m.memberId === memberId
+    );
+    const resolvedId = targetMember ? (targetMember.userId ?? targetMember.id) : memberId;
     const isAssigned =
-      currentAssigneeIds.includes(memberId) ||
-      assigneesList.some((a) => a.id === memberId || a.memberId === memberId || a.userId === memberId);
+      currentAssigneeIds.includes(resolvedId) ||
+      (targetMember?.id != null && currentAssigneeIds.includes(targetMember.id)) ||
+      (targetMember?.memberId != null && currentAssigneeIds.includes(targetMember.memberId)) ||
+      (targetMember?.userId != null && currentAssigneeIds.includes(targetMember.userId)) ||
+      assigneesList.some((a) => a.name === targetMember?.name);
 
-    const newIds = isAssigned
-      ? currentAssigneeIds.filter((id) => id !== memberId)
-      : [...currentAssigneeIds, memberId];
+    let newIds: number[];
+    if (isAssigned) {
+      newIds = currentAssigneeIds.filter(
+        (id) =>
+          id !== resolvedId &&
+          (!targetMember || (id !== targetMember.id && id !== targetMember.userId && id !== targetMember.memberId))
+      );
+    } else {
+      newIds = Array.from(new Set([...currentAssigneeIds, resolvedId]));
+    }
 
     if (onAssigneesChange) {
       await onAssigneesChange(task.id, newIds);
-    }
-    if (onAssigneeChange) {
-      await onAssigneeChange(task.id, isAssigned ? (newIds.length > 0 ? newIds[0] : null) : memberId);
+    } else if (onAssigneeChange) {
+      await onAssigneeChange(task.id, isAssigned ? (newIds.length > 0 ? newIds[0] : null) : resolvedId);
     }
   };
 
   const handleClearAssignees = async () => {
     if (onAssigneesChange) {
       await onAssigneesChange(task.id, []);
-    }
-    if (onAssigneeChange) {
+    } else if (onAssigneeChange) {
       await onAssigneeChange(task.id, null);
     }
   };
