@@ -61,7 +61,7 @@ function SpacesPageContent() {
                 setProjects(cached.data);
                 setUsingCachedData(true);
                 setLoading(false);
-                if (!cached.isStale && !isOnline) return;
+                if (!isOnline) return;
             }
         }
 
@@ -111,6 +111,26 @@ function SpacesPageContent() {
             setUser(userData);
             void fetchProjects({ checkCache: true });
         });
+
+        const handleProjectAccessed = () => { void fetchProjects(); };
+        const handleFavToggled = () => { void fetchProjects(); };
+        const handleVisibilityOrFocus = () => {
+            if (document.visibilityState === 'visible') {
+                void fetchProjects();
+            }
+        };
+
+        window.addEventListener('planora:project-accessed', handleProjectAccessed);
+        window.addEventListener('planora:favorite-toggled', handleFavToggled);
+        window.addEventListener('focus', handleVisibilityOrFocus);
+        document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+        return () => {
+            window.removeEventListener('planora:project-accessed', handleProjectAccessed);
+            window.removeEventListener('planora:favorite-toggled', handleFavToggled);
+            window.removeEventListener('focus', handleVisibilityOrFocus);
+            document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+        };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOnline]);
 

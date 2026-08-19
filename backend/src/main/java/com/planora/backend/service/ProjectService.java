@@ -207,13 +207,10 @@ public class ProjectService {
 
     @Transactional
     public void recordProjectAccess(Long projectId, Long userId) {
-        // Saves the latest access time using a throttled PostgreSQL upsert. Repeated
-        // refreshes/revisits within five minutes become no-ops instead of write load.
+        // Saves the latest access time using a PostgreSQL upsert and evicts recent project cache.
         findProjectById(projectId);
-        int changedRows = projectAccessRepository.upsertThrottledAccess(projectId, userId);
-        if (changedRows > 0) {
-            evictUserRecentProjectCaches(userId);
-        }
+        projectAccessRepository.upsertThrottledAccess(projectId, userId);
+        evictUserRecentProjectCaches(userId);
     }
 
     @Transactional

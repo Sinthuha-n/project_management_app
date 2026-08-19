@@ -59,8 +59,8 @@ export function useDashboardProjects(): UseDashboardProjectsReturn {
           setProjects(cached.data);
           setUsingCachedData(true);
           setLoading(false);
-          // If it's not stale (expired), we can stop here
-          if (!cached.isStale) return;
+          // If offline, we can stop here with cached data
+          if (!isOnline) return;
         }
       }
 
@@ -141,14 +141,24 @@ export function useDashboardProjects(): UseDashboardProjectsReturn {
     // Listen for global events to refresh data when a project is updated elsewhere
     const handleFavToggled = () => { void fetchProjects(); };
     const handleProjectAccessed = () => { void fetchProjects(); };
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchProjects();
+      }
+    };
+
     window.addEventListener('planora:favorite-toggled', handleFavToggled);
     window.addEventListener('planora:project-accessed', handleProjectAccessed);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
     
     // Clean up event listeners when component is removed
     return () => {
       isMounted = false;
       window.removeEventListener('planora:favorite-toggled', handleFavToggled);
       window.removeEventListener('planora:project-accessed', handleProjectAccessed);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
     };
   }, [isOnline, router]);
 
