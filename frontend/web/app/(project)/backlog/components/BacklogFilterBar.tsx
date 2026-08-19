@@ -6,7 +6,7 @@ import { TeamMemberOption } from '../../kanban/api';
 import DateRangeFilter from '../../kanban/components/DateRangeFilter';
 import { Archive, ChevronDown, Search, X, Layers, Tag, User, Filter } from 'lucide-react';
 import AssigneeAvatar from '../../(agile)/sprint-backlog/components/AssigneeAvatar';
-import { BacklogStatusOption, formatStatusLabel, normalizeBacklogStatusOptions } from '../status-options';
+import { BacklogStatusOption, normalizeBacklogStatusOptions } from '../status-options';
 
 interface BacklogFilterBarProps {
     searchTerm: string;

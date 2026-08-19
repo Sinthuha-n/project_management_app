@@ -346,16 +346,30 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
     }, [tasks, selectedIds, forceRefresh, taskMutations]);
 
     const handleBulkArchive = useCallback(async () => {
-        const ids = Array.from(selectedIds);
-        taskMutations.bulkDelete(ids, () => bulkArchiveTasks(ids, true));
+        const ids = [...selectedIds];
         setSelectedIds(new Set());
-    }, [selectedIds, taskMutations]);
+        const tasksToArchive = tasks.filter(task => ids.includes(task.id));
+        try {
+            await Promise.all(tasksToArchive.map(task =>
+                taskMutations.archive(task as unknown as CanonicalTask)));
+        } catch {
+            toast('Failed to archive tasks', 'error');
+            void forceRefresh();
+        }
+    }, [tasks, selectedIds, forceRefresh, taskMutations]);
 
     const handleBulkUnarchive = useCallback(async () => {
-        const ids = Array.from(selectedIds);
-        taskMutations.bulkDelete(ids, () => bulkArchiveTasks(ids, false));
+        const ids = [...selectedIds];
         setSelectedIds(new Set());
-    }, [selectedIds, taskMutations]);
+        const tasksToUnarchive = archivedTasks.filter(task => ids.includes(task.id));
+        try {
+            await Promise.all(tasksToUnarchive.map(task =>
+                taskMutations.restore(task as unknown as CanonicalTask)));
+        } catch {
+            toast('Failed to unarchive tasks', 'error');
+            void forceRefresh();
+        }
+    }, [archivedTasks, selectedIds, forceRefresh, taskMutations]);
 
     const handleBulkExport = useCallback(async () => {
         const selectedTasks = tasks.filter(t => selectedIds.has(t.id));
@@ -425,7 +439,7 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
             });
         }
         return result;
-    }, [tasks, searchTerm, filterPriority, filterStatus, filterAssignee, filterLabel, filterDateRange]);
+    }, [tasks, searchTerm, filterPriority, filterStatus, filterAssignees, filterLabel, filterDateRange]);
 
     const groupedTasks = useMemo(() => {
         if (groupBy === 'none') return [{ label: 'Backlog', items: filteredTasks }];
@@ -481,7 +495,7 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         currentUserRole,
         handleMarkDone, handleDelete, handleAddTask,
         handleStatusChange, handleAssigneeChange, handleAssignMultiple, handleBulkDelete, handleBulkDone,
-        handleArchiveTask, handleUnarchiveTask,
-        toggleSelect, loadTasks: forceRefresh, handleDateChange, forceRefresh,
+        handleArchiveTask, handleUnarchiveTask, handleBulkArchive, handleBulkUnarchive, handleBulkExport,
+        toggleSelect, toggleSelectAll, loadTasks: forceRefresh, handleDateChange, forceRefresh,
     };
 }

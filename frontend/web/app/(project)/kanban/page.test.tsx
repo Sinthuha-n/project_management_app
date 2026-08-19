@@ -63,6 +63,8 @@ function mockBoard(handleDeleteTask = jest.fn()) {
     setSearchTerm: jest.fn(),
     filterPriority: [],
     setFilterPriority: jest.fn(),
+    filterAssignees: [],
+    setFilterAssignees: jest.fn(),
     filterAssignee: '',
     setFilterAssignee: jest.fn(),
     filterLabel: null,

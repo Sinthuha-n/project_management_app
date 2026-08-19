@@ -22,7 +22,7 @@ function getMemberName(m: NonNullable<TaskRowProps['teamMembers']>[number]) {
 export default function DesktopTaskRow(props: TaskRowProps) {
   const {
     task, projectKey, teamMembers = [], loadingMembers = false,
-    canDelete = true, showCheckbox = false, onToggle, onStatusChange,
+    canDelete: _canDelete = true, showCheckbox = false, onToggle, onStatusChange,
     onStoryPointsChange, onAssignTask, onAssignMultiple, onDueDateChange, onDeleteTask,
     onOpenTask, projectLabels = [], onAddLabel, onCreateLabel,
     onUpdateLabel, onDeleteLabel,
