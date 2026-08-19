@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X, Calendar, User, Plus, Tag, ChevronDown, Flag, Check, Search, Users } from 'lucide-react';
+import { X, Calendar, User, Plus, Tag, ChevronDown, Flag, Check, Search } from 'lucide-react';
 import { Task, Label } from '../types';
 import { fetchProject, fetchTeamMembers, fetchProjectLabels, type TeamMemberOption } from '../api';
 import { formatLocalDate } from '@/lib/date-format';
@@ -49,14 +49,11 @@ export default function CreateTaskModal({
   const assigneeRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
   const safeTeamMembers = Array.isArray(teamMembers) ? teamMembers : [];
-<<<<<<< HEAD
-  const selectedAssignee = assignee ? safeTeamMembers.find(m => m.id === assignee) : null;
   const todayStart = React.useMemo(() => {
     const date = new Date();
     date.setHours(0, 0, 0, 0);
     return date;
   }, []);
-=======
 
   const selectedMembers = safeTeamMembers.filter(m =>
     selectedAssigneeIds.includes(m.userId ?? m.id) ||
@@ -65,7 +62,6 @@ export default function CreateTaskModal({
     (assignee !== '' && (m.id === assignee || m.userId === assignee || m.memberId === assignee))
   );
   const primaryAssignee = selectedMembers[0] || null;
->>>>>>> f3640a84 (feat: implement restore document confirmation modal and add multi-assignee selection support to task creation modal)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -119,7 +115,6 @@ export default function CreateTaskModal({
       return;
     }
 
-<<<<<<< HEAD
     if (startDate && startDate < todayStart) {
       setSubmitError('Start date cannot be in the past.');
       return;
@@ -129,10 +124,9 @@ export default function CreateTaskModal({
       setSubmitError('Due date cannot be in the past.');
       return;
     }
-=======
+
     const resolvedAssigneeIds = selectedMembers.map(m => m.userId ?? m.id);
     const resolvedPrimaryId = selectedMembers[0]?.id ?? (selectedAssigneeIds[0] ?? (assignee ? Number(assignee) : undefined));
->>>>>>> f3640a84 (feat: implement restore document confirmation modal and add multi-assignee selection support to task creation modal)
 
     const taskData: Partial<Task> = {
       title: title.trim(),

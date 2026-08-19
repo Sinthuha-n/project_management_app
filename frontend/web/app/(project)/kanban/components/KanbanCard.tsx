@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task, Label } from '../types';
-import { Calendar, GitBranch, GitPullRequest, MessageSquare, Paperclip, Check, X, Tag, Plus, ChevronDown, ChevronRight, Lock, RefreshCw, Pencil, Trash2, UserPen, UserRound, Search, Users, UserPlus } from 'lucide-react';
+import { Calendar, GitBranch, GitPullRequest, MessageSquare, Paperclip, Check, X, Tag, Plus, ChevronDown, ChevronRight, Lock, RefreshCw, Pencil, Trash2, UserRound, Search, Users } from 'lucide-react';
 import { CIStatusBadge } from '@/components/ui';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 import { formatLocalDate } from '@/lib/date-format';
