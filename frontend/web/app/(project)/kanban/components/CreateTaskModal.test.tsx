@@ -198,4 +198,48 @@ describe('Kanban CreateTaskModal', () => {
       dueDate: dateOffset(1),
     })));
   });
+
+  it('submits multiple assigneeIds when multiple assignees are selected', async () => {
+    const onCreateTask = jest.fn().mockResolvedValue(undefined);
+    const onClose = jest.fn();
+
+    render(
+      <CreateTaskModal
+        isOpen
+        onClose={onClose}
+        onCreateTask={onCreateTask}
+        columnStatus="TODO"
+        projectId={12}
+      />
+    );
+
+    await waitFor(() => expect(mockedFetchTeamMembers).toHaveBeenCalledWith(4));
+
+    fireEvent.change(screen.getByPlaceholderText('What needs to be done?'), {
+      target: { value: 'Multi-assignee feature' },
+    });
+
+    // Open assignee dropdown
+    fireEvent.click(screen.getByRole('button', { name: /unassigned choose a project member/i }));
+
+    // Select Ada Lovelace
+    fireEvent.click(screen.getByRole('option', { name: /ada lovelace/i }));
+
+    // Select Grace Hopper
+    fireEvent.click(screen.getByRole('option', { name: /grace hopper/i }));
+
+    // Submit form
+    fireEvent.click(screen.getByRole('button', { name: /^create task$/i }));
+
+    await waitFor(() => {
+      expect(onCreateTask).toHaveBeenCalledWith(expect.objectContaining({
+        title: 'Multi-assignee feature',
+        status: 'TODO',
+        projectId: 12,
+        assigneeId: 101,
+        assigneeIds: expect.arrayContaining([101, 102]),
+      }));
+    });
+    expect(onClose).toHaveBeenCalled();
+  });
 });

@@ -21,6 +21,7 @@ jest.mock('@/lib/dms', () => ({
     getDocumentUploadCapabilities: jest.fn(),
     softDeleteDocument: jest.fn(),
     permanentDeleteDocument: jest.fn(),
+    restoreDocument: jest.fn(),
 }));
 
 const mockedDmsLib = dmsLib as jest.Mocked<typeof dmsLib>;
@@ -197,6 +198,7 @@ describe('useDmsWorkspace hook deletion confirmation workflows', () => {
         });
         mockedDmsLib.softDeleteDocument.mockResolvedValue(undefined);
         mockedDmsLib.permanentDeleteDocument.mockResolvedValue(undefined);
+        mockedDmsLib.restoreDocument.mockResolvedValue(mockDoc);
     });
 
     it('manages soft delete request, cancel, and confirm workflows', async () => {
@@ -307,6 +309,63 @@ describe('useDmsWorkspace hook deletion confirmation workflows', () => {
 
         await act(async () => {
             await result.current.onConfirmPermanentDelete();
+        });
+
+        expect(result.current.error).toBeTruthy();
+        expect(result.current.busy).toBe(false);
+    });
+
+    it('manages restore request, cancel, and confirm workflows', async () => {
+        const { result } = renderHook(() => useDmsWorkspace('trash'));
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.restoreDoc).toBeNull();
+
+        // 1. Request restore
+        act(() => {
+            result.current.onRequestRestore(mockDoc);
+        });
+        expect(result.current.restoreDoc).toEqual(mockDoc);
+
+        // 2. Cancel restore
+        act(() => {
+            result.current.onCancelRestore();
+        });
+        expect(result.current.restoreDoc).toBeNull();
+        expect(mockedDmsLib.restoreDocument).not.toHaveBeenCalled();
+
+        // 3. Request again and confirm restore
+        act(() => {
+            result.current.onRestore(mockDoc);
+        });
+        expect(result.current.restoreDoc).toEqual(mockDoc);
+
+        await act(async () => {
+            await result.current.onConfirmRestore();
+        });
+
+        expect(mockedDmsLib.restoreDocument).toHaveBeenCalledWith(16, 42);
+        expect(result.current.restoreDoc).toBeNull();
+        expect(result.current.busy).toBe(false);
+    });
+
+    it('handles errors when restore fails', async () => {
+        mockedDmsLib.restoreDocument.mockRejectedValueOnce(new Error('Restore failed'));
+        const { result } = renderHook(() => useDmsWorkspace('trash'));
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        act(() => {
+            result.current.onRequestRestore(mockDoc);
+        });
+
+        await act(async () => {
+            await result.current.onConfirmRestore();
         });
 
         expect(result.current.error).toBeTruthy();

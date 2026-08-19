@@ -44,6 +44,7 @@ interface KanbanColumnProps {
   onOpenTask?: (taskId: number) => void;
   onInlineUpdate?: (taskId: number, updates: Partial<Task>) => Promise<void>;
   onAssigneeChange?: (taskId: number, assigneeId: number | null) => Promise<void>;
+  onAssigneesChange?: (taskId: number, assigneeIds: number[]) => Promise<void>;
   teamMembers?: TeamMemberOption[];
   usersMap?: Record<string, string | null>;
   labels?: Label[];
@@ -68,6 +69,7 @@ export default function KanbanColumn({
   onOpenTask,
   onInlineUpdate,
   onAssigneeChange,
+  onAssigneesChange,
   teamMembers = [],
   usersMap,
   labels: allLabels,
@@ -338,6 +340,7 @@ export default function KanbanColumn({
                 onOpenTask={onOpenTask}
                 onInlineUpdate={onInlineUpdate}
                 onAssigneeChange={onAssigneeChange}
+                onAssigneesChange={onAssigneesChange}
                 teamMembers={teamMembers}
                 usersMap={usersMap}
                 labels={allLabels}

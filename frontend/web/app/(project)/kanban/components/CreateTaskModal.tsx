@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { X, Calendar, User, Plus, Tag, ChevronDown, Flag } from 'lucide-react';
+import { X, Calendar, User, Plus, Tag, ChevronDown, Flag, Check, Search } from 'lucide-react';
 import { Task, Label } from '../types';
 import { fetchProject, fetchTeamMembers, fetchProjectLabels, type TeamMemberOption } from '../api';
 import { formatLocalDate } from '@/lib/date-format';
@@ -33,6 +33,8 @@ export default function CreateTaskModal({
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [assignee, setAssignee] = useState<number | ''>('');
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<number[]>([]);
+  const [assigneeSearch, setAssigneeSearch] = useState('');
   const [priority, setPriority] = useState<string>('MEDIUM');
   const [selectedLabelId, setSelectedLabelId] = useState<number | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([]);
@@ -47,12 +49,19 @@ export default function CreateTaskModal({
   const assigneeRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
   const safeTeamMembers = Array.isArray(teamMembers) ? teamMembers : [];
-  const selectedAssignee = assignee ? safeTeamMembers.find(m => m.id === assignee) : null;
   const todayStart = React.useMemo(() => {
     const date = new Date();
     date.setHours(0, 0, 0, 0);
     return date;
   }, []);
+
+  const selectedMembers = safeTeamMembers.filter(m =>
+    selectedAssigneeIds.includes(m.userId ?? m.id) ||
+    selectedAssigneeIds.includes(m.id) ||
+    (m.memberId != null && selectedAssigneeIds.includes(m.memberId)) ||
+    (assignee !== '' && (m.id === assignee || m.userId === assignee || m.memberId === assignee))
+  );
+  const primaryAssignee = selectedMembers[0] || null;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -62,6 +71,39 @@ export default function CreateTaskModal({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  const handleToggleMember = (member: TeamMemberOption) => {
+    const memberId = member.userId ?? member.id;
+    const isSelected =
+      selectedAssigneeIds.includes(member.id) ||
+      (member.userId != null && selectedAssigneeIds.includes(member.userId)) ||
+      (member.memberId != null && selectedAssigneeIds.includes(member.memberId)) ||
+      (assignee === member.id);
+
+    if (isSelected) {
+      const updated = selectedAssigneeIds.filter(
+        id => id !== member.id && id !== member.userId && id !== member.memberId
+      );
+      setSelectedAssigneeIds(updated);
+      setAssignee(updated[0] ?? '');
+    } else {
+      const updated = Array.from(new Set([...selectedAssigneeIds, memberId]));
+      setSelectedAssigneeIds(updated);
+      setAssignee(updated[0] ?? '');
+    }
+  };
+
+  const handleRemoveMember = (memberId: number) => {
+    const updated = selectedAssigneeIds.filter(id => id !== memberId);
+    setSelectedAssigneeIds(updated);
+    setAssignee(updated[0] ?? '');
+  };
+
+  const handleClearAssignees = () => {
+    setSelectedAssigneeIds([]);
+    setAssignee('');
+    setAssigneeDropdownOpen(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +125,9 @@ export default function CreateTaskModal({
       return;
     }
 
+    const resolvedAssigneeIds = selectedMembers.map(m => m.userId ?? m.id);
+    const resolvedPrimaryId = selectedMembers[0]?.id ?? (selectedAssigneeIds[0] ?? (assignee ? Number(assignee) : undefined));
+
     const taskData: Partial<Task> = {
       title: title.trim(),
       description: description.trim() || undefined,
@@ -90,30 +135,40 @@ export default function CreateTaskModal({
       projectId,
       startDate: startDate ? formatLocalDate(startDate) : undefined,
       dueDate: dueDate ? formatLocalDate(dueDate) : undefined,
-      assigneeId: assignee || undefined,
+      assigneeId: resolvedPrimaryId,
+      assigneeIds: resolvedAssigneeIds.length > 0 ? resolvedAssigneeIds : (resolvedPrimaryId ? [resolvedPrimaryId] : undefined),
+      assignees: selectedMembers.map(m => ({
+        id: m.id,
+        memberId: m.memberId ?? m.id,
+        userId: m.userId ?? m.id,
+        name: m.name,
+        photoUrl: m.photoUrl ?? undefined,
+      })),
       priority,
       labelId: selectedLabelId ?? undefined,
     };
 
-        try {
-          await onCreateTask(taskData);
-          setTitle('');
-          setTitleLength(0);
-          setDescription('');
-          setStartDate(null);
-          setDueDate(null);
-          setAssignee('');
-          setPriority('MEDIUM');
-          setSelectedLabelId(null);
-          setShowDatePicker(false);
-          setShowStartDatePicker(false);
-          onClose();
-        } catch (err) {
-          setSubmitError(
-            err instanceof Error ? err.message : 'Failed to create task. Please try again.'
-          );
-          console.error('Task creation error:', err);
-        }
+    try {
+      await onCreateTask(taskData);
+      setTitle('');
+      setTitleLength(0);
+      setDescription('');
+      setStartDate(null);
+      setDueDate(null);
+      setAssignee('');
+      setSelectedAssigneeIds([]);
+      setAssigneeSearch('');
+      setPriority('MEDIUM');
+      setSelectedLabelId(null);
+      setShowDatePicker(false);
+      setShowStartDatePicker(false);
+      onClose();
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : 'Failed to create task. Please try again.'
+      );
+      console.error('Task creation error:', err);
+    }
   };
 
   // fetch team members when modal opens
@@ -322,11 +377,22 @@ export default function CreateTaskModal({
 
           {/* Assignee Section */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-cu-text-primary flex items-center gap-2">
-              <User size={16} className="text-cu-text-tertiary" />
-              Assignee
-              <span className="text-xs text-cu-text-muted font-normal">(Optional)</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-cu-text-primary flex items-center gap-2">
+                <User size={16} className="text-cu-text-tertiary" />
+                Assignees
+                <span className="text-xs text-cu-text-muted font-normal">(Optional)</span>
+              </label>
+              {selectedMembers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAssignees}
+                  className="text-xs text-cu-danger hover:underline transition-colors"
+                >
+                  Clear all ({selectedMembers.length})
+                </button>
+              )}
+            </div>
 
             <div ref={assigneeRef} className="relative">
               <button
@@ -339,58 +405,133 @@ export default function CreateTaskModal({
               >
                 <span className="flex min-w-0 items-center gap-2 text-cu-text-primary">
                   <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-cu-bg-tertiary text-[11px] font-semibold text-cu-text-secondary">
-                    {selectedAssignee?.photoUrl ? (
-                      <Image src={selectedAssignee.photoUrl} alt={selectedAssignee.name} width={28} height={28} className="h-full w-full object-cover" unoptimized />
-                    ) : selectedAssignee ? (
-                      selectedAssignee.name.charAt(0).toUpperCase()
+                    {primaryAssignee?.photoUrl ? (
+                      <Image src={primaryAssignee.photoUrl} alt={primaryAssignee.name} width={28} height={28} className="h-full w-full object-cover" unoptimized />
+                    ) : primaryAssignee ? (
+                      primaryAssignee.name.charAt(0).toUpperCase()
                     ) : (
                       <User size={14} />
                     )}
                   </span>
-                  <span className="min-w-0">
+                  <span className="min-w-0 text-left">
                     <span className="block truncate font-medium">
-                      {selectedAssignee?.name || 'Unassigned'}
+                      {selectedMembers.length === 0
+                        ? 'Unassigned'
+                        : selectedMembers.length === 1
+                          ? primaryAssignee?.name
+                          : `${selectedMembers.length} assignees selected`}
                     </span>
                     <span className="block truncate text-xs text-cu-text-muted">
-                      {selectedAssignee ? 'Task owner' : 'Choose a project member'}
+                      {selectedMembers.length === 0
+                        ? 'Choose a project member'
+                        : selectedMembers.map(m => m.name).join(', ')}
                     </span>
                   </span>
                 </span>
                 <ChevronDown size={14} className="flex-shrink-0 text-cu-text-muted" />
               </button>
-              {assigneeDropdownOpen && (
-                <div className="absolute left-0 right-0 top-full z-[var(--cu-z-modal-popover)] mt-1 max-h-80 overflow-y-auto rounded-xl border border-cu-border bg-cu-bg p-1 shadow-lg" role="listbox">
-                  <button
-                    type="button"
-                    onClick={() => { setAssignee(''); setAssigneeDropdownOpen(false); }}
-                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-cu-primary/10 hover:text-cu-primary ${!assignee ? 'bg-cu-primary/10 font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
-                    role="option"
-                    aria-selected={!assignee}
-                  >
-                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-cu-bg-tertiary text-cu-text-muted">
-                      <User size={14} />
-                    </span>
-                    <span className="min-w-0 truncate">Unassigned</span>
-                  </button>
-                  {safeTeamMembers.map((member) => (
-                    <button
-                      key={member.id}
-                      type="button"
-                      onClick={() => { setAssignee(member.id); setAssigneeDropdownOpen(false); }}
-                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-cu-primary/10 hover:text-cu-primary ${assignee === member.id ? 'bg-cu-primary/10 font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
-                      role="option"
-                      aria-selected={assignee === member.id}
+
+              {/* Selected Assignee Chips */}
+              {selectedMembers.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {selectedMembers.map((m) => (
+                    <span
+                      key={m.id}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-cu-border bg-cu-bg-secondary py-0.5 pl-1 pr-2 text-xs text-cu-text-primary"
                     >
-                      <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-cu-bg-tertiary text-[11px] font-semibold">
-                        {member.photoUrl ? (
-                          <Image src={member.photoUrl} alt={member.name} width={28} height={28} className="h-full w-full object-cover" unoptimized />
+                      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-[9px] font-bold text-white">
+                        {m.photoUrl ? (
+                          <Image src={m.photoUrl} alt={m.name} width={20} height={20} className="h-full w-full object-cover" unoptimized />
                         ) : (
-                          member.name.charAt(0).toUpperCase()
+                          m.name.charAt(0).toUpperCase()
                         )}
                       </span>
-                      <span className="min-w-0 truncate">{member.name}</span>
-                    </button>
+                      <span className="max-w-[120px] truncate">{m.name}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveMember(m.userId ?? m.id);
+                        }}
+                        className="rounded-full p-0.5 text-cu-text-muted hover:bg-cu-hover hover:text-cu-danger transition-colors"
+                        title={`Remove ${m.name}`}
+                      >
+                        <X size={11} />
+                      </button>
+                    </span>
                   ))}
+                </div>
+              )}
+
+              {assigneeDropdownOpen && (
+                <div className="absolute left-0 right-0 top-full z-[var(--cu-z-modal-popover)] mt-1 max-h-80 overflow-y-auto rounded-xl border border-cu-border bg-cu-bg p-1 shadow-lg" role="listbox">
+                  {safeTeamMembers.length > 4 && (
+                    <div className="mb-1 flex items-center rounded-lg border border-cu-border bg-cu-bg-secondary px-2.5 py-1.5 focus-within:border-cu-primary">
+                      <Search size={12} className="text-cu-text-muted mr-1.5 flex-shrink-0" />
+                      <input
+                        type="text"
+                        placeholder="Search members..."
+                        value={assigneeSearch}
+                        onChange={(e) => setAssigneeSearch(e.target.value)}
+                        className="w-full bg-transparent text-xs text-cu-text-primary placeholder:text-cu-text-muted focus:outline-none"
+                      />
+                      {assigneeSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setAssigneeSearch('')}
+                          className="text-cu-text-muted hover:text-cu-text-primary"
+                        >
+                          <X size={11} />
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleClearAssignees}
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-cu-hover ${selectedMembers.length === 0 ? 'bg-cu-primary/10 font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
+                    role="option"
+                    aria-selected={selectedMembers.length === 0}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-cu-bg-tertiary text-cu-text-muted">
+                        <User size={13} />
+                      </span>
+                      <span className="truncate">Unassigned</span>
+                    </div>
+                    {selectedMembers.length === 0 && <Check size={13} className="text-cu-primary flex-shrink-0" />}
+                  </button>
+
+                  {safeTeamMembers
+                    .filter(m => !assigneeSearch.trim() || m.name.toLowerCase().includes(assigneeSearch.toLowerCase().trim()))
+                    .map((member) => {
+                      const isSelected = selectedMembers.some(m => m.id === member.id || (m.userId != null && m.userId === member.userId));
+                      return (
+                        <button
+                          key={member.id}
+                          type="button"
+                          onClick={() => handleToggleMember(member)}
+                          className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-cu-hover ${isSelected ? 'bg-cu-primary/10 font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
+                          role="option"
+                          aria-selected={isSelected}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-cu-bg-tertiary text-[11px] font-semibold">
+                              {member.photoUrl ? (
+                                <Image src={member.photoUrl} alt={member.name} width={24} height={24} className="h-full w-full object-cover" unoptimized />
+                              ) : (
+                                member.name.charAt(0).toUpperCase()
+                              )}
+                            </span>
+                            <span className="truncate">{member.name}</span>
+                          </div>
+                          <div className={`flex h-4 w-4 items-center justify-center rounded border transition-colors flex-shrink-0 ${isSelected ? 'border-cu-primary bg-cu-primary text-white' : 'border-cu-border bg-cu-bg'}`}>
+                            {isSelected && <Check size={10} strokeWidth={2.5} />}
+                          </div>
+                        </button>
+                      );
+                    })}
                 </div>
               )}
             </div>

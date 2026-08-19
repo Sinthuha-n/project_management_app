@@ -205,13 +205,12 @@ export function useKanbanActions(
     setIsCreateModalOpen(true);
   }, []);
 
-  // ── Create task via the board-local modal ─────────────────────────────────
-
   const handleCreateTask = useCallback((data: Partial<Task>) => {
     const title = data.title?.trim();
     if (!projectId || !title) return;
     const today = formatLocalDate(new Date());
     const startDate = data.startDate ?? (data.dueDate ? today : undefined);
+    const rawAssigneeIds = (data as { assigneeIds?: number[] }).assigneeIds ?? (data.assigneeId != null ? [data.assigneeId] : undefined);
     const result = taskMutations.create({
         projectId: Number(projectId),
         title,
@@ -221,9 +220,13 @@ export function useKanbanActions(
         startDate,
         dueDate: data.dueDate,
         assigneeId: data.assigneeId,
+        assigneeIds: rawAssigneeIds,
         labelIds: data.labelId != null ? [data.labelId] : undefined,
     });
-    const optimistic = result.optimisticTask as unknown as Task;
+    const optimistic = {
+      ...(result.optimisticTask as unknown as Task),
+      assignees: data.assignees ?? (data.assigneeName ? [{ id: data.assigneeId, name: data.assigneeName, photoUrl: data.assigneePhotoUrl }] : []),
+    };
     setTasks(prev => { const next = [...prev, optimistic]; syncCache(next); return next; });
     setIsCreateModalOpen(false);
     void result.completion.then((serverTask) => setTasks(prev => {
@@ -266,41 +269,50 @@ export function useKanbanActions(
     }
   }, [patchTask, setTasks, syncCache, forceRefresh, taskMutations, tasks]);
 
-  const handleAssigneeChange = useCallback(async (taskId: number, assigneeId: number | null) => {
+  const handleAssigneesChange = useCallback(async (taskId: number, assigneeIds: number[]) => {
     const currentTask = tasks.find((task) => task.id === taskId);
     if (!currentTask) return;
 
-    const selectedMember = assigneeId != null
-      ? teamMembers.find((member) => member.id === assigneeId)
-      : null;
+    const selectedMembers = teamMembers.filter((m) =>
+      assigneeIds.includes(m.userId ?? m.id) || assigneeIds.includes(m.id) || (m.memberId != null && assigneeIds.includes(m.memberId))
+    );
+    const firstMember = selectedMembers[0];
+    const newAssignees = selectedMembers.map((m) => ({
+      id: m.id,
+      memberId: m.memberId ?? m.id,
+      userId: m.userId ?? m.id,
+      name: m.name,
+      photoUrl: m.photoUrl ?? undefined,
+    }));
 
-    const optimisticPatch: Partial<Task> = selectedMember
-      ? {
-          assigneeId: selectedMember.memberId ?? selectedMember.id,
-          assigneeName: selectedMember.name,
-          assigneePhotoUrl: selectedMember.photoUrl ?? undefined,
-        }
-      : {
-          assigneeId: undefined,
-          assigneeName: undefined,
-          assigneePhotoUrl: undefined,
-        };
+    const optimisticPatch: Partial<Task> = {
+      assignees: newAssignees,
+      assigneeId: firstMember ? (firstMember.memberId ?? firstMember.id) : undefined,
+      assigneeName: firstMember?.name,
+      assigneePhotoUrl: firstMember?.photoUrl ?? undefined,
+    };
+
+    // Optimistic local state update
+    patchTask(taskId, optimisticPatch);
+    setTasks(prev => {
+      const next = prev.map(t => t.id === taskId ? { ...t, ...optimisticPatch } : t);
+      syncCache(next);
+      return next;
+    });
 
     try {
-      const updatedTask = await taskMutations.move(
-        taskId,
-        optimisticPatch as Partial<CanonicalTask>,
-        () => tasksApi.update(taskId, { title: currentTask.title, assigneeId }),
-        currentTask as unknown as CanonicalTask,
-      );
-      upsertTask(updatedTask as Task);
-      setTasks(current => { syncCache(current); return current; });
+      const resolvedUserIds = selectedMembers.map((m) => m.userId ?? m.id);
+      await tasksApi.assignTaskMultiple(taskId, { assigneeIds: resolvedUserIds });
     } catch (err) {
-      console.error('Error updating task assignee:', err);
-      toast('Failed to update assignee. Please try again.', 'error');
+      console.error('Error updating task assignees:', err);
+      toast('Failed to update assignees. Please try again.', 'error');
       forceRefresh();
     }
-  }, [forceRefresh, setTasks, syncCache, taskMutations, tasks, teamMembers, upsertTask]);
+  }, [forceRefresh, patchTask, setTasks, syncCache, tasks, teamMembers]);
+
+  const handleAssigneeChange = useCallback(async (taskId: number, assigneeId: number | null) => {
+    return handleAssigneesChange(taskId, assigneeId != null ? [assigneeId] : []);
+  }, [handleAssigneesChange]);
 
   // ── Delete task ───────────────────────────────────────────────────────────
 
@@ -448,6 +460,7 @@ export function useKanbanActions(
     handleOpenCreateModal,
     handleInlineUpdate,
     handleAssigneeChange,
+    handleAssigneesChange,
     handleDeleteTask,
     handleCompleteBoard,
     handleColumnRenamed,

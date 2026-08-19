@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task, Label } from '../types';
-import { Calendar, GitBranch, GitPullRequest, MessageSquare, Paperclip, Check, X, Tag, Plus, ChevronDown, ChevronRight, Lock, RefreshCw, Pencil, Trash2, UserPen, UserRound } from 'lucide-react';
+import { Calendar, GitBranch, GitPullRequest, MessageSquare, Paperclip, Check, X, Tag, Plus, ChevronDown, ChevronRight, Lock, RefreshCw, Pencil, Trash2, UserRound, Search, Users } from 'lucide-react';
 import { CIStatusBadge } from '@/components/ui';
 import { resolveProfilePhotoUrl } from '@/lib/profile-photo';
 import { formatLocalDate } from '@/lib/date-format';
@@ -18,6 +18,7 @@ interface KanbanCardProps {
   onOpenTask?: (taskId: number) => void;
   onInlineUpdate?: (taskId: number, updates: Partial<Task>) => Promise<void>;
   onAssigneeChange?: (taskId: number, assigneeId: number | null) => Promise<void>;
+  onAssigneesChange?: (taskId: number, assigneeIds: number[]) => Promise<void>;
   teamMembers?: TeamMemberOption[];
   usersMap?: Record<string, string | null>;
   labels?: Label[];
@@ -25,6 +26,30 @@ interface KanbanCardProps {
   onUpdateLabel?: (id: number, name: string, color: string) => Promise<Label | null>;
   onDeleteLabel?: (id: number) => Promise<boolean>;
   isSyncing?: boolean;
+}
+
+function CardAvatar({ name, photoUrl, size = 28 }: { name?: string | null; photoUrl?: string | null; size?: number }) {
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    setError(false);
+  }, [photoUrl, name]);
+
+  if (photoUrl && !error) {
+    return (
+      <Image
+        src={photoUrl}
+        alt={name || 'Assignee avatar'}
+        width={size}
+        height={size}
+        className="h-full w-full object-cover"
+        unoptimized
+        onError={() => setError(true)}
+      />
+    );
+  }
+
+  const initial = name && name.trim() ? name.trim().charAt(0).toUpperCase() : '?';
+  return <span className="select-none font-bold text-center leading-none">{initial}</span>;
 }
 
 const PRIORITY_COLORS: Record<string, { border: string; bg: string; text: string; dot: string }> = {
@@ -44,6 +69,7 @@ export default function KanbanCard({
   onOpenTask,
   onInlineUpdate,
   onAssigneeChange,
+  onAssigneesChange,
   teamMembers = [],
   usersMap,
   labels: allLabels,
@@ -52,9 +78,38 @@ export default function KanbanCard({
   onDeleteLabel,
   isSyncing,
 }: KanbanCardProps) {
-  const avatarUrl =
-    resolveProfilePhotoUrl(task.assigneePhotoUrl, task.assigneeId) ??
-    (task.assigneeName ? resolveProfilePhotoUrl(usersMap?.[task.assigneeName]) : null);
+  // Resolve multiple assignees or fallback to primary assignee
+  const rawAssignees = (task.assignees && task.assignees.length > 0)
+    ? task.assignees
+    : task.assigneeName
+      ? [{
+          id: task.assigneeId,
+          memberId: task.assigneeId,
+          userId: task.assigneeId,
+          name: task.assigneeName,
+          photoUrl: task.assigneePhotoUrl ?? (usersMap?.[task.assigneeName] || null),
+        }]
+      : [];
+
+  const assigneesList = rawAssignees.map((a) => {
+    const rawPhoto = a.photoUrl ?? (a.name ? usersMap?.[a.name] : null);
+    const resolvedUrl = resolveProfilePhotoUrl(rawPhoto, a.userId ?? a.memberId ?? a.id);
+    return {
+      id: a.id,
+      memberId: a.memberId,
+      userId: a.userId ?? a.id,
+      name: a.name,
+      photoUrl: resolvedUrl,
+    };
+  });
+
+  const currentAssigneeIds = Array.from(
+    new Set(
+      assigneesList
+        .flatMap((a) => [a.id, a.memberId, a.userId])
+        .filter((id): id is number => typeof id === 'number' && Number.isFinite(id))
+    )
+  );
   const completedSubtasks = task.subtasks?.filter((s) => s.status === 'DONE').length ?? 0;
   const totalSubtasks = task.subtasks?.length ?? 0;
   const subtaskPercent = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
@@ -187,62 +242,155 @@ export default function KanbanCard({
     }
   };
 
+  const [assigneeSearch, setAssigneeSearch] = useState('');
+
+  const handleToggleAssignee = async (memberId: number) => {
+    const isAssigned =
+      currentAssigneeIds.includes(memberId) ||
+      assigneesList.some((a) => a.id === memberId || a.memberId === memberId || a.userId === memberId);
+
+    const newIds = isAssigned
+      ? currentAssigneeIds.filter((id) => id !== memberId)
+      : [...currentAssigneeIds, memberId];
+
+    if (onAssigneesChange) {
+      await onAssigneesChange(task.id, newIds);
+    }
+    if (onAssigneeChange) {
+      await onAssigneeChange(task.id, isAssigned ? (newIds.length > 0 ? newIds[0] : null) : memberId);
+    }
+  };
+
+  const handleClearAssignees = async () => {
+    if (onAssigneesChange) {
+      await onAssigneesChange(task.id, []);
+    }
+    if (onAssigneeChange) {
+      await onAssigneeChange(task.id, null);
+    }
+  };
+
   const handleSetAssignee = async (assigneeId: number | null) => {
-    if (!onAssigneeChange) return;
-    await onAssigneeChange(task.id, assigneeId);
+    if (assigneeId == null) {
+      await handleClearAssignees();
+    } else {
+      await handleToggleAssignee(assigneeId);
+    }
     setShowAssigneePicker(false);
   };
 
   const openAssigneePicker = (button: HTMLButtonElement) => {
     const rect = button.getBoundingClientRect();
-    const menuWidth = 224;
+    const menuWidth = 256;
     setAssigneeMenuPosition({
       top: Math.min(rect.bottom + 6, window.innerHeight - 48),
       left: Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)),
     });
+    setAssigneeSearch('');
     setShowAssigneePicker(o => !o);
   };
+
+  const filteredMembers = teamMembers.filter((m) =>
+    !assigneeSearch.trim() || m.name.toLowerCase().includes(assigneeSearch.toLowerCase().trim())
+  );
 
   const assigneeMenu = showAssigneePicker && assigneeMenuPosition ? (
     <OverlayPortal>
       <div
         ref={assigneeMenuRef}
-        className="fixed z-[var(--cu-z-modal-popover)] w-56 rounded-xl border border-cu-border bg-cu-bg p-2 shadow-cu-xl"
+        className="fixed z-[var(--cu-z-modal-popover)] w-64 rounded-xl border border-cu-border bg-cu-bg p-2.5 shadow-cu-xl animate-in fade-in zoom-in-95 duration-150"
         style={{ top: assigneeMenuPosition.top, left: assigneeMenuPosition.left }}
         onClick={e => e.stopPropagation()}
       >
-        <p className="mb-1.5 text-[10px] font-medium text-cu-text-muted">Edit assignee</p>
-        <div className="max-h-80 space-y-0.5 overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-cu-border pb-1.5 mb-2">
+          <div className="flex items-center gap-1.5">
+            <Users size={12} className="text-cu-primary" />
+            <p className="text-[11px] font-bold text-cu-text-primary">Assignees</p>
+            {assigneesList.length > 0 && (
+              <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-cu-primary/10 text-cu-primary text-[10px] font-bold">
+                {assigneesList.length}
+              </span>
+            )}
+          </div>
+          {assigneesList.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void handleClearAssignees()}
+              className="text-[10px] font-medium text-cu-danger hover:underline transition-colors"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+
+        {teamMembers.length > 4 && (
+          <div className="mb-2 flex items-center rounded-lg border border-cu-border bg-cu-bg-secondary px-2 py-1 focus-within:border-cu-primary">
+            <Search size={11} className="text-cu-text-muted mr-1.5 flex-shrink-0" />
+            <input
+              type="text"
+              placeholder="Search members..."
+              value={assigneeSearch}
+              onChange={(e) => setAssigneeSearch(e.target.value)}
+              className="w-full bg-transparent text-xs text-cu-text-primary placeholder:text-cu-text-muted focus:outline-none"
+            />
+            {assigneeSearch && (
+              <button
+                type="button"
+                onClick={() => setAssigneeSearch('')}
+                className="text-cu-text-muted hover:text-cu-text-primary"
+              >
+                <X size={10} />
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="max-h-60 space-y-0.5 overflow-y-auto pr-0.5 custom-scrollbar">
           <button
             type="button"
-            onClick={() => void handleSetAssignee(null)}
-            className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-cu-hover ${!task.assigneeName ? 'font-semibold text-cu-primary' : 'text-cu-text-secondary'}`}
+            onClick={() => void handleClearAssignees()}
+            className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-cu-hover ${assigneesList.length === 0 ? 'bg-cu-primary/5 font-semibold text-cu-primary' : 'text-cu-text-secondary'}`}
           >
-            <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-cu-bg-tertiary text-cu-text-muted">
-              <UserRound size={11} />
-            </span>
-            <span className="min-w-0 truncate">Unassigned</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-cu-bg-tertiary text-cu-text-muted">
+                <UserRound size={11} />
+              </span>
+              <span className="truncate">Unassigned</span>
+            </div>
+            {assigneesList.length === 0 && <Check size={12} className="text-cu-primary flex-shrink-0" />}
           </button>
-          {teamMembers.map((member) => {
-            const isSelected = task.assigneeId === member.id || task.assigneeId === member.memberId;
+
+          {filteredMembers.map((member) => {
+            const memberId = member.userId ?? member.id;
+            const isSelected =
+              currentAssigneeIds.includes(member.id) ||
+              (member.userId != null && currentAssigneeIds.includes(member.userId)) ||
+              (member.memberId != null && currentAssigneeIds.includes(member.memberId)) ||
+              assigneesList.some((a) => a.name === member.name);
+
             return (
               <button
                 key={member.id}
                 type="button"
-                onClick={() => void handleSetAssignee(member.id)}
-                className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-cu-hover ${isSelected ? 'bg-cu-primary/5 font-semibold text-cu-primary' : 'text-cu-text-secondary'}`}
+                onClick={() => void handleToggleAssignee(memberId)}
+                className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-cu-hover ${isSelected ? 'bg-cu-primary/10 font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
               >
-                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-cu-bg-tertiary text-[10px]">
-                  {member.photoUrl ? (
-                    <Image src={member.photoUrl} alt={member.name} width={20} height={20} className="h-full w-full object-cover" unoptimized />
-                  ) : (
-                    member.name.charAt(0).toUpperCase()
-                  )}
-                </span>
-                <span className="min-w-0 truncate">{member.name}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-[10px] font-bold text-white shadow-xs">
+                    <CardAvatar name={member.name} photoUrl={member.photoUrl} size={24} />
+                  </span>
+                  <span className="truncate">{member.name}</span>
+                </div>
+                <div className={`flex h-4 w-4 items-center justify-center rounded border transition-colors flex-shrink-0 ${isSelected ? 'border-cu-primary bg-cu-primary text-white' : 'border-cu-border bg-cu-bg'}`}>
+                  {isSelected && <Check size={10} strokeWidth={2.5} />}
+                </div>
               </button>
             );
           })}
+
+          {filteredMembers.length === 0 && (
+            <p className="py-3 text-center text-xs text-cu-text-muted">No members found</p>
+          )}
         </div>
       </div>
     </OverlayPortal>
@@ -729,31 +877,81 @@ export default function KanbanCard({
             )}
           </div>
 
-          {/* Assignee */}
+          {/* Assignees */}
           <div className="relative min-w-0 flex-shrink-0" ref={assigneePickerRef}>
-            <button
-              data-action="assignee"
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowDatePicker(false);
-                setShowLabelPicker(false);
-                openAssigneePicker(e.currentTarget);
-              }}
-              className="group flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-[11px] font-bold text-white shadow-sm ring-2 ring-cu-bg transition-all hover:ring-cu-primary/40"
-              title={task.assigneeName ? `Edit assignee: ${task.assigneeName}` : 'Assign task'}
-              aria-label={task.assigneeName ? `Edit assignee for ${task.title}` : `Assign ${task.title}`}
-            >
-              {task.assigneeName ? (
-                avatarUrl ? (
-                  <Image src={avatarUrl} alt={task.assigneeName} width={28} height={28} className="h-full w-full object-cover" unoptimized />
-                ) : (
-                  task.assigneeName.charAt(0).toUpperCase()
-                )
-              ) : (
-                <UserPen size={14} />
-              )}
-            </button>
+            {assigneesList.length > 1 ? (
+              <button
+                data-action="assignee"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDatePicker(false);
+                  setShowLabelPicker(false);
+                  openAssigneePicker(e.currentTarget);
+                }}
+                className="group flex items-center -space-x-2 overflow-hidden py-0.5 rounded-full focus:outline-none focus:ring-2 focus:ring-cu-primary/30 transition-transform active:scale-95"
+                title={`Edit assignees: ${assigneesList.map((a) => a.name).filter(Boolean).join(', ')}`}
+                aria-label={`Edit assignees for ${task.title}`}
+              >
+                {assigneesList.slice(0, 3).map((assignee, idx) => (
+                  <span
+                    key={assignee.userId ?? assignee.memberId ?? idx}
+                    className="relative flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cu-bg bg-gradient-to-br from-blue-500 to-indigo-600 text-[10px] font-bold text-white shadow-xs"
+                    style={{ zIndex: 10 - idx }}
+                  >
+                    <CardAvatar
+                      name={assignee.name}
+                      photoUrl={assignee.photoUrl}
+                      size={28}
+                    />
+                  </span>
+                ))}
+                {assigneesList.length > 3 && (
+                  <span
+                    className="relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border-2 border-cu-bg bg-cu-primary/15 text-[10px] font-bold text-cu-primary shadow-xs"
+                    style={{ zIndex: 6 }}
+                  >
+                    +{assigneesList.length - 3}
+                  </span>
+                )}
+              </button>
+            ) : assigneesList.length === 1 ? (
+              <button
+                data-action="assignee"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDatePicker(false);
+                  setShowLabelPicker(false);
+                  openAssigneePicker(e.currentTarget);
+                }}
+                className="group flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-[11px] font-bold text-white shadow-sm ring-2 ring-cu-bg transition-all hover:ring-cu-primary/40"
+                title={`Edit assignee: ${assigneesList[0].name}`}
+                aria-label={`Edit assignee: ${assigneesList[0].name} for ${task.title}`}
+              >
+                <CardAvatar
+                  name={assigneesList[0].name}
+                  photoUrl={assigneesList[0].photoUrl}
+                  size={28}
+                />
+              </button>
+            ) : (
+              <button
+                data-action="assignee"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDatePicker(false);
+                  setShowLabelPicker(false);
+                  openAssigneePicker(e.currentTarget);
+                }}
+                className="group flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-cu-border bg-cu-bg text-cu-text-muted transition-all hover:border-cu-primary hover:bg-cu-primary/10 hover:text-cu-primary shadow-sm"
+                title="Assign task"
+                aria-label={`Assign ${task.title}`}
+              >
+                <UserRound size={13} className="transition-transform group-hover:scale-110" />
+              </button>
+            )}
           </div>
         </div>
       </div>

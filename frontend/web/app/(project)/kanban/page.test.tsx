@@ -88,6 +88,7 @@ function mockBoard(handleDeleteTask = jest.fn()) {
     handleOpenCreateModal: jest.fn(),
     handleInlineUpdate: jest.fn(),
     handleAssigneeChange: jest.fn(),
+    handleAssigneesChange: jest.fn(),
     handleDeleteTask,
     handleCompleteBoard: jest.fn(),
     handleColumnRenamed: jest.fn(),

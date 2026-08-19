@@ -108,4 +108,33 @@ describe('DmsModals deletion confirmation modals', () => {
         fireEvent.click(deleteForeverBtn);
         expect(onConfirmPermanentDelete).toHaveBeenCalledTimes(1);
     });
+
+    it('renders restore confirmation modal and handles cancel and confirm interactions', () => {
+        const onConfirmRestore = jest.fn().mockResolvedValue(undefined);
+        const onCancelRestore = jest.fn();
+
+        render(
+            <DmsModals
+                {...defaultProps}
+                restoreDoc={mockDoc}
+                onConfirmRestore={onConfirmRestore}
+                onCancelRestore={onCancelRestore}
+            />
+        );
+
+        expect(screen.getByText('Restore document')).toBeInTheDocument();
+        expect(screen.getByText(/Architecture_Design_v2\.pdf/)).toBeInTheDocument();
+        expect(screen.getByText('Architecture Docs')).toBeInTheDocument();
+        expect(screen.getByText('v3')).toBeInTheDocument();
+
+        // Cancel
+        const cancelBtn = screen.getByRole('button', { name: 'Cancel' });
+        fireEvent.click(cancelBtn);
+        expect(onCancelRestore).toHaveBeenCalledTimes(1);
+
+        // Confirm
+        const restoreBtn = screen.getByRole('button', { name: 'Restore Document' });
+        fireEvent.click(restoreBtn);
+        expect(onConfirmRestore).toHaveBeenCalledTimes(1);
+    });
 });
