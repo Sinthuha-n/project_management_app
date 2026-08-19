@@ -205,7 +205,9 @@ public class TaskService {
 
         // Step 7. Handle Assignees (Supporting legacy single-assignee and V4 multi-assignee).
         if(request.getAssigneeId() != null){
-            task.setAssignee(validateTeamMember(teamId, request.getAssigneeId()));
+            TeamMember primary = validateTeamMember(teamId, request.getAssigneeId());
+            task.setAssignee(primary);
+            task.getAssignees().add(primary);
         }
 
         // handle multiple assignees
@@ -433,6 +435,11 @@ public class TaskService {
                 task.getAssignees().add(validateTeamMember(teamId, aid));
             }
             task.setAssignee(task.getAssignees().isEmpty() ? null : task.getAssignees().iterator().next());
+        } else if (request.getAssigneeId() != null) {
+            TeamMember primary = validateTeamMember(teamId, request.getAssigneeId());
+            task.setAssignee(primary);
+            task.getAssignees().clear();
+            task.getAssignees().add(primary);
         }
 
         // update recurrence (V7)
@@ -645,12 +652,12 @@ public class TaskService {
     public List<TaskResponseDTO> getTasksByProject(Long projectId, Long currentUserId,
                                                    String status, Long assigneeId,
                                                    String priority, Long sprintId, Long milestoneId) {
-        return getTasksByProject(projectId, currentUserId, status, assigneeId, priority, sprintId, milestoneId, false);
+        return getTasksByProject(projectId, currentUserId, status, assigneeId != null ? List.of(assigneeId) : null, priority, sprintId, milestoneId, false);
     }
 
     @Transactional(readOnly = true)
     public List<TaskResponseDTO> getTasksByProject(Long projectId, Long currentUserId,
-                                                   String status, Long assigneeId,
+                                                   String status, List<Long> assigneeIds,
                                                    String priority, Long sprintId, Long milestoneId,
                                                    Boolean archived) {
         Project project = projectRepository.findById(projectId)
@@ -658,9 +665,14 @@ public class TaskService {
         requireMinimumRole(project.getTeam().getId(), currentUserId, null);
 
         boolean isArchived = archived != null && archived;
-        boolean hasFilters = status != null || assigneeId != null || priority != null || sprintId != null || milestoneId != null;
+        List<Long> validAssigneeIds = (assigneeIds != null && !assigneeIds.isEmpty())
+                ? assigneeIds.stream().filter(Objects::nonNull).distinct().toList()
+                : List.of();
+        boolean hasAssigneeFilter = !validAssigneeIds.isEmpty();
+        boolean hasFilters = status != null || hasAssigneeFilter || priority != null || sprintId != null || milestoneId != null;
         if (hasFilters) {
-            List<Task> filteredTasks = taskRepository.findByProjectIdFilteredAndArchived(projectId, status, assigneeId, priority, sprintId, milestoneId, isArchived)
+            List<Task> filteredTasks = taskRepository.findByProjectIdFilteredAndArchived(
+                    projectId, status, validAssigneeIds, hasAssigneeFilter, priority, sprintId, milestoneId, isArchived)
                     .stream()
                     .distinct()
                     .toList();
@@ -1412,7 +1424,7 @@ public class TaskService {
         }
 
         // Map multiple assignees (V4)
-        if (task.getAssignees() != null) {
+        if (task.getAssignees() != null && !task.getAssignees().isEmpty()) {
             dto.setAssignees(new ArrayList<>(task.getAssignees()).stream()
                 .map(m -> {
                     if (m.getUser() == null) return null;
@@ -1428,6 +1440,19 @@ public class TaskService {
                 })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList()));
+        } else if (task.getAssignee() != null && task.getAssignee().getUser() != null) {
+            TeamMember m = task.getAssignee();
+            String fullName = m.getUser().getFullName();
+            String name = (fullName != null && !fullName.isBlank())
+                    ? fullName
+                    : m.getUser().getUsername();
+            dto.setAssignees(List.of(new TaskResponseDTO.AssigneeDTO(
+                m.getId(),
+                m.getUser().getUserId(),
+                name,
+                userService.generatePresignedUrl(m.getUser().getProfilePicUrl()))));
+        } else {
+            dto.setAssignees(List.of());
         }
 
         if(task.getReporter() != null && task.getReporter().getUser() != null){

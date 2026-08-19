@@ -1033,4 +1033,86 @@ class TaskServiceTest {
 
         assertEquals("Task date cannot be after the sprint end date.", ex.getMessage());
     }
+
+    @Test
+    void createTask_withMultipleAssignees_populatesAssigneesAndPrimaryAssignee() {
+        TaskRequestDTO request = new TaskRequestDTO();
+        request.setProjectId(10L);
+        request.setTitle("Multi-assignee task");
+        request.setAssigneeIds(List.of(200L, 500L));
+
+        when(projectRepository.findById(10L)).thenReturn(Optional.of(project));
+        when(userRepository.findById(100L)).thenReturn(Optional.of(creator.getUser()));
+        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> {
+            Task saved = invocation.getArgument(0);
+            saved.setId(123L);
+            return saved;
+        });
+
+        TaskResponseDTO dto = taskService.createTask(request, 100L);
+
+        assertNotNull(dto);
+        assertEquals("Multi-assignee task", dto.getTitle());
+        assertNotNull(dto.getAssignees());
+        assertEquals(2, dto.getAssignees().size());
+        assertNotNull(dto.getAssigneeId());
+    }
+
+    @Test
+    void createTask_withSingleAssigneeId_populatesBothAssigneeAndAssigneesList() {
+        TaskRequestDTO request = new TaskRequestDTO();
+        request.setProjectId(10L);
+        request.setTitle("Single assignee task");
+        request.setAssigneeId(200L);
+
+        when(projectRepository.findById(10L)).thenReturn(Optional.of(project));
+        when(userRepository.findById(100L)).thenReturn(Optional.of(creator.getUser()));
+        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> {
+            Task saved = invocation.getArgument(0);
+            saved.setId(124L);
+            return saved;
+        });
+
+        TaskResponseDTO dto = taskService.createTask(request, 100L);
+
+        assertNotNull(dto);
+        assertNotNull(dto.getAssignees());
+        assertEquals(1, dto.getAssignees().size());
+        assertEquals(200L, dto.getAssignees().get(0).getUserId());
+    }
+
+    @Test
+    void updateTask_withMultipleAssignees_replacesAssigneesAndUpdatesPrimary() {
+        Task task = buildTask(125L);
+        when(taskRepository.findByIdForUpdate(125L)).thenReturn(Optional.of(task));
+        when(taskRepository.findByIdFullyFetched(125L)).thenReturn(Optional.of(task));
+        when(userRepository.findById(100L)).thenReturn(Optional.of(creator.getUser()));
+        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TaskRequestDTO request = new TaskRequestDTO();
+        request.setAssigneeIds(List.of(500L));
+
+        TaskResponseDTO dto = taskService.updateTask(125L, request, 100L);
+
+        assertNotNull(dto);
+        assertEquals(1, dto.getAssignees().size());
+        assertEquals(500L, dto.getAssignees().get(0).getUserId());
+    }
+
+    @Test
+    void getTasksByProject_withAssigneeIds_passesFilterToRepository() {
+        when(projectRepository.findById(10L)).thenReturn(Optional.of(project));
+        Task task = buildTask(126L);
+        when(taskRepository.findByProjectIdFilteredAndArchived(
+                eq(10L), nullable(String.class), eq(List.of(200L, 500L)), eq(true), nullable(String.class), nullable(Long.class), nullable(Long.class), eq(false)))
+                .thenReturn(List.of(task));
+        when(taskRepository.findByIdInWithCollections(List.of(126L))).thenReturn(List.of(task));
+
+        List<TaskResponseDTO> results = taskService.getTasksByProject(
+                10L, 100L, null, List.of(200L, 500L), null, null, null, false);
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        assertEquals(126L, results.get(0).getId());
+    }
 }

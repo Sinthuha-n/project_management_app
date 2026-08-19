@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import SprintBacklogPage from './page';
 import api from '@/lib/axios';
 import { useSearchParams } from 'next/navigation';
+import { ACCESS_DENIED_MESSAGE, ACCESS_DENIED_TITLE } from '@/lib/project-permissions';
 
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
@@ -16,6 +17,10 @@ jest.mock('@/lib/axios', () => ({
     delete: jest.fn(),
     patch: jest.fn(),
   },
+}));
+
+jest.mock('@/lib/auth', () => ({
+  getUserFromToken: jest.fn(() => ({ userId: 1, email: 'user@example.com' })),
 }));
 
 // Mock child components to simplify unit test
@@ -37,7 +42,7 @@ describe('SprintBacklogPage', () => {
     jest.clearAllMocks();
   });
 
-  it('renders loading state initially and then displays sprints', async () => {
+  const setupApiMocks = (userRole = 'OWNER', ownerId = 1) => {
     mockedUseSearchParams.mockReturnValue({
       get: (key: string) => (key === 'projectId' ? '123' : null),
     });
@@ -54,19 +59,27 @@ describe('SprintBacklogPage', () => {
           data: [
             {
               user: { userId: 1, email: 'user@example.com' },
-              role: 'OWNER',
+              role: userRole,
             },
           ],
         });
       }
       if (/\/api\/projects\/\d+$/.test(url)) {
-        return Promise.resolve({ data: { id: 123, projectKey: 'TEST', name: 'Test Project', type: 'AGILE' } });
+        return Promise.resolve({ data: { id: 123, ownerId, projectKey: 'TEST', name: 'Test Project', type: 'AGILE' } });
       }
       if (url.includes('/api/labels/project/')) {
         return Promise.resolve({ data: [] });
       }
       return Promise.reject(new Error('not found'));
     });
+
+    mockedApi.post.mockResolvedValue({
+      data: { id: 2, name: 'TEST Sprint 2', status: 'NOT_STARTED' },
+    });
+  };
+
+  it('renders loading state initially and then displays sprints', async () => {
+    setupApiMocks('OWNER', 1);
 
     render(<SprintBacklogPage />);
 
@@ -84,5 +97,42 @@ describe('SprintBacklogPage', () => {
     render(<SprintBacklogPage />);
 
     expect(await screen.findByText('No project selected.')).toBeInTheDocument();
+  });
+
+  it('shows Access Denied modal when Member clicks Create Sprint in top bar and does NOT call api', async () => {
+    setupApiMocks('MEMBER', 999); // current user is NOT project owner, role is MEMBER
+
+    render(<SprintBacklogPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sprint-card')).toBeInTheDocument();
+    });
+
+    const createSprintBtn = screen.getByRole('button', { name: /create sprint/i });
+    fireEvent.click(createSprintBtn);
+
+    expect(screen.getByText(ACCESS_DENIED_TITLE)).toBeInTheDocument();
+    expect(screen.getByText(ACCESS_DENIED_MESSAGE)).toBeInTheDocument();
+    expect(mockedApi.post).not.toHaveBeenCalled();
+  });
+
+  it('creates sprint when Project Owner clicks Create Sprint in top bar', async () => {
+    setupApiMocks('OWNER', 1);
+
+    render(<SprintBacklogPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sprint-card')).toBeInTheDocument();
+    });
+
+    const createSprintBtn = screen.getByRole('button', { name: /create sprint/i });
+    fireEvent.click(createSprintBtn);
+
+    expect(screen.queryByText(ACCESS_DENIED_MESSAGE)).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockedApi.post).toHaveBeenCalledWith('/api/sprints', expect.objectContaining({
+        proId: 123,
+      }));
+    });
   });
 });

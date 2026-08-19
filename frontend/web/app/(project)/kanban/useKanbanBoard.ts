@@ -124,6 +124,8 @@ export function useKanbanBoard(projectId: string | null) {
     setSearchTerm: filters.setSearchTerm,
     filterPriority: filters.filterPriority,
     setFilterPriority: filters.setFilterPriority,
+    filterAssignees: filters.filterAssignees,
+    setFilterAssignees: filters.setFilterAssignees,
     filterAssignee: filters.filterAssignee,
     setFilterAssignee: filters.setFilterAssignee,
     filterLabel: filters.filterLabel,

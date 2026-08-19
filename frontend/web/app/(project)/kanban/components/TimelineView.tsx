@@ -74,6 +74,7 @@ interface TimelineViewProps {
 const DEFAULT_FILTERS: TimelineFilters = {
   search: '',
   assignee: '',
+  assignees: [],
   milestone: '',
   schedule: '',
   focus: '',
@@ -343,10 +344,10 @@ export default function TimelineView({
   );
   const groupedTaskRows = useMemo(() => groupTimelineTasks(paginatedTimelineTasks, groupBy), [paginatedTimelineTasks, groupBy]);
   const currentRangeLabel = makeRangeLabel(zoomRange);
-  const hasFilters = filters.search !== '' || filters.assignee !== '' || filters.milestone !== '' || filters.schedule !== '' || filters.focus !== '' || filters.hideWeekends || !filters.showDone;
+  const hasFilters = filters.search !== '' || (filters.assignees && filters.assignees.length > 0) || filters.assignee !== '' || filters.milestone !== '' || filters.schedule !== '' || filters.focus !== '' || filters.hideWeekends || !filters.showDone;
   const activeFilterCount = [
     filters.search ? 1 : 0,
-    filters.assignee ? 1 : 0,
+    (filters.assignees && filters.assignees.length > 0) ? filters.assignees.length : (filters.assignee ? 1 : 0),
     filters.milestone ? 1 : 0,
     filters.schedule ? 1 : 0,
     filters.focus ? 1 : 0,
@@ -358,6 +359,11 @@ export default function TimelineView({
     const names = new Set<string>();
     localTasks.forEach((task) => {
       if (task.assigneeName && task.assigneeName !== 'Unassigned') names.add(task.assigneeName);
+      if (task.assignees && task.assignees.length > 0) {
+        task.assignees.forEach((a) => {
+          if (a.name && a.name !== 'Unassigned') names.add(a.name);
+        });
+      }
     });
     return Array.from(names).sort();
   }, [localTasks]);

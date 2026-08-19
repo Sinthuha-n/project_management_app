@@ -13,6 +13,8 @@ import { useSprintVelocity } from './hooks/useSprintVelocity';
 import { getUserFromToken } from '@/lib/auth';
 
 import { toast } from '@/components/ui';
+import AccessDeniedModal from '@/components/shared/AccessDeniedModal';
+import { isProjectOwnerOrAdmin, resolveCurrentUserProjectRole } from '@/lib/project-permissions';
 import { getProjectLabels, createLabel, updateLabel, deleteLabel } from '@/services/labels-service';
 import type { TaskItem, SprintItem, Label } from '@/types';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
@@ -84,6 +86,7 @@ function SprintBacklogPageContent() {
   const [productTasks, setProductTasks] = useState<TaskItem[]>([]);
   const [sprints, setSprints] = useState<SprintItem[]>([]);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [showAccessDenied, setShowAccessDenied] = useState(false);
   const [showVelocity, setShowVelocity] = useState(false);
   const [projectKey, setProjectKey] = useState<string>('');
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
@@ -114,16 +117,28 @@ function SprintBacklogPageContent() {
   }, [productTasks, sprints]);
 
   const applyFilters = useCallback((tasks: TaskItem[]): TaskItem[] => {
+    const selectedAssignees = filters.assignees?.length
+      ? filters.assignees
+      : filters.assignee
+      ? [filters.assignee]
+      : [];
+
     return tasks.filter((t) => {
       if (filters.search && !t.title.toLowerCase().includes(filters.search.toLowerCase())) return false;
       if (filters.statuses.length > 0 && !filters.statuses.includes(t.status ?? 'TODO')) return false;
       if (filters.priorities.length > 0 && !filters.priorities.includes(t.priority ?? 'LOW')) return false;
-      if (filters.assignee) {
-        // Match against any assignee in the multi-assignee array, falling back to legacy field
-        const hasMatch =
-          (t.assignees && t.assignees.some((a) => a.name === filters.assignee)) ||
-          t.assigneeName === filters.assignee;
-        if (!hasMatch) return false;
+      if (selectedAssignees.length > 0) {
+        const taskAssigneeNames = [
+          t.assigneeName,
+          ...(t.assignees?.map((a) => a.name) || []),
+        ].filter((n): n is string => Boolean(n) && n !== 'Unassigned');
+
+        const matches = selectedAssignees.some((selected) =>
+          selected === 'Unassigned'
+            ? taskAssigneeNames.length === 0
+            : taskAssigneeNames.includes(selected)
+        );
+        if (!matches) return false;
       }
       return true;
     });
@@ -185,12 +200,9 @@ function SprintBacklogPageContent() {
       setProjectLabels(Array.isArray(labelsRes) ? labelsRes : []);
 
       const currentUser = getUserFromToken();
-      if (currentUser && membersData) {
-        const projectMember = membersData.find((m: ProjectMember) =>
-          m.user.userId === currentUser.userId || (currentUser.email && m.user.email?.toLowerCase() === currentUser.email.toLowerCase())
-        );
-        if (projectMember) setCurrentUserRole(projectMember.role);
-      }
+      const project = projectRes as { ownerId?: number; projectKey?: string };
+      const resolvedRole = resolveCurrentUserProjectRole(currentUser, project, membersData);
+      if (resolvedRole) setCurrentUserRole(resolvedRole);
       setProjectKey((projectRes as { projectKey?: string }).projectKey || '');
     } catch (err) {
       console.error('Failed to fetch project static data:', err);
@@ -355,7 +367,9 @@ function SprintBacklogPageContent() {
       projectId: Number(projectId), title: trimmed,
       storyPoint: data.storyPoint ?? 0,
       priority: normalizeTaskPriority(data.priority),
-      assigneeId: data.assigneeId, labelIds: data.labelIds,
+      assigneeId: data.assigneeId,
+      assigneeIds: data.assigneeIds,
+      labelIds: data.labelIds,
     });
     const toItem = (raw: RawTask): TaskItem => ({
         id: raw.id,
@@ -365,6 +379,8 @@ function SprintBacklogPageContent() {
         storyPoints: raw.storyPoint ?? 0,
         selected: false,
         assigneeName: raw.assigneeName ?? 'Unassigned',
+        assigneePhotoUrl: raw.assigneePhotoUrl,
+        assignees: raw.assignees,
         sprintId: null,
     });
     const optimistic = toItem(result.optimisticTask as RawTask);
@@ -746,6 +762,10 @@ function SprintBacklogPageContent() {
   }, [getSelectedTaskIds]);
 
   const handleBulkDelete = useCallback(async () => {
+    if (!isProjectOwnerOrAdmin(currentUserRole)) {
+      setShowAccessDenied(true);
+      return;
+    }
     const ids = getSelectedTaskIds();
     if (ids.length === 0) return;
     try {
@@ -756,7 +776,7 @@ function SprintBacklogPageContent() {
     } catch {
       toast('Failed to delete tasks', 'error');
     }
-  }, [getSelectedTaskIds]);
+  }, [currentUserRole, getSelectedTaskIds]);
 
   useEffect(() => {
     if (!projectId) {
@@ -932,15 +952,19 @@ function SprintBacklogPageContent() {
               <BarChart3 size={18} />
               <span className="hidden sm:inline">Velocity</span>
             </button>
-            {(currentUserRole === 'OWNER' || currentUserRole === 'ADMIN') && (
-              <button
-                onClick={() => { void createSprint(`${projectKey} Sprint ${sprints.length + 1}`); }}
-                className="flex h-10 sm:h-11 items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl bg-[#155DFC] px-3 sm:px-5 text-[12px] sm:text-[13px] font-bold text-white shadow-lg shadow-blue-500/20 hover:bg-[#1149C9] transform active:scale-95 transition-all duration-200"
-              >
-                <Rocket size={15} />
-                <span className="whitespace-nowrap">Create Sprint</span>
-              </button>
-            )}
+            <button
+              onClick={() => {
+                if (!isProjectOwnerOrAdmin(currentUserRole)) {
+                  setShowAccessDenied(true);
+                  return;
+                }
+                void createSprint(`${projectKey} Sprint ${sprints.length + 1}`);
+              }}
+              className="flex h-10 sm:h-11 items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl bg-[#155DFC] px-3 sm:px-5 text-[12px] sm:text-[13px] font-bold text-white shadow-lg shadow-blue-500/20 hover:bg-[#1149C9] transform active:scale-95 transition-all duration-200"
+            >
+              <Rocket size={15} />
+              <span className="whitespace-nowrap">Create Sprint</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1098,6 +1122,11 @@ function SprintBacklogPageContent() {
           sprints={sprints}
         />
       )}
+
+      <AccessDeniedModal
+        open={showAccessDenied}
+        onClose={() => setShowAccessDenied(false)}
+      />
     </div>
   );
 }

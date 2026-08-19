@@ -219,7 +219,7 @@ export default function MobileTaskRow(props: TaskRowProps) {
             <button type="button" onClick={startRename} className="flex h-11 w-11 items-center justify-center rounded-lg text-cu-text-secondary hover:text-cu-primary hover:bg-cu-primary-light active:scale-90 transition-all">
               <Pencil size={16} />
             </button>
-            <button type="button" onClick={() => canDelete && onDeleteTask(task.id)} className="flex h-11 w-11 items-center justify-center rounded-lg text-cu-text-secondary hover:text-cu-danger hover:bg-cu-danger-light active:scale-90 transition-all">
+            <button type="button" onClick={() => onDeleteTask(task.id)} className="flex h-11 w-11 items-center justify-center rounded-lg text-cu-text-secondary hover:text-cu-danger hover:bg-cu-danger-light active:scale-90 transition-all">
               <Trash2 size={16} />
             </button>
           </div>
@@ -246,7 +246,7 @@ export default function MobileTaskRow(props: TaskRowProps) {
             {/* Delete */}
             <button
               type="button"
-              onClick={() => canDelete && onDeleteTask(task.id)}
+              onClick={() => onDeleteTask(task.id)}
               className="flex h-[26px] w-[26px] items-center justify-center rounded-md text-[#C1C9D4] hover:text-[#F04438] hover:bg-[#FEF3F2] active:scale-90 transition-all"
             >
               <Trash2 size={12} />

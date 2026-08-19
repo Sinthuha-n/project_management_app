@@ -13,6 +13,8 @@ import SprintReportModal from './SprintReportModal';
 import ConfirmModal from './backlog-card/ConfirmModal';
 import EditSprintModal from './backlog-card/EditSprintModal';
 import StartSprintModal from './backlog-card/StartSprintModal';
+import AccessDeniedModal from '@/components/shared/AccessDeniedModal';
+import { isProjectOwnerOrAdmin } from '@/lib/project-permissions';
 import SprintHeader from './backlog-card/SprintHeader';
 import SprintGoalEditor from './backlog-card/SprintGoalEditor';
 import CompleteSprintModal from './CompleteSprintModal';
@@ -55,6 +57,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 function BacklogCard({ sprint, projectId, projectKey, currentUserRole, availableSprintsForMove = [], onDropTask, onCreateTask, onDeleteTask, onToggleTask, onSprintDeleted, onSprintUpdated, onStatusChange, onStoryPointsChange, onAssignTask, onAssignMultiple, onRenameTask, onDueDateChange, projectLabels = [], onCreateLabel, onUpdateLabel, onDeleteLabel, extraStatuses = [], existingSprintNames = [] }: BacklogCardProps) {
   const [isOpen, setIsOpen] = useState(true);
+  const [showAccessDenied, setShowAccessDenied] = useState(false);
   const [showCreateTaskBox, setShowCreateTaskBox] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskNameLength, setNewTaskNameLength] = useState(0);
@@ -64,8 +67,8 @@ function BacklogCard({ sprint, projectId, projectKey, currentUserRole, available
   const createTaskRef = useRef<HTMLFormElement | null>(null);
   const taskListRef = useRef<HTMLDivElement>(null);
 
-  const canDeleteSprint = currentUserRole === 'OWNER' || currentUserRole === 'ADMIN';
-  const canDeleteTask = currentUserRole !== 'VIEWER';
+  const canDeleteSprint = isProjectOwnerOrAdmin(currentUserRole);
+  const canDeleteTask = isProjectOwnerOrAdmin(currentUserRole);
 
   // ── All state & handlers from extracted hook ───────────────────────────────
   const handlers = useBacklogCardHandlers({
@@ -179,10 +182,20 @@ function BacklogCard({ sprint, projectId, projectKey, currentUserRole, available
         onToggleOpen={() => setIsOpen(!isOpen)}
         onEditSprint={() => handlers.setShowEditSprintModal(true)}
         onStartSprint={() => {
+          if (!isProjectOwnerOrAdmin(currentUserRole)) {
+            setShowAccessDenied(true);
+            return;
+          }
           handlers.setShowStartSprintModal(true);
         }}
         onCompleteSprint={handlers.openCompleteSprintModal}
-        onDeleteSprint={() => handlers.setConfirmDeleteSprint(true)}
+        onDeleteSprint={() => {
+          if (!isProjectOwnerOrAdmin(currentUserRole)) {
+            setShowAccessDenied(true);
+            return;
+          }
+          handlers.setConfirmDeleteSprint(true);
+        }}
         onViewReport={() => handlers.setShowReportModal(true)}
         onNameSave={handlers.handleNameSave}
         existingSprintNames={existingSprintNames}
@@ -269,7 +282,13 @@ function BacklogCard({ sprint, projectId, projectKey, currentUserRole, available
                           onAssignTask={handlers.handleAssignTask}
                           onAssignMultiple={handlers.handleAssignMultiple}
                           onDueDateChange={handlers.handleDueDateChange}
-                          onDeleteTask={(id) => handlers.setTaskToDeleteId(id)}
+                          onDeleteTask={(id) => {
+                            if (!isProjectOwnerOrAdmin(currentUserRole)) {
+                              setShowAccessDenied(true);
+                              return;
+                            }
+                            handlers.setTaskToDeleteId(id);
+                          }}
                           onOpenTask={(id) => handlers.setSelectedTaskId(id)}
                           projectLabels={projectLabels}
                           onAddLabel={handlers.handleAddLabel}
@@ -471,6 +490,12 @@ function BacklogCard({ sprint, projectId, projectKey, currentUserRole, available
       sprint={sprint}
       isOpen={handlers.showReportModal}
       onClose={() => handlers.setShowReportModal(false)}
+    />
+
+    {/* ── Access Denied Modal ── */}
+    <AccessDeniedModal
+      open={showAccessDenied}
+      onClose={() => setShowAccessDenied(false)}
     />
   </>
   );

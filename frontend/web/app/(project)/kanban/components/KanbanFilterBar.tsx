@@ -12,8 +12,10 @@ interface KanbanFilterBarProps {
   setSearchTerm: (v: string) => void;
   filterPriority: string[];
   setFilterPriority: React.Dispatch<React.SetStateAction<string[]>>;
-  filterAssignee: string;
-  setFilterAssignee: (v: string) => void;
+  filterAssignees?: string[];
+  setFilterAssignees?: React.Dispatch<React.SetStateAction<string[]>>;
+  filterAssignee?: string;
+  setFilterAssignee?: (v: string) => void;
   filterLabel: number | null;
   setFilterLabel: (v: number | null) => void;
   clearFilters: () => void;
@@ -32,6 +34,8 @@ const PRIORITY_PILL_COLORS: Record<string, { active: string; inactive: string }>
 export default function KanbanFilterBar({
   filterPriority,
   setFilterPriority,
+  filterAssignees,
+  setFilterAssignees,
   filterAssignee,
   setFilterAssignee,
   filterLabel,
@@ -55,7 +59,23 @@ export default function KanbanFilterBar({
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const activeFilterCount = filterPriority.length + (filterAssignee ? 1 : 0) + (filterLabel ? 1 : 0);
+  const currentAssignees = filterAssignees ?? (filterAssignee ? [filterAssignee] : []);
+  const toggleAssignee = (name: string) => {
+    if (setFilterAssignees) {
+      setFilterAssignees((prev) =>
+        prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+      );
+    } else if (setFilterAssignee) {
+      setFilterAssignee(filterAssignee === name ? '' : name);
+    }
+  };
+
+  const clearAssignees = () => {
+    if (setFilterAssignees) setFilterAssignees([]);
+    if (setFilterAssignee) setFilterAssignee('');
+  };
+
+  const activeFilterCount = filterPriority.length + currentAssignees.length + (filterLabel ? 1 : 0);
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
@@ -100,41 +120,72 @@ export default function KanbanFilterBar({
           <button
             type="button"
             onClick={() => setAssigneeFilterOpen(o => !o)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
-              filterAssignee
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
+              currentAssignees.length > 0
                 ? 'bg-cu-primary/10 text-cu-primary border-cu-primary/30'
                 : 'bg-cu-bg text-cu-text-secondary border-cu-border hover:border-cu-border'
             }`}
           >
-            <span className="max-w-[80px] truncate">{filterAssignee || 'Assignee'}</span>
+            <span className="max-w-[100px] truncate">
+              {currentAssignees.length === 0
+                ? 'Assignee'
+                : currentAssignees.length === 1
+                ? currentAssignees[0]
+                : `${currentAssignees.length} Assignees`}
+            </span>
+            {currentAssignees.length > 1 && (
+              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-cu-primary text-white text-[9px] font-bold">
+                {currentAssignees.length}
+              </span>
+            )}
             <ChevronDown size={11} className="text-cu-text-muted flex-shrink-0" />
           </button>
           {assigneeFilterOpen && (
-            <div className="absolute top-full left-0 mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-cu-xl z-[var(--cu-z-modal-popover)] min-w-[220px] max-h-80 overflow-y-auto py-1">
+            <div className="absolute top-full left-0 mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-cu-xl z-[var(--cu-z-modal-popover)] min-w-[220px] max-h-80 overflow-y-auto py-1 animate-in fade-in-50 zoom-in-95">
               <button
                 type="button"
-                onClick={() => { setFilterAssignee(''); setAssigneeFilterOpen(false); }}
-                className={`w-full text-left px-3 py-2 text-xs hover:bg-cu-hover transition-colors ${!filterAssignee ? 'font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
+                onClick={() => {
+                  clearAssignees();
+                  setAssigneeFilterOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2 text-xs hover:bg-cu-hover transition-colors flex items-center justify-between ${
+                  currentAssignees.length === 0 ? 'font-semibold text-cu-primary' : 'text-cu-text-primary'
+                }`}
               >
-                All Assignees
+                <span>All Assignees</span>
+                {currentAssignees.length === 0 && <span className="text-xs">✓</span>}
               </button>
-              {teamMembers.map(m => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => { setFilterAssignee(m.name); setAssigneeFilterOpen(false); }}
-                  className={`w-full text-left px-3 py-2 text-xs hover:bg-cu-hover transition-colors flex items-center gap-2 ${filterAssignee === m.name ? 'font-semibold text-cu-primary bg-cu-primary/5' : 'text-cu-text-primary'}`}
-                >
-                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {m.photoUrl ? (
-                      <Image src={m.photoUrl} alt={m.name} width={20} height={20} className="w-full h-full object-cover" unoptimized />
-                    ) : (
-                      m.name.charAt(0).toUpperCase()
-                    )}
-                  </div>
-                  <span className="truncate">{m.name}</span>
-                </button>
-              ))}
+              <div className="my-1 border-t border-cu-border-light" />
+              {teamMembers.map((m) => {
+                const isSelected = currentAssignees.includes(m.name);
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => toggleAssignee(m.name)}
+                    className={`w-full text-left px-3 py-2 text-xs hover:bg-cu-hover transition-colors flex items-center justify-between gap-2 ${
+                      isSelected ? 'font-semibold text-cu-primary bg-cu-primary/5' : 'text-cu-text-primary'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {m.photoUrl ? (
+                          <Image src={m.photoUrl} alt={m.name} width={20} height={20} className="w-full h-full object-cover" unoptimized />
+                        ) : (
+                          m.name.charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <span className="truncate">{m.name}</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      readOnly
+                      className="h-3.5 w-3.5 rounded border-cu-border text-cu-primary pointer-events-none"
+                    />
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

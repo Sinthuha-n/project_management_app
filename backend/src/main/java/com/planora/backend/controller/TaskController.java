@@ -379,6 +379,7 @@ public class TaskController {
             @PathVariable Long projectId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long assigneeId,
+            @RequestParam(required = false) List<Long> assigneeIds,
             @RequestParam(required = false) String priority,
             @RequestParam(required = false) Long sprintId,
             @RequestParam(required = false) Long milestoneId,
@@ -386,7 +387,14 @@ public class TaskController {
             @AuthenticationPrincipal UserPrincipal currentUser
     ){
         Long currentUserId = currentUser.getUserId();
-        return new ResponseEntity<>(service.getTasksByProject(projectId, currentUserId, status, assigneeId, priority, sprintId, milestoneId, archived), HttpStatus.OK);
+        List<Long> resolvedAssigneeIds = new java.util.ArrayList<>();
+        if (assigneeIds != null && !assigneeIds.isEmpty()) {
+            resolvedAssigneeIds.addAll(assigneeIds);
+        }
+        if (assigneeId != null && !resolvedAssigneeIds.contains(assigneeId)) {
+            resolvedAssigneeIds.add(assigneeId);
+        }
+        return new ResponseEntity<>(service.getTasksByProject(projectId, currentUserId, status, resolvedAssigneeIds, priority, sprintId, milestoneId, archived), HttpStatus.OK);
     }
 
     @GetMapping("/project/{projectId}/archived")

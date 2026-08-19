@@ -16,6 +16,9 @@ import { useTaskMutations } from '@/hooks/useTaskMutations';
 import { useProjectTasks } from '@/hooks/useProjectTasks';
 import type { Task as CanonicalTask } from '@/types';
 import { DEFAULT_BACKLOG_STATUS_OPTIONS, formatStatusLabel, statusOptionsFromColumns } from '../status-options';
+import { getUserFromToken } from '@/lib/auth';
+import { projectsApi } from '@/services/api-contract';
+import { resolveCurrentUserProjectRole } from '@/lib/project-permissions';
 
 export function useBacklogData(projectId: string | null, showArchived = false) {
     const taskMutations = useTaskMutations(projectId);
@@ -30,15 +33,21 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterPriority, setFilterPriority] = useState<string[]>([]);
     const [filterStatus, setFilterStatus] = useState<string[]>([]);
-    const [filterAssignee, setFilterAssignee] = useState('');
+    const [filterAssignees, setFilterAssignees] = useState<string[]>([]);
     const [filterLabel, setFilterLabel] = useState<number | null>(null);
     const [filterDateRange, setFilterDateRange] = useState<DateFilter>({ startDate: null, endDate: null });
     const [groupBy, setGroupBy] = useState<'none' | 'status' | 'priority' | 'assignee'>('none');
+
+    const filterAssignee = filterAssignees.length === 1 ? filterAssignees[0] : '';
+    const setFilterAssignee = useCallback((name: string) => {
+        setFilterAssignees(name ? [name] : []);
+    }, []);
 
     const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([]);
     const [labels, setLabels] = useState<Label[]>([]);
     const [statusOptions, setStatusOptions] = useState(DEFAULT_BACKLOG_STATUS_OPTIONS);
     const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+    const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
     const toggleGroup = useCallback((label: string) => {
         setCollapsedGroups(prev => ({ ...prev, [label]: !prev[label] }));
@@ -53,16 +62,26 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         const pid = parseInt(projectId, 10);
         if (isNaN(pid)) return;
         try {
-            const [labelsData, project, board] = await Promise.all([
+            const [labelsData, project, board, projectMembers] = await Promise.all([
                 fetchProjectLabels(pid),
                 fetchProject(pid),
                 fetchKanbanBoard(pid),
+                projectsApi.getMembers(String(pid)).catch(() => []),
             ]);
             setLabels(labelsData);
             setStatusOptions(statusOptionsFromColumns(board?.columns));
             if (project?.teamId) {
                 const members = await fetchTeamMembers(project.teamId as number);
                 setTeamMembers(members);
+            }
+            const currentUser = getUserFromToken();
+            const resolvedRole = resolveCurrentUserProjectRole(
+                currentUser,
+                project,
+                Array.isArray(projectMembers) ? projectMembers : []
+            );
+            if (resolvedRole) {
+                setCurrentUserRole(resolvedRole);
             }
         } catch (err) {
             console.error('Error loading static backlog data:', err);
@@ -326,6 +345,58 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         }
     }, [tasks, selectedIds, forceRefresh, taskMutations]);
 
+    const handleBulkArchive = useCallback(async () => {
+        const ids = [...selectedIds];
+        setSelectedIds(new Set());
+        const tasksToArchive = tasks.filter(task => ids.includes(task.id));
+        try {
+            await Promise.all(tasksToArchive.map(task =>
+                taskMutations.archive(task as unknown as CanonicalTask)));
+        } catch {
+            toast('Failed to archive tasks', 'error');
+            void forceRefresh();
+        }
+    }, [tasks, selectedIds, forceRefresh, taskMutations]);
+
+    const handleBulkUnarchive = useCallback(async () => {
+        const ids = [...selectedIds];
+        setSelectedIds(new Set());
+        const tasksToUnarchive = archivedTasks.filter(task => ids.includes(task.id));
+        try {
+            await Promise.all(tasksToUnarchive.map(task =>
+                taskMutations.restore(task as unknown as CanonicalTask)));
+        } catch {
+            toast('Failed to unarchive tasks', 'error');
+            void forceRefresh();
+        }
+    }, [archivedTasks, selectedIds, forceRefresh, taskMutations]);
+
+    const handleBulkExport = useCallback(async () => {
+        const selectedTasks = tasks.filter(t => selectedIds.has(t.id));
+        if (selectedTasks.length === 0) return;
+        const csv = [
+            'ID,Title,Status,Priority,Assignee,Due Date,Labels',
+            ...selectedTasks.map(t =>
+                `"${t.id}","${t.title.replace(/"/g, '""')}","${t.status}","${t.priority || ''}","${t.assigneeName || ''}","${t.dueDate || ''}","${(t.labels || []).map(l => l.name).join(';')}"`
+            )
+        ].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `backlog-export-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }, [tasks, selectedIds]);
+
+    const toggleSelectAll = useCallback(() => {
+        if (selectedIds.size === tasks.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(tasks.map(t => t.id)));
+        }
+    }, [tasks, selectedIds]);
+
     const toggleSelect = useCallback((id: number) => {
         setSelectedIds(prev => {
             const next = new Set(prev);
@@ -343,11 +414,19 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         }
         if (filterPriority.length > 0) result = result.filter(t => t.priority && filterPriority.includes(t.priority));
         if (filterStatus.length > 0) result = result.filter(t => filterStatus.includes(t.status));
-        if (filterAssignee) {
-            result = result.filter(t => 
-                (t.assignees && t.assignees.some(a => a.name === filterAssignee)) ||
-                t.assigneeName === filterAssignee
-            );
+        if (filterAssignees.length > 0) {
+            result = result.filter(t => {
+                const taskAssigneeNames = [
+                    t.assigneeName,
+                    ...(t.assignees?.map(a => a.name) || [])
+                ].filter((n): n is string => Boolean(n) && n !== 'Unassigned');
+
+                return filterAssignees.some(selected =>
+                    selected === 'Unassigned'
+                        ? taskAssigneeNames.length === 0
+                        : taskAssigneeNames.includes(selected)
+                );
+            });
         }
         if (filterLabel !== null) result = result.filter(t => t.labels?.some(l => l.id === filterLabel) || t.labelId === filterLabel);
         if (filterDateRange.startDate || filterDateRange.endDate) {
@@ -360,7 +439,7 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
             });
         }
         return result;
-    }, [tasks, searchTerm, filterPriority, filterStatus, filterAssignee, filterLabel, filterDateRange]);
+    }, [tasks, searchTerm, filterPriority, filterStatus, filterAssignees, filterLabel, filterDateRange]);
 
     const groupedTasks = useMemo(() => {
         if (groupBy === 'none') return [{ label: 'Backlog', items: filteredTasks }];
@@ -405,6 +484,7 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         searchTerm, setSearchTerm,
         filterPriority, setFilterPriority,
         filterStatus, setFilterStatus,
+        filterAssignees, setFilterAssignees,
         filterAssignee, setFilterAssignee,
         filterLabel, setFilterLabel,
         filterDateRange, setFilterDateRange,
@@ -412,9 +492,10 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         teamMembers, labels, statusOptions,
         selectedIds, setSelectedIds,
         filteredTasks, groupedTasks,
+        currentUserRole,
         handleMarkDone, handleDelete, handleAddTask,
         handleStatusChange, handleAssigneeChange, handleAssignMultiple, handleBulkDelete, handleBulkDone,
-        handleArchiveTask, handleUnarchiveTask,
-        toggleSelect, loadTasks: forceRefresh, handleDateChange, forceRefresh,
+        handleArchiveTask, handleUnarchiveTask, handleBulkArchive, handleBulkUnarchive, handleBulkExport,
+        toggleSelect, toggleSelectAll, loadTasks: forceRefresh, handleDateChange, forceRefresh,
     };
 }

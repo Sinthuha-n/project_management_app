@@ -90,10 +90,12 @@ describe('TaskRow', () => {
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });
 
-  it('disables delete button when canDelete is false', () => {
-    render(<TaskRow {...defaultProps} canDelete={false} />);
-    const deleteBtn = screen.getByTitle('Viewers cannot delete tasks');
-    expect(deleteBtn).toBeDisabled();
+  it('calls onDeleteTask when delete button is clicked', () => {
+    const onDeleteTask = jest.fn();
+    render(<TaskRow {...defaultProps} onDeleteTask={onDeleteTask} />);
+    const deleteBtn = screen.getByTitle('Delete task');
+    fireEvent.click(deleteBtn);
+    expect(onDeleteTask).toHaveBeenCalledWith(1);
   });
 
   it('submits an inline rename only once when Enter also blurs the input', async () => {

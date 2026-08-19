@@ -122,6 +122,7 @@ export default function TimelinePage() {
       status: data.status || 'TODO',
       priority: data.priority,
       assigneeId: data.assigneeId,
+      assigneeIds: data.assigneeIds,
       labelIds: data.labelIds,
       dueDate: data.dueDate,
     };

@@ -6,7 +6,7 @@ import { TeamMemberOption } from '../../kanban/api';
 import DateRangeFilter from '../../kanban/components/DateRangeFilter';
 import { Archive, ChevronDown, Search, X, Layers, Tag, User, Filter } from 'lucide-react';
 import AssigneeAvatar from '../../(agile)/sprint-backlog/components/AssigneeAvatar';
-import { BacklogStatusOption, formatStatusLabel, normalizeBacklogStatusOptions } from '../status-options';
+import { BacklogStatusOption, normalizeBacklogStatusOptions } from '../status-options';
 
 interface BacklogFilterBarProps {
     searchTerm: string;
@@ -15,8 +15,10 @@ interface BacklogFilterBarProps {
     setFilterPriority: React.Dispatch<React.SetStateAction<string[]>>;
     filterStatus: string[];
     setFilterStatus: React.Dispatch<React.SetStateAction<string[]>>;
-    filterAssignee: string;
-    setFilterAssignee: (v: string) => void;
+    filterAssignees?: string[];
+    setFilterAssignees?: React.Dispatch<React.SetStateAction<string[]>>;
+    filterAssignee?: string;
+    setFilterAssignee?: (v: string) => void;
     filterLabel: number | null;
     setFilterLabel: (v: number | null) => void;
     filterDateRange: DateFilter;
@@ -34,6 +36,7 @@ export default function BacklogFilterBar({
     searchTerm, setSearchTerm,
     filterPriority, setFilterPriority,
     filterStatus, setFilterStatus,
+    filterAssignees, setFilterAssignees,
     filterAssignee, setFilterAssignee,
     filterLabel, setFilterLabel,
     filterDateRange, setFilterDateRange,
@@ -61,8 +64,21 @@ export default function BacklogFilterBar({
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const hasActiveFilters = !!(filterPriority.length > 0 || filterStatus.length > 0 || filterAssignee || filterLabel !== null || filterDateRange.startDate || filterDateRange.endDate);
-    const activeCount = (filterPriority.length > 0 ? 1 : 0) + (filterStatus.length > 0 ? 1 : 0) + (filterAssignee ? 1 : 0) + (filterLabel !== null ? 1 : 0) + (filterDateRange.startDate || filterDateRange.endDate ? 1 : 0);
+    const currentAssignees = filterAssignees ?? (filterAssignee ? [filterAssignee] : []);
+    const toggleAssignee = (name: string) => {
+        if (setFilterAssignees) {
+            setFilterAssignees(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
+        } else if (setFilterAssignee) {
+            setFilterAssignee(filterAssignee === name ? '' : name);
+        }
+    };
+    const clearAssignees = () => {
+        if (setFilterAssignees) setFilterAssignees([]);
+        if (setFilterAssignee) setFilterAssignee('');
+    };
+
+    const hasActiveFilters = !!(filterPriority.length > 0 || filterStatus.length > 0 || currentAssignees.length > 0 || filterLabel !== null || filterDateRange.startDate || filterDateRange.endDate);
+    const activeCount = (filterPriority.length > 0 ? 1 : 0) + (filterStatus.length > 0 ? 1 : 0) + currentAssignees.length + (filterLabel !== null ? 1 : 0) + (filterDateRange.startDate || filterDateRange.endDate ? 1 : 0);
     const statusChoices = normalizeBacklogStatusOptions(statusOptions, filterStatus[0]);
     const selectedStatusLabel = statusChoices.find(option => option.status === filterStatus[0])?.title;
 
@@ -110,7 +126,7 @@ export default function BacklogFilterBar({
                             <span className="text-[13px] font-semibold text-cu-text-primary">Filters</span>
                             {hasActiveFilters && (
                                 <button
-                                    onClick={() => { setFilterPriority([]); setFilterStatus([]); setFilterAssignee(''); setFilterLabel(null); setFilterDateRange({ startDate: null, endDate: null }); }}
+                                    onClick={() => { setFilterPriority([]); setFilterStatus([]); clearAssignees(); setFilterLabel(null); setFilterDateRange({ startDate: null, endDate: null }); }}
                                     className="flex items-center gap-1 text-[11px] text-cu-text-muted hover:text-cu-danger transition-colors"
                                 >
                                     <X size={11} /> Clear all
@@ -121,24 +137,24 @@ export default function BacklogFilterBar({
                         {/* Priority */}
                         <div>
                             <p className="text-[11px] font-medium text-cu-text-muted mb-1.5">Priority</p>
-                            <div className="flex items-center gap-1.5">
-                                {(['URGENT', 'HIGH', 'MEDIUM', 'LOW'] as const).map(p => (
+                            <div className="flex flex-wrap gap-1.5">
+                                {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map(p => (
                                     <button
                                         key={p}
-                                        onClick={() => setFilterPriority(prev =>
-                                            prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
-                                        )}
-                                        className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                                        onClick={() => setFilterPriority(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])}
+                                        className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-colors ${
                                             filterPriority.includes(p)
                                                 ? 'bg-cu-primary text-white border-cu-primary'
-                                                : 'bg-cu-bg-secondary text-cu-text-secondary border-cu-border hover:border-cu-primary/70 hover:bg-cu-hover'
+                                                : 'bg-cu-bg-secondary border-cu-border text-cu-text-secondary hover:border-cu-primary/50'
                                         }`}
-                                    >{p}</button>
+                                    >
+                                        {p}
+                                    </button>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Status */}
+                        {/* Status dropdown */}
                         <div ref={statusFilterRef}>
                             <p className="text-[11px] font-medium text-cu-text-muted mb-1.5">Status</p>
                             <div className="relative">
@@ -147,23 +163,23 @@ export default function BacklogFilterBar({
                                     onClick={() => setStatusFilterOpen(o => !o)}
                                     className="flex items-center justify-between w-full gap-1.5 px-2.5 py-1.5 text-[12px] border border-cu-border rounded-lg bg-cu-bg-secondary text-cu-text-primary hover:bg-cu-hover transition-colors"
                                 >
-                                    <span>{filterStatus[0] ? selectedStatusLabel ?? formatStatusLabel(filterStatus[0]) : 'All Status'}</span>
-                                    <ChevronDown size={12} className="text-cu-text-muted" />
+                                    <span className="truncate">{selectedStatusLabel || 'All Statuses'}</span>
+                                    <ChevronDown size={12} className="text-cu-text-muted shrink-0" />
                                 </button>
                                 {statusFilterOpen && (
-                                    <div className="absolute top-full left-0 mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-cu-lg z-50 min-w-full py-1">
+                                    <div className="absolute top-full left-0 mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-cu-lg z-[var(--cu-z-modal-popover)] min-w-full max-h-80 overflow-y-auto py-1">
                                         <button
                                             type="button"
                                             onClick={() => { setFilterStatus([]); setStatusFilterOpen(false); }}
                                             className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors ${filterStatus.length === 0 ? 'font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
-                                        >All Status</button>
-                                        {statusChoices.map(option => (
+                                        >All Statuses</button>
+                                        {statusChoices.map(opt => (
                                             <button
-                                                key={option.status}
+                                                key={opt.status}
                                                 type="button"
-                                                onClick={() => { setFilterStatus([option.status]); setStatusFilterOpen(false); }}
-                                                className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors ${filterStatus[0] === option.status ? 'font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
-                                            >{option.title}</button>
+                                                onClick={() => { setFilterStatus([opt.status]); setStatusFilterOpen(false); }}
+                                                className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors ${filterStatus.includes(opt.status) ? 'font-semibold text-cu-primary bg-cu-primary/5' : 'text-cu-text-primary'}`}
+                                            >{opt.title}</button>
                                         ))}
                                     </div>
                                 )}
@@ -173,7 +189,7 @@ export default function BacklogFilterBar({
                         {/* Assignee */}
                         {teamMembers.length > 0 && (
                             <div ref={assigneeFilterRef}>
-                                <p className="text-[11px] font-medium text-cu-text-muted mb-1.5">Assignee</p>
+                                <p className="text-[11px] font-medium text-cu-text-muted mb-1.5">Assignees</p>
                                 <div className="relative">
                                     <button
                                         type="button"
@@ -181,20 +197,24 @@ export default function BacklogFilterBar({
                                         className="flex items-center justify-between w-full gap-1.5 px-2.5 py-1.5 text-[12px] border border-cu-border rounded-lg bg-cu-bg-secondary text-cu-text-primary hover:bg-cu-hover transition-colors"
                                     >
                                         <span className="flex items-center gap-1.5 truncate">
-                                            {filterAssignee ? (
-                                                <>
-                                                    <AssigneeAvatar
-                                                        name={filterAssignee}
-                                                        profilePicUrl={teamMembers.find(m => m.name === filterAssignee)?.photoUrl}
-                                                        size={16}
-                                                    />
-                                                    <span className="truncate">{filterAssignee}</span>
-                                                </>
-                                            ) : (
+                                            {currentAssignees.length === 0 ? (
                                                 <>
                                                     <User size={12} className="text-cu-text-muted" />
                                                     <span>All Assignees</span>
                                                 </>
+                                            ) : currentAssignees.length === 1 ? (
+                                                <>
+                                                    <AssigneeAvatar
+                                                        name={currentAssignees[0]}
+                                                        profilePicUrl={teamMembers.find(m => m.name === currentAssignees[0])?.photoUrl}
+                                                        size={16}
+                                                    />
+                                                    <span className="truncate">{currentAssignees[0]}</span>
+                                                </>
+                                            ) : (
+                                                <span className="font-semibold text-cu-primary">
+                                                    {currentAssignees.length} Assignees selected
+                                                </span>
                                             )}
                                         </span>
                                         <ChevronDown size={12} className="text-cu-text-muted shrink-0" />
@@ -203,20 +223,35 @@ export default function BacklogFilterBar({
                                         <div className="absolute top-full left-0 mt-1 bg-cu-bg border border-cu-border rounded-xl shadow-cu-lg z-[var(--cu-z-modal-popover)] min-w-full max-h-80 overflow-y-auto py-1">
                                             <button
                                                 type="button"
-                                                onClick={() => { setFilterAssignee(''); setAssigneeFilterOpen(false); }}
-                                                className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors ${!filterAssignee ? 'font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
-                                            >All Assignees</button>
-                                            {teamMembers.map(m => (
-                                                <button
-                                                    key={m.id}
-                                                    type="button"
-                                                    onClick={() => { setFilterAssignee(m.name); setAssigneeFilterOpen(false); }}
-                                                    className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors flex items-center gap-2 ${filterAssignee === m.name ? 'font-semibold text-cu-primary bg-cu-primary/5' : 'text-cu-text-primary'}`}
-                                                >
-                                                    <AssigneeAvatar name={m.name} profilePicUrl={m.photoUrl} size={18} />
-                                                    <span className="truncate">{m.name}</span>
-                                                </button>
-                                            ))}
+                                                onClick={() => { clearAssignees(); setAssigneeFilterOpen(false); }}
+                                                className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors flex items-center justify-between ${currentAssignees.length === 0 ? 'font-semibold text-cu-primary' : 'text-cu-text-primary'}`}
+                                            >
+                                                <span>All Assignees</span>
+                                                {currentAssignees.length === 0 && <span className="text-xs">✓</span>}
+                                            </button>
+                                            <div className="my-1 border-t border-cu-border-light" />
+                                            {teamMembers.map(m => {
+                                                const isSelected = currentAssignees.includes(m.name);
+                                                return (
+                                                    <button
+                                                        key={m.id}
+                                                        type="button"
+                                                        onClick={() => toggleAssignee(m.name)}
+                                                        className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-cu-hover transition-colors flex items-center justify-between gap-2 ${isSelected ? 'font-semibold text-cu-primary bg-cu-primary/5' : 'text-cu-text-primary'}`}
+                                                    >
+                                                        <div className="flex items-center gap-2 truncate">
+                                                            <AssigneeAvatar name={m.name} profilePicUrl={m.photoUrl} size={18} />
+                                                            <span className="truncate">{m.name}</span>
+                                                        </div>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            readOnly
+                                                            className="h-3.5 w-3.5 rounded border-cu-border text-cu-primary pointer-events-none"
+                                                        />
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>
