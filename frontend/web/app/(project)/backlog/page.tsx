@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
     AlertCircle, Plus, ChevronDown, ChevronUp,
@@ -15,6 +15,8 @@ import TaskCardModal from '@/app/taskcard/TaskCardModal';
 import BacklogTaskRow from './components/BacklogTaskRow';
 import BacklogFilterBar from './components/BacklogFilterBar';
 import BacklogTaskDetail from './components/BacklogTaskDetail';
+import AccessDeniedModal from '@/components/shared/AccessDeniedModal';
+import { isProjectOwnerOrAdmin } from '@/lib/project-permissions';
 import { useBacklogData } from './hooks/useBacklogData';
 import { RouteLoadingState } from '@/components/shared/RouteBoundaryState';
 import { stripQueryParam } from '@/lib/url';
@@ -55,12 +57,11 @@ function BacklogPageContent() {
     }, [projectId, router]);
 
     // Must be called unconditionally before any early returns
-    const [
-        showInlineCreate, setShowInlineCreate
-    ] = useState(false);
+    const [showInlineCreate, setShowInlineCreate] = useState(false);
     const [inlineTitle, setInlineTitle] = useState('');
     const [inlineTitleLength, setInlineTitleLength] = useState(0);
     const [showArchived, setShowArchived] = useState(false);
+    const [showAccessDenied, setShowAccessDenied] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState<number>(DEFAULT_TIMELINE_PAGE_SIZE);
     const {
@@ -78,11 +79,28 @@ function BacklogPageContent() {
         teamMembers, labels, statusOptions,
         selectedIds, setSelectedIds,
         filteredTasks,
+        currentUserRole,
         handleMarkDone, handleDelete, handleAddTask,
         handleStatusChange, handleAssigneeChange, handleAssignMultiple, handleBulkDelete, handleBulkDone,
         handleArchiveTask, handleUnarchiveTask,
         toggleSelect, loadTasks, handleDateChange
     } = useBacklogData(projectId, showArchived);
+
+    const onTaskDelete = useCallback((id: number) => {
+        if (!isProjectOwnerOrAdmin(currentUserRole)) {
+            setShowAccessDenied(true);
+            return;
+        }
+        void handleDelete(id);
+    }, [currentUserRole, handleDelete]);
+
+    const onBulkDelete = useCallback(() => {
+        if (!isProjectOwnerOrAdmin(currentUserRole)) {
+            setShowAccessDenied(true);
+            return;
+        }
+        void handleBulkDelete();
+    }, [currentUserRole, handleBulkDelete]);
 
     const totalItems = filteredTasks.length;
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -306,7 +324,7 @@ function BacklogPageContent() {
                                         <BacklogTaskRow
                                             key={task.id}
                                             task={task}
-                                            onDelete={handleDelete}
+                                            onDelete={onTaskDelete}
                                             onClick={setSelectedTask}
                                             onStatusChange={handleStatusChange}
                                             onOpenModal={setSelectedTaskIdForModal}
@@ -433,7 +451,7 @@ function BacklogPageContent() {
                                 <BacklogTaskRow
                                     key={task.id}
                                     task={{ ...task, archived: true }}
-                                    onDelete={handleDelete}
+                                    onDelete={onTaskDelete}
                                     onClick={setSelectedTask}
                                     onStatusChange={handleStatusChange}
                                     onOpenModal={setSelectedTaskIdForModal}
@@ -460,7 +478,7 @@ function BacklogPageContent() {
                     <button onClick={handleBulkDone} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-[12px] font-medium hover:bg-emerald-700 transition-colors">
                         <Check size={13} /> Mark Done
                     </button>
-                    <button onClick={handleBulkDelete} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-xl text-[12px] font-medium hover:bg-red-700 transition-colors">
+                    <button onClick={onBulkDelete} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-xl text-[12px] font-medium hover:bg-red-700 transition-colors">
                         <Trash2 size={13} /> Delete
                     </button>
                     <button onClick={() => setSelectedIds(new Set())} className="p-1.5 rounded-xl text-cu-text-secondary hover:text-cu-text-primary hover:bg-cu-hover transition-colors">
@@ -490,7 +508,7 @@ function BacklogPageContent() {
                         task={selectedTask}
                         onStatusChange={(id, status) => { void handleStatusChange(id, status); setSelectedTask({ ...selectedTask, status }); }}
                         onMarkDone={handleMarkDone}
-                        onDelete={handleDelete}
+                        onDelete={onTaskDelete}
                         onOpenModal={setSelectedTaskIdForModal}
                         onClose={() => setSelectedTask(null)}
                         statusOptions={statusOptions}
@@ -517,6 +535,12 @@ function BacklogPageContent() {
                     onClose={(wasModified) => { setSelectedTaskIdForModal(null); if (wasModified) void loadTasks(); }}
                 />
             )}
+
+            {/* ── Access Denied Modal ── */}
+            <AccessDeniedModal
+                open={showAccessDenied}
+                onClose={() => setShowAccessDenied(false)}
+            />
             </div>
         </div>
     );

@@ -336,7 +336,7 @@ export async function updateKanbanColumnSettings(
 /**
  * Fetch project details by ID
  */
-export async function fetchProject(projectId: number): Promise<{ teamId?: number; type?: string; [key: string]: unknown }> {
+export async function fetchProject(projectId: number): Promise<{ teamId?: number; type?: string; ownerId?: number | null; [key: string]: unknown }> {
   try {
     return await projectsApi.get(projectId);
   } catch (error) {

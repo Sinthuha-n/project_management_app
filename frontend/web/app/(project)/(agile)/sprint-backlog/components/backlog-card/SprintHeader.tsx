@@ -325,21 +325,10 @@ export default function SprintHeader({
 
             <button
               onClick={() => { setShowSprintMenu(false); onDeleteSprint(); }}
-              disabled={!canDeleteSprint}
-              className={`flex w-full items-center gap-3 px-5 py-4 text-left text-[14px] font-bold ${
-                canDeleteSprint ? 'text-cu-danger hover:bg-cu-danger-light' : 'text-cu-text-muted cursor-not-allowed'
-              }`}
-              title={!canDeleteSprint ? "Only an Admin or Owner can delete a sprint" : ""}
+              className="flex w-full items-center gap-3 px-5 py-4 text-left text-[14px] font-bold text-cu-danger hover:bg-cu-danger-light"
             >
               <Trash2 size={18} />
-              <div className="flex flex-col">
-                <span>Delete Sprint</span>
-                {!canDeleteSprint && (
-                  <span className="text-[10px] font-medium text-cu-text-muted">
-                    Admin/Owner only
-                  </span>
-                )}
-              </div>
+              <span>Delete Sprint</span>
             </button>
           </div>
         )}

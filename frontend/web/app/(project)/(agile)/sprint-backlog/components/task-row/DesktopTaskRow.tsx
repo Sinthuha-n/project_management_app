@@ -633,8 +633,11 @@ export default function DesktopTaskRow(props: TaskRowProps) {
         <button type="button" onClick={startRename} title="Rename" className="flex h-6 w-6 items-center justify-center rounded-md text-cu-text-secondary hover:text-cu-primary hover:bg-cu-primary-light transition-all">
           <Pencil size={12} />
         </button>
-        <button type="button" onClick={() => canDelete && onDeleteTask(task.id)} disabled={!canDelete} title={canDelete ? 'Delete task' : 'Viewers cannot delete tasks'}
-          className={`flex h-6 w-6 items-center justify-center rounded-md transition-all ${canDelete ? 'text-cu-text-secondary hover:text-cu-danger hover:bg-cu-danger-light' : 'text-cu-text-muted cursor-not-allowed'}`}
+        <button
+          type="button"
+          onClick={() => onDeleteTask(task.id)}
+          title="Delete task"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-cu-text-secondary hover:text-cu-danger hover:bg-cu-danger-light transition-all"
         >
           <Trash2 size={12} />
         </button>

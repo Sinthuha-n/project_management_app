@@ -16,6 +16,9 @@ import { useTaskMutations } from '@/hooks/useTaskMutations';
 import { useProjectTasks } from '@/hooks/useProjectTasks';
 import type { Task as CanonicalTask } from '@/types';
 import { DEFAULT_BACKLOG_STATUS_OPTIONS, formatStatusLabel, statusOptionsFromColumns } from '../status-options';
+import { getUserFromToken } from '@/lib/auth';
+import { projectsApi } from '@/services/api-contract';
+import { resolveCurrentUserProjectRole } from '@/lib/project-permissions';
 
 export function useBacklogData(projectId: string | null, showArchived = false) {
     const taskMutations = useTaskMutations(projectId);
@@ -39,6 +42,7 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
     const [labels, setLabels] = useState<Label[]>([]);
     const [statusOptions, setStatusOptions] = useState(DEFAULT_BACKLOG_STATUS_OPTIONS);
     const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+    const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
     const toggleGroup = useCallback((label: string) => {
         setCollapsedGroups(prev => ({ ...prev, [label]: !prev[label] }));
@@ -53,16 +57,26 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         const pid = parseInt(projectId, 10);
         if (isNaN(pid)) return;
         try {
-            const [labelsData, project, board] = await Promise.all([
+            const [labelsData, project, board, projectMembers] = await Promise.all([
                 fetchProjectLabels(pid),
                 fetchProject(pid),
                 fetchKanbanBoard(pid),
+                projectsApi.getMembers(String(pid)).catch(() => []),
             ]);
             setLabels(labelsData);
             setStatusOptions(statusOptionsFromColumns(board?.columns));
             if (project?.teamId) {
                 const members = await fetchTeamMembers(project.teamId as number);
                 setTeamMembers(members);
+            }
+            const currentUser = getUserFromToken();
+            const resolvedRole = resolveCurrentUserProjectRole(
+                currentUser,
+                project,
+                Array.isArray(projectMembers) ? projectMembers : []
+            );
+            if (resolvedRole) {
+                setCurrentUserRole(resolvedRole);
             }
         } catch (err) {
             console.error('Error loading static backlog data:', err);
@@ -412,6 +426,7 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         teamMembers, labels, statusOptions,
         selectedIds, setSelectedIds,
         filteredTasks, groupedTasks,
+        currentUserRole,
         handleMarkDone, handleDelete, handleAddTask,
         handleStatusChange, handleAssigneeChange, handleAssignMultiple, handleBulkDelete, handleBulkDone,
         handleArchiveTask, handleUnarchiveTask,

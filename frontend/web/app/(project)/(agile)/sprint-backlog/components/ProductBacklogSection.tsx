@@ -17,6 +17,8 @@ import { toast } from '@/components/ui';
 import TaskRow from './TaskRow';
 import TaskCardModal from '@/app/taskcard/TaskCardModal';
 import ConfirmModal from './backlog-card/ConfirmModal';
+import AccessDeniedModal from '@/components/shared/AccessDeniedModal';
+import { isProjectOwnerOrAdmin } from '@/lib/project-permissions';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface TeamMemberInfo {
@@ -96,6 +98,7 @@ export default function ProductBacklogSection({
   }, [externalShowCreateModal]);
 
   const [taskToDeleteId, setTaskToDeleteId] = useState<number | null>(null);
+  const [showAccessDenied, setShowAccessDenied] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMemberInfo[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const memberRequestRef = useRef(0);
@@ -116,7 +119,7 @@ export default function ProductBacklogSection({
 
   const effectiveDropIndex = activeDragId !== null ? touchDropIndex : dropIndex;
 
-  const canDeleteTask = currentUserRole !== 'VIEWER';
+  const canDeleteTask = isProjectOwnerOrAdmin(currentUserRole);
 
   const getMemberDisplayName = (member: TeamMemberInfo) => member.user.fullName || member.user.username;
 
@@ -342,7 +345,13 @@ export default function ProductBacklogSection({
             <span>Task</span>
           </button>
           <button
-            onClick={() => onCreateSprint()}
+            onClick={() => {
+              if (!isProjectOwnerOrAdmin(currentUserRole)) {
+                setShowAccessDenied(true);
+                return;
+              }
+              onCreateSprint();
+            }}
             className="flex min-h-[44px] items-center gap-1.5 rounded-lg border border-cu-primary bg-cu-primary px-3 py-1.5 text-[12px] font-bold text-white hover:bg-cu-primary-hover shadow-cu-sm transition-all active:scale-95"
           >
             <Rocket size={14} />
@@ -412,7 +421,13 @@ export default function ProductBacklogSection({
                         onAssignTask={handleAssignTask}
                         onAssignMultiple={handleAssignMultiple}
                         onDueDateChange={(taskId, dueDate) => { void onDueDateChange?.(taskId, dueDate); }}
-                        onDeleteTask={(id) => setTaskToDeleteId(id)}
+                        onDeleteTask={(id) => {
+                          if (!isProjectOwnerOrAdmin(currentUserRole)) {
+                            setShowAccessDenied(true);
+                            return;
+                          }
+                          setTaskToDeleteId(id);
+                        }}
                         onOpenTask={(id) => setSelectedTaskId(id)}
                       projectLabels={projectLabels}
                       onAddLabel={handleAddLabel}
@@ -537,6 +552,12 @@ export default function ProductBacklogSection({
         }}
       />
     )}
+
+    {/* ── Access Denied Modal ── */}
+    <AccessDeniedModal
+      open={showAccessDenied}
+      onClose={() => setShowAccessDenied(false)}
+    />
     </div>
   );
 }
