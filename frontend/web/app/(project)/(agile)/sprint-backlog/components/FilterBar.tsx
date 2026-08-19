@@ -8,6 +8,7 @@ export interface BacklogFilters {
   statuses: string[];
   priorities: string[];
   assignee: string;
+  assignees?: string[];
 }
 
 interface FilterBarProps {
@@ -35,8 +36,14 @@ export default function FilterBar({ filters, onChange, assigneeNames }: FilterBa
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const selectedAssignees = filters.assignees?.length
+    ? filters.assignees
+    : filters.assignee
+    ? [filters.assignee]
+    : [];
+
   const activeFilterCount =
-    filters.statuses.length + filters.priorities.length + (filters.assignee ? 1 : 0);
+    filters.statuses.length + filters.priorities.length + (selectedAssignees.length > 0 ? selectedAssignees.length : 0);
 
   useEffect(() => {
     const handleClickOutside = (e: Event) => {
@@ -66,48 +73,59 @@ export default function FilterBar({ filters, onChange, assigneeNames }: FilterBa
     onChange({ ...filters, priorities: next });
   };
 
-  const clearFilters = () => {
-    onChange({ search: '', statuses: [], priorities: [], assignee: '' });
-    setShowFilters(false);
+  const toggleAssignee = (name: string) => {
+    const next = selectedAssignees.includes(name)
+      ? selectedAssignees.filter((a) => a !== name)
+      : [...selectedAssignees, name];
+    onChange({
+      ...filters,
+      assignees: next,
+      assignee: next.length === 1 ? next[0] : '',
+    });
+  };
+
+  const clearAssignees = () => {
+    onChange({
+      ...filters,
+      assignees: [],
+      assignee: '',
+    });
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* Search + Filter toggle row */}
+    <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        {/* Search */}
-        <div className="relative flex-1 max-w-xs">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-cu-text-tertiary" />
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-cu-text-muted" />
           <input
             type="text"
+            placeholder="Search backlog..."
             value={filters.search}
             onChange={(e) => onChange({ ...filters, search: e.target.value })}
-            placeholder="Search tasks..."
-            className="w-full min-h-[44px] pl-9 pr-3 py-2 bg-cu-bg border border-cu-border rounded-lg text-[14px] text-cu-text-primary placeholder:text-cu-text-muted outline-none focus:ring-2 focus:ring-cu-primary/20 focus:border-cu-primary transition-all"
+            className="w-full rounded-xl border border-cu-border bg-cu-bg py-2 pl-8 pr-8 text-[13px] text-cu-text-primary placeholder:text-cu-text-muted focus:border-cu-primary focus:outline-none"
           />
           {filters.search && (
             <button
               onClick={() => onChange({ ...filters, search: '' })}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-cu-text-tertiary hover:text-cu-text-primary"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-cu-text-muted hover:text-cu-text-primary"
             >
-              <X size={14} />
+              <X size={13} />
             </button>
           )}
         </div>
 
-        {/* Filter toggle */}
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className={`flex min-h-[44px] items-center gap-1.5 px-3 py-2 rounded-lg border text-[13px] font-bold transition-all ${
+          className={`flex min-h-[42px] items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-bold transition-all ${
             showFilters || activeFilterCount > 0
-              ? 'bg-cu-primary-light border-cu-primary/30 text-cu-primary'
-              : 'bg-cu-bg border-cu-border text-cu-text-primary hover:bg-cu-hover'
+              ? 'border-cu-primary bg-cu-primary-light text-cu-primary'
+              : 'border-cu-border bg-cu-bg text-cu-text-primary hover:bg-cu-hover'
           }`}
         >
-          <Filter size={14} />
-          Filter
+          <Filter size={13} />
+          Filters
           {activeFilterCount > 0 && (
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cu-primary text-[10px] font-bold text-white">
+            <span className="rounded-full bg-cu-primary px-1.5 text-[10px] text-white">
               {activeFilterCount}
             </span>
           )}
@@ -115,18 +133,18 @@ export default function FilterBar({ filters, onChange, assigneeNames }: FilterBa
 
         {activeFilterCount > 0 && (
           <button
-            onClick={clearFilters}
-            className="min-h-[44px] px-2 text-[12px] font-bold text-cu-text-secondary hover:text-cu-text-primary transition-colors"
+            onClick={() =>
+              onChange({ search: filters.search, statuses: [], priorities: [], assignee: '', assignees: [] })
+            }
+            className="flex min-h-[42px] items-center text-[12px] font-semibold text-cu-text-muted hover:text-cu-danger"
           >
-            Clear all
+            Clear
           </button>
         )}
       </div>
 
-      {/* Filter dropdowns row */}
       {showFilters && (
-        <div className="flex flex-wrap items-center gap-2" ref={dropdownRef}>
-          {/* Status filter */}
+        <div ref={dropdownRef} className="flex flex-wrap gap-2 rounded-xl border border-cu-border bg-cu-bg p-3">
           <div className="relative">
             <button
               onClick={() => setOpenDropdown(openDropdown === 'status' ? null : 'status')}
@@ -134,20 +152,22 @@ export default function FilterBar({ filters, onChange, assigneeNames }: FilterBa
             >
               Status
               {filters.statuses.length > 0 && (
-                <span className="rounded-full bg-cu-primary px-1.5 text-[10px] text-white">{filters.statuses.length}</span>
+                <span className="rounded-full bg-cu-primary px-1.5 text-[10px] text-white">
+                  {filters.statuses.length}
+                </span>
               )}
               <ChevronDown size={12} />
             </button>
             {openDropdown === 'status' && (
-              <div className="absolute left-0 top-9 z-50 min-w-[160px] rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl overflow-hidden">
+              <div className="absolute left-0 top-9 z-50 min-w-[150px] rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl">
                 {STATUS_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => toggleStatus(opt.value)}
-                    className="flex min-h-[42px] w-full items-center gap-2 px-3 py-2 text-[12px] font-bold text-cu-text-primary hover:bg-cu-hover"
+                    className="flex min-h-[42px] w-full items-center gap-2 px-3 py-2 text-[12px] font-bold hover:bg-cu-hover"
                   >
-                    <div className={`h-2.5 w-2.5 rounded-full ${opt.dot}`} />
-                    <span className="flex-1 text-left">{opt.label}</span>
+                    <span className={`h-2 w-2 rounded-full ${opt.dot}`} />
+                    <span className="flex-1 text-left text-cu-text-primary">{opt.label}</span>
                     {filters.statuses.includes(opt.value) && (
                       <span className="text-cu-primary text-[14px]">✓</span>
                     )}
@@ -157,7 +177,6 @@ export default function FilterBar({ filters, onChange, assigneeNames }: FilterBa
             )}
           </div>
 
-          {/* Priority filter */}
           <div className="relative">
             <button
               onClick={() => setOpenDropdown(openDropdown === 'priority' ? null : 'priority')}
@@ -165,12 +184,14 @@ export default function FilterBar({ filters, onChange, assigneeNames }: FilterBa
             >
               Priority
               {filters.priorities.length > 0 && (
-                <span className="rounded-full bg-cu-primary px-1.5 text-[10px] text-white">{filters.priorities.length}</span>
+                <span className="rounded-full bg-cu-primary px-1.5 text-[10px] text-white">
+                  {filters.priorities.length}
+                </span>
               )}
               <ChevronDown size={12} />
             </button>
             {openDropdown === 'priority' && (
-              <div className="absolute left-0 top-9 z-50 min-w-[140px] rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl overflow-hidden">
+              <div className="absolute left-0 top-9 z-50 min-w-[150px] rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl">
                 {PRIORITY_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
@@ -187,35 +208,54 @@ export default function FilterBar({ filters, onChange, assigneeNames }: FilterBa
             )}
           </div>
 
-          {/* Assignee filter */}
           <div className="relative">
             <button
               onClick={() => setOpenDropdown(openDropdown === 'assignee' ? null : 'assignee')}
               className="flex min-h-[42px] items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cu-border bg-cu-bg text-[12px] font-bold text-cu-text-primary hover:bg-cu-hover transition-all"
             >
-              Assignee
-              {filters.assignee && (
-                <span className="rounded-full bg-cu-primary px-1.5 text-[10px] text-white">1</span>
+              Assignees
+              {selectedAssignees.length > 0 && (
+                <span className="rounded-full bg-cu-primary px-1.5 text-[10px] text-white">
+                  {selectedAssignees.length}
+                </span>
               )}
               <ChevronDown size={12} />
             </button>
             {openDropdown === 'assignee' && (
-              <div className="absolute left-0 top-9 z-50 min-w-[160px] max-h-48 overflow-y-auto rounded-xl border border-cu-border bg-cu-bg shadow-cu-xl">
+              <div className="absolute left-0 top-9 z-50 min-w-[180px] max-h-56 overflow-y-auto rounded-xl border border-cu-border bg-cu-bg p-1 shadow-cu-xl">
                 <button
-                  onClick={() => { onChange({ ...filters, assignee: '' }); setOpenDropdown(null); }}
-                  className={`flex min-h-[42px] w-full items-center px-3 py-2 text-[12px] font-bold hover:bg-cu-hover ${!filters.assignee ? 'text-cu-primary' : 'text-cu-text-primary'}`}
+                  onClick={() => {
+                    clearAssignees();
+                    setOpenDropdown(null);
+                  }}
+                  className={`flex min-h-[38px] w-full items-center justify-between px-3 py-1.5 text-[12px] font-bold rounded-lg hover:bg-cu-hover ${
+                    selectedAssignees.length === 0 ? 'text-cu-primary bg-cu-primary-light' : 'text-cu-text-primary'
+                  }`}
                 >
-                  All
+                  <span>All</span>
+                  {selectedAssignees.length === 0 && <span className="text-cu-primary text-[14px]">✓</span>}
                 </button>
-                {assigneeNames.map((name) => (
-                  <button
-                    key={name}
-                    onClick={() => { onChange({ ...filters, assignee: name }); setOpenDropdown(null); }}
-                    className={`flex min-h-[42px] w-full items-center px-3 py-2 text-[12px] font-bold hover:bg-cu-hover ${filters.assignee === name ? 'text-cu-primary bg-cu-primary-light' : 'text-cu-text-primary'}`}
-                  >
-                    {name}
-                  </button>
-                ))}
+                <div className="my-1 border-t border-cu-border" />
+                {assigneeNames.map((name) => {
+                  const isSelected = selectedAssignees.includes(name);
+                  return (
+                    <button
+                      key={name}
+                      onClick={() => toggleAssignee(name)}
+                      className={`flex min-h-[38px] w-full items-center justify-between px-3 py-1.5 text-[12px] font-bold rounded-lg hover:bg-cu-hover ${
+                        isSelected ? 'text-cu-primary bg-cu-primary-light' : 'text-cu-text-primary'
+                      }`}
+                    >
+                      <span className="truncate">{name}</span>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        readOnly
+                        className="h-3.5 w-3.5 rounded border-cu-border text-cu-primary pointer-events-none"
+                      />
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

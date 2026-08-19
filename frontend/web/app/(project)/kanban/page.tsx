@@ -25,6 +25,7 @@ function KanbanPageContent() {
     tasks, loading, error, columns, columnConfigs,
     searchTerm, setSearchTerm,
     filterPriority, setFilterPriority,
+    filterAssignees, setFilterAssignees,
     filterAssignee, setFilterAssignee,
     filterLabel, setFilterLabel,
     clearFilters, hasActiveFilters,
@@ -157,6 +158,8 @@ function KanbanPageContent() {
           setSearchTerm={setSearchTerm}
           filterPriority={filterPriority}
           setFilterPriority={setFilterPriority}
+          filterAssignees={filterAssignees}
+          setFilterAssignees={setFilterAssignees}
           filterAssignee={filterAssignee}
           setFilterAssignee={setFilterAssignee}
           filterLabel={filterLabel}

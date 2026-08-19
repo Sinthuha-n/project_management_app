@@ -438,7 +438,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             @Param("projectId") Long projectId,
             @Param("archived") boolean archived);
 
-    @Query("SELECT t FROM Task t " +
+    @Query("SELECT DISTINCT t FROM Task t " +
            "LEFT JOIN FETCH t.project p " +
            "LEFT JOIN FETCH p.team pt " +
            "LEFT JOIN FETCH t.sprint s " +
@@ -448,10 +448,12 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
            "LEFT JOIN FETCH r.user ru " +
            "LEFT JOIN FETCH t.milestone m " +
            "LEFT JOIN FETCH t.kanbanColumn kc " +
+           "LEFT JOIN t.assignees ma " +
+           "LEFT JOIN ma.user mau " +
            "WHERE p.id = :projectId " +
            "AND t.archived = :archived " +
            "AND (:status IS NULL OR t.status = :status) " +
-           "AND (:assigneeId IS NULL OR au.userId = :assigneeId) " +
+           "AND (:hasAssigneeFilter = false OR (au.userId IS NOT NULL AND au.userId IN :assigneeIds) OR (mau.userId IS NOT NULL AND mau.userId IN :assigneeIds)) " +
            "AND (:priority IS NULL OR CAST(t.priority AS string) = :priority) " +
            "AND (:sprintId IS NULL OR s.id = :sprintId) " +
            "AND (:milestoneId IS NULL OR m.id = :milestoneId) " +
@@ -462,7 +464,8 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findByProjectIdFilteredAndArchived(
             @Param("projectId") Long projectId,
             @Param("status") String status,
-            @Param("assigneeId") Long assigneeId,
+            @Param("assigneeIds") List<Long> assigneeIds,
+            @Param("hasAssigneeFilter") boolean hasAssigneeFilter,
             @Param("priority") String priority,
             @Param("sprintId") Long sprintId,
             @Param("milestoneId") Long milestoneId,

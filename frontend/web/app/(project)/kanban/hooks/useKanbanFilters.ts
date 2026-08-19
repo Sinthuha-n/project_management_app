@@ -9,9 +9,14 @@ export function useKanbanFilters(
 ) {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [filterPriority, setFilterPriority] = useState<string[]>([]);
-  const [filterAssignee, setFilterAssignee] = useState<string>('');
+  const [filterAssignees, setFilterAssignees] = useState<string[]>([]);
   const [filterLabel, setFilterLabel] = useState<number | null>(null);
   const [filterDateRange, setFilterDateRange] = useState<DateFilter>({ startDate: null, endDate: null });
+
+  const filterAssignee = filterAssignees.length === 1 ? filterAssignees[0] : '';
+  const setFilterAssignee = useCallback((name: string) => {
+    setFilterAssignees(name ? [name] : []);
+  }, []);
 
   const filteredTasks = useMemo(() => {
     let result = tasks;
@@ -25,11 +30,19 @@ export function useKanbanFilters(
       result = result.filter(t => t.priority && filterPriority.includes(t.priority));
     }
 
-    if (filterAssignee) {
-      result = result.filter(t =>
-        t.assigneeName === filterAssignee ||
-        t.assignees?.some(a => a.name === filterAssignee)
-      );
+    if (filterAssignees.length > 0) {
+      result = result.filter(t => {
+        const taskAssigneeNames = [
+          t.assigneeName,
+          ...(t.assignees?.map(a => a.name) || [])
+        ].filter((n): n is string => Boolean(n) && n !== 'Unassigned');
+
+        return filterAssignees.some(selected =>
+          selected === 'Unassigned'
+            ? taskAssigneeNames.length === 0
+            : taskAssigneeNames.includes(selected)
+        );
+      });
     }
 
     if (filterLabel !== null) {
@@ -49,7 +62,7 @@ export function useKanbanFilters(
     }
 
     return result;
-  }, [tasks, searchTerm, filterPriority, filterAssignee, filterLabel, filterDateRange]);
+  }, [tasks, searchTerm, filterPriority, filterAssignees, filterLabel, filterDateRange]);
 
   const columns = useMemo<KanbanColumnType[]>(() => {
     return columnConfigs.map(cfg => {
@@ -72,7 +85,7 @@ export function useKanbanFilters(
   const hasActiveFilters =
     searchTerm.trim() !== '' ||
     filterPriority.length > 0 ||
-    filterAssignee !== '' ||
+    filterAssignees.length > 0 ||
     filterLabel !== null ||
     filterDateRange.startDate !== null ||
     filterDateRange.endDate !== null;
@@ -80,7 +93,7 @@ export function useKanbanFilters(
   const clearFilters = useCallback(() => {
     setSearchTerm('');
     setFilterPriority([]);
-    setFilterAssignee('');
+    setFilterAssignees([]);
     setFilterLabel(null);
     setFilterDateRange({ startDate: null, endDate: null });
   }, []);
@@ -90,6 +103,8 @@ export function useKanbanFilters(
     setSearchTerm,
     filterPriority,
     setFilterPriority,
+    filterAssignees,
+    setFilterAssignees,
     filterAssignee,
     setFilterAssignee,
     filterLabel,

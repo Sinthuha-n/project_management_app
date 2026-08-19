@@ -33,10 +33,15 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterPriority, setFilterPriority] = useState<string[]>([]);
     const [filterStatus, setFilterStatus] = useState<string[]>([]);
-    const [filterAssignee, setFilterAssignee] = useState('');
+    const [filterAssignees, setFilterAssignees] = useState<string[]>([]);
     const [filterLabel, setFilterLabel] = useState<number | null>(null);
     const [filterDateRange, setFilterDateRange] = useState<DateFilter>({ startDate: null, endDate: null });
     const [groupBy, setGroupBy] = useState<'none' | 'status' | 'priority' | 'assignee'>('none');
+
+    const filterAssignee = filterAssignees.length === 1 ? filterAssignees[0] : '';
+    const setFilterAssignee = useCallback((name: string) => {
+        setFilterAssignees(name ? [name] : []);
+    }, []);
 
     const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([]);
     const [labels, setLabels] = useState<Label[]>([]);
@@ -340,6 +345,44 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         }
     }, [tasks, selectedIds, forceRefresh, taskMutations]);
 
+    const handleBulkArchive = useCallback(async () => {
+        const ids = Array.from(selectedIds);
+        taskMutations.bulkDelete(ids, () => bulkArchiveTasks(ids, true));
+        setSelectedIds(new Set());
+    }, [selectedIds, taskMutations]);
+
+    const handleBulkUnarchive = useCallback(async () => {
+        const ids = Array.from(selectedIds);
+        taskMutations.bulkDelete(ids, () => bulkArchiveTasks(ids, false));
+        setSelectedIds(new Set());
+    }, [selectedIds, taskMutations]);
+
+    const handleBulkExport = useCallback(async () => {
+        const selectedTasks = tasks.filter(t => selectedIds.has(t.id));
+        if (selectedTasks.length === 0) return;
+        const csv = [
+            'ID,Title,Status,Priority,Assignee,Due Date,Labels',
+            ...selectedTasks.map(t =>
+                `"${t.id}","${t.title.replace(/"/g, '""')}","${t.status}","${t.priority || ''}","${t.assigneeName || ''}","${t.dueDate || ''}","${(t.labels || []).map(l => l.name).join(';')}"`
+            )
+        ].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `backlog-export-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }, [tasks, selectedIds]);
+
+    const toggleSelectAll = useCallback(() => {
+        if (selectedIds.size === tasks.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(tasks.map(t => t.id)));
+        }
+    }, [tasks, selectedIds]);
+
     const toggleSelect = useCallback((id: number) => {
         setSelectedIds(prev => {
             const next = new Set(prev);
@@ -357,11 +400,19 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         }
         if (filterPriority.length > 0) result = result.filter(t => t.priority && filterPriority.includes(t.priority));
         if (filterStatus.length > 0) result = result.filter(t => filterStatus.includes(t.status));
-        if (filterAssignee) {
-            result = result.filter(t => 
-                (t.assignees && t.assignees.some(a => a.name === filterAssignee)) ||
-                t.assigneeName === filterAssignee
-            );
+        if (filterAssignees.length > 0) {
+            result = result.filter(t => {
+                const taskAssigneeNames = [
+                    t.assigneeName,
+                    ...(t.assignees?.map(a => a.name) || [])
+                ].filter((n): n is string => Boolean(n) && n !== 'Unassigned');
+
+                return filterAssignees.some(selected =>
+                    selected === 'Unassigned'
+                        ? taskAssigneeNames.length === 0
+                        : taskAssigneeNames.includes(selected)
+                );
+            });
         }
         if (filterLabel !== null) result = result.filter(t => t.labels?.some(l => l.id === filterLabel) || t.labelId === filterLabel);
         if (filterDateRange.startDate || filterDateRange.endDate) {
@@ -419,6 +470,7 @@ export function useBacklogData(projectId: string | null, showArchived = false) {
         searchTerm, setSearchTerm,
         filterPriority, setFilterPriority,
         filterStatus, setFilterStatus,
+        filterAssignees, setFilterAssignees,
         filterAssignee, setFilterAssignee,
         filterLabel, setFilterLabel,
         filterDateRange, setFilterDateRange,

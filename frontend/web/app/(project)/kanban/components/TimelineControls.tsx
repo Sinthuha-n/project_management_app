@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   AlertTriangle,
   CalendarDays,
@@ -80,6 +80,119 @@ function SelectControl({
   );
 }
 
+function MultiAssigneeSelect({
+  assigneeOptions,
+  selectedAssignees,
+  onChange,
+  className = '',
+}: {
+  assigneeOptions: string[];
+  selectedAssignees: string[];
+  onChange: (assignees: string[]) => void;
+  className?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  const toggleAssignee = (name: string) => {
+    if (selectedAssignees.includes(name)) {
+      onChange(selectedAssignees.filter((a) => a !== name));
+    } else {
+      onChange([...selectedAssignees, name]);
+    }
+  };
+
+  const displayText =
+    selectedAssignees.length === 0
+      ? 'All assignees'
+      : selectedAssignees.length === 1
+      ? selectedAssignees[0]
+      : `${selectedAssignees.length} assignees`;
+
+  return (
+    <div className={`relative ${className}`} ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`relative inline-flex h-10 w-full min-w-[10.5rem] max-w-[15rem] shrink-0 items-center justify-between rounded-lg border pl-3 pr-3 text-sm font-bold transition-colors ${
+          selectedAssignees.length > 0
+            ? 'border-cu-primary/40 bg-cu-primary/10 text-cu-primary'
+            : 'border-cu-border bg-cu-bg-secondary text-cu-text-primary hover:bg-cu-hover'
+        }`}
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <Filter size={15} className={selectedAssignees.length > 0 ? 'text-cu-primary' : 'text-cu-text-muted'} />
+          <span className="truncate">{displayText}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          {selectedAssignees.length > 1 && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-cu-primary px-1 text-[10px] font-bold text-white">
+              {selectedAssignees.length}
+            </span>
+          )}
+          <ChevronDown size={14} className="text-cu-text-muted" />
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-full z-50 mt-1 max-h-60 w-56 overflow-y-auto rounded-xl border border-cu-border bg-cu-bg p-1.5 shadow-cu-lg animate-in fade-in-50 zoom-in-95">
+          <button
+            type="button"
+            onClick={() => {
+              onChange([]);
+              setIsOpen(false);
+            }}
+            className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+              selectedAssignees.length === 0
+                ? 'bg-cu-primary/10 text-cu-primary font-bold'
+                : 'text-cu-text-secondary hover:bg-cu-hover'
+            }`}
+          >
+            <span>All assignees</span>
+            {selectedAssignees.length === 0 && <span className="text-xs">✓</span>}
+          </button>
+          <div className="my-1 border-t border-cu-border-light" />
+          {assigneeOptions.map((name) => {
+            const isSelected = selectedAssignees.includes(name);
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => toggleAssignee(name)}
+                className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                  isSelected
+                    ? 'bg-cu-primary/10 text-cu-primary font-bold'
+                    : 'text-cu-text-primary hover:bg-cu-hover'
+                }`}
+              >
+                <span className="truncate">{name}</span>
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  readOnly
+                  className="h-3.5 w-3.5 rounded border-cu-border text-cu-primary pointer-events-none"
+                />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TimelineControls({
   zoom,
   onZoomChange,
@@ -98,24 +211,31 @@ export default function TimelineControls({
 }: TimelineControlsProps) {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
+  const selectedAssignees = useMemo(() => {
+    if (filters.assignees && filters.assignees.length > 0) return filters.assignees;
+    if (filters.assignee) return [filters.assignee];
+    return [];
+  }, [filters.assignees, filters.assignee]);
+
   const patchFilters = (updates: Partial<TimelineFilters>) => {
     onFiltersChange({ ...filters, ...updates });
   };
 
+  const handleAssigneesChange = (assignees: string[]) => {
+    patchFilters({
+      assignees,
+      assignee: assignees.length === 1 ? assignees[0] : '',
+    });
+  };
+
   const renderFilterFields = ({ stretch = false }: { stretch?: boolean } = {}) => (
     <>
-      <SelectControl
-        label="Assignee"
-        icon={<Filter size={15} />}
-        value={filters.assignee}
-        onChange={(value) => patchFilters({ assignee: value })}
+      <MultiAssigneeSelect
+        assigneeOptions={assigneeOptions}
+        selectedAssignees={selectedAssignees}
+        onChange={handleAssigneesChange}
         className={stretch ? 'w-full max-w-full' : ''}
-      >
-        <option value="">All assignees</option>
-        {assigneeOptions.map((assignee) => (
-          <option key={assignee} value={assignee}>{assignee}</option>
-        ))}
-      </SelectControl>
+      />
 
       <SelectControl
         label="Milestone"

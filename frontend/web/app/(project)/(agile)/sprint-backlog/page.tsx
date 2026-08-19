@@ -117,16 +117,28 @@ function SprintBacklogPageContent() {
   }, [productTasks, sprints]);
 
   const applyFilters = useCallback((tasks: TaskItem[]): TaskItem[] => {
+    const selectedAssignees = filters.assignees?.length
+      ? filters.assignees
+      : filters.assignee
+      ? [filters.assignee]
+      : [];
+
     return tasks.filter((t) => {
       if (filters.search && !t.title.toLowerCase().includes(filters.search.toLowerCase())) return false;
       if (filters.statuses.length > 0 && !filters.statuses.includes(t.status ?? 'TODO')) return false;
       if (filters.priorities.length > 0 && !filters.priorities.includes(t.priority ?? 'LOW')) return false;
-      if (filters.assignee) {
-        // Match against any assignee in the multi-assignee array, falling back to legacy field
-        const hasMatch =
-          (t.assignees && t.assignees.some((a) => a.name === filters.assignee)) ||
-          t.assigneeName === filters.assignee;
-        if (!hasMatch) return false;
+      if (selectedAssignees.length > 0) {
+        const taskAssigneeNames = [
+          t.assigneeName,
+          ...(t.assignees?.map((a) => a.name) || []),
+        ].filter((n): n is string => Boolean(n) && n !== 'Unassigned');
+
+        const matches = selectedAssignees.some((selected) =>
+          selected === 'Unassigned'
+            ? taskAssigneeNames.length === 0
+            : taskAssigneeNames.includes(selected)
+        );
+        if (!matches) return false;
       }
       return true;
     });
@@ -355,7 +367,9 @@ function SprintBacklogPageContent() {
       projectId: Number(projectId), title: trimmed,
       storyPoint: data.storyPoint ?? 0,
       priority: normalizeTaskPriority(data.priority),
-      assigneeId: data.assigneeId, labelIds: data.labelIds,
+      assigneeId: data.assigneeId,
+      assigneeIds: data.assigneeIds,
+      labelIds: data.labelIds,
     });
     const toItem = (raw: RawTask): TaskItem => ({
         id: raw.id,
@@ -365,6 +379,8 @@ function SprintBacklogPageContent() {
         storyPoints: raw.storyPoint ?? 0,
         selected: false,
         assigneeName: raw.assigneeName ?? 'Unassigned',
+        assigneePhotoUrl: raw.assigneePhotoUrl,
+        assignees: raw.assignees,
         sprintId: null,
     });
     const optimistic = toItem(result.optimisticTask as RawTask);

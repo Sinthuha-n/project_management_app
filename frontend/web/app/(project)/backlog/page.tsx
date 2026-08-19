@@ -72,6 +72,7 @@ function BacklogPageContent() {
         searchTerm, setSearchTerm,
         filterPriority, setFilterPriority,
         filterStatus, setFilterStatus,
+        filterAssignees, setFilterAssignees,
         filterAssignee, setFilterAssignee,
         filterLabel, setFilterLabel,
         filterDateRange, setFilterDateRange,
@@ -246,6 +247,7 @@ function BacklogPageContent() {
                 searchTerm={searchTerm} setSearchTerm={setSearchTerm}
                 filterPriority={filterPriority} setFilterPriority={setFilterPriority}
                 filterStatus={filterStatus} setFilterStatus={setFilterStatus}
+                filterAssignees={filterAssignees} setFilterAssignees={setFilterAssignees}
                 filterAssignee={filterAssignee} setFilterAssignee={setFilterAssignee}
                 filterLabel={filterLabel} setFilterLabel={setFilterLabel}
                 filterDateRange={filterDateRange} setFilterDateRange={setFilterDateRange}

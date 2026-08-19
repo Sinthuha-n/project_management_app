@@ -12,6 +12,7 @@ interface CreateTaskModalProps {
     title: string;
     priority: string;
     assigneeId?: number;
+    assigneeIds?: number[];
     storyPoint: number;
   }) => Promise<void>;
   projectId: number;
@@ -36,6 +37,7 @@ export default function CreateTaskModal({
   const [titleLength, setTitleLength] = useState(0);
   const [priority, setPriority] = useState('MEDIUM');
   const [assignee, setAssignee] = useState<number | ''>('');
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<number[]>([]);
   const [storyPoint, setStoryPoint] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -51,6 +53,7 @@ export default function CreateTaskModal({
     setTitleLength(0);
     setPriority('MEDIUM');
     setAssignee('');
+    setSelectedAssigneeIds([]);
     setStoryPoint(0);
     setError(null);
   };
@@ -61,7 +64,16 @@ export default function CreateTaskModal({
     if (!title.trim()) { setError('Task name is required'); return; }
     setSubmitting(true);
     try {
-      await onCreateTask({ title: title.trim(), priority, assigneeId: assignee || undefined, storyPoint });
+      const finalAssigneeIds = selectedAssigneeIds.length > 0
+        ? selectedAssigneeIds
+        : (assignee ? [Number(assignee)] : []);
+      await onCreateTask({
+        title: title.trim(),
+        priority,
+        assigneeId: finalAssigneeIds.length > 0 ? finalAssigneeIds[0] : undefined,
+        assigneeIds: finalAssigneeIds.length > 0 ? finalAssigneeIds : undefined,
+        storyPoint,
+      });
       resetForm();
       onClose();
     } catch {
@@ -105,15 +117,20 @@ export default function CreateTaskModal({
                   type="text"
                   maxLength={255}
                   value={title}
-                  onChange={(e) => { setTitle(e.target.value); setTitleLength(e.target.value.length); }}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    setTitleLength(e.target.value.length);
+                  }}
                   placeholder="e.g. Design new landing page"
-                  className="w-full px-4 py-3 bg-cu-bg-secondary border border-cu-border rounded-xl text-sm text-cu-text-primary placeholder:text-cu-text-muted focus:ring-2 focus:ring-cu-primary/20 focus:border-cu-primary focus:outline-none transition-all"
+                  className="w-full px-4 py-3 bg-cu-bg-secondary border border-cu-border rounded-xl text-sm text-cu-text-primary focus:ring-2 focus:ring-cu-primary/20 focus:border-cu-primary focus:outline-none transition-all"
                   autoFocus
                 />
                 {titleLength > 200 && (
-                  <p className="text-xs text-amber-500 mt-1">{255 - titleLength} characters remaining</p>
+                  <p className="text-xs text-amber-500 mt-1">
+                    {255 - titleLength} characters remaining
+                  </p>
                 )}
-                {error && <p className="text-cu-danger text-xs font-medium">{error}</p>}
+                {error && <p className="text-red-500 text-xs font-medium">{error}</p>}
               </div>
 
               {/* Priority */}
@@ -127,8 +144,8 @@ export default function CreateTaskModal({
                       onClick={() => setPriority(opt.value)}
                       className={`px-3 py-1.5 rounded-lg border text-[12px] font-bold transition-all ${
                         priority === opt.value
-                          ? `${opt.color} ring-2 ring-cu-primary/30`
-                          : 'bg-cu-bg text-cu-text-secondary border-cu-border hover:bg-cu-hover'
+                          ? `${opt.color} ring-2 ring-[#155DFC]/30`
+                          : 'bg-cu-bg text-cu-text-secondary border-cu-border hover:bg-cu-bg-secondary'
                       }`}
                     >
                       {opt.label}
@@ -151,7 +168,7 @@ export default function CreateTaskModal({
                       className={`h-8 w-8 rounded-lg border text-[12px] font-bold transition-all ${
                         storyPoint === pt
                           ? 'bg-cu-primary text-white border-cu-primary'
-                          : 'bg-cu-bg text-cu-text-secondary border-cu-border hover:bg-cu-hover'
+                          : 'bg-cu-bg text-cu-text-secondary border-cu-border hover:bg-cu-bg-secondary'
                       }`}
                     >
                       {pt}
@@ -162,18 +179,84 @@ export default function CreateTaskModal({
 
               {/* Assignee */}
               <div className="space-y-2">
-                <label className="text-[13px] font-bold text-cu-text-primary flex items-center gap-2">
-                  <User size={14} className="text-cu-text-tertiary" /> ASSIGNEE
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[13px] font-bold text-cu-text-primary flex items-center gap-2">
+                    <User size={14} className="text-cu-text-tertiary" /> ASSIGNEES
+                  </label>
+                  {selectedAssigneeIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedAssigneeIds([]);
+                        setAssignee('');
+                      }}
+                      className="text-xs text-cu-text-muted hover:text-red-500 transition-colors"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+
+                {selectedAssigneeIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-cu-bg-secondary border border-cu-border rounded-xl">
+                    {selectedAssigneeIds.map((id) => {
+                      const member = teamMembers.find((m) => m.id === id);
+                      return (
+                        <span
+                          key={id}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cu-bg border border-cu-border text-xs font-medium text-cu-text-primary shadow-xs"
+                        >
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-cu-primary/10 text-[9px] font-bold text-cu-primary">
+                            {member?.name ? member.name.charAt(0).toUpperCase() : '?'}
+                          </span>
+                          <span className="truncate max-w-[120px]">{member?.name ?? `Member #${id}`}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedAssigneeIds((prev) => {
+                                const next = prev.filter((item) => item !== id);
+                                setAssignee(next.length > 0 ? next[0] : '');
+                                return next;
+                              });
+                            }}
+                            className="text-cu-text-muted hover:text-red-500 rounded p-0.5 transition-colors"
+                            aria-label={`Remove ${member?.name ?? id}`}
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
                 <select
-                  value={assignee}
-                  onChange={(e) => setAssignee(e.target.value ? parseInt(e.target.value, 10) : '')}
-                  className="w-full px-4 py-3 bg-cu-bg-secondary border border-cu-border rounded-xl text-sm text-cu-text-primary focus:ring-2 focus:ring-cu-primary/20 focus:border-cu-primary focus:outline-none transition-all appearance-none"
+                  value=""
+                  onChange={(e) => {
+                    const val = e.target.value ? parseInt(e.target.value, 10) : null;
+                    if (val !== null) {
+                      setSelectedAssigneeIds((prev) => {
+                        const exists = prev.includes(val);
+                        const next = exists ? prev.filter((id) => id !== val) : [...prev, val];
+                        setAssignee(next.length > 0 ? next[0] : '');
+                        return next;
+                      });
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-cu-bg-secondary border border-cu-border rounded-xl text-sm text-cu-text-primary focus:ring-2 focus:ring-cu-primary/20 focus:border-cu-primary focus:outline-none transition-all appearance-none cursor-pointer"
                   disabled={loadingMembers}
                 >
-                  <option value="">{loadingMembers ? 'Loading assignees...' : 'Select Assignee (optional)'}</option>
+                  <option value="">
+                    {loadingMembers
+                      ? 'Loading assignees...'
+                      : selectedAssigneeIds.length > 0
+                      ? '+ Add / toggle another assignee'
+                      : 'Select Assignees (optional)'}
+                  </option>
                   {teamMembers.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
+                    <option key={m.id} value={m.id}>
+                      {selectedAssigneeIds.includes(m.id) ? `✓ ${m.name}` : m.name}
+                    </option>
                   ))}
                 </select>
                 {loadingMembers && (

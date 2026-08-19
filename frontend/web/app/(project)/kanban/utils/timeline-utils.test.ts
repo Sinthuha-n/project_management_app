@@ -80,6 +80,24 @@ describe('timeline utils', () => {
     expect(filterTimelineTasks(tasks, { ...baseFilters, focus: 'past-milestone' }, milestones).map((task) => task.id)).toEqual([1]);
   });
 
+  it('filters by multi-assignee selection with OR/ANY logic', () => {
+    const multiTasks: Task[] = [
+      { id: 10, title: 'Multi 1', status: 'TODO', assignees: [{ name: 'John' }, { name: 'Sarah' }] },
+      { id: 20, title: 'Multi 2', status: 'TODO', assignees: [{ name: 'Sarah' }] },
+      { id: 30, title: 'Multi 3', status: 'TODO', assignees: [{ name: 'Alex' }] },
+      { id: 40, title: 'Unassigned', status: 'TODO' },
+    ];
+
+    // Filter only Sarah -> should match tasks 10 (John+Sarah) and 20 (Sarah)
+    expect(filterTimelineTasks(multiTasks, { ...baseFilters, assignees: ['Sarah'] }).map((t) => t.id)).toEqual([10, 20]);
+
+    // Filter John + Alex -> should match task 10 (John+Sarah) and task 30 (Alex)
+    expect(filterTimelineTasks(multiTasks, { ...baseFilters, assignees: ['John', 'Alex'] }).map((t) => t.id)).toEqual([10, 30]);
+
+    // Filter Unassigned -> should match task 40
+    expect(filterTimelineTasks(multiTasks, { ...baseFilters, assignees: ['Unassigned'] }).map((t) => t.id)).toEqual([40]);
+  });
+
   it('builds timeline models and groups them by status, assignee, and milestone', () => {
     const visibleDays = [
       new Date(2026, 6, 6),

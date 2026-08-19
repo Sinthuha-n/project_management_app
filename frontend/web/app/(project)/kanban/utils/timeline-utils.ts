@@ -21,6 +21,7 @@ export type TimelineGroupBy = 'none' | 'status' | 'assignee' | 'milestone';
 export interface TimelineFilters {
   search: string;
   assignee: string;
+  assignees?: string[];
   milestone: string;
   schedule: '' | 'scheduled' | 'unscheduled';
   focus: '' | 'blocked' | 'overdue' | 'due-week' | 'past-milestone';
@@ -146,6 +147,10 @@ export function getTimelineInsights(tasks: Task[], milestones: Milestone[], toda
 
 export function filterTimelineTasks(tasks: Task[], filters: TimelineFilters, milestones: Milestone[] = [], today = startOfDay(new Date())) {
   const query = filters.search.trim().toLowerCase();
+  const selectedAssignees = (filters.assignees && filters.assignees.length > 0)
+    ? filters.assignees
+    : (filters.assignee ? [filters.assignee] : []);
+
   return tasks.filter((task) => {
     const schedule = getTaskSchedule(task);
     if (!filters.showDone && isDoneStatus(task.status)) return false;
@@ -155,15 +160,30 @@ export function filterTimelineTasks(tasks: Task[], filters: TimelineFilters, mil
     if (filters.focus === 'overdue' && !isTaskOverdue(task, today)) return false;
     if (filters.focus === 'due-week' && !isTaskDueThisWeek(task, today)) return false;
     if (filters.focus === 'past-milestone' && !isTaskPastMilestone(task, milestones)) return false;
-    if (filters.assignee && (task.assigneeName || 'Unassigned') !== filters.assignee) return false;
+
+    if (selectedAssignees.length > 0) {
+      const taskAssignees = [
+        task.assigneeName,
+        ...(task.assignees?.map((a) => a.name) || []),
+      ].filter((n): n is string => Boolean(n) && n !== 'Unassigned');
+
+      const matchesAssignee = selectedAssignees.some((sel) =>
+        sel === 'Unassigned'
+          ? taskAssignees.length === 0
+          : taskAssignees.includes(sel)
+      );
+      if (!matchesAssignee) return false;
+    }
+
     if (filters.milestone === '__none__' && task.milestoneId != null) return false;
     if (filters.milestone && filters.milestone !== '__none__' && String(task.milestoneId ?? '') !== filters.milestone) return false;
     if (!query) return true;
+    const allAssigneeNames = [task.assigneeName, ...(task.assignees?.map((a) => a.name) || [])].filter(Boolean);
     return [
       task.title,
       task.status,
       task.priority,
-      task.assigneeName,
+      ...allAssigneeNames,
       task.milestoneName,
       task.milestoneTitle,
       task.githubRepoFullName,

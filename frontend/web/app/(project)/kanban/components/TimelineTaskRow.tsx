@@ -93,10 +93,61 @@ export default function TimelineTaskRow({
             <CalendarDays size={12} />
             {dateText} ({task.durationDays}d)
           </span>
-          <span className="inline-flex items-center gap-1">
-            <User size={12} />
-            {task.assigneeName || 'Unassigned'}
-          </span>
+          {(() => {
+            const assignees = (task.assignees && task.assignees.length > 0)
+              ? task.assignees
+              : (task.assigneeName && task.assigneeName !== 'Unassigned'
+                ? [{ name: task.assigneeName, photoUrl: task.assigneePhotoUrl, userId: task.assigneeId }]
+                : []);
+
+            if (assignees.length === 0) {
+              return (
+                <span className="inline-flex items-center gap-1">
+                  <User size={12} />
+                  Unassigned
+                </span>
+              );
+            }
+
+            const allNames = assignees.map((a) => a.name).filter(Boolean).join(', ');
+
+            return (
+              <span className="inline-flex items-center gap-1.5" title={`Assignees: ${allNames}`}>
+                <span className="flex items-center -space-x-1.5 overflow-hidden">
+                  {assignees.slice(0, 3).map((a, idx) => {
+                    const name = a.name || 'User';
+                    const initial = name.charAt(0).toUpperCase();
+                    const photo = a.photoUrl || a.avatar || a.profilePicUrl;
+                    return (
+                      <span
+                        key={a.userId ?? a.memberId ?? a.id ?? idx}
+                        className="relative flex h-4.5 w-4.5 shrink-0 items-center justify-center overflow-hidden rounded-full border border-cu-bg bg-gradient-to-br from-blue-500 to-indigo-600 text-[8px] font-bold text-white shadow-xs"
+                        style={{ zIndex: 5 - idx }}
+                      >
+                        {photo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={photo} alt={name} className="h-full w-full object-cover" />
+                        ) : (
+                          <span>{initial}</span>
+                        )}
+                      </span>
+                    );
+                  })}
+                  {assignees.length > 3 && (
+                    <span
+                      className="relative flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border border-cu-bg bg-cu-primary/15 text-[8px] font-bold text-cu-primary shadow-xs"
+                      style={{ zIndex: 1 }}
+                    >
+                      +{assignees.length - 3}
+                    </span>
+                  )}
+                </span>
+                <span className="max-w-[7.5rem] truncate font-medium text-cu-text-secondary">
+                  {assignees.length === 1 ? assignees[0].name : `${assignees.length} assignees`}
+                </span>
+              </span>
+            );
+          })()}
           {matchedMilestone && (
             <span className="inline-flex min-w-0 items-center gap-1 text-purple-600">
               <Diamond size={11} className="fill-current" />
