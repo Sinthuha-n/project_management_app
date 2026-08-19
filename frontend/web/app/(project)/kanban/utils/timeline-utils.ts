@@ -164,6 +164,7 @@ export function filterTimelineTasks(tasks: Task[], filters: TimelineFilters, mil
     if (selectedAssignees.length > 0) {
       const taskAssignees = [
         task.assigneeName,
+        task.assignee?.name,
         ...(task.assignees?.map((a) => a.name) || []),
       ].filter((n): n is string => Boolean(n) && n !== 'Unassigned');
 
@@ -178,7 +179,11 @@ export function filterTimelineTasks(tasks: Task[], filters: TimelineFilters, mil
     if (filters.milestone === '__none__' && task.milestoneId != null) return false;
     if (filters.milestone && filters.milestone !== '__none__' && String(task.milestoneId ?? '') !== filters.milestone) return false;
     if (!query) return true;
-    const allAssigneeNames = [task.assigneeName, ...(task.assignees?.map((a) => a.name) || [])].filter(Boolean);
+    const allAssigneeNames = [
+      task.assigneeName,
+      task.assignee?.name,
+      ...(task.assignees?.map((a) => a.name) || []),
+    ].filter(Boolean);
     return [
       task.title,
       task.status,
@@ -319,16 +324,39 @@ export function buildTimelineTasks(
 export function groupTimelineTasks(tasks: TimelineTaskModel[], groupBy: TimelineGroupBy) {
   if (groupBy === 'none') return [{ key: 'all', label: 'All scheduled work', tasks }];
   const groups = new Map<string, TimelineTaskModel[]>();
-  tasks.forEach((task) => {
-    const key = groupBy === 'status'
-      ? statusLabel(task.status)
-      : groupBy === 'assignee'
-        ? task.assigneeName || 'Unassigned'
+
+  if (groupBy === 'assignee') {
+    tasks.forEach((task) => {
+      const assignees = [
+        task.assigneeName,
+        task.assignee?.name,
+        ...(task.assignees?.map((a) => a.name) || []),
+      ].filter((n): n is string => Boolean(n) && n !== 'Unassigned');
+
+      const uniqueAssignees = Array.from(new Set(assignees));
+      if (uniqueAssignees.length === 0) {
+        const current = groups.get('Unassigned') ?? [];
+        current.push(task);
+        groups.set('Unassigned', current);
+      } else {
+        uniqueAssignees.forEach((name) => {
+          const current = groups.get(name) ?? [];
+          current.push(task);
+          groups.set(name, current);
+        });
+      }
+    });
+  } else {
+    tasks.forEach((task) => {
+      const key = groupBy === 'status'
+        ? statusLabel(task.status)
         : task.milestoneName || task.milestoneTitle || 'No milestone';
-    const current = groups.get(key) ?? [];
-    current.push(task);
-    groups.set(key, current);
-  });
+      const current = groups.get(key) ?? [];
+      current.push(task);
+      groups.set(key, current);
+    });
+  }
+
   return Array.from(groups.entries()).map(([label, groupedTasks]) => ({
     key: `${groupBy}-${label}`,
     label,

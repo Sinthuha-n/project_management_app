@@ -13,6 +13,7 @@ import {
   Filter,
   Layers,
   Search,
+  User,
   X,
 } from 'lucide-react';
 import BottomSheet from '@/components/shared/BottomSheet';
@@ -92,6 +93,7 @@ function MultiAssigneeSelect({
   className?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -113,6 +115,14 @@ function MultiAssigneeSelect({
       onChange([...selectedAssignees, name]);
     }
   };
+
+  const isUnassignedSelected = selectedAssignees.includes('Unassigned');
+
+  const filteredOptions = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    if (!s) return assigneeOptions;
+    return assigneeOptions.filter((opt) => opt.toLowerCase().includes(s));
+  }, [assigneeOptions, search]);
 
   const displayText =
     selectedAssignees.length === 0
@@ -147,7 +157,18 @@ function MultiAssigneeSelect({
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 top-full z-50 mt-1 max-h-60 w-56 overflow-y-auto rounded-xl border border-cu-border bg-cu-bg p-1.5 shadow-cu-lg animate-in fade-in-50 zoom-in-95">
+        <div className="absolute left-0 top-full z-50 mt-1 max-h-72 w-60 overflow-y-auto rounded-xl border border-cu-border bg-cu-bg p-1.5 shadow-cu-lg animate-in fade-in-50 zoom-in-95">
+          {assigneeOptions.length > 5 && (
+            <div className="p-1 mb-1 border-b border-cu-border-light">
+              <input
+                type="text"
+                placeholder="Filter assignees..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full h-7 px-2 text-xs rounded-md bg-cu-bg-secondary border border-cu-border text-cu-text-primary placeholder:text-cu-text-muted outline-none focus:border-cu-primary"
+              />
+            </div>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -164,8 +185,32 @@ function MultiAssigneeSelect({
             {selectedAssignees.length === 0 && <span className="text-xs">✓</span>}
           </button>
           <div className="my-1 border-t border-cu-border-light" />
-          {assigneeOptions.map((name) => {
+          <button
+            type="button"
+            onClick={() => toggleAssignee('Unassigned')}
+            className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+              isUnassignedSelected
+                ? 'bg-cu-primary/10 text-cu-primary font-bold'
+                : 'text-cu-text-primary hover:bg-cu-hover'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span aria-hidden="true" className="flex h-5 w-5 items-center justify-center rounded-full bg-cu-bg-secondary border border-cu-border text-[10px] text-cu-text-muted font-bold">
+                <User size={11} />
+              </span>
+              <span>Unassigned</span>
+            </div>
+            <input
+              type="checkbox"
+              checked={isUnassignedSelected}
+              readOnly
+              className="h-3.5 w-3.5 rounded border-cu-border text-cu-primary pointer-events-none"
+            />
+          </button>
+          {filteredOptions.map((name) => {
+            if (name === 'Unassigned') return null;
             const isSelected = selectedAssignees.includes(name);
+            const initial = name.charAt(0).toUpperCase();
             return (
               <button
                 key={name}
@@ -177,7 +222,12 @@ function MultiAssigneeSelect({
                     : 'text-cu-text-primary hover:bg-cu-hover'
                 }`}
               >
-                <span className="truncate">{name}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span aria-hidden="true" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-[9px] font-bold text-white shadow-xs">
+                    {initial}
+                  </span>
+                  <span className="truncate">{name}</span>
+                </div>
                 <input
                   type="checkbox"
                   checked={isSelected}
@@ -397,7 +447,7 @@ export default function TimelineControls({
             <button
               type="button"
               onClick={() => setFilterSheetOpen(true)}
-              className="relative inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-cu-border bg-cu-bg-secondary px-3 text-sm font-bold text-cu-text-primary transition-colors hover:bg-cu-hover xl:hidden"
+              className="relative inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-cu-border bg-cu-bg-secondary px-3 text-sm font-bold text-cu-text-primary transition-colors hover:bg-cu-hover sm:hidden"
             >
               <Filter size={15} />
               Filters
@@ -410,8 +460,8 @@ export default function TimelineControls({
           </div>
         </div>
 
-        <div className="mt-3 hidden overflow-x-auto rounded-lg border border-cu-border-light bg-cu-bg-secondary/60 p-2 custom-scrollbar xl:block">
-          <div className="flex min-w-max flex-nowrap items-center gap-2">
+        <div className="mt-3 hidden overflow-x-auto rounded-lg border border-cu-border-light bg-cu-bg-secondary/60 p-2 custom-scrollbar sm:block">
+          <div className="flex flex-wrap items-center gap-2">
             {renderFilterFields()}
             {activeFilterCount > 0 && (
               <button
