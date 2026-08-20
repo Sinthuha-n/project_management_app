@@ -218,7 +218,7 @@ describe('TimelineView', () => {
     expect(screen.queryByText('Feature 15')).not.toBeInTheDocument();
   });
 
-  it('filters tasks using the visible assignee dropdown', () => {
+  it('filters tasks using the visible assignee dropdown', async () => {
     const mixedTasks: Task[] = [
       {
         id: 301,
@@ -253,7 +253,7 @@ describe('TimelineView', () => {
     fireEvent.click(assigneeFilterBtn);
 
     // Filter by Asha
-    const ashaOption = screen.getByRole('button', { name: /^Asha$/i });
+    const ashaOption = await screen.findByRole('button', { name: /^Asha$/i });
     fireEvent.click(ashaOption);
 
     expect(screen.getAllByText('Asha task').length).toBeGreaterThan(0);
@@ -277,5 +277,40 @@ describe('TimelineView', () => {
     expect(screen.queryByText('Asha task')).not.toBeInTheDocument();
     expect(screen.queryByText('Ben task')).not.toBeInTheDocument();
     expect(screen.getAllByText('Unassigned task').length).toBeGreaterThan(0);
+  });
+
+  it('keeps the assignee dropdown inside the viewport near the right edge', async () => {
+    const originalInnerWidth = window.innerWidth;
+    const originalInnerHeight = window.innerHeight;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
+
+    render(<TimelineView tasks={tasks} />);
+
+    const assigneeFilterBtn = screen.getByRole('button', { name: /all assignees/i });
+    Object.defineProperty(assigneeFilterBtn, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        x: 930,
+        y: 120,
+        top: 120,
+        left: 930,
+        right: 990,
+        bottom: 160,
+        width: 60,
+        height: 40,
+        toJSON: () => ({}),
+      }),
+    });
+
+    fireEvent.click(assigneeFilterBtn);
+
+    const dropdown = await screen.findByTestId('timeline-assignee-dropdown');
+
+    expect(dropdown).toHaveClass('fixed');
+    expect(parseFloat(dropdown.style.left)).toBeLessThanOrEqual(1000 - 240 - 8);
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: originalInnerHeight });
   });
 });
