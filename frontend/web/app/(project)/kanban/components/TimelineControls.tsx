@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   AlertTriangle,
   CalendarDays,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import BottomSheet from '@/components/shared/BottomSheet';
 import { Tooltip, TooltipProvider } from '@/components/ui/Tooltip';
+import OverlayPortal from '@/components/ui/OverlayPortal';
 import type { TimelineFilters, TimelineGroupBy, TimelineZoom } from '../utils/timeline-utils';
 
 const ZOOM_OPTIONS: Array<{ value: TimelineZoom; label: string }> = [
@@ -32,6 +33,10 @@ const GROUP_OPTIONS: Array<{ value: TimelineGroupBy; label: string }> = [
   { value: 'assignee', label: 'Assignee' },
   { value: 'milestone', label: 'Milestone' },
 ];
+
+const ASSIGNEE_MENU_WIDTH = 240;
+const ASSIGNEE_MENU_MAX_HEIGHT = 288;
+const VIEWPORT_MARGIN = 8;
 
 interface TimelineControlsProps {
   zoom: TimelineZoom;
@@ -94,11 +99,49 @@ function MultiAssigneeSelect({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
+
+  const updateMenuPosition = useCallback(() => {
+    const trigger = triggerRef.current?.querySelector('button');
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const gap = 4;
+    const width = Math.min(ASSIGNEE_MENU_WIDTH, Math.max(160, viewportWidth - VIEWPORT_MARGIN * 2));
+    const spaceBelow = viewportHeight - rect.bottom - VIEWPORT_MARGIN - gap;
+    const spaceAbove = rect.top - VIEWPORT_MARGIN - gap;
+    const opensBelow = spaceBelow >= Math.min(ASSIGNEE_MENU_MAX_HEIGHT, spaceAbove);
+    const availableHeight = Math.max(96, opensBelow ? spaceBelow : spaceAbove);
+    const maxHeight = Math.min(ASSIGNEE_MENU_MAX_HEIGHT, availableHeight);
+    const maxLeft = Math.max(VIEWPORT_MARGIN, viewportWidth - width - VIEWPORT_MARGIN);
+    const left = Math.max(VIEWPORT_MARGIN, Math.min(rect.left, maxLeft));
+    const top = opensBelow
+      ? Math.min(rect.bottom + gap, viewportHeight - maxHeight - VIEWPORT_MARGIN)
+      : Math.max(VIEWPORT_MARGIN, rect.top - gap - maxHeight);
+
+    setMenuPosition({ top, left, width, maxHeight });
+  }, []);
+
+  const handleToggleOpen = useCallback(() => {
+    setIsOpen((open) => {
+      const nextOpen = !open;
+      if (nextOpen) {
+        requestAnimationFrame(updateMenuPosition);
+      }
+      return nextOpen;
+    });
+  }, [updateMenuPosition]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const clickedTrigger = triggerRef.current?.contains(target) ?? false;
+      const clickedMenu = menuRef.current?.contains(target) ?? false;
+      if (!clickedTrigger && !clickedMenu) {
         setIsOpen(false);
       }
     };
@@ -107,6 +150,19 @@ function MultiAssigneeSelect({
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    updateMenuPosition();
+    window.addEventListener('resize', updateMenuPosition);
+    window.addEventListener('scroll', updateMenuPosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updateMenuPosition);
+      window.removeEventListener('scroll', updateMenuPosition, true);
+    };
+  }, [isOpen, updateMenuPosition]);
 
   const toggleAssignee = (name: string) => {
     if (selectedAssignees.includes(name)) {
@@ -132,10 +188,10 @@ function MultiAssigneeSelect({
       : `${selectedAssignees.length} assignees`;
 
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
+    <div className={`relative ${className}`} ref={triggerRef}>
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggleOpen}
         className={`relative inline-flex h-10 w-full min-w-[10.5rem] max-w-[15rem] shrink-0 items-center justify-between rounded-lg border pl-3 pr-3 text-sm font-bold transition-colors ${
           selectedAssignees.length > 0
             ? 'border-cu-primary/40 bg-cu-primary/10 text-cu-primary'
@@ -156,8 +212,14 @@ function MultiAssigneeSelect({
         </div>
       </button>
 
-      {isOpen && (
-        <div className="absolute left-0 top-full z-50 mt-1 max-h-72 w-60 overflow-y-auto rounded-xl border border-cu-border bg-cu-bg p-1.5 shadow-cu-lg animate-in fade-in-50 zoom-in-95">
+      {isOpen && menuPosition && (
+        <OverlayPortal>
+        <div
+          ref={menuRef}
+          data-testid="timeline-assignee-dropdown"
+          className="fixed z-[var(--cu-z-modal-popover)] overflow-y-auto rounded-xl border border-cu-border bg-cu-bg p-1.5 shadow-cu-lg animate-in fade-in-50 zoom-in-95"
+          style={{ top: menuPosition.top, left: menuPosition.left, width: menuPosition.width, maxHeight: menuPosition.maxHeight }}
+        >
           {assigneeOptions.length > 5 && (
             <div className="p-1 mb-1 border-b border-cu-border-light">
               <input
@@ -238,6 +300,7 @@ function MultiAssigneeSelect({
             );
           })}
         </div>
+        </OverlayPortal>
       )}
     </div>
   );

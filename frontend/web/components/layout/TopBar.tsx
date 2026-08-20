@@ -39,6 +39,7 @@ function TopBarContent() {
   } = useProjectContext();
 
   const { tabs, activeTab, getTabHref, isProjectPage } = useProjectTabs(projectId, isAgile);
+  const isKanbanBacklogRoute = pathname.startsWith('/backlog');
 
   // Dropdown UI State
   const [projectsOpen, setProjectsOpen] = useState(false);
@@ -317,7 +318,7 @@ function TopBarContent() {
             <GlobalSearch projectId={projectId} />
           </div>
 
-          {activeTab === 'backlog' && (
+          {activeTab === 'backlog' && !isKanbanBacklogRoute && (
             <div className="flex items-center gap-2.5 shrink-0">
               {isAgile && (
                 <button
