@@ -1,36 +1,32 @@
-<svg width="520" height="200" viewBox="0 0 520 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="370" height="120" viewBox="0 0 370 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Planora lockup — "the delivery track". Resting state of the animated
+       web mark: track complete, work item shipped at the top stage. -->
   <defs>
-    <linearGradient id="planora-logo-a" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+    <linearGradient id="planora-ramp" x1="6" y1="12" x2="102" y2="108" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#155DFC"/>
-      <stop offset="1" stop-color="#9810FA"/>
-    </linearGradient>
-    <linearGradient id="planora-logo-b" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#9810FA"/>
+      <stop offset="0.52" stop-color="#9810FA"/>
       <stop offset="1" stop-color="#F6339A"/>
     </linearGradient>
-    <linearGradient id="planora-logo-c" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#155DFC"/>
-      <stop offset="0.5" stop-color="#9810FA"/>
-      <stop offset="1" stop-color="#F6339A"/>
-    </linearGradient>
-    <linearGradient id="planora-logo-d" x1="220" y1="76" x2="520" y2="148" gradientUnits="userSpaceOnUse">
+    <radialGradient id="planora-gloss" cx="0.26" cy="0.18" r="0.82">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.34"/>
+      <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="planora-word" x1="118" y1="30" x2="350" y2="96" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#155DFC"/>
       <stop offset="0.55" stop-color="#9810FA"/>
       <stop offset="1" stop-color="#F6339A"/>
     </linearGradient>
   </defs>
-  <circle cx="100" cy="100" r="88" stroke="#9810FA" stroke-width="1.5" stroke-opacity="0.14"/>
-  <circle cx="100" cy="100" r="56" stroke="#155DFC" stroke-width="1.2" stroke-opacity="0.11"/>
-  <path d="M100 12A88 88 0 0 0 25 163" stroke="url(#planora-logo-a)" stroke-width="8" stroke-linecap="round"/>
-  <path d="M100 12A88 88 0 0 1 188 100" stroke="url(#planora-logo-b)" stroke-width="8" stroke-linecap="round"/>
-  <path d="M100 44A56 56 0 1 1 64 148" stroke="url(#planora-logo-a)" stroke-width="6" stroke-linecap="round" opacity="0.5"/>
-  <circle cx="100" cy="100" r="28" fill="url(#planora-logo-c)"/>
-  <text x="100" y="104" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" text-anchor="middle" dominant-baseline="middle">P</text>
-  <circle cx="100" cy="12" r="8" fill="url(#planora-logo-a)"/>
-  <circle cx="100" cy="12" r="4" fill="#FFFFFF"/>
-  <circle cx="188" cy="100" r="8" fill="url(#planora-logo-b)"/>
-  <circle cx="188" cy="100" r="4" fill="#FFFFFF"/>
-  <circle cx="25" cy="163" r="6" fill="#9810FA" opacity="0.55"/>
-  <text x="220" y="120" fill="url(#planora-logo-d)" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800">planora</text>
-  <text x="220" y="148" fill="#9810FA" fill-opacity="0.55" font-family="Arial, Helvetica, sans-serif" font-size="10.5">PLAN &#183; TRACK &#183; SHIP</text>
+
+  <!-- Mark, scaled 2x from the 48-unit grid -->
+  <g transform="translate(6 12) scale(2)">
+    <rect x="3" y="3" width="42" height="42" rx="13" fill="url(#planora-ramp)"/>
+    <rect x="3" y="3" width="42" height="42" rx="13" fill="url(#planora-gloss)"/>
+    <rect x="3.6" y="3.6" width="40.8" height="40.8" rx="12.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="1.2"/>
+    <path d="M 12.75 31.5 H 20.25 V 24 H 27.75 V 16.5 H 35.25" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+    <rect x="31.5" y="12.75" width="7.5" height="7.5" rx="2.4" fill="#FFFFFF"/>
+  </g>
+
+  <text x="118" y="79" font-family="Inter, 'Segoe UI', system-ui, -apple-system, sans-serif" font-size="58" font-weight="800" letter-spacing="-2.2" fill="url(#planora-word)">planora</text>
 </svg>

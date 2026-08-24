@@ -1,37 +1,1342 @@
-.mainContainer {
+/* ═══════════════════════════════════════════════════════════════
+   Landing page
+   ───────────────────────────────────────────────────────────────
+   Built on the same visual system as the rest of the product: the
+   light `--cu-bg` surface, the ambient floating blobs used by the
+   auth screens, glass panels, and the `--cu-*` type + border
+   tokens. The brand gradient appears as an accent — on headline
+   words, icon tiles and the closing CTA — never as a full-bleed
+   background, which is what made this page read as a different
+   product from every screen behind the login.
+   ═══════════════════════════════════════════════════════════════ */
+
+.page {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   width: 100%;
-  
-  background-image: linear-gradient(
-    146.997deg, 
-    rgb(21, 93, 252) 0%, 
-    rgb(152, 16, 250) 50%, 
-    rgb(246, 51, 154) 100%
-  );
+  overflow-x: clip;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #fcfcfe 42%, var(--cu-bg-secondary) 100%);
+  color: var(--cu-text-primary);
 }
 
-.glassCard {
-  @apply bg-white/10 border border-white/20 rounded-2xl p-8 flex flex-col items-center text-center backdrop-blur-md transition-colors hover:bg-white/15;
+/* ── Ambient background ──────────────────────────────────────── */
+
+.ambient {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dotGrid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 1px 1px, rgba(26, 26, 46, 0.055) 1px, transparent 0);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 85% 48% at 50% 2%, #000 0%, transparent 78%);
+  mask-image: radial-gradient(ellipse 85% 48% at 50% 2%, #000 0%, transparent 78%);
+}
+
+.blob {
+  position: absolute;
+  border-radius: 9999px;
+}
+
+.blobOne {
+  top: -220px;
+  left: -180px;
+  width: 620px;
+  height: 620px;
+  opacity: 0.3;
+  background: radial-gradient(circle, hsl(221, 83%, 60%) 0%, transparent 70%);
+}
+
+.blobTwo {
+  top: -160px;
+  right: -200px;
+  width: 560px;
+  height: 560px;
+  opacity: 0.22;
+  background: radial-gradient(circle, hsl(280, 80%, 68%) 0%, transparent 70%);
+}
+
+.blobThree {
+  top: 46%;
+  left: 50%;
+  width: 900px;
+  height: 420px;
+  margin-left: -450px;
+  opacity: 0.14;
+  background: radial-gradient(circle, hsl(325, 88%, 62%) 0%, transparent 65%);
+}
+
+.shell {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* ── Navigation ──────────────────────────────────────────────── */
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  width: 100%;
+  border-bottom: 1px solid transparent;
+  transition: background 260ms ease, border-color 260ms ease, box-shadow 260ms ease;
+}
+
+.navScrolled {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(18px) saturate(180%);
+  border-bottom-color: var(--cu-border-light);
+  box-shadow: 0 1px 24px rgba(26, 26, 46, 0.05);
+}
+
+.navInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 68px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  transition: height 260ms ease;
+}
+
+.navScrolled .navInner {
+  height: 60px;
+}
+
+.navLinks {
+  display: none;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (min-width: 900px) {
+  .navLinks {
+    display: flex;
+  }
+}
+
+.navLink {
+  position: relative;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cu-text-secondary);
+  transition: color 180ms ease, background 180ms ease;
+}
+
+.navLink:hover {
+  color: var(--cu-text-primary);
+  background: var(--cu-hover);
+}
+
+.navLink::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 4px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #155dfc, #9810fa, #f6339a);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.navLink:hover::after {
+  transform: scaleX(1);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms ease,
+    background 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.985);
+}
+
+/* Primary — the brand ramp, with a light pass on hover. */
+.btnPrimary {
+  color: #ffffff;
+  background: linear-gradient(115deg, #155dfc 0%, #9810fa 55%, #f6339a 100%);
+  background-size: 160% 160%;
+  background-position: 0% 50%;
+  box-shadow: 0 6px 20px -6px rgba(101, 47, 214, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms ease,
+    background-position 600ms ease;
+}
+
+.btnPrimary:hover {
+  transform: translateY(-2px);
+  background-position: 100% 50%;
+  box-shadow: 0 14px 30px -8px rgba(101, 47, 214, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.btnPrimary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  left: -60%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.42) 50%,
+    transparent 100%
+  );
+  transform: skewX(-18deg);
+}
+
+.btnPrimary:hover::after {
+  animation: btnShine 900ms ease forwards;
+}
+
+@keyframes btnShine {
+  to {
+    left: 130%;
+  }
+}
+
+/* Secondary — quiet surface button, matches the product's UI chrome. */
+.btnGhost {
+  color: var(--cu-text-primary);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--cu-border);
+  box-shadow: 0 1px 2px rgba(26, 26, 46, 0.04);
+  backdrop-filter: blur(8px);
+}
+
+.btnGhost:hover {
+  transform: translateY(-2px);
+  background: #ffffff;
+  border-color: var(--cu-primary-muted);
+  box-shadow: 0 10px 24px -12px rgba(26, 26, 46, 0.28);
+}
+
+/* Inverted — for use on the gradient CTA panel. */
+.btnOnBrand {
+  color: #3b1a8f;
+  background: #ffffff;
+  box-shadow: 0 8px 22px -8px rgba(0, 0, 0, 0.35);
+}
+
+.btnOnBrand:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 34px -10px rgba(0, 0, 0, 0.4);
+}
+
+.btnOnBrandGhost {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(8px);
+}
+
+.btnOnBrandGhost:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.btnSm {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 12.5px;
+}
+
+.btnLg {
+  height: 46px;
+  padding: 0 24px;
+  font-size: 14px;
+  border-radius: 12px;
+}
+
+.btnIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn:hover .btnArrow {
+  transform: translateX(3px);
+}
+
+/* Profile pill in the signed-in nav. */
+.profilePill {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px 0 6px;
+  border-radius: 999px;
+  border: 1px solid var(--cu-border);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--cu-text-secondary);
+  transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+}
+
+.profilePill:hover {
+  background: #ffffff;
+  border-color: var(--cu-primary-muted);
+  color: var(--cu-text-primary);
+}
+
+@media (min-width: 768px) {
+  .profilePill {
+    display: inline-flex;
+  }
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #155dfc, #9810fa 55%, #f6339a);
+}
+
+.profileName {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Section scaffolding ─────────────────────────────────────── */
+
+.section {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  scroll-margin-top: 92px;
+}
+
+.sectionHead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 660px;
+  margin: 0 auto 52px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 16px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--cu-border);
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cu-text-secondary);
+}
+
+.sectionTitle {
+  font-size: clamp(26px, 3.4vw, 40px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  color: var(--cu-text-primary);
+}
+
+.sectionLead {
+  margin-top: 14px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--cu-text-secondary);
+}
+
+.gradientText {
+  background: linear-gradient(105deg, #155dfc 0%, #9810fa 52%, #f6339a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* ── Hero ────────────────────────────────────────────────────── */
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: clamp(40px, 5vw, 72px) 20px 0;
 }
 
 .heroBadge {
-  @apply bg-white/15 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full mb-6 backdrop-blur-md border border-white/10 shadow-sm transition-all hover:bg-white/20;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 8px 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--cu-border);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 18px -10px rgba(26, 26, 46, 0.3);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cu-text-secondary);
 }
 
-/* Custom animation for the smart text on mobile */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+.heroBadgeDot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: linear-gradient(120deg, rgba(21, 93, 252, 0.12), rgba(246, 51, 154, 0.12));
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #7c1fd6;
 }
 
-.mainContainer h1 span {
-  animation: fadeIn 0.8s ease-out forwards;
+/* On narrow screens the badge is stronger as a single line of copy than
+   as a wrapped two-line pill. */
+@media (max-width: 599px) {
+  .heroBadgeDot {
+    display: none;
+  }
 }
 
-@media (max-width: 640px) {
-  .glassCard {
-    @apply p-6;
+.heroTitle {
+  margin-top: 22px;
+  max-width: 940px;
+  font-size: clamp(32px, 5.4vw, 60px);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.038em;
+  color: var(--cu-text-primary);
+}
+
+/* One line per beat of the copy, at every width — the headline is written
+   as three sentences and should always read as three. */
+.heroTitle .heroLine {
+  display: block;
+}
+
+.heroLead {
+  margin-top: 20px;
+  max-width: 620px;
+  font-size: clamp(14.5px, 1.5vw, 17px);
+  line-height: 1.68;
+  color: var(--cu-text-secondary);
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.heroNotes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 22px;
+  margin-top: 22px;
+  font-size: 12.5px;
+  color: var(--cu-text-tertiary);
+}
+
+.heroNote {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* ── Product mockup ──────────────────────────────────────────── */
+
+.mockupWrap {
+  position: relative;
+  width: 100%;
+  max-width: 1080px;
+  margin: clamp(32px, 3.6vw, 50px) auto 0;
+  padding: 0 20px;
+  perspective: 1800px;
+}
+
+.mockupGlow {
+  position: absolute;
+  left: 50%;
+  top: 12%;
+  width: 78%;
+  height: 70%;
+  margin-left: -39%;
+  border-radius: 9999px;
+  background: linear-gradient(115deg, #155dfc, #9810fa 55%, #f6339a);
+  filter: blur(90px);
+  opacity: 0.26;
+  pointer-events: none;
+}
+
+.mockup {
+  position: relative;
+  border-radius: 16px;
+  border: 1px solid var(--cu-border);
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow:
+    0 40px 90px -40px rgba(26, 26, 46, 0.38),
+    0 8px 28px -12px rgba(26, 26, 46, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+  transform-style: preserve-3d;
+  transition: transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 1024px) {
+  .mockup {
+    transform: rotateX(7deg) rotateZ(-0.6deg) scale(0.985);
+  }
+
+  .mockupWrap:hover .mockup {
+    transform: rotateX(0deg) rotateZ(0deg) scale(1);
+  }
+}
+
+.mockupChrome {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 42px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--cu-border-light);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(247, 248, 250, 0.75));
+}
+
+.chromeDots {
+  display: flex;
+  gap: 6px;
+}
+
+.chromeDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--cu-border);
+}
+
+.chromeTitle {
+  flex: 1;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--cu-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chromeAvatars {
+  display: flex;
+}
+
+.chromeAvatar {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  margin-left: -6px;
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+}
+
+.mockupBody {
+  display: flex;
+  min-height: 296px;
+}
+
+.mockupRail {
+  display: none;
+  flex-direction: column;
+  gap: 9px;
+  width: 52px;
+  flex-shrink: 0;
+  padding: 14px 0;
+  border-right: 1px solid var(--cu-border-light);
+  background: var(--cu-sidebar);
+  align-items: center;
+}
+
+@media (min-width: 640px) {
+  .mockupRail {
+    display: flex;
+  }
+}
+
+.railItem {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--cu-bg-tertiary);
+}
+
+.railItemActive {
+  background: linear-gradient(135deg, #155dfc, #9810fa);
+  box-shadow: 0 4px 12px -4px rgba(101, 47, 214, 0.7);
+}
+
+.board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  flex: 1;
+  padding: 16px;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+}
+
+.columnHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-bottom: 2px;
+}
+
+.columnDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.columnName {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cu-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.columnCount {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--cu-bg-tertiary);
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--cu-text-tertiary);
+}
+
+.taskCard {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-height: 62px;
+  padding: 10px;
+  border-radius: 9px;
+  border: 1px solid var(--cu-border-light);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(26, 26, 46, 0.05);
+}
+
+.taskTop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.taskTag {
+  height: 5px;
+  width: 34px;
+  flex-shrink: 0;
+  border-radius: 999px;
+}
+
+.taskBar {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--cu-bg-tertiary);
+}
+
+.taskBarShort {
+  width: 58%;
+}
+
+.taskFoot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 1px;
+}
+
+.taskAvatar {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 999px;
+}
+
+.taskMeta {
+  height: 4px;
+  width: 26px;
+  border-radius: 999px;
+  background: var(--cu-bg-tertiary);
+}
+
+.taskCheck {
+  margin-left: auto;
+  color: var(--cu-success);
+  display: inline-flex;
+}
+
+/* The slot the travelling card starts in — anchors the dashed ghost. */
+.flySlot {
+  position: relative;
+}
+
+/* The card that plans → tracks → ships itself, on a loop.
+   Translating by its own width + the column gap lands it exactly one
+   column to the right, whatever the board is currently sized to. */
+.flyCard {
+  position: relative;
+  z-index: 3;
+  animation: cardShip 8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes cardShip {
+  0%,
+  6% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    filter: drop-shadow(0 1px 1px rgba(26, 26, 46, 0.06));
+  }
+  14% {
+    transform: translate(0, -8px) rotate(-2.4deg) scale(1.045);
+    filter: drop-shadow(0 12px 16px rgba(26, 26, 46, 0.22));
+  }
+  38% {
+    transform: translate(calc(100% + 12px), 62px) rotate(2deg) scale(1.045);
+    filter: drop-shadow(0 12px 16px rgba(26, 26, 46, 0.22));
+  }
+  46%,
+  90% {
+    transform: translate(calc(100% + 12px), 71px) rotate(0deg) scale(1);
+    filter: drop-shadow(0 1px 1px rgba(26, 26, 46, 0.06));
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    filter: drop-shadow(0 1px 1px rgba(26, 26, 46, 0.06));
+  }
+}
+
+/* The gap the card leaves behind while it is in flight. */
+.ghostSlot {
+  position: absolute;
+  inset: 0;
+  border-radius: 9px;
+  border: 1.5px dashed var(--cu-border);
+  background: rgba(21, 93, 252, 0.03);
+  opacity: 0;
+  animation: ghostFade 8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes ghostFade {
+  0%,
+  10% {
+    opacity: 0;
+  }
+  20%,
+  88% {
+    opacity: 1;
+  }
+  98%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* A teammate's cursor. It sits inside the travelling card, so it tracks
+   the drag exactly at any board width — only its presence is animated. */
+.cursor {
+  position: absolute;
+  right: -10px;
+  bottom: -12px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  pointer-events: none;
+  opacity: 0;
+  animation: cursorShow 8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.cursorLabel {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #9810fa;
+  font-size: 9px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+@keyframes cursorShow {
+  0%,
+  8% {
+    opacity: 0;
+  }
+  14%,
+  46% {
+    opacity: 1;
+  }
+  58%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Sprint progress readout under the board. */
+.mockupFoot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  border-top: 1px solid var(--cu-border-light);
+  background: rgba(247, 248, 250, 0.6);
+}
+
+.footLabel {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--cu-text-tertiary);
+  white-space: nowrap;
+}
+
+.progressTrack {
+  flex: 1;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--cu-bg-tertiary);
+  overflow: hidden;
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #155dfc, #9810fa 60%, #f6339a);
+  animation: progressGrow 8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes progressGrow {
+  0%,
+  10% {
+    width: 58%;
+  }
+  46%,
+  100% {
+    width: 74%;
+  }
+}
+
+/* ── Capability marquee ──────────────────────────────────────── */
+
+.marqueeSection {
+  margin-top: clamp(56px, 7vw, 84px);
+  padding: 26px 0;
+  border-top: 1px solid var(--cu-border-light);
+  border-bottom: 1px solid var(--cu-border-light);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.marqueeLabel {
+  margin-bottom: 18px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cu-text-tertiary);
+}
+
+.marquee {
+  position: relative;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+.marqueeTrack {
+  display: flex;
+  width: max-content;
+  gap: 10px;
+  animation: marqueeSlide 34s linear infinite;
+}
+
+.marquee:hover .marqueeTrack {
+  animation-play-state: paused;
+}
+
+@keyframes marqueeSlide {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--cu-border);
+  background: #ffffff;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--cu-text-secondary);
+}
+
+.chipDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #155dfc, #f6339a);
+}
+
+/* ── Features ────────────────────────────────────────────────── */
+
+.features {
+  padding: clamp(64px, 9vw, 110px) 0 0;
+}
+
+.featureGrid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (min-width: 700px) {
+  .featureGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1040px) {
+  .featureGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.featureCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 26px 24px 28px;
+  border-radius: 16px;
+  border: 1px solid var(--cu-border);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: 0 1px 2px rgba(26, 26, 46, 0.04);
+  overflow: hidden;
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 320ms ease,
+    border-color 320ms ease;
+}
+
+/* Pointer-tracked spotlight — the card lights up where the cursor is. */
+.featureCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  background: radial-gradient(
+    340px circle at var(--spot-x, 50%) var(--spot-y, 0%),
+    rgba(152, 16, 250, 0.1),
+    transparent 62%
+  );
+  transition: opacity 320ms ease;
+  pointer-events: none;
+}
+
+.featureCard:hover {
+  transform: translateY(-5px);
+  border-color: rgba(152, 16, 250, 0.28);
+  box-shadow: 0 24px 48px -26px rgba(26, 26, 46, 0.32);
+}
+
+.featureCard:hover::before {
+  opacity: 1;
+}
+
+.featureIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 18px;
+  border-radius: 12px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #155dfc, #9810fa 60%, #f6339a);
+  box-shadow: 0 8px 18px -8px rgba(101, 47, 214, 0.6);
+  transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.featureCard:hover .featureIcon {
+  transform: translateY(-2px) rotate(-6deg) scale(1.06);
+}
+
+.featureTitle {
+  position: relative;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: var(--cu-text-primary);
+}
+
+.featureDesc {
+  position: relative;
+  margin-top: 9px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--cu-text-secondary);
+}
+
+/* ── Workflow ────────────────────────────────────────────────── */
+
+.workflow {
+  padding: clamp(64px, 9vw, 110px) 0 0;
+}
+
+.steps {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 30px;
+}
+
+@media (min-width: 860px) {
+  .steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+  }
+
+  /* The thread that connects the three steps. */
+  .steps::before {
+    content: '';
+    position: absolute;
+    top: 26px;
+    left: 14%;
+    right: 14%;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(
+      90deg,
+      rgba(21, 93, 252, 0.28),
+      rgba(152, 16, 250, 0.28),
+      rgba(246, 51, 154, 0.28)
+    );
+  }
+}
+
+.step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 8px;
+}
+
+.stepNumber {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 20px;
+  border-radius: 16px;
+  border: 1px solid var(--cu-border);
+  background: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cu-text-primary);
+  box-shadow: 0 8px 22px -14px rgba(26, 26, 46, 0.4);
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1), border-color 320ms ease;
+}
+
+.step:hover .stepNumber {
+  transform: translateY(-3px);
+  border-color: rgba(152, 16, 250, 0.35);
+}
+
+.stepPulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 20px;
+  border: 1.5px solid rgba(152, 16, 250, 0.3);
+  opacity: 0;
+  animation: stepPulse 3.6s ease-out infinite;
+}
+
+@keyframes stepPulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.65;
+  }
+  70%,
+  100% {
+    transform: scale(1.22);
+    opacity: 0;
+  }
+}
+
+.stepTitle {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: var(--cu-text-primary);
+}
+
+.stepDesc {
+  margin-top: 9px;
+  max-width: 300px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--cu-text-secondary);
+}
+
+/* ── Closing CTA ─────────────────────────────────────────────── */
+
+.ctaSection {
+  padding: clamp(72px, 10vw, 120px) 0 clamp(56px, 7vw, 90px);
+}
+
+.ctaPanel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: clamp(40px, 6vw, 68px) 28px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: linear-gradient(118deg, #155dfc 0%, #9810fa 52%, #f6339a 100%);
+  box-shadow: 0 34px 70px -34px rgba(101, 47, 214, 0.75);
+}
+
+/* Slow drifting light inside the panel, so it never reads as flat. */
+.ctaPanel::before {
+  content: '';
+  position: absolute;
+  top: -60%;
+  left: -20%;
+  width: 70%;
+  height: 220%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.22), transparent 62%);
+  animation: ctaDrift 14s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes ctaDrift {
+  to {
+    transform: translate(70%, 12%);
+  }
+}
+
+.ctaGrid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.09) 1px, transparent 1px);
+  background-size: 46px 46px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, #000, transparent 78%);
+  mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, #000, transparent 78%);
+  pointer-events: none;
+}
+
+.ctaContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ctaTitle {
+  max-width: 640px;
+  font-size: clamp(25px, 3.6vw, 42px);
+  font-weight: 700;
+  line-height: 1.14;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.ctaLead {
+  margin-top: 16px;
+  max-width: 520px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.ctaActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+/* ── Footer ──────────────────────────────────────────────────── */
+
+.footer {
+  border-top: 1px solid var(--cu-border-light);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.footerInner {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px 34px;
+}
+
+@media (min-width: 760px) {
+  .footerInner {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 48px;
+  }
+}
+
+.footerBrand {
+  max-width: 300px;
+}
+
+.footerTagline {
+  margin-top: 14px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--cu-text-tertiary);
+}
+
+.footerLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+}
+
+.footerLink {
+  font-size: 12.5px;
+  color: var(--cu-text-secondary);
+  transition: color 180ms ease;
+}
+
+.footerLink:hover {
+  color: var(--cu-text-primary);
+}
+
+.footerBar {
+  border-top: 1px solid var(--cu-border-light);
+}
+
+.footerBarInner {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 20px;
+  font-size: 11.5px;
+  color: var(--cu-text-muted);
+  text-align: center;
+}
+
+/* ── Scroll reveal ───────────────────────────────────────────── */
+
+/* Scoped under `.page` so the selector stays a pure CSS Module selector
+   while still applying to every `data-reveal` node without each one
+   needing to carry the class itself. */
+.page [data-reveal] {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 760ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 760ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.page [data-reveal].revealVisible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Anyone who asks for less motion gets the page fully composed and still. */
+@media (prefers-reduced-motion: reduce) {
+  .page [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .mockup {
+    transform: none;
   }
 }

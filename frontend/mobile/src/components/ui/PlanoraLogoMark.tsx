@@ -1,12 +1,44 @@
 import React from 'react';
 import Svg, {
-  Circle,
-  Path,
-  Text as SvgText,
   Defs,
+  G,
   LinearGradient as SvgLinearGradient,
+  Path,
+  RadialGradient,
+  Rect,
   Stop,
+  Text as SvgText,
 } from 'react-native-svg';
+
+/* ═══════════════════════════════════════════════════════════════
+   Planora brand mark — "the delivery track" (React Native)
+   ───────────────────────────────────────────────────────────────
+   The native twin of components/brand/PlanoraLogo.tsx on web. No
+   letterform: a rising three-stage track (backlog → in progress →
+   done) with a task card sitting at the top, shipped.
+
+   The web mark animates the card up the track; React Native has no
+   CSS animation, so this renders the mark's resting state — track
+   complete, card delivered — which is exactly the frame the web
+   mark holds between loops. Keep the two in sync when either
+   changes.
+
+   Gradient ids are namespaced per component: the icon and the
+   wordmark are rendered side by side in BrandHeader, and both used
+   to declare an id of "d".
+   ═══════════════════════════════════════════════════════════════ */
+
+const BRAND_BLUE = '#155DFC';
+const BRAND_VIOLET = '#9810FA';
+const BRAND_PINK = '#F6339A';
+
+/** Three treads joined by two risers, on a 48-unit grid, centred on (24, 24). */
+const TRACK_PATH = 'M 12 32 H 20 V 24 H 28 V 16 H 36';
+const TRACK_WIDTH = 4.5;
+
+/** Where the card comes to rest once it has shipped. */
+const CARD_END = { x: 36, y: 16 };
+const CARD_SIZE = 9;
 
 interface PlanoraIconMarkProps {
   size?: number;
@@ -14,103 +46,61 @@ interface PlanoraIconMarkProps {
 
 export function PlanoraIconMark({ size = 48 }: PlanoraIconMarkProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 200 200">
+    <Svg width={size} height={size} viewBox="0 0 48 48">
       <Defs>
-        <SvgLinearGradient id="a" x1="0%" y1="0%" x2="100%" y2="100%">
-          <Stop offset="0%" stopColor="#155DFC" />
-          <Stop offset="100%" stopColor="#9810FA" />
+        <SvgLinearGradient id="pln-mark-ramp" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+          <Stop offset="0%" stopColor={BRAND_BLUE} />
+          <Stop offset="52%" stopColor={BRAND_VIOLET} />
+          <Stop offset="100%" stopColor={BRAND_PINK} />
         </SvgLinearGradient>
-        <SvgLinearGradient id="b" x1="0%" y1="0%" x2="100%" y2="100%">
-          <Stop offset="0%" stopColor="#9810FA" />
-          <Stop offset="100%" stopColor="#F6339A" />
-        </SvgLinearGradient>
-        <SvgLinearGradient id="c" x1="0%" y1="0%" x2="100%" y2="100%">
-          <Stop offset="0%" stopColor="#155DFC" />
-          <Stop offset="50%" stopColor="#9810FA" />
-          <Stop offset="100%" stopColor="#F6339A" />
-        </SvgLinearGradient>
-        <SvgLinearGradient id="d" x1="0%" y1="0%" x2="100%" y2="100%">
-          <Stop offset="0%" stopColor="#155DFC" />
-          <Stop offset="55%" stopColor="#9810FA" />
-          <Stop offset="100%" stopColor="#F6339A" />
-        </SvgLinearGradient>
+
+        {/* Top-left light source: lifts the tile off flat colour. */}
+        <RadialGradient id="pln-mark-gloss" cx="26%" cy="18%" r="82%">
+          <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.34} />
+          <Stop offset="55%" stopColor="#FFFFFF" stopOpacity={0.05} />
+          <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+        </RadialGradient>
       </Defs>
 
-      {/* Faint outer track */}
-      <Circle
-        cx={100}
-        cy={100}
-        r={88}
-        fill="none"
-        stroke="#9810FA"
-        strokeWidth={1.5}
-        strokeOpacity={0.14}
-      />
+      {/* Gradient squircle tile */}
+      <Rect x={3} y={3} width={42} height={42} rx={13} fill="url(#pln-mark-ramp)" />
+      <Rect x={3} y={3} width={42} height={42} rx={13} fill="url(#pln-mark-gloss)" />
 
-      {/* Faint inner track */}
-      <Circle
-        cx={100}
-        cy={100}
-        r={56}
+      {/* Inner specular rim */}
+      <Rect
+        x={3.6}
+        y={3.6}
+        width={40.8}
+        height={40.8}
+        rx={12.5}
         fill="none"
-        stroke="#155DFC"
+        stroke="#FFFFFF"
+        strokeOpacity={0.3}
         strokeWidth={1.2}
-        strokeOpacity={0.11}
       />
 
-      {/* Arc 1: top to bottom-left */}
-      <Path
-        d="M 100 12 A 88 88 0 0 0 25 163"
-        fill="none"
-        stroke="url(#a)"
-        strokeWidth={8}
-        strokeLinecap="round"
-      />
+      <G>
+        {/* The track, complete */}
+        <Path
+          d={TRACK_PATH}
+          fill="none"
+          stroke="#FFFFFF"
+          strokeWidth={TRACK_WIDTH}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={0.82}
+        />
 
-      {/* Arc 2: top to right */}
-      <Path
-        d="M 100 12 A 88 88 0 0 1 188 100"
-        fill="none"
-        stroke="url(#b)"
-        strokeWidth={8}
-        strokeLinecap="round"
-      />
-
-      {/* Inner arc */}
-      <Path
-        d="M 100 44 A 56 56 0 1 1 64 148"
-        fill="none"
-        stroke="url(#a)"
-        strokeWidth={6}
-        strokeLinecap="round"
-        opacity={0.5}
-      />
-
-      {/* Core circle */}
-      <Circle cx={100} cy={100} r={28} fill="url(#c)" />
-
-      {/* "P" text */}
-      <SvgText
-        x={100}
-        y={104}
-        fontSize={30}
-        fontWeight="700"
-        fill="white"
-        textAnchor="middle"
-      >
-        P
-      </SvgText>
-
-      {/* Top node */}
-      <Circle cx={100} cy={12} r={8} fill="url(#a)" />
-      <Circle cx={100} cy={12} r={4} fill="white" />
-
-      {/* Right node */}
-      <Circle cx={188} cy={100} r={8} fill="url(#b)" />
-      <Circle cx={188} cy={100} r={4} fill="white" />
-
-      {/* Bottom-left accent */}
-      <Circle cx={25} cy={163} r={6} fill="#9810FA" opacity={0.55} />
+        {/* The work item, shipped */}
+        <Rect
+          x={CARD_END.x - CARD_SIZE / 2}
+          y={CARD_END.y - CARD_SIZE / 2}
+          width={CARD_SIZE}
+          height={CARD_SIZE}
+          rx={2.8}
+          fill="#FFFFFF"
+        />
+      </G>
     </Svg>
   );
 }
@@ -120,38 +110,20 @@ interface PlanoraWordmarkProps {
 }
 
 export function PlanoraWordmark({ width = 160 }: PlanoraWordmarkProps) {
-  const height = (width * 200) / 330;
+  const height = (width * 78) / 250;
 
   return (
-    <Svg width={width} height={height} viewBox="0 0 330 200">
+    <Svg width={width} height={height} viewBox="0 0 250 78">
       <Defs>
-        <SvgLinearGradient id="d" x1="0%" y1="0%" x2="100%" y2="100%">
-          <Stop offset="0%" stopColor="#155DFC" />
-          <Stop offset="55%" stopColor="#9810FA" />
-          <Stop offset="100%" stopColor="#F6339A" />
+        <SvgLinearGradient id="pln-word-ramp" x1="0" y1="10" x2="240" y2="70" gradientUnits="userSpaceOnUse">
+          <Stop offset="0%" stopColor={BRAND_BLUE} />
+          <Stop offset="55%" stopColor={BRAND_VIOLET} />
+          <Stop offset="100%" stopColor={BRAND_PINK} />
         </SvgLinearGradient>
       </Defs>
 
-      {/* "planora" wordmark */}
-      <SvgText
-        x={0}
-        y={120}
-        fontSize={52}
-        fontWeight="800"
-        fill="url(#d)"
-      >
+      <SvgText x={0} y={58} fontSize={58} fontWeight="800" fill="url(#pln-word-ramp)">
         planora
-      </SvgText>
-
-      {/* Tagline */}
-      <SvgText
-        x={0}
-        y={148}
-        fontSize={10.5}
-        fill="#9810FA"
-        opacity={0.55}
-      >
-        PLAN · TRACK · SHIP
       </SvgText>
     </Svg>
   );
