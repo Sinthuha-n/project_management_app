@@ -11,11 +11,11 @@ Backend endpoints with no frontend/mobile usage: 40
 - backend/src/main/java/com/planora/backend/controller/ChatRestController.java:692 PATCH /api/projects/:projectId/chat/rooms/:roomId/members/:memberUserId/role
 - backend/src/main/java/com/planora/backend/controller/DocumentController.java:127 POST /api/projects/:projectId/documents/:documentId/versions/upload/init
 - backend/src/main/java/com/planora/backend/controller/DocumentController.java:142 POST /api/projects/:projectId/documents/:documentId/versions/upload/finalize
-- backend/src/main/java/com/planora/backend/controller/GitHubWebhookController.java:64 POST /api/github/webhook
-- backend/src/main/java/com/planora/backend/controller/GitHubWebhookController.java:64 POST /api/github/webhooks
 - backend/src/main/java/com/planora/backend/controller/GithubIssuesController.java:131 GET /api/github/issues/:owner/:repo/labels
 - backend/src/main/java/com/planora/backend/controller/GithubIssuesController.java:145 GET /api/github/issues/:owner/:repo/:issueNumber/comments
 - backend/src/main/java/com/planora/backend/controller/GithubIssuesController.java:161 POST /api/github/issues/:issueNumber/sync-comments
+- backend/src/main/java/com/planora/backend/controller/GitHubWebhookController.java:64 POST /api/github/webhook
+- backend/src/main/java/com/planora/backend/controller/GitHubWebhookController.java:64 POST /api/github/webhooks
 - backend/src/main/java/com/planora/backend/controller/KanbanColumnController.java:33 GET /api/kanban-columns/kanban/:kanbanId
 - backend/src/main/java/com/planora/backend/controller/KanbanController.java:24 POST /api/kanbans
 - backend/src/main/java/com/planora/backend/controller/KanbanController.java:29 GET /api/kanbans

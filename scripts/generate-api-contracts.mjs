@@ -47,16 +47,18 @@ async function main() {
 
 function startBackend() {
   const command = process.platform === 'win32' ? 'mvnw.cmd' : './scripts/run-maven.sh';
-  const child = spawn(command, [
+  const commandArgs = [
     '-q',
     'spring-boot:run',
     '-Dspring-boot.run.profiles=test',
     '-Dspring-boot.run.useTestClasspath=true',
     `-Dspring-boot.run.arguments=--server.port=${port} --spring.main.banner-mode=off --spring.devtools.restart.enabled=false --springdoc.api-docs.enabled=true --springdoc.swagger-ui.enabled=false --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=create-drop --spring.jpa.show-sql=false --github.sync.enabled=false --notifications.due-date-reminder.enabled=false --logging.level.root=WARN --logging.level.com.planora.backend=INFO --logging.level.org.hibernate.SQL=OFF --logging.level.org.hibernate.orm.jdbc.bind=OFF --logging.level.org.springframework.web=INFO --logging.level.org.springframework.boot=INFO`,
-  ], {
+  ];
+  const child = spawn(command, shellArguments(commandArgs), {
     cwd: path.join(repoRoot, 'backend'),
     env: buildBackendEnv(),
     stdio: ['ignore', 'pipe', 'pipe'],
+    shell: process.platform === 'win32',
   });
 
   child.stdout.on('data', (chunk) => process.stdout.write(`[backend] ${chunk}`));
@@ -130,13 +132,20 @@ async function generateTypes(inputPath, outputPath) {
 
 async function run(command, commandArgs) {
   await new Promise((resolve, reject) => {
-    const child = spawn(command, commandArgs, {
+    const child = spawn(command, shellArguments(commandArgs), {
       cwd: repoRoot,
       stdio: 'inherit',
+      shell: process.platform === 'win32',
     });
     child.on('exit', (code) => code === 0 ? resolve() : reject(new Error(`${command} exited with ${code}`)));
     child.on('error', reject);
   });
+}
+
+function shellArguments(commandArgs) {
+  return process.platform === 'win32'
+    ? commandArgs.map((value) => `"${value.replaceAll('"', '\\"')}"`)
+    : commandArgs;
 }
 
 async function assertFileFresh(expectedPath, actualPath, label) {

@@ -336,7 +336,6 @@ html.dark .rdp-disabled {
 .liquid-glass-btn {
   background: linear-gradient(135deg, rgba(21, 93, 252, 0.8), rgba(99, 102, 241, 0.8));
   backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow:
     0 4px 12px rgba(21, 93, 252, 0.25),
@@ -370,7 +369,6 @@ html.dark .rdp-disabled {
 .glass-panel {
   background: var(--cu-glass-bg);
   backdrop-filter: blur(24px) saturate(210%);
-  -webkit-backdrop-filter: blur(24px) saturate(210%);
   border: 1px solid var(--cu-glass-border-light);
   box-shadow:
     var(--cu-glass-shadow),
@@ -509,7 +507,6 @@ html.dark .skeleton {
   z-index: 20;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 
 html.dark .sticky-section-header {
