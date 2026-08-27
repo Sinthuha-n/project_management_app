@@ -24,11 +24,13 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run start -- -p 3100 --hostname 127.0.0.1',
+    command: 'node .next/standalone/frontend/web/server.js',
     url: 'http://127.0.0.1:3100/login',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
+      HOSTNAME: '127.0.0.1',
+      PORT: '3100',
       NEXT_PUBLIC_WS_BASE_URL: 'http://127.0.0.1:9',
     },
   },
