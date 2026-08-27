@@ -24,7 +24,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'node .next/standalone/frontend/web/server.js',
+    command: 'node scripts/prepare-standalone-assets.mjs && node .next/standalone/frontend/web/server.js',
     url: 'http://127.0.0.1:3100/login',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
